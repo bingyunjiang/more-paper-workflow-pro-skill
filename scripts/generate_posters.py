@@ -420,6 +420,76 @@ def make_poster_cn(palette):
     print(f"  Chinese (Clean Light) -> {path}  ({W}x{new_h})")
 
 
+def make_social_preview(palette):
+    """1280x640 social preview card — compact, readable at small sizes."""
+    P = palette
+    PW, PH = 1280, 640
+    img = Image.new("RGB", (PW, PH), P["bg"])
+    d = ImageDraw.Draw(img)
+
+    ft  = _f(46, "title")
+    fh2 = _f(28, "title")
+    fb  = _f(22, "body")
+    fs  = _f(17, "body")
+    fm  = _f(15, "mono")
+
+    # ---- left content area ----
+    _t(d, (60, 55), "More Paper Workflow Pro", ft, P["accent"])
+    _b(d, 630, 62, "v1.0.0", _f(14, "title"), P["accent"], (255, 255, 255))
+
+    _t(d, (60, 120), "End-to-end academic paper workflow", fh2, P["white"])
+    _t(d, (60, 162), "Topic -> Search -> Score -> Download -> Library -> Write -> Polish",
+      fs, P["dim"])
+
+    # ---- feature bullets (left side) ----
+    bullets = [
+        ("CDP",    "Bypasses Cloudflare/Akamai -- 96% download success"),
+        ("Dual",   "Chrome + Edge parallel -- 2x speed, auto-detection"),
+        ("Free",   "Semantic Scholar / Crossref / OpenAlex / Sci-Hub"),
+        ("PDF",    "Direct full-text reading -- no RAG hallucination"),
+        ("4-in-1", "AI-trace removal + human flavor + style guide"),
+        ("3 OS",   "macOS / Windows / Linux -- zero config"),
+    ]
+    by = 210
+    for label, desc in bullets:
+        _b(d, 60, by, label, _f(12, "title"), P["accent"], (255, 255, 255))
+        _t(d, (125, by + 1), desc, fs, P["grey"])
+        by += 38
+
+    # ---- right side: metrics + download strat ----
+    # Metrics block
+    rx = 680
+    _t(d, (rx, 210), "Key Metrics", fh2, P["white"])
+
+    metrics = [
+        ("96%",   "SD success"),
+        ("9/13",  "Sci-Hub CDP"),
+        ("2x",    "Dual browser"),
+        ("3 OS",  "Cross-platform"),
+    ]
+    mx = rx
+    my = 260
+    for num, desc in metrics:
+        _t(d, (mx, my), num, _f(28, "title"), P["accent"])
+        _t(d, (mx + 70, my + 6), desc, fs, P["grey"])
+        my += 42
+
+    # Download strategy
+    _t(d, (rx, my + 20), "Download Strategy", fh2, P["white"])
+    _t(d, (rx, my + 58), "Round 1 -- Sci-Hub: 13 mirrors auto-tested, ~6s/paper", fs, P["grey"])
+    _t(d, (rx, my + 82), "Round 2 -- SD: IP auto / SSO manual -- auto resume", fs, P["grey"])
+
+    # ---- footer ----
+    _hl(d, PH - 60, P["dim"])
+    _t(d, (60, PH - 42), "github.com/bingyunjiang/More-paper-workflow-pro", fs, P["accent"])
+    _t(d, (PW - 260, PH - 42), "MIT License  -  v1.0.0  -  2026", fs, P["dim"])
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    path = os.path.join(OUTPUT_DIR, "social-preview.png")
+    img.save(path)
+    print(f"  Social Preview       -> {path}  ({PW}x{PH})")
+
+
 if __name__ == "__main__":
     try:
         from PIL import Image, ImageDraw, ImageFont
@@ -432,4 +502,6 @@ if __name__ == "__main__":
         make_poster(pal)
     # Chinese version based on light theme
     make_poster_cn(PALETTES["light"])
-    print(f"\nDone! {len(PALETTES) + 1} posters saved to {OUTPUT_DIR}/")
+    # Social preview card
+    make_social_preview(PALETTES["dark"])
+    print(f"\nDone! {len(PALETTES) + 2} images saved to {OUTPUT_DIR}/")
