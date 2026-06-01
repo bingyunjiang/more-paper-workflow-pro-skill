@@ -1,4 +1,11 @@
-# 📚 More Paper Workflow Pro `v1.0.0`
+# 📚 More Paper Workflow Pro Skill `v1.0.0-20260601`
+
+[![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-6B46F7?logo=anthropic&logoColor=white)](https://github.com/bingyunjiang/More-paper-workflow-pro)
+[![Hermes](https://img.shields.io/badge/Hermes-Skill-FF6B35?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0tMSAxNy45M2MtMy45NS0uNDktNy0zLjg1LTctNy45MyAwLS40NC4wNC0uODcuMTEtMS4yOWwxLjg4IDEuODhjLjEuMTEuMjYuMjYuNDcuNDQgMi4yMiAxLjk3IDMuMjYgMi44NyAzLjI2IDIuODcuMjYgMCAuNTItLjEzLjc4LS4zOSAxLjI2LTEuMjYgMS4xMi0zLjI5LS4zMy00Ljg2bC0xLjg5LTEuODljLS4yMi0uMjItLjMzLS4zMy0uNDQtLjQ0LS40Ny0uNDctLjQ3LTEuMjQgMC0xLjcxLjQ3LS40NyAxLjI0LS40NyAxLjcxIDBsLjQ0LjQ0Yy4wMi4wMi4wNC4wNCAxLjQyIDEuNDJsLjIyLS4wNGMxLjY4LS4zMSAzLjI0LjQ2IDMuOTcgMi4wMi0xLjU5IDEuMTktMy4yOSAxLjg5LTQuOTcgMi4wOHoiLz48L3N2Zz4=)](https://github.com/nousresearch/hermes-skills)
+[![OpenClaw](https://img.shields.io/badge/OpenClaw-Skill-00B4D8?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0tMSAxNy45M2MtMy45NS0uNDktNy0zLjg1LTctNy45MyAwLS40NC4wNC0uODcuMTEtMS4yOWwxLjg4IDEuODhjLjEuMTEuMjYuMjYuNDcuNDQgMi4yMiAxLjk3IDMuMjYgMi44NyAzLjI2IDIuODcuMjYgMCAuNTItLjEzLjc4LS4zOSAxLjI2LTEuMjYgMS4xMi0zLjI5LS4zMy00Ljg2bC0xLjg5LTEuODljLS4yMi0uMjItLjMzLS4zMy0uNDQtLjQ0LS40Ny0uNDctLjQ3LTEuMjQgMC0xLjcxLjQ3LS40NyAxLjI0LS40NyAxLjcxIDBsLjQ0LjQ0Yy4wMi4wMi4wNC4wNCAxLjQyIDEuNDJsLjIyLS4wNGMxLjY4LS4zMSAzLjI0LjQ2IDMuOTcgMi4wMi0xLjU5IDEuMTktMy4yOSAxLjg5LTQuOTcgMi4wOHoiLz48L3N2Zz4=)](https://github.com/openclaw/openclaw)
+[![Python](https://img.shields.io/badge/Python-3.9_~_3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Platform](https://img.shields.io/badge/macOS_|_Windows_|_Linux-lightgrey?logo=apple)]()
+[![License](https://img.shields.io/badge/License-MIT-green)]()
 
 完整学术文献检索和写作工作流（8 步法）：①交互式确定研究主题 → ②生成大纲/关键词 → ③制定检索方案 → ④多渠道检索+评分 → ⑤多轮下载（Sci-Hub→SD） → ⑥Zotero 文库管理（架构生成+PDF 导入） → ⑦论文写作 → ⑧论文润色。
 
@@ -6,7 +13,7 @@
 
 ## 📖 简介
 
-**More Paper Workflow Pro** 是一套完整的学术文献工作流工具链，覆盖从研究方向确定到论文润色投稿的全过程。10 个 Python CLI 脚本 + 1 个共享模块，可独立使用或接入 Hermes/OpenClaw/Claude Code 等 AI Agent 实现对话式编排。
+**More Paper Workflow Pro Skill** 是一套完整的学术文献工作流工具链，覆盖从研究方向确定到论文润色投稿的全过程。10 个 Python CLI 脚本 + 1 个共享模块，可独立使用或接入 Hermes/OpenClaw/Claude Code 等 AI Agent 实现对话式编排。
 
 ### 一句话概括
 
@@ -403,9 +410,9 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| **v1.0.0** | 2026-06-01 | 首发版本：8 步全流程（定题→检索→评分→下载→入库→写作→润色） |
+| **v1.0.0-20260601** | 2026-06-01 | 首发版本：8 步全流程（定题→检索→评分→下载→入库→写作→润色） |
 
-**v1.0.0 特性：**
+**v1.0.0-20260601 特性：**
 - 10 个 Python CLI 脚本 + 1 个共享 CDP 模块 (`cdp_utils.py`)
 - Chrome/Edge CDP 协议双浏览器并行下载，96% 成功率
 - 跨平台浏览器自动检测（macOS / Windows / Linux）
