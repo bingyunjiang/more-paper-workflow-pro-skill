@@ -489,12 +489,23 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| **v1.0.1-20260602** | 2026-06-02 | 重构 SD/IEEE 下载引擎，Step 7 写作模式+评审质量门，Step 8 句长波动检测，修复重复下载等核心 Bug |
+| **v1.0.1-20260602** | 2026-06-02 | 深度重构 IEEE 下载引擎（v1.0.1），补完 Step 5 出版商路由表，Step 7 写作模式+评审质量门，Step 8 句长波动检测，修复重复下载等核心 Bug |
 | **v1.0.0-20260601** | 2026-06-01 | 首发版本：8 步全流程（定题→检索→评分→下载→入库→写作→润色） |
 
 **v1.0.1-20260602 特性：**
-- **新增 `sd_download.py`** — 共享混合下载核心库，双重策略自动回退
-- **新增 `download_via_ieee.py`** — IEEE CDP 两步走下载器，分层 PDF 按钮选择器（6 组 CSS + 文本兜底）、同页跳转检测、arnumber 精确匹配防 stale tab 捕获、`--check-session` 会话诊断命令
+
+**IEEE 下载模块（深度重构，v1.1 → v1.0.1）：**
+- **重写 `download_via_ieee.py`** — 三大关键修复：
+  - **Fetch 时序修复**：旧方案在 `Page.reload` 后才启用 Fetch，PDF 已被 Chrome 内置查看器消费→改为先 `Fetch.enable` 再 `Page.navigate`，原始字节直接捕获
+  - **Referrer 修复**：从 `about:blank` 直接导航到 stamp URL 缺失 Referrer，IEEE 返回 `denyReason=-501`→`Page.navigate` 带文章页 URL 作为 Referrer
+  - **大 PDF 超时修复**：TPEL 等 6.7MB PDF 的 `getResponseBody` 从 5s 增至 30s
+- **从"点击 PDF 按钮→新标签页 reload"改为"提取 stamp URL → 独立标签页 Fetch 预启用捕获"**，不再依赖点击事件和标签页扫描
+- **去除 IP 认证误导**：明确 IEEE 不支持 IP 认证，必须 SSO/Shibboleth 登录
+- **交互式登录流程**：无会话时自动弹出 CDP Chrome 登录页，提示用户在对话中说"已登录"后继续，不再用 `input()` 阻塞
+- **新增 `--login` / `--skip-session-check`** 命令行参数
+- **实测 6/6 通过**（Tang/Siddaiah/Mohamed/Ma/Liu/Awais，PDF 0.8–8.9 MB）
+
+**新增 `sd_download.py`** — 共享混合下载核心库，双重策略自动回退
 - **重写 `parallel_sd_download.py`** — 导入共享核心，清理冗余代码
 - **重写 `auto_sd_downloader.py`** — 清理 6 处死代码，持久 Profile 保留登录，不再杀浏览器
 - **增强 `batch_resolve_pii.py`** — 新增纯文本/纯文本引用格式自动检测和 DOI 提取
@@ -503,12 +514,19 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 - **修复提取超时 Bug** — 文章页渲染等待从 12s → 25s
 - **修复残留 PDF 标签页干扰** — `download_one()` 开头清理旧标签页
 - **SD 下载覆盖率从 ~43% 提升至 94.7%**（89/94 篇，1.18 GB）
-- **Step 7 新增写作模式选择** — 进入写作前可选的 4 种模式：`full`（完整撰写）、`outline-only`（先细化大纲）、`plan`（多轮引导交互）、`abstract-only`（仅写中英文摘要）
+
+**SKILL.md / 文档同步更新：**
+- **Step 5 重构为 4 轮路由表**：Sci-Hub → SD CDP → IEEE CDP → 多出版商 CDP，每条标注 DOI 前缀和脚本名
+- **IEEE 两步走策略整体重写**：v1.0.1流程替代旧版点击+reload 描述
+- **Cookie 诊断增加 IEEE SSO 提示**：明确"IEEE 不支持 IP 认证，必须 SSO"
+- **`publisher-access-matrix.md` 同步更新**：IEEE 条目完整重写（3 个修复 + 6/6 实测），测试数据表 / 决策树 / 适配经验同步
+- **新增 triggers**：`10.1109/*` / `doi:10.1109/*` 自动匹配
+- **新增持久化记忆**：`memory/ieee-doi-auto-route.md`，记录 IEEE 论文下载链 Sci-Hub → IEEE CDP，跳过 SD
+
+**Step 7 新增写作模式选择** — 进入写作前可选的 4 种模式：`full`（完整撰写）、`outline-only`（先细化大纲）、`plan`（多轮引导交互）、`abstract-only`（仅写中英文摘要）
 - **Step 7 新增同行评审仿真（质量门）** — 5 维评审体系（原创 20% / 方法严谨 25% / 证据充分 25% / 论证连贯 15% / 写作质量 15%），限 2 轮修改，低于 5 分回退对应步骤
 - **论文结构模板扩展为双边摘要** — 中文摘要 300-500 字 + English Abstract 150-300 words（独立撰写非翻译），关键词中英文各 3-5 个
 - **Step 8 Level 2 新增句长波动与段落节奏检测** — 5 个检查项：句长波动度 / 段落长度均匀化 / 同义替换综合征 / 二元对比过度 / 内联标题列表，附分章波动度目标表
-
-- **SKILL.md 新增 4 条已知陷阱**：CDP 不绑定、Wave 2+ 死循环、纯文本提取、bg 缓冲
 
 **v1.0.0-20260601 特性：**
 - 10 个 Python CLI 脚本 + 1 个共享 CDP 模块 (`cdp_utils.py`)
@@ -1014,12 +1032,23 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 
 | Version | Date | Changes |
 |------|------|------|
-| **v1.0.1-20260602** | 2026-06-02 | Refactored SD/IEEE download engine, Step 7 writing modes + peer review gate, Step 8 sentence rhythm detection, fixed core bugs |
+| **v1.0.1-20260602** | 2026-06-02 | Deep IEEE download engine refactoring (v1.0.1), Step 5 publisher routing table, Step 7 writing modes + peer review gate, Step 8 sentence rhythm detection, fixed core bugs |
 | **v1.0.0-20260601** | 2026-06-01 | Initial release: 8-step full workflow |
 
 **v1.0.1-20260602 Highlights:**
+
+**IEEE Download Module (Deep Refactoring, v1.1 → v1.0.1):**
+- **Rewritten `download_via_ieee.py`** — 3 critical fixes:
+  - **Fetch timing fix**: Old approach enabled Fetch *after* `Page.reload` → PDF consumed by Chrome viewer → `getResponseBody` returns empty. New: enable `Fetch.enable` **before** `Page.navigate`, capture raw bytes directly.
+  - **Referrer fix**: Navigating from `about:blank` to stamp URL lacks Referrer → IEEE returns `denyReason=-501`. New: `Page.navigate` sends article page URL as `referrer`.
+  - **Large PDF timeout fix**: `getResponseBody` timeout increased from 5s to 30s for 6.7MB+ PDFs (TPEL papers).
+- **Changed strategy**: From "click PDF button → detect new tab → reload → capture" to "extract stamp URL (read-only) → independent tab with Fetch pre-enabled → capture"
+- **Removed IP auth misleading guidance**: IEEE requires SSO/Shibboleth, IP auth does not work
+- **Interactive login flow**: No session → auto-open CDP Chrome login page → user says "logged in" via chat → proceed
+- **New CLI flags**: `--login`, `--skip-session-check`
+- **Verified 6/6** (Tang/Siddaiah/Mohamed/Ma/Liu/Awais, PDF 0.8–8.9 MB)
+
 - **New `sd_download.py`** — Shared hybrid download core library, dual strategy auto-fallback
-- **New `download_via_ieee.py`** — IEEE CDP two-step downloader with layered PDF button selectors (6 CSS groups + text fallback), same-tab redirect detection, arnumber-based stale tab filtering, `--check-session` command
 - **Rewritten `parallel_sd_download.py`** — Imported shared core, cleaned up redundant code
 - **Rewritten `auto_sd_downloader.py`** — Removed 6 dead code paths, persistent profile preserves login, no longer kills browser
 - **Enhanced `batch_resolve_pii.py`** — Added plain text / inline citation format auto-detection and DOI extraction
@@ -1028,13 +1057,19 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 - **Fixed extraction timeout** — Article page render wait increased from 12s → 25s
 - **Fixed stale PDF tab interference** — `download_one()` cleans up old tabs before starting
 - **SD download coverage improved from ~43% to 94.7%** (89/94 papers, 1.18 GB)
+
+**SKILL.md / Docs Sync:**
+- **Step 5 restructured into 4-round routing table**: Sci-Hub → SD CDP → IEEE CDP → Multi-Publisher CDP, each annotated with DOI prefix and script name
+- **IEEE two-step strategy rewritten**: v1.0.1 flow replaces old click+reload description
+- **Cookie diagnosis updated**: Added "IEEE requires SSO, IP auth does not work"
+- **`publisher-access-matrix.md` synced**: IEEE entry fully rewritten (3 fixes + 6/6 results), test data / decision tree / publisher notes updated
+- **New triggers**: `10.1109/*` / `doi:10.1109/*` auto-match
+- **Persistent memory**: `memory/ieee-doi-auto-route.md` records IEEE download chain: Sci-Hub → IEEE CDP, skip SD
+
 - **Step 7 Writing Mode Selection** — 4 modes before writing: `full` (complete paper), `outline-only` (refine outline first), `plan` (multi-round guided planning), `abstract-only` (Chinese/English abstract only)
 - **Step 7 Peer Review Simulation (Quality Gate)** — 5-dimension review system (Originality 20% / Methodological Rigor 25% / Evidence Sufficiency 25% / Coherence 15% / Writing Quality 15%), max 2 revision rounds, return to corresponding step if score <5
-
 - **Dual-Language Abstract Template** — Chinese abstract 300-500 words + English Abstract 150-300 words (independently written, not translated), keywords 3-5 per language
 - **Step 8 Level 2 Sentence Rhythm Detection** — 5 checks: sentence-length variance / paragraph-length uniformity / synonym substitution syndrome / binary contrast overuse / inline heading lists, with per-chapter variance targets
-
-- **SKILL.md added 4 known pitfalls**: CDP not binding, Wave 2+ infinite loop, plain text extraction, background buffer
 
 **v1.0.0-20260601 Highlights:**
 - 10 Python CLI scripts + 1 shared CDP module (`cdp_utils.py`)

@@ -54,7 +54,7 @@ python3 scripts/download_via_scihub.py dois.txt --output paper-temp/
 |--------|----------|----------|------|------|
 | **Elsevier/SD** | `10.1016/` | CDP Chrome + Fetch | ✅ 已验证 | Layer 3: DOI→PII → 导航到 pdfft → 等待 PDF 重定向 → Fetch.reload → 原始字节 |
 | **MDPI** | `10.3390/` | 手动浏览器 | 🔴 被拦截 | Akamai Bot Manager 在 CDN。**手动方案：** 打开文章页 → 点 Download PDF |
-| **IEEE** | `10.1109/` | CDP Chrome + 登录 | ✅ 已验证（100%，需会话） | `ieeexplore.ieee.org` — PDF按钮是JS驱动的（`.xpl-btn-pdf`, `.pdf-btn-container`），DOM中无直接PDF链接。**两步走策略（先A后B）：** `[Step A]` 导航到文章页(`/document/{arnumber}`) → 等待6s → 点击PDF按钮 → 等待4s（IEEE打开stamp新标签页）→ 扫描所有标签页，找到含 `stamp`/`getPDF` 的URL → 在该标签页中 Enable Fetch + Page.reload → 捕获PDF。`[Step B, A失败时回退]` 直接导航到 `stamp/stamp.jsp?tp=&arnumber=XXXXX` (或 `stampPDF/getPDF.jsp?tp=&arnumber=XXXXX`) → Enable Fetch + Page.reload → 捕获PDF。**关键实现细节：** Fetch.enable 用 `*` 通配符拦截所有请求，Page.reload 后轮询 `Fetch.requestPaused` 事件，对每个请求调用 `Fetch.getResponseBody` 检查是否以 `%PDF` 开头。注意 getPDF.jsp 的 `ref=` 参数可省略。**实测：** 3篇通过Step A成功，2篇通过Step B成功。PDF 0.4–7.6MB。失败原因：`?denied=` 参数表示该论文当前机构订阅未覆盖。 |
+| **IEEE** | `10.1109/` | CDP Chrome + SSO 登录 | ✅ 已验证（6/6，必须 SSO） | `ieeexplore.ieee.org` — **关键前提：IEEE 不支持纯 IP 认证，必须通过 SSO/Shibboleth 登录。** 两步走策略 v1.0.1（已固化为 `scripts/download_via_ieee.py`）：`[Step A]` 导航到文章页(`/document/{arnumber}`) → 等待 8s → 提取 PDF 按钮的 stamp URL（分层选择器，只读不点击）→ 关闭文章页 → 创建新标签页 → 先启用 `Fetch.enable` → 再 `Page.navigate` 到 stamp URL（带文章页 URL 作为 Referrer）→ 捕获。`[Step B, A失败时回退]` 直接导航到 `stamp/stamp.jsp` 或 `stampPDF/getPDF.jsp`（都带 Referrer）→ 相同捕获流程。**3 个关键修复：** v1.1 旧方案用 `Fetch.enable + Page.reload`，PDF 已被 Chrome 查看器消费，`getResponseBody` 返回空 → 改为 **先启用 Fetch 再导航**。直接从 `about:blank` 导航到 stamp URL 缺失 Referrer → IEEE 返回 `denyReason=-501` → **Page.navigate 带 `referrer` 参数**。大 PDF（TPEL 6.7MB）`getResponseBody` 5s 不足 → **增至 30s**。**实测 6/6 全部成功（2026-06-02 测试）：** PDF 0.8–8.9MB。无机构会话时 Step A 返回 `NO_BUTTON`（PDF 按钮 `href=javascript:void()`），登录后恢复正常。 |
 | **ASME** | `10.1115/` | CDP Chrome | ⚠️ 页面可加载，PDF按钮不可见 | `asmedigitalcollection.asme.org` — 无直接PDF链接/按钮在初始DOM中（可能需会话渲染），HTTP直连SSL错误 |
 | **AIP** | `10.1063/` | CDP Chrome | ⚠️ 页面可加载，无PDF按钮 | `pubs.aip.org` — 无直接PDF链接，HTTP直连SSL `UNEXPECTED_EOF`。需机构认证 |
 | **Wiley** | `10.1002/` | CDP Chrome | ⚠️ 有限成功 | `onlinelibrary.wiley.com` — **方式A:** 导航到 `doi/epdf/{doi}` + Fetch.enable + Page.reload可捕获（已验证 `ente.202301205` → 3.4MB）。**方式B:** DOM中有PDF下载按钮（`.pdf-download`）但需会话后可用。直接HTTP返回403。 |
@@ -86,7 +86,7 @@ python3 scripts/download_via_scihub.py dois.txt --output paper-temp/
 
 | 出版商 | 尝试数 | 成功 | 失败 | 成功率 | 说明 |
 |--------|--------|------|------|--------|------|
-| **IEEE** | 5 | 5 | 0 | **100%** | 点击PDF按钮→新标签页(stamp)→Fetch捕获, 或直接导航到getPDF.jsp。PDF大小0.4–7.6MB。 |
+| **IEEE** | 6 | 6 | 0 | **100%** | v1.0.1：提取 stamp URL → Fetch 预启用 + Referrer 捕获。PDF大小0.8–8.9MB。**注意：必须通过 SSO 登录，IP 认证不可用。** |
 | **Wiley** | 2 | 0 | 2 | **0%** | 即使机构会话已登录，Cookie在CDP Chrome临时Profile中未持久化（Network.getCookies=0）。epdf URL + Fetch.reload在其云阅读器下无法捕获PDF（PDF通过JS流式加载，不在Fetch拦截范围内）。`Network.getResponseBody` 对chunked/streaming PDF返回空。`Page.setDownloadBehavior` 设置后下载文件去向不明（可能是浏览器隔离Sandbox导致）。**可尝试的方案：** 在epdf页加载完成后通过DOM检查PDF渲染状态，提取内嵌PDF URL。 |
 | **Nature OA** | 1 | 1 | 0 | **100%** | 直连HTTP |
 
@@ -101,8 +101,9 @@ python3 scripts/download_via_scihub.py dois.txt --output paper-temp/
 ├── 10.2139/ → SSRN        → 浏览器直连（超时则手动）
 ├── 10.3389/ → Frontiers   → 直连 HTTP 下载
 ├── 10.1038/ → Nature      → 尝试 `articles/XXXX.pdf` 直连（OA期刊可下）
+├── 10.1109/ → IEEE       → CDP Chrome + **SSO** 登录（不支持 IP 认证）
 ├── 其他（近年小出版商）    → CDP浏览器 → 检查PDF按钮
-│   ├── 有PDF按钮        → 点按钮 + Fetch捕获
+│   ├── 有PDF按钮        → 提取 stamp URL + Fetch 预启用捕获
 │   └── 无PDF按钮/403    → 需机构会话登录
 └── 2021年前论文          → 先试 Sci-Hub CDP（9个镜像站可用）
 ```
@@ -206,7 +207,7 @@ else:
 | 出版商 | 进入方式 | PDF URL 模式 | 注意事项 |
 |--------|----------|-------------|----------|
 | **Wiley** | 导航到 `doi/epdf/{doi}` | `doi/pdfdirect/{doi}?hmac=...` | 直接 HTTP 返回 403，但 CDP Fetch 拦截 + Page.reload 后可成功捕获（已验证 ente.202301205 → 3.4MB）。部分 Wiley 期刊可能仍在付费墙内。 |
-| **IEEE** | 导航到 `ieeexplore.ieee.org/document/{arnumber}` → 点击PDF按钮 → 新标签页跳转到 `stamp/stamp.jsp` | `ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber=XXXXX` (或 `stamp/stamp.jsp?tp=&arnumber=XXXXX`) | PDF按钮是JS驱动的（`.xpl-btn-pdf`, `.pdf-btn-container`），点击后打开新标签页。**成功方案A：** 在文章页点击PDF按钮，监听 `Target.attachedToTarget` 或轮询检测新标签页，在新标签页中启用Fetch + Page.reload。**成功方案B：** 直接导航到 `stampPDF/getPDF.jsp?tp=&arnumber=XXXXX`，启用Fetch + Page.reload。注意 getPDF.jsp 的 `ref=` 参数是base64编码的referer URL，可以省略。实测5篇全部成功。 |
+| **IEEE** | 导航到 `ieeexplore.ieee.org/document/{arnumber}` → 提取 stamp URL | `ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=XXXXX` (或 `stampPDF/getPDF.jsp?tp=&arnumber=XXXXX`) | **⚠ 必须 SSO 登录，不支持 IP 认证。** v1.0.1：文章页提取 stamp URL（不点击）→ 新标签 Fetch 预启用 → 带 Referrer 导航 → 捕获（Fetch 先于导航，解决被 Chrome 查看器消费问题）。直接导航到 stamp URL 必须带 Referrer（文章页 URL），否则返回 `denyReason=-501`。`getPDF.jsp` 比 `stamp.jsp` 更可靠（后者可能先返回 HTML 中间页）。实测 6/6 全部成功，PDF 0.8–8.9MB。 |
 | **AIP** | 导航到 `pubs.aip.org/...` | 需页面中提取 | HTTP SSL 错误（UNEXPECTED_EOF），页面中无可见 PDF 链接在初始 DOM。 |
 | **ASME** | 导航到 `asmedigitalcollection.asme.org/...` | 需页面中提取 | HTTP SSL 错误。无 PDF 按钮在初始 DOM 中（可能需会话后渲染）。 |
 | **Nature OA** | `nature.com/articles/{id}.pdf` | 直连 HTTP | 已验证。`10.1038/s41467-024-45578-4` → 3.1MB PDF。 |

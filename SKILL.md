@@ -32,6 +32,9 @@ triggers:
   - "IEEE 下载"
   - "IEEE CDP 下载"
   - "两步走策略"
+  # IEEE DOI 自动路由（10.1109/ 前缀自动识别）
+  - "10.1109/*"
+  - "doi:10.1109/*"
   # Zotero 附件管理
   - "Zotero 检查遗漏附件"
   - "Zotero 查找无附件条目"
@@ -261,11 +264,18 @@ python3 scripts/search_by_topic.py "spray cooling battery heat transfer" --limit
 
 ---
 
-> **下一步 → Step 5：** 开始批量下载。优先走 Sci-Hub（老论文免费下），未下载到的走 ScienceDirect CDP。
+> **下一步 → Step 5：** 开始批量下载。按出版商自动路由：全部论文先走 Sci-Hub（老论文免费下）；未下载到的按 DOI 前缀分流 → `10.1016/` 走 SD CDP，`10.1109/` 走 IEEE CDP，其余走多出版商 CDP。
 
 ## Step 5: 多轮批量下载
 
-分两轮下载，目标覆盖率 90%+。
+按出版商自动路由下载，目标覆盖率 90%+：
+
+| 轮次 | 目标 | DOI 前缀 | 脚本 |
+|------|------|----------|------|
+| **第一轮：Sci-Hub** | 所有论文（优先，免费） | 不限 | `download_via_scihub.py` |
+| **第二轮：SD CDP** | Elsevier 论文 | `10.1016/` | `auto_sd_downloader.py` |
+| **第三轮：IEEE CDP** | IEEE 论文 | `10.1109/` | `download_via_ieee.py` |
+| **第四轮：多出版商 CDP** | 其他出版商 | 其余 | 按需适配 |
 
 ### 第一轮：Sci-Hub 优先（老论文）
 
@@ -368,9 +378,9 @@ curl -s http://127.0.0.1:9223/json/version | python3 -c "import sys,json; print(
 | 10.1016/... | ✅ | SD CDP | paper-temp/xxx.pdf |
 | 10.3390/... | ⬜ 待定 | 无可用方式 | - |
 
-### 第三轮：多出版商 CDP 下载（非 SD 论文）
+### 第三轮：IEEE CDP 下载（10.1109/ 论文）
 
-第一、二轮未覆盖的非 Elsevier 论文（IEEE / Wiley / AIP / ASME / Springer / RSC 等），采用同样的 CDP Fetch 拦截原理。步骤如下：
+第一轮（Sci-Hub）未下载到的 IEEE 论文，走专用 IEEE CDP 脚本（已固化，v1.0.1）。**跳过 ScienceDirect 和其他出版商。**
 
 ```
 ① 确认 CDP Chrome 已启动（--remote-debugging-port=9223）
@@ -384,42 +394,45 @@ curl -s http://127.0.0.1:9223/json/version | python3 -c "import sys,json; print(
 ④ 在页面中找到 PDF 按钮/链接
 ⑤ 使用 Fetch 拦截捕获 PDF
 
-#### IEEE 两步走策略（已验证 5/5 成功）
+#### IEEE 两步走策略（v1.0.1，已验证 6/6）
 
 ```bash
-# 用法：传入 DOI 列表文件
-python3 scripts/download_via_ieee.py dois.txt --port 9223 --output paper-temp/
+# 交互式：自动检测会话，无登录时弹出登录页
+python3 scripts/download_via_ieee.py --papers DOI1,DOI2 --port 9223
 
-# 或直接传入 DOI（逗号分隔）
-python3 scripts/download_via_ieee.py --papers 10.1109/tvt.2022.3183866,10.1109/itec51675.2021.9490073
+# 从文件读取 DOI 列表
+python3 scripts/download_via_ieee.py dois.txt --output paper-temp/
 
-# 输入文件格式（每行一个DOI）：
-#   10.1109/tvt.2022.3183866
-#   10.1109/itec51675.2021.9490073
+# 其他命令
+python3 scripts/download_via_ieee.py --check-session --port 9223   # 检查会话
+python3 scripts/download_via_ieee.py --login --port 9223           # 打开登录页
+python3 scripts/download_via_ieee.py --skip-session-check ...      # 跳过检查（调试用）
 ```
 
 ```
-Step A（首选，v1.1 改进）：
+Step A（首选，v1.0.1）：
   ① 导航到文章页 ieeexplore.ieee.org/document/{arnumber}
-  ② 等待 6s 页面加载
-  ③ 点击 PDF 按钮（分层选择器：.document-actions-bar a / .pdf-btn-container a /
-     .xpl-btn-pdf / a[href*="/stamp/"] / 文本"PDF"兜底 — 覆盖新旧 IEEE Xplore 布局）
-  ④ 等待 4s → 先检查当前标签页是否跳转到 stamp/getPDF（同页跳转检测）
-  ⑤ 若当前页未跳转，扫描新开标签页（URL 含 "stamp" 或 "getPDF"）
-  ⑥ 在目标标签页中：Fetch.enable(pattern="*") → Page.reload
-  ⑦ 轮询 Fetch.requestPaused → 调 Fetch.getResponseBody 检查是 "%PDF"
-  ⑧ 捕获到 → 写入文件
+  ② 等待 8s SPA 渲染
+  ③ 提取 PDF 按钮的 stamp URL（分层选择器，不点击，只读 href）
+  ④ 关闭文章页标签页
+  ⑤ 创建新空白标签页 → 先启用 Fetch.enable → 再 Page.navigate 到 stamp URL
+     （关键：Fetch 必须在导航之前启用，否则 PDF 被 Chrome 查看器消费后捕获不到）
+  ⑥ 导航时带 Referrer（文章页 URL，IEEE 校验 Referer，缺失则 denyReason=-501）
+  ⑦ 在 Fetch.requestPaused 中检查 content-type=application/pdf
+  ⑧ 调用 Fetch.getResponseBody 获取原始 PDF 字节（超时 30s，适配大 PDF）
 
-Step B（回退）：
-  ① 检查是否被 denied（URL 含 "?denied="）
-  ② 直接导航到 stamp/stamp.jsp?tp=&arnumber=XXXXX
-  ③ Fetch.enable(pattern="*") → Page.reload → 捕获
-  ④ 若 stamp.jsp 失败，试 stampPDF/getPDF.jsp?tp=&arnumber=XXXXX
+Step B（回退，v1.0.1）：
+  ① 直接尝试 stamp/stamp.jsp?tp=&arnumber=XXXXX（带 Referrer）
+  ② 若失败，试 stampPDF/getPDF.jsp?tp=&arnumber=XXXXX（带 Referrer）
 
 失败信号：
-  - 重定向到 document/{arnumber}?denied= → 机构订阅未覆盖此论文
-  - Step A 点击返回 NO_BUTTON → PDF 按钮不可见（通常需机构登录）
-  - stampPDF/getPDF.jsp 重定向到文章页 → 浏览器会话未初始化
+  - getPDF 重定向到 document/{arnumber}?denied= → 机构订阅未覆盖此论文
+  - Step A NO_BUTTON → 页面未渲染 PDF 按钮（通常需机构登录）
+
+前置条件：
+  - IEEE 不支持纯 IP 认证下载 PDF，必须通过 SSO/Shibboleth 登录。
+  - 首次使用需在 CDP Chrome 窗口中点击 "Institutional Sign In" → 选择机构 → SSO。
+  - 登录会话在 Chrome 关闭前保持有效，重启后需重新登录。
 ```
 
 详见 `references/publisher-access-matrix.md` 中的「CDP 通用方案」和「出版商适配经验」章节，记录了各出版商的 PDF URL 模式和注意事项。
@@ -451,13 +464,15 @@ pc = sum(1 for c in cookies if any(p in c.get('domain','') for p in pubs))
 print(f'出版商Cookie: {pc} | 总Cookie: {len(cookies)}')
 ```
 
-若结果为 `出版商Cookie: 0`，原因可能是：
+若结果为 `出版商Cookie: 0`，原因及处理：
 - **最常见：CDP Chrome 使用隔离的临时 Profile**（如 `/tmp/chrome_scidownload`）—— 用户在日常 Chrome 中完成的登录不共享到 CDP 浏览器
-- 需要**在 CDP 浏览器窗口中**完成机构登录，或切换为用户的真实 Chrome Profile（见 `references/publisher-access-matrix.md` →「先决条件：CDP 浏览器与会话管理」）
+- 需要**在 CDP 浏览器窗口中**完成机构登录，或切换为用户的真实 Chrome Profile
+- **注意：IEEE 不支持纯 IP 认证下载 PDF，必须通过 SSO/Shibboleth 登录。**
 
-#### 多出版商下载参考
+### 第四轮：多出版商 CDP 下载（Wiley / AIP / ASME / Springer / RSC 等）
 
-详见 `references/publisher-access-matrix.md` 中的「CDP 通用方案」和「出版商适配经验」章节，记录了各出版商的 PDF URL 模式和注意事项。
+第一至三轮未覆盖的其他出版商论文，采用通用 CDP Fetch 拦截方案。
+详见 `references/publisher-access-matrix.md` 中的「CDP 通用方案」和「出版商适配经验」章节。
 
 ---
 
@@ -570,7 +585,7 @@ bash scripts/start_cdp_chrome.sh
 | `scripts/search_by_topic.py` | 4 | 多渠道检索（Semantic Scholar / Crossref / OpenAlex） |
 | `scripts/batch_read_pdfs.py` | 8 | 批量提取 PDF 全文文本（默认 6 进程，自动切换 A/B 方案） |
 | `scripts/download_via_scihub.py` | 5 | Sci-Hub CDP 下载（镜像站自动检测，`--mirror`/`--skip-test` 参数） |
-| `scripts/download_via_ieee.py` | 5 | IEEE CDP 两步走下载（v1.1：分层PDF按钮选择器 + 同页跳转检测 + 机构会话诊断引导 + `--check-session` 命令 | Step A: 点PDF按钮→stamp标签页→Fetch捕获 | Step B: 直接 stamp/getPDF URL→Fetch捕获） |
+| `scripts/download_via_ieee.py` | 5 | IEEE CDP 两步走下载（v1.0.1：提取 stamp URL → Fetch 预启用 + Referrer 捕获 + 交互式登录 / 带 # --skip-session-check | Step A: 提取 stamp URL → 新标签 Fetch 预启用捕获 | Step B: 直连 getPDF + Referrer） |
 | `scripts/batch_resolve_pii.py` | 5 | DOI → PII 解析（BibTeX / Markdown / 纯文本，自动检测格式） | ✅ |
 | `scripts/parallel_sd_download.py` | 5 | 双浏览器并行下载（混合策略：直连+文章页提取），引用 `sd_download.py` | ✅ |
 | `scripts/auto_sd_downloader.py` | 5 | 全自动版：启停浏览器 + 断点续跑 + 混合策略（引用 `sd_download.py`）| ✅ |
