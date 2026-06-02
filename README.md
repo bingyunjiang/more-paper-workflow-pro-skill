@@ -7,7 +7,7 @@
 [![Platform](https://img.shields.io/badge/macOS_|_Windows_|_Linux-lightgrey?logo=apple)]()
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 
-> **作者：** Dr. Jiang Bingyun（江博士）　|　**微信：** Bingyunjiang　|　**邮箱：** bingyunjiang@qq.com
+> **作者：** Dr. Jiang Bingyun　|　**微信：** Bingyunjiang　|　**邮箱：** bingyunjiang@qq.com
 
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
