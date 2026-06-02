@@ -157,7 +157,7 @@ def capture_pdf_via_fetch(port, tab_ws_url, url_pattern, request_path_hint=None)
         })
         send_cmd_and_wait(pws, "Page.reload")
 
-        deadline = time.time() + 25
+        deadline = time.time() + 60
         while time.time() < deadline:
             try:
                 pws.settimeout(0.5)
@@ -179,7 +179,7 @@ def capture_pdf_via_fetch(port, tab_ws_url, url_pattern, request_path_hint=None)
                         "method": "Fetch.getResponseBody",
                         "params": {"requestId": rid}}))
                     try:
-                        pws.settimeout(8)
+                        pws.settimeout(30)
                         resp = json.loads(pws.recv())
                         if "result" in resp:
                             body = resp["result"].get("body", "")
@@ -341,11 +341,38 @@ def start_browser(port, user_data_dir, url="about:blank", browser_path=None):
         return None
 
     # Wait for CDP to be ready
+    cdp_ready = False
     for _ in range(15):
         time.sleep(1)
         if check_cdp(port):
-            return proc
-    return proc  # may have failed, caller should check_cdp
+            cdp_ready = True
+            break
+
+    if cdp_ready:
+        return proc
+
+    # CDP not bound after 15s — likely real-profile issue on macOS
+    # Detect "real" profile by checking if user_data_dir is under ~/Library
+    real_profile_hints = ["Library/Application Support", "AppData/Local",
+                          "AppData/Roaming"]
+    is_real_profile = any(h in user_data_dir for h in real_profile_hints)
+
+    if is_real_profile:
+        print(f"\n⚠  CDP 端口 {port} 在 {user_data_dir} 上未绑定!", flush=True)
+        print(f"   这是用真实 Chrome Profile 启动时的已知问题。", flush=True)
+        print(f"   原因：某些扩展或配置阻止了 CDP server 绑定端口。", flush=True)
+        print(f"   建议：改用临时 Profile（不传 --user-data-dir 或传 /tmp/xxx）。", flush=True)
+        print(f"   诊断：python3 -c \"import urllib.request,json; "
+              f"d=json.load(urllib.request.urlopen('http://127.0.0.1:{port}/json/version')); "
+              f"print(d.get('Browser','N/A'))\"\n", flush=True)
+
+    # Kill the orphaned process
+    try:
+        proc.kill()
+        proc.wait(timeout=5)
+    except Exception:
+        pass
+    return None  # signal to caller: CDP unavailable
 
 
 def kill_browser_by_port(port):
@@ -426,6 +453,49 @@ def remove_profile_dir(profile_dir):
         pass
 
 
+def detect_available_browsers():
+    """Detect which CDP-capable browsers are installed on this system.
+
+    Returns a dict: {'chrome': path_or_None, 'edge': path_or_None}
+    """
+    return {
+        "chrome": find_chrome_path(),
+        "edge": find_edge_path(),
+    }
+
+
+def print_browser_setup_guide():
+    """Print a setup guide based on which browsers are available."""
+    browsers = detect_available_browsers()
+    has_chrome = browsers["chrome"] is not None
+    has_edge = browsers["edge"] is not None
+
+    if has_chrome and has_edge:
+        print(f"  🔵 Chrome:  {browsers['chrome']}")
+        print(f"  🟢 Edge:    {browsers['edge']}")
+        print(f"  ✅ 双浏览器就绪，可并行下载（速度翻倍）")
+        return True
+    elif has_chrome:
+        print(f"  🔵 Chrome:  {browsers['chrome']}")
+        print(f"  🟢 Edge:    未安装")
+        print(f"  ⚠ 单浏览器模式（仅 Chrome）")
+        print(f"  💡 安装 Edge 可启用并行加速: https://www.microsoft.com/edge")
+        return True
+    elif has_edge:
+        print(f"  🔵 Chrome:  未安装")
+        print(f"  🟢 Edge:    {browsers['edge']}")
+        print(f"  ⚠ 单浏览器模式（仅 Edge）")
+        print(f"  💡 安装 Chrome 可启用并行加速: https://www.google.com/chrome/")
+        return True
+    else:
+        print(f"  ❌ 未找到 Chrome 或 Edge 浏览器")
+        print(f"  💡 请安装 Chrome: https://www.google.com/chrome/")
+        print(f"     macOS: /Applications/Google Chrome.app")
+        print(f"     Windows: C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe")
+        print(f"     或设置: export CHROME_PATH=/path/to/chrome")
+        return False
+
+
 # ===== Browser install guidance =====
 
 CHROME_INSTALL_GUIDE = """
@@ -476,12 +546,16 @@ def _is_cloudflare_challenge(title, url):
 def wait_for_cloudflare(port, tid, timeout=60):
     """Wait for a Cloudflare/Turnstile challenge to auto-resolve.
 
-    Call after navigating to a page that might show a challenge.
-    Periodically checks the tab until it either resolves or times out.
+    Phase 1: Wait `timeout` seconds for Turnstile to auto-resolve.
+    Phase 2: If still blocked, print a clear prompt asking the user to
+             manually click "Are you a robot?" in the CDP browser, then
+             wait another 120s for the user to complete the action.
 
-    Returns True if the challenge resolved (page loaded normally),
-    False if it's still showing a challenge after timeout.
+    Returns True if the challenge resolved, False if still blocked.
     """
+    browser_name = _get_browser_name(port)
+
+    # Phase 1: auto-resolve
     deadline = time.time() + timeout
     while time.time() < deadline:
         time.sleep(3)
@@ -490,14 +564,53 @@ def wait_for_cloudflare(port, tid, timeout=60):
             for t in tabs:
                 if t.get("id") != tid:
                     continue
-                title = t.get("title", "")
-                url = t.get("url", "")
-                if not _is_cloudflare_challenge(title, url):
-                    # Challenge resolved — page navigated away or loaded normally
+                if not _is_cloudflare_challenge(t.get("title", ""), t.get("url", "")):
                     return True
         except Exception:
             pass
+
+    # Phase 2: still blocked — ask user to click
+    print(f"\n{'='*60}", flush=True)
+    print(f"  🤖 {browser_name} 显示 Are you a robot? 验证", flush=True)
+    print(f"  Cloudflare 未在 {timeout}s 内自解", flush=True)
+    print(f"", flush=True)
+    print(f"  👆 请在 {browser_name} CDP 窗口中手动点击验证框", flush=True)
+    print(f"  通过后脚本自动检测并继续下载", flush=True)
+    print(f"{'='*60}", flush=True)
+    print(f"  ⏳ 等待手动验证中...", flush=True)
+
+    # Wait for user to click (up to 120s)
+    manual_deadline = time.time() + 120
+    while time.time() < manual_deadline:
+        time.sleep(3)
+        try:
+            tabs = list_tabs(port)
+            for t in tabs:
+                if t.get("id") != tid:
+                    continue
+                if not _is_cloudflare_challenge(t.get("title", ""), t.get("url", "")):
+                    print(f"  ✅ Cloudflare 验证通过！继续...\n", flush=True)
+                    return True
+        except Exception:
+            pass
+
+    print(f"  ⚠ 验证超时，跳过\n", flush=True)
     return False
+
+
+def _get_browser_name(port):
+    """Get a human-readable browser name from a CDP port."""
+    try:
+        data = json.loads(urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/json/version", timeout=3).read())
+        browser = data.get("Browser", "")
+        if "Chrome" in browser and "Edg" not in browser:
+            return f"Chrome (端口 {port})"
+        elif "Edg" in browser:
+            return f"Edge (端口 {port})"
+        return f"浏览器 (端口 {port})"
+    except Exception:
+        return f"浏览器 (端口 {port})"
 
 
 # ===== ScienceDirect access check =====
@@ -622,6 +735,150 @@ SD_ACCESS_GUIDE_PARALLEL = """
   4. 保持浏览器运行，然后执行 download 脚本
   5. 同一会话内后续下载不再需要手动操作
 """
+
+
+def ensure_sd_session(port, wait_for_login=True, login_timeout=120):
+    """Ensure the CDP browser has a valid ScienceDirect session.
+
+    Checks SD access on the given port. If blocked, prints guidance and
+    optionally waits for the user to complete institutional login.
+
+    Args:
+        port: CDP debugging port.
+        wait_for_login: If True, block until the user logs in or timeout.
+        login_timeout: Max seconds to wait for manual login.
+
+    Returns True if SD is accessible, False otherwise.
+    """
+    status, reason = check_sd_access(port)
+    if status == "ok":
+        tag = "IP 认证" if reason == "ip" else "已登录"
+        print(f"  ✅ SD 会话有效 ({tag}) — 端口 {port}", flush=True)
+        return True
+
+    _print_sd_login_prompt(port, reason, wait_for_login, login_timeout)
+    return False
+
+
+def check_sd_redirect_blocked(port, interactive=True, login_timeout=300):
+    """Check if the current browser tab was redirected away from SD PDF.
+
+    Call this BEFORE close_all_tabs() after a failed wait_for_tab_url().
+    Detects three failure modes and handles each appropriately:
+
+    1. /abs/ redirect → no institutional access → navigate to SD login + wait
+    2. Cloudflare "Are you a robot?" → call wait_for_cloudflare (auto + manual prompt)
+    3. Other → unknown failure
+
+    When interactive=True (default), BLOCKS until the issue is resolved or timeout.
+
+    Returns True if blocked (and not resolved), False if resolved (caller should retry).
+    """
+    try:
+        tabs = list_tabs(port)
+        for t in tabs:
+            u = t.get("url", "")
+            title = t.get("title", "")
+
+            # Case 1: redirected to abstract page — no institutional access
+            if "/abs/" in u or ("/article/pii/" in u and "pdfft" not in u):
+                _navigate_tab_to_sd_login(port, t["id"])
+                if interactive:
+                    return _wait_for_sd_login(port, login_timeout)
+                else:
+                    _print_sd_login_prompt(port, "被重定向到摘要页（无机构访问权限）",
+                                           wait_for_login=False)
+                    return True
+
+            # Case 2: Cloudflare / Turnstile "Are you a robot?" challenge
+            if _is_cloudflare_challenge(title, u):
+                resolved = wait_for_cloudflare(port, t["id"], timeout=60)
+                return not resolved  # False = resolved, True = still blocked
+
+    except Exception:
+        pass
+    return False
+
+
+def _wait_for_sd_login(port, timeout=300):
+    """Block until the user completes SD institutional login or timeout expires.
+
+    Navigates to SD login page, prints guidance, polls check_sd_access every 5s.
+    Returns True if the user didn't log in (access still blocked), False if logged in.
+    """
+    reason = "pdfft 被重定向到摘要页（无机构访问权限）"
+    print(f"\n╔{'═'*60}╗", flush=True)
+    print(f"║  🔐 ScienceDirect 需要机构登录 (端口 {port:<5})                ║", flush=True)
+    print(f"║  原因: {reason:<52}║", flush=True)
+    print(f"╠{'═'*60}╣", flush=True)
+    print(f"║  请在 CDP 浏览器窗口中完成机构登录：                       ║", flush=True)
+    print(f"║  1. 登录页已自动打开                                       ║", flush=True)
+    print(f"║  2. Sign in → Sign in through your institution            ║", flush=True)
+    print(f"║  3. 完成 SSO 登录后，脚本自动检测并继续下载                ║", flush=True)
+    print(f"╚{'═'*60}╝", flush=True)
+
+    print(f"\n  ⏳ 等待登录中（每 5s 检测一次，{timeout}s 超时）...", flush=True)
+    for i in range(timeout // 5):
+        time.sleep(5)
+        status, _ = check_sd_access(port)
+        if status == "ok":
+            print(f"  ✅ 检测到登录成功！继续下载...\n", flush=True)
+            return False  # Not blocked anymore
+        if i % 6 == 5:  # Every 30s, remind
+            print(f"  ... 仍在等待（已等待 {(i+1)*5}s）", flush=True)
+
+    print(f"  ⚠ 登录超时（{timeout}s），跳过此篇", flush=True)
+    return True  # Still blocked
+
+
+def _navigate_tab_to_sd_login(port, tab_id):
+    """Navigate an existing tab to the SD institutional login page."""
+    try:
+        tws_url = get_tab_ws_url(port, tab_id)
+        if not tws_url:
+            return
+        ws = websocket.create_connection(tws_url, timeout=5)
+        ws.send(json.dumps({"id": 1, "method": "Page.enable"}))
+        # Drain enable response
+        deadline = time.time() + 2
+        while time.time() < deadline:
+            try:
+                ws.settimeout(0.5)
+                msg = json.loads(ws.recv())
+                if msg.get("id") == 1:
+                    break
+            except Exception:
+                break
+        ws.send(json.dumps({"id": 2, "method": "Page.navigate",
+            "params": {"url": "https://www.sciencedirect.com/user/login?returnUrl=/"}}))
+        ws.close()
+    except Exception:
+        pass
+
+
+def _print_sd_login_prompt(port, reason, wait_for_login=False, login_timeout=120):
+    """Print the SD institutional login guidance."""
+    print(f"\n╔{'═'*58}╗", flush=True)
+    print(f"║  🔐 ScienceDirect 需要机构登录 (端口 {port:<5})                ║", flush=True)
+    print(f"║  原因: {reason:<52}║", flush=True)
+    print(f"╠{'═'*58}╣", flush=True)
+    print(f"║  请在 CDP 浏览器窗口中完成机构登录：                       ║", flush=True)
+    print(f"║  1. 打开 https://www.sciencedirect.com                    ║", flush=True)
+    print(f"║  2. 右上角 Sign in → Sign in through institution         ║", flush=True)
+    print(f"║  3. 选择你的机构 → 完成 SSO 登录                          ║", flush=True)
+    print(f"║  4. 看到机构名后回到终端，重新运行下载                     ║", flush=True)
+    print(f"╚{'═'*58}╝", flush=True)
+
+    if wait_for_login:
+        print(f"  等待登录中（{login_timeout}s 超时）...", flush=True)
+        for i in range(login_timeout // 5):
+            time.sleep(5)
+            status, _ = check_sd_access(port)
+            if status == "ok":
+                print(f"  ✅ 登录成功！继续下载", flush=True)
+                return True
+        print(f"  ⚠ 登录超时", flush=True)
+        return False
 
 
 # ===== Dependency checking =====
