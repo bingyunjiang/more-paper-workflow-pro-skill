@@ -1121,6 +1121,10 @@ Run `python3 scripts/setup_zotero.py` to check environment.
 
 ### Step 7: Paper Writing
 
+```
+💬 Based on the literature in Zotero, let's start writing the paper.
+```
+
 **Writing Mode Selection (4 modes):** Choose a mode before writing:
 
 | Mode | Use Case | Description |
@@ -1162,6 +1166,10 @@ Run a simulated peer review before proceeding to Step 8 polishing. 5-dimension s
 - Output: `review-report.md` + revision suggestions
 
 ### Step 8: Paper Polishing
+
+```
+💬 Polish the draft: remove AI traces, inject a human voice, and optimize sentence rhythm.
+```
 
 Sentence-by-sentence refinement, layered progression. Core enhancement — **Sentence Rhythm Detection (5 checks):**
 
