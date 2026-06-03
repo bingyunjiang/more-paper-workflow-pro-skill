@@ -312,10 +312,63 @@ def configure_mcp(api_key="", user_id="", local_mode=False, target="hermes"):
 
     if target == "claude-desktop":
         return _configure_via_zotero_mcp_setup(api_key, user_id, local_mode)
-    elif target in ["claude-code", "cursor"]:
-        return _configure_json_mcp(api_key, user_id, local_mode, target)
+    elif target == "claude-code":
+        # Claude Code 优先使用 claude mcp add（官方 CLI 方式），
+        # 失败时回退到直接写 mcp.json
+        if _try_claude_mcp_add(api_key, user_id, local_mode):
+            return True
+        print("  ⚠ claude mcp add 失败，回退到直接写 mcp.json...")
+        return _configure_json_mcp(api_key, user_id, local_mode, "claude-code")
+    elif target == "cursor":
+        return _configure_json_mcp(api_key, user_id, local_mode, "cursor")
     else:
         return _configure_hermes_mcp(api_key, user_id, local_mode)
+
+
+def _try_claude_mcp_add(api_key, user_id, local_mode):
+    """尝试通过 claude mcp add 命令注册 Zotero MCP（Claude Code 官方方式）
+
+    这是 VS Code 扩展版 Claude Code 推荐的方式，优于直接写 mcp.json。
+    """
+    claude_bin = shutil.which("claude")
+    if not claude_bin:
+        return False
+
+    zotero_bin = get_zotero_bin()
+    cmd = [claude_bin, "mcp", "add"]
+
+    if local_mode:
+        cmd.extend(["-e", "ZOTERO_LOCAL=true"])
+    else:
+        if api_key:
+            cmd.extend(["-e", f"ZOTERO_API_KEY={api_key}"])
+        if user_id:
+            cmd.extend(["-e", f"ZOTERO_LIBRARY_ID={user_id}"])
+
+    cmd.extend([
+        "-e", "no_proxy=localhost,127.0.0.1,::1",
+        "-e", "NO_PROXY=localhost,127.0.0.1,::1",
+        "--", "zotero", zotero_bin, "serve",
+    ])
+
+    print(f"  执行: claude mcp add zotero ...")
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if r.returncode == 0:
+            print(f"  ✅ 通过 claude mcp add 注册成功")
+            _print_config_result(target="claude-code",
+                                 config_path="claude mcp (CLI 管理)",
+                                 zotero_bin=zotero_bin, local_mode=local_mode,
+                                 user_id=user_id, api_key=api_key)
+            return True
+        else:
+            print(f"  ⚠ claude mcp add 返回非零: {r.stderr.strip()}")
+            return False
+    except FileNotFoundError:
+        return False
+    except Exception as e:
+        print(f"  ⚠ claude mcp add 异常: {e}")
+        return False
 
 
 def _configure_hermes_mcp(api_key="", user_id="", local_mode=False):
