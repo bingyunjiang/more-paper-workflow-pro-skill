@@ -1,5 +1,3 @@
-
-
 [![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-6B46F7?logo=anthropic&logoColor=white)](https://github.com/bingyunjiang/More-paper-workflow-pro-skill)
 [![Hermes](https://img.shields.io/badge/Hermes-Skill-FF6B35?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0tMSAxNy45M2MtMy45NS0uNDktNy0zLjg1LTctNy45MyAwLS40NC4wNC0uODcuMTEtMS4yOWwxLjg4IDEuODhjLjEuMTEuMjYuMjYuNDcuNDQgMi4yMiAxLjk3IDMuMjYgMi44NyAzLjI2IDIuODcuMjYgMCAuNTItLjEzLjc4LS4zOSAxLjI2LTEuMjYgMS4xMi0zLjI5LS4zMy00Ljg2bC0xLjg5LTEuODljLS4yMi0uMjItLjMzLS4zMy0uNDQtLjQ0LS40Ny0uNDctLjQ3LTEuMjQgMC0xLjcxLjQ3LS40NyAxLjI0LS40NyAxLjcxIDBsLjQ0LjQ0Yy4wMi4wMi4wNC4wNCAxLjQyIDEuNDJsLjIyLS4wNGMxLjY4LS4zMSAzLjI0LjQ2IDMuOTcgMi4wMi0xLjU5IDEuMTktMy4yOSAxLjg5LTQuOTcgMi4wOHoiLz48L3N2Zz4=)](https://github.com/nousresearch/hermes-skills)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Skill-00B4D8?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0tMSAxNy45M2MtMy45NS0uNDktNy0zLjg1LTctNy45MyAwLS40NC4wNC0uODcuMTEtMS4yOWwxLjg4IDEuODhjLjEuMTEuMjYuMjYuNDcuNDQgMi4yMiAxLjk3IDMuMjYgMi44NyAzLjI2IDIuODcuMjYgMCAuNTItLjEzLjc4LS4zOSAxLjI2LTEuMjYgMS4xMi0zLjI5LS4zMy00Ljg2bC0xLjg5LTEuODljLS4yMi0uMjItLjMzLS4zMy0uNDQtLjQ0LS40Ny0uNDctLjQ3LTEuMjQgMC0xLjcxLjQ3LS40NyAxLjI0LS40NyAxLjcxIDBsLjQ0LjQ0Yy4wMi4wMi4wNC4wNCAxLjQyIDEuNDJsLjIyLS4wNGMxLjY4LS4zMSAzLjI0LjQ2IDMuOTcgMi4wMi0xLjU5IDEuMTktMy4yOSAxLjg5LTQuOTcgMi4wOHoiLz48L3N2Zz4=)](https://github.com/openclaw/openclaw)
@@ -30,7 +28,7 @@
 
 ### 一句话概括
 
-> 定题 → 检索 → 评分 → 下载 → 入库 → 写作 → 润色，一站式完成学术研究文献工作。
+> 研究定题 → 文献检索 → 相关性评分 → 文献下载 → 文献归类和入库Zotero → 写作 → 润色，一站式完成学术研究文献工作。
 
 ### 为什么需要这个工具
 
@@ -460,9 +458,12 @@ python3 scripts/batch_read_pdfs.py paper-temp/ --output 文献库全文.md
 More-paper-workflow-pro-skill/
 ├── README.md                         ← 本文件
 ├── SKILL.md                          ← Hermes / OpenClaw / Claude Code Skill 定义
+├── docs/                             ← 详细文档
+│   └── ZOTERO_MCP_SETUP.md           ← Zotero MCP 多平台配置指南
 ├── scripts/                          ← Python 可执行脚本
 │   ├── cdp_utils.py                  ← 共享 CDP 模块（浏览器管理 + 依赖检查）
 │   ├── sd_download.py                ← v1.0.1 共享下载核心（双重策略）
+│   ├── hybrid_sd_download.py         ← Step 5  混合 SD 下载（Phase 1 直连 + Phase 2 文章页）
 │   ├── search_by_topic.py            ← Step 4  三源检索
 │   ├── batch_resolve_pii.py          ← Step 5  DOI → PII 批量解析（三格式自动检测）
 │   ├── resolve_remaining_pii.py      ← Step 5  中断后 PII 解析续跑
@@ -470,13 +471,23 @@ More-paper-workflow-pro-skill/
 │   ├── download_via_ieee.py          ← Step 5  IEEE CDP 两步走下载
 │   ├── parallel_sd_download.py       ← Step 5  Chrome+Edge SD 并行下载
 │   ├── auto_sd_downloader.py         ← Step 5  全自动单浏览器（断点续跑）
+│   ├── generate_posters.py           ← 朋友圈海报生成（HTML + Chrome headless）
+│   ├── start_cdp_chrome.sh           ← Step 5  CDP Chrome 一键启动器
 │   ├── organize_zotero.py            ← Step 6  生成 Zotero 文库架构
-│   ├── setup_zotero.py               ← Step 7  Zotero 环境检测与配置
-│   └── batch_read_pdfs.py            ← Step 8  PDF 批量提取全文文本
-├── references/                       ← 模板与参考数据
+│   ├── setup_zotero.py               ← Step 6  Zotero MCP 一键安装+多环境配置+烟雾测试
+│   ├── batch_read_pdfs.py            ← Step 8  PDF 批量提取全文文本
+│   └── packages/                     ← Zotero MCP 离线依赖缓存（76 个 wheel, ~15MB）
+│       └── README.md                 ← wheel 平台兼容性说明
+├── references/                       ← 模板与参考文档
 │   ├── literature-table-template.md  ← 含评分列的文献表格模板
 │   ├── zotero-structure-template.md  ← Zotero 集合结构示例
-│   └── publisher-access-matrix.md    ← 各出版商下载策略
+│   ├── zotero-missing-attachments.md ← Zotero 缺 PDF 补下指南
+│   ├── zotero-outline-mapping.md     ← Zotero 大纲对齐 PDF 对照表方案
+│   ├── publisher-access-matrix.md    ← 各出版商下载策略对照
+│   ├── cdp-pdf-capture-limitations.md← CDP PDF 捕获限制
+│   ├── sd-cdp-architecture.md        ← SD 下载架构
+│   ├── poster-generation.md          ← 海报生成工作流
+│   └── outline-review-report-template.py ← 大纲评审报告 PDF 生成器
 ```
 
 ## 📜 脚本速查
@@ -485,15 +496,18 @@ More-paper-workflow-pro-skill/
 |------|------|------|-----|
 | `cdp_utils.py` | — | 共享 CDP 模块（浏览器管理、标签操作、SD 会话检测、机构登录引导、依赖检查） | — |
 | `sd_download.py` | 5 | v1.0.1 共享下载核心：双重策略（直连 + 文章页提取） | — |
+| `hybrid_sd_download.py` | 5 | 混合 SD 下载：Phase 1 `/pdfft` 直连 → Phase 2 文章页提取 `?md5=` URL | ✅ |
 | `search_by_topic.py` | 4 | 三源检索（Semantic Scholar / Crossref / OpenAlex） | ✅ |
 | `batch_resolve_pii.py` | 5 | DOI → PII 批量解析，三格式自动检测（BibTeX/Markdown/纯文本） | ✅ |
 | `resolve_remaining_pii.py` | 5 | 中断后 PII 解析续跑，跳过已完成的 | ✅ |
 | `download_via_scihub.py` | 5 | Sci-Hub CDP 下载 + 13 镜像站自动检测 | ✅ |
-| `download_via_ieee.py` | 5 | IEEE CDP 两步走下载 (v1.1)：分层PDF按钮选择器 + 同页跳转检测 + stale tab过滤 + `--check-session` 会话诊断 | ✅ |
+| `download_via_ieee.py` | 5 | IEEE CDP 两步走下载 (v1.0.1)：分层选择器 + Referrer 校验 + `--check-session` | ✅ |
 | `parallel_sd_download.py` | 5 | Chrome + Edge SD 并行下载，各管一半 | ✅ |
-| `auto_sd_downloader.py` | 5 | 全自动版：启停浏览器 + 断点续跑 + 跨平台 | ✅ |
+| `auto_sd_downloader.py` | 5 | 全自动版：启停浏览器 + 断点续跑 + `skip_set` 永久跳过 | ✅ |
+| `generate_posters.py` | — | 朋友圈海报生成（HTML + Chrome headless 渲染） | ✅ |
+| `start_cdp_chrome.sh` | 5 | CDP Chrome 一键启动器（持久化 Profile） | ✅ |
 | `organize_zotero.py` | 6 | 解析大纲关键词 → Zotero 集合结构 | ✅ |
-| `setup_zotero.py` | 7 | Zotero 环境检测（MCP/API Key/桌面端） | ✅ |
+| `setup_zotero.py` | 6 | Zotero MCP 一键安装+多环境配置（Claude Code/Hermes/Cursor）+ 烟雾测试 | ✅ |
 | `batch_read_pdfs.py` | 8 | PyMuPDF 多进程提取，A/B 方案自动切换 | ✅ |
 
 ---
@@ -1107,9 +1121,12 @@ Sentence-by-sentence refinement, layered progression. Core enhancement — **Sen
 More-paper-workflow-pro-skill/
 ├── README.md                         ← This file
 ├── SKILL.md                          ← Hermes / OpenClaw / Claude Code Skill definition
+├── docs/                             ← Detailed documentation
+│   └── ZOTERO_MCP_SETUP.md           ← Zotero MCP multi-platform setup guide
 ├── scripts/                          ← Python executable scripts
 │   ├── cdp_utils.py                  ← Shared CDP module (browser mgmt + dependency check)
 │   ├── sd_download.py                ← v1.0.1 shared download core (dual strategy)
+│   ├── hybrid_sd_download.py         ← Step 5  Hybrid SD download (Phase 1 direct + Phase 2 article page)
 │   ├── search_by_topic.py            ← Step 4  Three-source search
 │   ├── batch_resolve_pii.py          ← Step 5  DOI → PII batch resolution
 │   ├── resolve_remaining_pii.py      ← Step 5  PII resolution resume
@@ -1117,13 +1134,23 @@ More-paper-workflow-pro-skill/
 │   ├── download_via_ieee.py          ← Step 5  IEEE CDP two-step download
 │   ├── parallel_sd_download.py       ← Step 5  Chrome+Edge SD parallel download
 │   ├── auto_sd_downloader.py         ← Step 5  Fully automatic single-browser (resumable)
+│   ├── generate_posters.py           ← Poster generation (HTML + Chrome headless)
+│   ├── start_cdp_chrome.sh           ← Step 5  CDP Chrome one-click launcher
 │   ├── organize_zotero.py            ← Step 6  Generate Zotero library architecture
-│   ├── setup_zotero.py               ← Step 7  Zotero environment check & config
-│   └── batch_read_pdfs.py            ← Step 8  Batch PDF full-text extraction
-├── references/                       ← Templates & reference data
+│   ├── setup_zotero.py               ← Step 6  Zotero MCP one-click install + multi-env config + smoke test
+│   ├── batch_read_pdfs.py            ← Step 8  Batch PDF full-text extraction
+│   └── packages/                     ← Zotero MCP offline dependency cache (76 wheels, ~15MB)
+│       └── README.md                 ← Wheel platform compatibility notes
+├── references/                       ← Templates & reference docs
 │   ├── literature-table-template.md  ← Literature table template with scoring columns
 │   ├── zotero-structure-template.md  ← Zotero collection structure example
-│   └── publisher-access-matrix.md    ← Publisher download strategies
+│   ├── zotero-missing-attachments.md ← Zotero missing PDF recovery guide
+│   ├── zotero-outline-mapping.md     ← Zotero outline alignment PDF mapping plan
+│   ├── publisher-access-matrix.md    ← Publisher download strategy matrix
+│   ├── cdp-pdf-capture-limitations.md← CDP PDF capture limitations
+│   ├── sd-cdp-architecture.md        ← SD download architecture
+│   ├── poster-generation.md          ← Poster generation workflow
+│   └── outline-review-report-template.py ← Outline review report PDF generator
 ```
 
 ## 📜 Script Reference
@@ -1132,15 +1159,18 @@ More-paper-workflow-pro-skill/
 |------|------|------|-----|
 | `cdp_utils.py` | — | Shared CDP module (browser mgmt, tab ops, SD session detection, login guidance, dependency check) | — |
 | `sd_download.py` | 5 | v1.0.1 shared download core: dual strategy (direct + article page extraction) | — |
+| `hybrid_sd_download.py` | 5 | Hybrid SD download: Phase 1 `/pdfft` direct → Phase 2 article page `?md5=` URL extraction | ✅ |
 | `search_by_topic.py` | 4 | Three-source search (Semantic Scholar / Crossref / OpenAlex) | ✅ |
 | `batch_resolve_pii.py` | 5 | DOI → PII batch resolution, auto-detect 3 formats | ✅ |
 | `resolve_remaining_pii.py` | 5 | PII resolution resume after interruption | ✅ |
 | `download_via_scihub.py` | 5 | Sci-Hub CDP download + 13 mirror auto-detection | ✅ |
-| `download_via_ieee.py` | 5 | IEEE CDP two-step download (v1.1): layered selectors + same-tab detection + stale tab filtering + `--check-session` | ✅ |
+| `download_via_ieee.py` | 5 | IEEE CDP two-step download (v1.0.1): layered selectors + Referrer validation + `--check-session` | ✅ |
 | `parallel_sd_download.py` | 5 | Chrome + Edge SD parallel download | ✅ |
-| `auto_sd_downloader.py` | 5 | Fully automatic: browser start/stop + resumable + cross-platform | ✅ |
+| `auto_sd_downloader.py` | 5 | Fully automatic: browser start/stop + resumable + `skip_set` for inaccessible papers | ✅ |
+| `generate_posters.py` | — | Poster generation (HTML + Chrome headless rendering) | ✅ |
+| `start_cdp_chrome.sh` | 5 | CDP Chrome one-click launcher (persistent profile) | ✅ |
 | `organize_zotero.py` | 6 | Parse outline keywords → Zotero collection structure | ✅ |
-| `setup_zotero.py` | 7 | Zotero environment check (MCP/API Key/desktop) | ✅ |
+| `setup_zotero.py` | 6 | Zotero MCP one-click install + multi-env config (Claude Code/Hermes/Cursor) + smoke test | ✅ |
 | `batch_read_pdfs.py` | 8 | PyMuPDF multi-process extraction, A/B scheme auto-switch | ✅ |
 
 ---
