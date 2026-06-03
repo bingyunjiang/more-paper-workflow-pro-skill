@@ -11,6 +11,8 @@ triggers:
   # Step 1: 确定研究主题（v2.0 增强版）
   - "确定研究主题"
   - "厘清研究方向"
+  - "采用 More Paper Workflow Pro Skill，我们开始确定研究选题"
+  - "Using More Paper Workflow Pro Skill, let's define our research topic"
   # Step 1a: 研究阶段诊断
   - "研究阶段诊断"
   - "研究可行性评估"
@@ -33,20 +35,28 @@ triggers:
   - "大纲评审"
   - "评审大纲"
   - "Outline review"
+  - "基于确定的研究主题，生成论文大纲和关键词清单"
+  - "Based on the confirmed research topic, generate a paper outline and keyword list"
   # Step 3: 检索方案
   - "制定检索方案"
   - "文献检索策略"
+  - "根据大纲和关键词，制定结构化文献检索方案"
+  - "Based on the outline and keywords, design a structured literature search strategy"
   # Step 4: 检索与评分
   - "检索论文"
   - "按主题检索学术文献"
   - "搜索论文并下载"
   - "文献检索"
+  - "按检索方案执行多渠道文献检索，并进行相关性评分和分级"
+  - "Execute the multi-source literature search and perform relevance scoring and grading"
   # Step 5: 批量下载
   - "批量下载论文 PDF"
   - "从参考文献列表中下载 PDF"
   - "BibTeX 批量下载 PDF"
   - "批量下载 ScienceDirect 论文"
   - "Sci-Hub 下载论文"
+  - "开始批量下载论文 PDF，按出版商自动路由"
+  - "Start batch downloading paper PDFs, auto-routing by publisher"
   # IEEE CDP 两步走
   - "IEEE 下载"
   - "IEEE CDP 下载"
@@ -62,6 +72,8 @@ triggers:
   - "Zotero 文库整理"
   - "Zotero 架构生成"
   - "PDF 导入 Zotero"
+  - "把下载的 PDF 导入 Zotero 文库，按大纲生成集合架构"
+  - "Import the downloaded PDFs into Zotero and generate a collection architecture"
   # Step 6c: 文库一致性调整
   - "文库一致性"
   - "大纲对齐文库"
@@ -73,6 +85,8 @@ triggers:
   - "写论文"
   - "撰写论文"
   - "基于文献写论文"
+  - "基于 Zotero 文库中的文献，开始撰写论文"
+  - "Based on the literature in Zotero, let's start writing the paper"
   # Step 8: 论文润色（四合一精修引擎）
   - "论文润色"
   - "论文修改"
@@ -81,6 +95,8 @@ triggers:
   - "润色分层"
   - "四合一精修"
   - "去 AI 化"
+  - "对论文初稿进行润色，去 AI 痕迹、注入人味、优化句长波动"
+  - "Polish the draft: remove AI traces, inject a human voice, and optimize sentence rhythm"
   # 全流程
   - "论文相关工作流"
   - "学术文献全流程"
