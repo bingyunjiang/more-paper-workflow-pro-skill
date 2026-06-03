@@ -60,21 +60,6 @@
 - PyMuPDF 多进程批量提取（<20 篇按需精读 / ≥20 篇全量并行）
 - 论文润色：结构精炼 + 术语统一 + 去 AI 痕迹 + 引用校验
 
-### 工程品质
-
-| 特性 | 说明 |
-|------|------|
-| 🖥️ **全平台零配置** | macOS / Windows / Linux 自动检测 Chrome/Edge 路径，`CHROME_PATH` 环境变量可覆盖 |
-| 📦 **共享代码模块** | `cdp_utils.py` 统一封装 CDP 连接、标签管理、PDF 捕获、跨平台浏览器管理、依赖检查 |
-| 🔍 **依赖自检** | 启动时检查 `websocket-client`/`PyMuPDF`，缺失即打印安装指令 |
-| 🧩 **分层可拆** | 每个 Step 独立可运行——有 DOI 可直接从 Step 5 开始，有 PDF 可直接从 Step 6 开始 |
-| 💰 **零 API 费用** | Semantic Scholar / Crossref / OpenAlex / Sci-Hub 全部免费 |
-| 🔄 **断点续跑** | PII 解析每 5 条增量保存；PDF 下载检测已有文件自动跳过 |
-| 🛡️ **Cloudflare 应对** | 检测到 Turnstile 验证自动等待 60s 自行通过；IP 模式基本无需手动干预 |
-| 🐍 **兼容性** | Python 3.9-3.14；纯标准库 + websocket-client 单一必选依赖 |
-
-> 本项目的 Zotero MCP集成基于 [54yyyu/zotero-mcp](https://github.com/54yyyu/zotero-mcp) 项目，感谢原作者的开源贡献。
-
 ## ✨ 功能特性
 
 | # | 功能 | 说明 |
@@ -97,15 +82,20 @@
 ## 🏆 核心优势
 
 - **一站到底** —— 8 步全流程覆盖，从定题到润色一站式完成
-- **反爬突破** —— 真实浏览器 CDP 协议绕过 Cloudflare/Akamai，96% 下载成功率
+- **反爬突破** —— 真实浏览器 CDP 协议绕过 Cloudflare/Akamai，实测 94.7% 下载成功率
 - **全平台零配置** —— Chrome/Edge 路径自动检测，macOS/Windows/Linux 即装即用
 - **分层可拆** —— 每个 Step 独立运行，按需组合，不必从头开始
 - **零 API 费用** —— Semantic Scholar / Crossref / OpenAlex / Sci-Hub 全部免费
 - **双浏览器并行** —— Chrome + Edge 自动检测，有则加速，无则单浏览器正常运行
 - **断点续跑** —— 中断恢复不重复工作，支持无人值守批量下载
 - **抑制幻觉** —— 直接读 PDF 原文而非向量分块，引用精确性远高于 RAG 方案
+- **代码模块化** —— `cdp_utils.py` 统一封装 CDP 连接、标签管理、PDF 捕获、跨平台浏览器管理
+- **依赖自检** —— 启动时检查 `websocket-client`/`PyMuPDF`，缺失即打印安装指令
+- **Cloudflare 自动应对** —— 检测到 Turnstile 验证自动等待 60s 自行通过
 
-###为什么选直接读文献PDF： 直接读 PDF vs RAG 分块
+> 本项目的 Zotero MCP 集成基于 [54yyyu/zotero-mcp](https://github.com/54yyyu/zotero-mcp) 项目，感谢原作者的开源贡献。
+
+### 直接读 PDF vs RAG 分块
 
 论文写作中引用精确性高于一切。本工具采用**直接读 PDF 原文**，而非 RAG 向量分块：
 
@@ -178,55 +168,6 @@ pip install websocket-client
 ```bash
 python3 scripts/auto_sd_downloader.py --browser-path "/custom/path/chrome"
 ```
-
-### Zotero MCP 配置（可选，Step 6-7 对话操作用）
-
-Zotero MCP 让你通过对话直接操作 Zotero 文库——按 DOI 导入论文、搜索、读取 PDF 全文等。**如果不配置，仍可通过拖拽方式手动导入 PDF（推荐方式）。**
-
-```bash
-# 1. 检测环境
-python3 scripts/setup_zotero.py
-
-# 2. 一键安装+配置（自动检测 Claude Code / Hermes / Cursor）
-python3 scripts/setup_zotero.py --install --target auto
-
-# 3. 或显式指定目标环境
-python3 scripts/setup_zotero.py --install --target claude-code
-
-# 4. 烟雾测试验证
-python3 scripts/setup_zotero.py --smoke-test
-```
-
-**支持的 Agent 环境：**
-
-| 环境 | `--target` | 配置方式 |
-|------|-----------|----------|
-| **Claude Code** | `claude-code` | `claude mcp add` CLI（推荐）或 `~/.claude/mcp.json` |
-| Hermes/OpenClaw | `hermes` | `~/.hermes/config.yaml` |
-| Claude Desktop | `claude-desktop` | `zotero-mcp setup` 命令 |
-| Cursor | `cursor` | `~/.cursor/mcp.json` |
-| 自动检测 | `auto` | 自动选择 |
-
-**连接模式：**
-- **Web API 模式**：远程连接 zotero.org，支持完整读写操作（需要 [API Key](https://www.zotero.org/settings/keys)）
-- **本地 API 模式**：直连 Zotero 桌面端（`localhost:23119`），无需 API Key，但仅支持读取
-
-**非交互式安装（CI/CD 或脚本）：**
-```bash
-# Web API 模式
-ZOTERO_API_KEY="your_key" ZOTERO_USER_ID="1234567" \
-python3 scripts/setup_zotero.py --install --target claude-code --non-interactive
-
-# 本地 API 模式
-ZOTERO_LOCAL=true \
-python3 scripts/setup_zotero.py --install --target claude-code --non-interactive
-```
-
-> ⚠️ **VS Code 扩展版用户**：Claude Code 在 VS Code 中通过 `claude mcp add` CLI 注册 MCP 服务器，而非直接读取 `mcp.json`。`setup_zotero.py --install --target claude-code` 已自动处理此差异。配置完成后需**完全退出并重启 VS Code**（`Cmd+Q` 而非 `reload-window`）。
->
-> 📖 详细配置指南：[`docs/ZOTERO_MCP_SETUP.md`](docs/ZOTERO_MCP_SETUP.md)
->
-> 📖 离线安装说明：[`scripts/packages/README.md`](scripts/packages/README.md)
 
 ---
 
@@ -305,98 +246,23 @@ python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" --li
 💬 开始批量下载论文 PDF，按出版商自动路由（Sci-Hub → ScienceDirect → IEEE）。
 ```
 
-#### 第 1 轮：Sci-Hub（免登录，老论文更有效）
+按出版商自动路由，三源覆盖：
 
-```bash
-# 1. 启动 Chrome CDP 模式
-# macOS:
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --remote-debugging-port=9223 --remote-allow-origins=http://127.0.0.1:9223 \
-  --no-first-run --no-default-browser-check --disable-blink-features=AutomationControlled \
-  --user-data-dir=/tmp/chrome_profile about:blank
+| 轮次 | 目标 | 命令 |
+|------|------|------|
+| **Sci-Hub** | 2021 年前老论文（免费） | `python3 scripts/download_via_scihub.py 检索文献表.md -o paper-temp/` |
+| **ScienceDirect** | Elsevier 论文（需机构） | `python3 scripts/auto_sd_downloader.py -o paper-temp/` |
+| **IEEE** | IEEE 论文（需机构） | `python3 scripts/download_via_ieee.py dois.txt --port 9223 --output paper-temp/` |
 
-# Windows:
-# "C:\Program Files\Google\Chrome\Application\chrome.exe" ^
-#   --remote-debugging-port=9223 --remote-allow-origins=http://127.0.0.1:9223 ^
-#   --no-first-run --no-default-browser-check --user-data-dir=%TEMP%\chrome_profile about:blank
+> **设计原则：默认所有论文均可访问，下载失败是策略问题，不是权限问题。**
 
-# 2. 自动测试镜像站 + 下载
-python3 scripts/download_via_scihub.py 检索文献表.md -o download/paper-temp
-```
+**SD 混合策略**：先 `/pdfft` 直连（8s 快拒），失败则文章页 JS 渲染（25s）提取 `?md5=` URL 后捕获。全自动版 `auto_sd_downloader.py` 支持 IP 认证零干预 + 断点续跑 + 会话过期自动重启。
 
-#### 第 2 轮：ScienceDirect — 双重策略（需机构认证）
+**IEEE 两步走**：Step A 文章页提取 stamp URL → Step B 回退直连。支持 `--check-session` 会话诊断，SSO 登录首次手动后持久化。
 
-ScienceDirect PDF 下载采用混合策略：
-- **Strategy A（快速路径，8s）**：直接导航 `/pdfft` URL，捕获 PDF 重定向（适用于约 30% 的论文）
-- **Strategy B（回退路径，25s）**：导航到文章页等待 JS 渲染（25s），提取完整 `?md5=` URL，再导航捕获（适用于约 70% 的论文）
-- 设计原则：**默认所有论文均可访问，下载失败是策略问题，不是权限问题**
+**浏览器要求**：Chrome 需以 CDP 模式启动（端口 9223），Edge 可选（端口 9225 并行加速）。详见 `scripts/start_cdp_chrome.sh` 一键启动器。
 
-| 方式 | 适用场景 | 命令 |
-| **A: 全自动** | 机构 IP 认证（校园网/VPN） | `python3 scripts/auto_sd_downloader.py -o download/paper-temp` |
-| **B: 手动登录** | 机构 SSO 账号登录 | 先手动启动 Chrome CDP → 登录 SD → 再运行脚本 |
-
-> **关于 Cloudflare "Verify you are human" 验证：**
->
-> | 场景 | 需手动点击？ | 说明 |
-> |------|:--:|------|
-> | IP 认证（校园网/VPN） | 基本不需要 | CDP 真实浏览器 + `--disable-blink-features` 标记，Turnstile 通常自动放行 |
-> | SSO 机构登录 | 仅首次需要 | 第一次启动浏览器时需手动登录 + 点击验证，通过后 session cookie 保留 |
-> | 会话过期自动重启 | 不需要 | 使用固定 profile 目录，cookie 持久化，重启后自动复用 |
-> | Sci-Hub 下载 | 不需要 | 已预过滤可用镜像站（9/13），自动跳过有 Turnstile 拦截的站点 |
->
-> 脚本检测到 Cloudflare 验证页面时会自动等待 60 秒尝试让其自行通过，超时后提示用户在浏览器窗口手动操作。
-
-**方式 A — IP 认证（全自动）：**
-
-```bash
-# 默认: 自动检测 Chrome，没有则尝试 Edge
-python3 scripts/auto_sd_downloader.py -o download/paper-temp
-
-# 指定 Edge
-python3 scripts/auto_sd_downloader.py --browser edge -o download/paper-temp
-
-# 脚本自动：启动浏览器 → 检测 SD 访问权限 → 下载 → 会话过期自动重启
-# 启动时会自动检测 IP 认证是否有效，无效则提示手动登录
-```
-
-**方式 B — SSO 机构登录（手动启动浏览器）：**
-
-```bash
-# 1. 手动启动 Chrome（或 Edge）并登录 ScienceDirect
-# Chrome:
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --remote-debugging-port=9223 --remote-allow-origins=http://127.0.0.1:9223 \
-  --no-first-run --no-default-browser-check --disable-blink-features=AutomationControlled \
-  --user-data-dir=/tmp/chrome_sd_profile \
-  https://www.sciencedirect.com
-
-# 2. 在浏览器中完成机构登录 + Cloudflare 验证
-
-# 3. 运行下载（自动检测可用浏览器，支持单浏览器运行）
-python3 scripts/parallel_sd_download.py -o download/paper-temp
-```
-
-> **提示：** `parallel_sd_download.py` 会自动检测 Chrome 和 Edge 是否已在运行。只有 Chrome 也能正常工作（单浏览器模式），两个都在则并行加速。
-
-#### 第 3 轮：IEEE — 两步走策略（需机构认证）
-
-```bash
-# 用法：传入 DOI 列表文件
-python3 scripts/download_via_ieee.py dois.txt --port 9223 --output paper-temp/
-
-# 或直接传入 DOI（逗号分隔）
-python3 scripts/download_via_ieee.py --papers 10.1109/tvt.2022.3183866
-
-# 检查 IEEE 会话状态
-python3 scripts/download_via_ieee.py --check-session --port 9223
-```
-
-**两步走流程：**
-- **Step A（首选）**：导航到文章页 → 分层选择器定位 PDF 按钮 → 点击 → 检测新标签页/同页跳转 → Fetch 捕获
-- **Step B（回退）**：直接导航到 stamp/getPDF.jsp URL → Fetch 捕获
-- 已验证 5/5 论文下载成功
-
-详见 `references/publisher-access-matrix.md` 中的「CDP 通用方案」和「出版商适配经验」章节。
+> 📖 Cloudflare 应对、跨平台 Chrome 启动指令等详见 `references/publisher-access-matrix.md`。
 
 ### Step 6: Zotero 文库管理
 
@@ -416,9 +282,29 @@ python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md
 在 Zotero 桌面端拖拽 PDF 到对应集合，Zotero 自动识别元数据。
 
 **方式二：Zotero MCP 对话操作**
-通过 `zotero_add_by_doi` 等工具直接按 DOI 导入（需先完成 [Zotero MCP 配置](#zotero-mcp-配置可选step-6-7-对话操作用)）。
 
-运行 `python3 scripts/setup_zotero.py` 检测环境。
+通过 `zotero_add_by_doi` 等工具直接按 DOI 导入。首次使用需配置 Zotero MCP：
+
+```bash
+# 一键安装+配置（自动检测 Claude Code / Hermes / Cursor）
+python3 scripts/setup_zotero.py --install --target auto
+
+# 验证
+python3 scripts/setup_zotero.py --smoke-test
+```
+
+| 环境 | `--target` | 配置方式 |
+|------|-----------|----------|
+| **Claude Code** | `claude-code` | `claude mcp add` CLI（推荐） |
+| Hermes/OpenClaw | `hermes` | `~/.hermes/config.yaml` |
+| Cursor | `cursor` | `~/.cursor/mcp.json` |
+| 自动检测 | `auto` | 自动选择 |
+
+**连接模式：** Web API（远程读写，需 [API Key](https://www.zotero.org/settings/keys)）或本地 API（桌面端直连，仅读取）。
+
+> ⚠️ **VS Code 扩展版用户**：配置完成后需**完全退出并重启 VS Code**（`Cmd+Q` 而非 `reload-window`）。
+>
+> 📖 详细指南：[`docs/ZOTERO_MCP_SETUP.md`](docs/ZOTERO_MCP_SETUP.md) | 离线安装：[`scripts/packages/README.md`](scripts/packages/README.md)
 
 > **为什么不用 Zotero 云端上传？** Zotero 免费版仅有 300MB 文件存储，批量下载的 PDF 总量可达 1.4GB+，远超免费额度。拖拽导入的 PDF 仅保存在本地，元数据同步到云端（几乎不占空间），不影响多设备同步。同时免去了申请和配置 API Key 的步骤，降低使用门槛。
 
@@ -755,21 +641,6 @@ Literature preparation for academic papers is typically tedious: manual searchin
 - PyMuPDF multi-process batch extraction (<20 papers on-demand / ≥20 papers full parallel)
 - Paper polishing: structure refinement + terminology unification + AI trace removal + citation verification
 
-### Engineering Quality
-
-| Feature | Description |
-|------|------|
-| 🖥️ **Cross-Platform Zero Config** | macOS / Windows / Linux auto-detect Chrome/Edge paths; `CHROME_PATH` env var override |
-| 📦 **Shared Code Module** | `cdp_utils.py` encapsulates CDP connections, tab management, PDF capture, cross-platform browser management, dependency checking |
-| 🔍 **Dependency Self-Check** | Checks for `websocket-client`/`PyMuPDF` at startup, prints install instructions if missing |
-| 🧩 **Layered & Detachable** | Each Step runs independently — start from Step 5 if you have DOIs, from Step 6 if you have PDFs |
-| 💰 **Zero API Costs** | Semantic Scholar / Crossref / OpenAlex / Sci-Hub all free |
-| 🔄 **Resumable** | PII resolution saves incrementally every 5 entries; PDF download skips existing files automatically |
-| 🛡️ **Cloudflare Handling** | Auto-waits 60s for Turnstile self-resolution when detected; IP mode requires almost no manual intervention |
-| 🐍 **Compatibility** | Python 3.9-3.14; pure stdlib + websocket-client as the single required dependency |
-
-> This project's Zotero MCP integration is based on [54yyyu/zotero-mcp](https://github.com/54yyyu/zotero-mcp). Thanks to the original author for their open-source contribution.
-
 ## ✨ Features
 
 | # | Feature | Description |
@@ -875,55 +746,6 @@ python3 scripts/auto_sd_downloader.py --browser-path "/custom/path/chrome"
 ```
 
 --- 
-
-### Zotero MCP Configuration (Optional, for Step 6-7 Conversational Operations)
-
-Zotero MCP lets you interact with your Zotero library through conversation — import papers by DOI, search, read PDF full-text, etc. **If not configured, you can still import PDFs manually via drag-and-drop (recommended).**
-
-```bash
-# 1. Check environment
-python3 scripts/setup_zotero.py
-
-# 2. One-click install + configure (auto-detect Claude Code / Hermes / Cursor)
-python3 scripts/setup_zotero.py --install --target auto
-
-# 3. Or explicitly specify target environment
-python3 scripts/setup_zotero.py --install --target claude-code
-
-# 4. Smoke test verification
-python3 scripts/setup_zotero.py --smoke-test
-```
-
-**Supported Agent Environments:**
-
-| Environment | `--target` | Config Method |
-|-------------|-----------|---------------|
-| **Claude Code** | `claude-code` | `claude mcp add` CLI (recommended) or `~/.claude/mcp.json` |
-| Hermes/OpenClaw | `hermes` | `~/.hermes/config.yaml` |
-| Claude Desktop | `claude-desktop` | `zotero-mcp setup` command |
-| Cursor | `cursor` | `~/.cursor/mcp.json` |
-| Auto-detect | `auto` | Auto-select |
-
-**Connection Modes:**
-- **Web API Mode**: Remote connection to zotero.org, full read-write support (requires [API Key](https://www.zotero.org/settings/keys))
-- **Local API Mode**: Direct connection to Zotero desktop (`localhost:23119`), no API Key, read-only
-
-**Non-interactive Installation (CI/CD or scripts):**
-```bash
-# Web API mode
-ZOTERO_API_KEY="your_key" ZOTERO_USER_ID="1234567" \
-python3 scripts/setup_zotero.py --install --target claude-code --non-interactive
-
-# Local API mode
-ZOTERO_LOCAL=true \
-python3 scripts/setup_zotero.py --install --target claude-code --non-interactive
-```
-
-> ⚠️ **VS Code Extension Users**: Claude Code in VS Code registers MCP servers via the `claude mcp add` CLI, not by reading `mcp.json` directly. `setup_zotero.py --install --target claude-code` handles this automatically. After configuration, **fully quit and restart VS Code** (`Cmd+Q`, not `reload-window`).
->
-> 📖 Detailed Setup Guide: [`docs/ZOTERO_MCP_SETUP.md`](docs/ZOTERO_MCP_SETUP.md)
->
-> 📖 Offline Install Notes: [`scripts/packages/README.md`](scripts/packages/README.md)
 
 ---
 
@@ -1113,9 +935,29 @@ python3 scripts/organize_zotero.py outline-keywords.md --output zotero-architect
 Drag PDFs into corresponding collections in Zotero desktop. Zotero auto-recognizes metadata.
 
 **Method 2: Zotero MCP Conversational Import**
-Import by DOI using `zotero_add_by_doi` and similar tools (requires [Zotero MCP Configuration](#zotero-mcp-configuration-optional-for-step-6-7-conversational-operations)).
 
-Run `python3 scripts/setup_zotero.py` to check environment.
+Import by DOI using `zotero_add_by_doi` and similar tools. First-time setup:
+
+```bash
+# One-click install + configure (auto-detect Claude Code / Hermes / Cursor)
+python3 scripts/setup_zotero.py --install --target auto
+
+# Verify
+python3 scripts/setup_zotero.py --smoke-test
+```
+
+| Environment | `--target` | Config Method |
+|-------------|-----------|---------------|
+| **Claude Code** | `claude-code` | `claude mcp add` CLI (recommended) |
+| Hermes/OpenClaw | `hermes` | `~/.hermes/config.yaml` |
+| Cursor | `cursor` | `~/.cursor/mcp.json` |
+| Auto-detect | `auto` | Auto-select |
+
+**Connection Modes:** Web API (remote read-write, requires [API Key](https://www.zotero.org/settings/keys)) or Local API (desktop direct, read-only).
+
+> ⚠️ **VS Code Extension Users**: Fully quit and restart VS Code (`Cmd+Q`, not `reload-window`) after configuration.
+>
+> 📖 Detailed Guide: [`docs/ZOTERO_MCP_SETUP.md`](docs/ZOTERO_MCP_SETUP.md) | Offline Install: [`scripts/packages/README.md`](scripts/packages/README.md)
 
 > **Why not use Zotero cloud upload?** Zotero free tier only provides 300MB file storage, while batch-downloaded PDFs can total 1.4GB+, far exceeding the free quota. Drag-and-drop imported PDFs are stored only locally, with metadata synced to the cloud (taking almost no space), not affecting multi-device sync. It also eliminates the need to apply for and configure API keys, lowering the barrier to entry.
 
