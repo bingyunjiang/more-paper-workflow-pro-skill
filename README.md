@@ -201,11 +201,11 @@ python3 scripts/setup_zotero.py --smoke-test
 
 **支持的 Agent 环境：**
 
-| 环境 | `--target` | 配置文件 |
+| 环境 | `--target` | 配置方式 |
 |------|-----------|----------|
-| **Claude Code** | `claude-code` | `~/.claude/mcp.json` |
+| **Claude Code** | `claude-code` | `claude mcp add` CLI（推荐）或 `~/.claude/mcp.json` |
 | Hermes/OpenClaw | `hermes` | `~/.hermes/config.yaml` |
-| Claude Desktop | `claude-desktop` | `claude_desktop_config.json` |
+| Claude Desktop | `claude-desktop` | `zotero-mcp setup` 命令 |
 | Cursor | `cursor` | `~/.cursor/mcp.json` |
 | 自动检测 | `auto` | 自动选择 |
 
@@ -224,6 +224,8 @@ ZOTERO_LOCAL=true \
 python3 scripts/setup_zotero.py --install --target claude-code --non-interactive
 ```
 
+> ⚠️ **VS Code 扩展版用户**：Claude Code 在 VS Code 中通过 `claude mcp add` CLI 注册 MCP 服务器，而非直接读取 `mcp.json`。`setup_zotero.py --install --target claude-code` 已自动处理此差异。配置完成后需**完全退出并重启 VS Code**（`Cmd+Q` 而非 `reload-window`）。
+>
 > 📖 详细配置指南：[`docs/ZOTERO_MCP_SETUP.md`](docs/ZOTERO_MCP_SETUP.md)
 >
 > 📖 离线安装说明：[`scripts/packages/README.md`](scripts/packages/README.md)
@@ -539,6 +541,31 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 ---
 
 ## 📋 版本历史
+
+### v1.0.3 (2026-06-03)
+
+#### Zotero MCP 多环境兼容性
+
+- **`scripts/setup_zotero.py`** 全面增强：
+  - 新增 `--target` 参数：支持 `claude-code` / `hermes` / `cursor` / `claude-desktop` / `auto` 五种目标环境
+  - Claude Code 环境**优先使用 `claude mcp add` CLI 注册**（VS Code 扩展版官方方式），失败时回退到 `mcp.json`
+  - 新增 `_try_claude_mcp_add()` 函数，自动处理 `-e` 参数和 `--` 分隔符
+  - 新增 `--non-interactive` 模式：从环境变量读取参数，适合 CI/CD 脚本化部署
+  - 新增 `--smoke-test`：8 项自动化功能验证（包安装 → 可执行 → MCP 注册 → 凭据 → 桌面端）
+  - 新增 `detect_target()` 自动检测当前 Agent 环境
+  - `--check` JSON 输出新增 `detected_environment` 和 `configs` 多目标状态字段
+  - 状态显示从单项改为**多环境配置注册状态概览**
+- **`docs/ZOTERO_MCP_SETUP.md`** 新建：多平台详细配置指南，含跨平台注意事项和故障排除 FAQ
+- **`scripts/packages/README.md`** 新建：wheel 平台兼容性说明（确认为纯 Python，跨平台通用）
+- **`.claude/settings.json`** 从 Git 移除（含个人路径，加入 `.gitignore`）
+- **README.md** 新增 Zotero MCP 配置独立章节
+
+#### 实际测试验证
+
+- 在 VS Code 扩展版 Claude Code 中成功注册并连接 Zotero MCP（`✓ Connected`）
+- 语义搜索、文库浏览、集合树读取均正常运行（948 篇文献）
+
+---
 
 ### v1.0.2 (2026-06-02)
 
