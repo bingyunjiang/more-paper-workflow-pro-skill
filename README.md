@@ -690,6 +690,14 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 ---
 
+## 👥 贡献者
+
+| 贡献者 | GitHub | 角色 |
+|--------|--------|------|
+| Dr. Jiang Bingyun | [@bingyunjiang](https://github.com/bingyunjiang) | 作者、架构设计、Python 脚本开发 |
+| Vincent Zhu | [@vincentzju2014](https://github.com/vincentzju2014) | 代码贡献 |
+| Peter Bruce | [@peterbruce716-art](https://github.com/peterbruce716-art) | 代码贡献 |
+
 ## 📄 许可
 
 MIT License
