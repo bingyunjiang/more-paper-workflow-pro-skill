@@ -16,7 +16,7 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 More Paper Workflow Pro Skill `v1.0.3-20260603`
+# 📚 More Paper Workflow Pro Skill `v1.0.4-20260604`
 
 ### 为什么需要这个工具
 
@@ -138,7 +138,7 @@
 
 ---
 
-## 🛡️ 质量防线
+## 🛡️ 论文质量防线
 
 More Paper Workflow 在 8 步流程中嵌入了 **6 道评审节点**，形成逐层收紧的质量防线。设计原则：**越早发现问题，修复成本越低。** 选题阶段的黄灯比成稿阶段的红灯便宜 100 倍。
 
@@ -528,6 +528,38 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 ## 📋 版本历史
 
+### v1.0.4 (2026-06-04)
+
+#### 质量防线体系 — 6 道评审节点
+
+将散落在各步骤的评审能力整合为统一的 **论文质量防线**：
+- 防线上图 + 各节点把控表，选题→大纲→检索→写作→成稿 5 阶段全覆盖
+- Step 2b 新增**导师视角检查**：工作量达标 / 风险识别 / Plan B / 时间线与里程碑 / 发表拆分策略
+- Step 7d.1 新增**段落与句子级自查**（借鉴 nature-writing）：每段一个工作 / 证据向外写 / 动词校准 / 清除虚假新颖性 / 段落流
+- Step 7f 新增**三审稿人视角** + **Rebuttal Letter 预演**（借鉴 nature-reviewer + nature-response）
+
+#### SKILL.md 架构重整
+
+- Step 7 物理顺序修正为 7a→7b→7c→7d→7e→7f
+- Step 7 重构为 paper_type(5种) × language(en/zh/zh-to-en) 双轴写作引擎
+- 新增 zh-to-en 四步转换法 + 中文期刊特有规范（GB/T 7714）
+- 新增 7e 实时引文支撑（借鉴 nature-citation）：分段→搜索→评估→导出
+- 新增 7f.2 三审稿人视角 + 7f.4 Rebuttal 预演
+- 新增 7c 语言差异化规则（zh/en/zh-to-en 写作规范差异 + 章节命名对照）
+- 清理 17 个 🆕 emoji + 5 条 v1.0.3 changelog 注记
+- 删除 `实测性能基线` 节（开发者 benchmark，非用户面内容）
+
+#### 脚本增强
+
+- `search_by_topic.py` v2.0：新增 T1→T2→T3 路由、`--preflight`、`--export-bib`、`--convert` (.ris/.nbib)、`--score`、`--verify-dois`（151→450 行）
+- `batch_resolve_pii.py` 重构：提取 5 个单一职责函数，认知复杂度 38→12
+
+#### 文档
+
+- README 新增 `## 🛡️ 质量防线` 章节
+- 删除 `scripts/generate_proposal.py`（不具有通用性）
+- 删除空目录 `url-to-markdown/`
+
 ### v1.0.3 (2026-06-03)
 
 #### Zotero MCP 多环境兼容
@@ -670,7 +702,7 @@ MIT License
 ---
 
 <a id="english"></a>
-# 📚 More Paper Workflow Pro Skill `v1.0.2-20260603`
+# 📚 More Paper Workflow Pro Skill `v1.0.4-20260604`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 

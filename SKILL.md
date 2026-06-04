@@ -1,6 +1,6 @@
 ---
 name: more-paper-workflow-pro-skill
-version: v1.0.3-20260603
+version: v1.0.4-20260604
 description: 完整学术文献检索和写作工作流（8 步法）：①交互式确定研究主题（v2.0 增强版：阶段诊断→广度探索+预检索→深度聚焦→选题预审，借鉴 academic-mentor/nature-academic-search/deep-research/nature-reviewer 等 10 个 skill） ②生成大纲/关键词 ③制定检索方案 ④多渠道检索+评分 ⑤多轮下载（Sci-Hub→SD→IEEE） ⑥Zotero 文库管理（架构生成+PDF 导入+大纲对齐一致性调整） ⑦论文写作（4 种模式 + 中英文双边摘要 + 仿真评审质量门） ⑧论文润色（句长波动检测 + 四合一精修引擎：去 AI 痕迹 29 种模式 + 注入人味 + 章节风格指南 + before/after 对照表）
 author: Dr. Jiang Bingyun（江博士）
 wechat: Bingyunjiang
