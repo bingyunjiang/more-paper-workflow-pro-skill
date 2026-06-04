@@ -2022,6 +2022,72 @@ python3 scripts/batch_read_pdfs.py paper-temp/ --file-list chapter_pdfs.txt --sc
 > ❌ "In conclusion, this paper presents a novel approach. Future work will explore more applications."
 > ✅ "本文提出了一种冷板流道拓扑优化方法，在 5 kW 加热功率下将电池温升降低 8.5°C。两个局限：① 高环境温度（>45°C）下泵功消耗增加 30%；② 温均性拐点的物理机制尚不清楚。后续将建立流固耦合多尺度模型以揭示这一现象。"
 
+#### 7d.1 段落与句子级自查 🆕 ← nature-writing workflow Steps 3/5/6/7
+
+> **与防幻觉机制的关系：** 防幻觉管"内容真实不真实"（数据不能编、引用不能虚构），以下检查管"表达准确不准确"（动词是否夸大、段落是否清晰）。前者是地基——假的不能写；后者是装修——真的也要写得好。
+
+写完每节后，做四件事：
+
+**① 每段一个工作（One paragraph, one job）← nature-writing Step 3**
+
+每段只做一件事。可选的工作类型只有 8 种：
+
+```
+context / gap / approach / result / comparison / mechanism / implication / limitation
+```
+
+如果一段做了两件事（比如既讲方法又讲结果），拆成两段：
+
+> ❌ "The simulation used a k-ε turbulence model with 2M mesh elements. The results showed a 12% reduction in pressure drop compared to the baseline."
+> ✅ 拆为两段：
+>   [approach] "The simulation used a k-ε turbulence model with a 2M-element unstructured mesh..."
+>   [result] "Under these conditions, the pressure drop was reduced by 12% compared to the baseline (Figure 5a)."
+
+**② 从证据向外写（Draft from evidence outward）← nature-writing Step 4**
+
+不要把观点堆在段首、证据扔在段尾。每段的顺序是：证据/数据 → 解释 → 结论，或者 结论 → 证据 → 解释，但不能"结论 → 结论 → 结论"而不展示证据。
+
+> ❌ "Our method outperforms all baselines. It achieves state-of-the-art results. The improvements are significant across all metrics."
+> ✅ "Table 2 compares our method with three baselines on five metrics. Our method achieves the highest score on four of five metrics—the exception being metric E where baseline B leads by 1.2%. The consistent improvement suggests that the topology-optimized channel geometry is the primary driver."
+
+**③ 校准动词强度（Calibrate verbs to evidence strength）← nature-writing Step 5**
+
+| 证据强度 | 可用动词 | 不可用 |
+|---------|---------|--------|
+| 有统计显著性 + 大样本 + 严格对照 | show, demonstrate, establish | — |
+| 有趋势但样本量不足 / 无统计检验 | suggest, indicate, point to | show, demonstrate, prove |
+| 有间接证据或理论推导 | may, could, is consistent with | show, suggest |
+| 纯推测 / 无数据支撑 | 不写，或显式标注为 speculation | 所有事实性动词 |
+
+> ❌ "The results prove that topology optimization is the best approach for cold plate design."
+> ✅ "The results suggest that topology optimization outperforms parametric optimization in pressure-drop-constrained designs (p < 0.05, n=15). However, this conclusion is specific to the Reynolds number range tested (Re=500-2000) and may not generalize to laminar regimes."
+
+**④ 清除虚假新颖性声明（Remove unsupported novelty claims）← nature-writing Step 6**
+
+扫描全文，检查以下词是否被滥用：
+
+```
+first, first-ever, unprecedented, unique, revolutionary, groundbreaking,
+comprehensive, complete, fully, always, never, for the first time
+```
+
+每个出现的地方，自问：**"有没有文献可以反驳这个声明？"**
+
+> ❌ "This is the first study to apply topology optimization to cold plate design."
+> ✅ "To our knowledge, topology optimization has been applied to heat sinks and microchannel heat exchangers, but its application to electric-vehicle cold plates with manufacturing constraints is new. The closest work is Kim (2023), who used density-based topology optimization for a generic liquid-cooled heat sink without manufacturing considerations."
+
+**⑤ 段落流检查（Paragraph flow check）← nature-writing Step 7**
+
+每段检查三点：
+
+```
+- 一段一个信息。首句是该段的主题/声明。
+- 后续每句与上一句有显式关系：因果 / 对比 / 限制条件 / 举例。
+- 如果没有关系，删掉或移到别的段。
+```
+
+快速自检：遮住首句，后面还能看懂这段说什么吗？能看懂 → 首句不是主题句，需要改。
+
 ### 论文结构模板（通用回退）
 
 当用户跳过 paper_type 选择或需要快速启动时：
