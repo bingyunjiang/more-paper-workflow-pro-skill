@@ -3,7 +3,8 @@
 Search academic papers by topic across multiple sources with T1->T2->T3 routing.
 Outputs DOI list, .bib, .ris, or .nbib — ready for PII resolution + download + Zotero import.
 
-v2.0 (v1.0.3) — adds T1->T2->T3 fallback, preflight, .bib export, format conversion, DOI verify.
+v3.0 — adds boolean query building (concept blocks AND/OR/NOT), --bool mode,
+       multi-strategy search (relevance/cited/recent), and L1/L2/L3 layering.
 
 Usage:
   # Basic search (backward compatible)
@@ -12,6 +13,14 @@ Usage:
   # T1->T2->T3 routing with fallback
   python3 search_by_topic.py "cold plate topology optimization" \
       --t1 semantic_scholar --t2 crossref --t3 openalex --limit 50
+
+  # v3.0: Boolean query from concept blocks JSON file
+  python3 search_by_topic.py --bool query_plan.json \
+      --source openalex --strategy relevance --limit 50
+
+  # v3.0: Multi-strategy (relevance + cited + recent) in one call
+  python3 search_by_topic.py --bool query_plan.json \
+      --source openalex --strategy all --limit 50 --export-bib results.bib
 
   # Pre-flight API health check
   python3 search_by_topic.py --preflight
@@ -168,6 +177,124 @@ SOURCE_ALIASES = {
     "cr": "crossref",
     "oa": "openalex",
 }
+
+
+# ── Boolean Query Builder (v3.0) ─────────────────────────────────────────────
+
+def build_query(concept_blocks, source, strategy="relevance"):
+    """Build a source-specific query string from concept blocks.
+
+    concept_blocks: list of dicts, each with:
+        - "concept": str (required) — the core term
+        - "synonyms": list[str] (optional) — OR-connected synonyms
+        - "exclude": list[str] (optional) — terms to exclude
+        - "logic": "AND"|"OR"|"NOT" (default "AND") — how to connect to previous block
+    source: "openalex" | "semantic_scholar" | "crossref"
+    strategy: "relevance" | "cited" | "recent" — for sort params
+
+    Returns a dict with keys appropriate for each API:
+        - openalex: {"search": ..., "filter": ..., "sort": ...}
+        - semantic_scholar: {"q": ...}
+        - crossref: {"query.title": ..., "sort": ..., "order": ...}
+    """
+    if not concept_blocks:
+        return {}
+
+    and_clauses = []
+    not_terms = []
+
+    for block in concept_blocks:
+        terms = [block["concept"]] + block.get("synonyms", [])
+        # Quote multi-word terms
+        quoted = [f'"{t}"' if " " in t else t for t in terms]
+        or_clause = " OR ".join(quoted)
+        if len(terms) > 1:
+            or_clause = f"({or_clause})"
+        and_clauses.append(or_clause)
+
+        for ex in block.get("exclude", []):
+            not_terms.append(f'"{ex}"' if " " in ex else ex)
+
+    if source == "openalex":
+        query = " AND ".join(and_clauses)
+        # OpenAlex search= param supports AND/OR, filters for title precision
+        title_terms = []
+        for block in concept_blocks:
+            terms = [block["concept"]] + block.get("synonyms", [])
+            title_terms.extend(terms)
+        title_filter = "|".join(t.replace(" ", "+") for t in title_terms)
+
+        result = {"search": query}
+        if title_filter:
+            result["filter"] = f"title.search:{title_filter}"
+        # Map strategy to sort
+        sort_map = {
+            "relevance": "relevance_score:desc",
+            "cited": "cited_by_count:desc",
+            "recent": "publication_date:desc",
+        }
+        result["sort"] = sort_map.get(strategy, "relevance_score:desc")
+        return result
+
+    elif source == "semantic_scholar":
+        # S2: +term for required, -term for excluded, space = implicit AND
+        parts = []
+        for block in concept_blocks:
+            terms = [block["concept"]] + block.get("synonyms", [])
+            for t in terms:
+                prefix = "+" if " " not in t else '+"'
+                suffix = '"' if " " in t else ""
+                parts.append(f"{prefix}{t}{suffix}")
+        for ex in not_terms:
+            parts.append(f"-{ex}")
+        return {"q": " ".join(parts)}
+
+    elif source == "crossref":
+        query = " AND ".join(and_clauses)
+        # Crossref uses query.title for title-focused search
+        return {"query.title": query, "sort": "relevance", "order": "desc"}
+
+    else:
+        # Unknown source: return raw AND-joined query
+        return {"q": " AND ".join(and_clauses)}
+
+
+def load_query_plan(json_path):
+    """Load a boolean query plan from a JSON file.
+
+    Expected format:
+    {
+      "topic": "research topic",
+      "field": "engineering",
+      "subfield": "mechanical_thermal",
+      "framework": "concept_block",
+      "sub_queries": [
+        {
+          "id": "S1",
+          "label": "sub-topic description",
+          "concept_blocks": [
+            {"concept": "cold plate", "synonyms": ["liquid cooling"], "exclude": ["PCM"]},
+            {"concept": "topology optimization", "synonyms": ["shape optimization"]}
+          ]
+        }
+      ]
+    }
+    """
+    with open(json_path, "r") as f:
+        plan = json.load(f)
+
+    # Validate required fields
+    if "sub_queries" not in plan:
+        raise ValueError("Query plan must contain 'sub_queries' list")
+    for sq in plan["sub_queries"]:
+        if "concept_blocks" not in sq:
+            raise ValueError(f"Sub-query '{sq.get('id', '?')}' missing 'concept_blocks'")
+        for cb in sq["concept_blocks"]:
+            if "concept" not in cb:
+                raise ValueError(
+                    f"Sub-query '{sq.get('id', '?')}': concept block missing 'concept'"
+                )
+    return plan
 
 
 def _resolve_source(name):
@@ -648,6 +775,14 @@ Examples:
     parser.add_argument("--output", "-o", help="Output file (DOI list, default: stdout)")
     parser.add_argument("--include-no-doi", action="store_true", help="Include results without DOIs")
 
+    # v3.0 Boolean query mode
+    parser.add_argument("--bool", dest="bool_file", metavar="JSON",
+                        help="Query plan JSON file with concept blocks (v3.0)")
+    parser.add_argument("--strategy", choices=["relevance", "cited", "recent", "all"],
+                        default="relevance",
+                        help="Search strategy for --bool mode (default: relevance). "
+                             "Use 'all' to run all 3 strategies.")
+
     # Export mode
     parser.add_argument("--export-bib", help="Export results as .bib file (with tier/score notes)")
     parser.add_argument("--keywords", help="Comma-separated topic keywords for auto-scoring")
@@ -686,48 +821,83 @@ Examples:
         verify_dois_from_file(args.verify_dois)
         sys.exit(0)
 
-    # ── Search mode ──
-    if not args.query:
+    # ── v3.0 Boolean query mode ──
+    if args.bool_file:
+        if not args.query:
+            print("ERROR: --bool requires a query string (used as fallback if JSON fails)",
+                  file=sys.stderr)
+            sys.exit(1)
+        plan = load_query_plan(args.bool_file)
+        source = args.t1 if args.t1 else args.source
+        if source in ("all", "semantic"):
+            source = "openalex"  # default to OpenAlex for bool mode
+        source_canon = _resolve_source(source)
+        if source_canon not in SOURCE_FUNCTIONS:
+            print(f"ERROR: Unknown source '{source}' for --bool mode", file=sys.stderr)
+            sys.exit(1)
+
+        all_results = []
+        strategies = ["relevance", "cited", "recent"] if args.strategy == "all" else [args.strategy]
+
+        for sq in plan.get("sub_queries", []):
+            sq_id = sq.get("id", "?")
+            blocks = sq.get("concept_blocks", [])
+
+            for strat in strategies:
+                query_params = build_query(blocks, source_canon, strat)
+                query_str = query_params.pop("q", query_params.pop("search", args.query))
+
+                print(f"  [{sq_id}:{strat}] {source_canon}: {query_str[:80]}...", flush=True)
+                results = SOURCE_FUNCTIONS[source_canon](query_str, args.limit)
+                print(f"  [{sq_id}:{strat}] {source_canon}: {len(results)} results", flush=True)
+                # Tag results with sub-query ID and strategy
+                for r in results:
+                    r["_sub_query"] = sq_id
+                    r["_strategy"] = strat
+                all_results.extend(results)
+
+    # ── Search mode (backward compatible) ──
+    elif not args.query:
         print("ERROR: query is required for search mode. Use --preflight, --convert, or --verify-dois instead.",
               file=sys.stderr)
         sys.exit(1)
-
-    print(f"Searching: {args.query}", flush=True)
-
-    # Resolve sources with T1->T2->T3 routing
-    all_results = []
-
-    if args.t1:
-        # T1->T2->T3 routing mode
-        sources = [(args.t1, "T1"), (args.t2, "T2"), (args.t3, "T3")]
-        for src, label in sources:
-            if not src:
-                continue
-            src_canon = _resolve_source(src)
-            if src_canon not in SOURCE_FUNCTIONS:
-                print(f"  Unknown source '{src}' for {label}", file=sys.stderr)
-                continue
-
-            print(f"  [{label}] Querying {src_canon}...", flush=True)
-            results = SOURCE_FUNCTIONS[src_canon](args.query, args.limit)
-            print(f"  [{label}] {src_canon}: {len(results)} results", flush=True)
-            all_results.extend(results)
-
-            # If T1 returned enough, skip T2/T3
-            if label == "T1" and len(results) >= args.min_results:
-                print(f"  T1 returned >= {args.min_results}, skipping T2/T3 fallback")
-                break
     else:
-        # Legacy mode: --source
-        if args.source in ("semantic", "semantic_scholar", "all"):
-            print("  Querying Semantic Scholar...", flush=True)
-            all_results.extend(search_semantic_scholar(args.query, args.limit))
-        if args.source in ("crossref", "all"):
-            print("  Querying Crossref...", flush=True)
-            all_results.extend(search_crossref(args.query, args.limit))
-        if args.source in ("openalex", "all"):
-            print("  Querying OpenAlex...", flush=True)
-            all_results.extend(search_openalex(args.query, args.limit))
+        print(f"Searching: {args.query}", flush=True)
+
+        # Resolve sources with T1->T2->T3 routing
+        all_results = []
+
+        if args.t1:
+            # T1->T2->T3 routing mode
+            sources = [(args.t1, "T1"), (args.t2, "T2"), (args.t3, "T3")]
+            for src, label in sources:
+                if not src:
+                    continue
+                src_canon = _resolve_source(src)
+                if src_canon not in SOURCE_FUNCTIONS:
+                    print(f"  Unknown source '{src}' for {label}", file=sys.stderr)
+                    continue
+
+                print(f"  [{label}] Querying {src_canon}...", flush=True)
+                results = SOURCE_FUNCTIONS[src_canon](args.query, args.limit)
+                print(f"  [{label}] {src_canon}: {len(results)} results", flush=True)
+                all_results.extend(results)
+
+                # If T1 returned enough, skip T2/T3
+                if label == "T1" and len(results) >= args.min_results:
+                    print(f"  T1 returned >= {args.min_results}, skipping T2/T3 fallback")
+                    break
+        else:
+            # Legacy mode: --source
+            if args.source in ("semantic", "semantic_scholar", "all"):
+                print("  Querying Semantic Scholar...", flush=True)
+                all_results.extend(search_semantic_scholar(args.query, args.limit))
+            if args.source in ("crossref", "all"):
+                print("  Querying Crossref...", flush=True)
+                all_results.extend(search_crossref(args.query, args.limit))
+            if args.source in ("openalex", "all"):
+                print("  Querying OpenAlex...", flush=True)
+                all_results.extend(search_openalex(args.query, args.limit))
 
     # Deduplicate
     unique = deduplicate(all_results)

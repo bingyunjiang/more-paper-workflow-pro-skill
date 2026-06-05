@@ -1,6 +1,6 @@
 ---
 name: more-paper-workflow-pro-skill
-version: v1.0.4-20260604
+version: v1.0.5-20260604
 description: 完整学术文献检索和写作工作流（8 步法）：①交互式确定研究主题（v2.0 增强版：阶段诊断→广度探索+预检索→深度聚焦→选题预审，借鉴 academic-mentor/nature-academic-search/deep-research/nature-reviewer 等 10 个 skill） ②生成大纲/关键词 ③制定检索方案 ④多渠道检索+评分 ⑤多轮下载（Sci-Hub→SD→IEEE） ⑥Zotero 文库管理（架构生成+PDF 导入+大纲对齐一致性调整） ⑦论文写作（4 种模式 + 中英文双边摘要 + 仿真评审质量门） ⑧论文润色（句长波动检测 + 四合一精修引擎：去 AI 痕迹 29 种模式 + 注入人味 + 章节风格指南 + before/after 对照表）
 author: Dr. Jiang Bingyun（江博士）
 wechat: Bingyunjiang
@@ -112,6 +112,32 @@ triggers:
   - "结合工程文档优化大纲"
   - "基于技术报告优化大纲"
   - "用现有工程文档优化论文大纲"
+  # 生成优化版大纲文档（Step 2b→2c 输出）
+  - "生成优化版大纲"
+  - "输出优化版大纲"
+  - "导出优化大纲"
+  - "优化版大纲PDF"
+  - "优化版大纲docx"
+  - "大纲PDF输出"
+  - "大纲Word输出"
+  - "生成大纲PDF"
+  - "生成大纲Word"
+  - "大纲修改对照表"
+  - "根据评审意见生成大纲"
+  - "按评审报告修改大纲"
+  - "把评审写入大纲"
+  - "根据检索结果优化大纲"
+  - "应用修改建议生成大纲"
+  - "大纲定稿"
+  - "输出大纲定稿"
+  - "大纲修订版"
+  - "修订大纲"
+  - "更新大纲"
+  - "优化大纲文档"
+  - "outline review to optimization"
+  - "Outline optimization PDF"
+  - "generate optimized outline"
+  - "export refined outline"
 ---
 
 # 完整学术文献检索和写作工作流（8 步法）
@@ -124,9 +150,9 @@ Step 1: 交互式确定研究主题（v2.0 增强版） → 研究主题.md
   ├─ 1b 广度探索+预检索  发散子方向 → 文献量/趋势/gap初判
   ├─ 1c 深度聚焦        方法论深化 + 创新点预判
   └─ 1d 选题预审        originality/importance/feasibility 三问
-Step 2: 生成研究大纲与关键词        → 大纲关键词.md
-Step 3: 生成文献检索方案（T1→T2→T3路由）→ 检索方案.md
-Step 4: 多渠道检索+评分（引文验证+.bib导出） → 检索文献表.md / .xlsx / .bib
+Step 2: 生成研究大纲与关键词        → 大纲关键词.md → 大纲关键词.pdf
+Step 3: 生成文献检索方案（L1→L2→L3分层路由+概念块布尔）→ 检索方案.md → 检索方案.pdf
+Step 4: 多渠道检索+评分（引文验证+.bib导出） → 检索文献表.md / .xlsx / .bib → 检索文献表.pdf
   ├─ 4a 引文验证    DOI有效性+元数据完整性
   ├─ 4b DOI去重     多源合并去重
   └─ 4c .bib导出    统一BibTeX格式+评分标签
@@ -142,8 +168,8 @@ Step 7: 论文写作（paper_type×language双轴）  → 论文初稿.md / .doc
   ├─ 7d 章节写作规则   摘要/引言/相关工作/方法/实验/结论
   ├─ 7e 实时引文支撑   分段→搜索→评估→导出
   └─ 7f 中英文双边摘要
-Step 7f: 同行评审仿真（质量门）      → 评审报告 + 修改建议
-Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md
+Step 7f: 同行评审仿真（质量门）      → 评审报告.md + rebuttal-预演.md → 评审报告.pdf + rebuttal-预演.pdf
+Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论文润色稿.docx
 ```
 
 ---
@@ -308,14 +334,14 @@ Step 1d: 选题预审          → originality/importance/feasibility 三问
 > 建议优先聚焦「冷板式液冷散热」或「充电枪接口发热」——文献量适中且趋势向上。
 ```
 
-**检索工具选择（参考 nature-academic-search 的 T1→T2→T3 路由）：**
+**预检索工具选择（按优先级）：**
 
 | 优先级 | 工具 | 适用场景 |
 |--------|------|---------|
-| T1 | Semantic Scholar API | 快速扫量（免费，无需 Key） |
-| T2 | Crossref API | DOI/元数据补全（免费） |
-| T3 | OpenAlex API | 补充检索（免费） |
-| T3 | Google Scholar | 引文追踪（需 skill 支持） |
+| 第一优先 | Semantic Scholar API | 快速扫量（免费，无需 Key） |
+| 第二优先 | Crossref API | DOI/元数据补全（免费） |
+| 第三优先 | OpenAlex API | 补充检索（免费） |
+| 补充 | Google Scholar | 引文追踪（需 skill 支持） |
 
 ---
 
@@ -487,6 +513,16 @@ Cycle 2: 创新点预判
 | 4 | 方法3关键词 | method3 keywords |
 ```
 
+> ⚙️ **自动产出 PDF：** `大纲关键词.md` 生成后，立即自动执行：
+> ```bash
+> python3 scripts/md_to_pdf.py 大纲关键词.md
+> ```
+> 
+> ⚠️ 若大纲经过 Step 2b 评审并产生 `changes.json`，则改用 `generate_outline_pdf.py --changes` 以包含彩色修改注释和附录对照表：
+> ```bash
+> python3 scripts/generate_outline_pdf.py 大纲关键词.md --changes changes.json -o 大纲关键词_v2.pdf
+> ```
+
 ---
 
 ### 2b. 大纲评审（对已有大纲进行结构化评估）
@@ -596,9 +632,27 @@ Ch5 ──── ■■       (偏弱→建议充实)
 #### 产出物
 
 - **评审报告**（对话中直接输出）：含逐章问题表格、创新点评审、优先级列表
-- **优化版大纲.docx**（python-docx 生成）：含格式规范的大纲全文 + 附录修改说明
+- **修改记录 changes.json**（可选导出）：逐项修改建议的结构化 JSON 文件，可直接输入 `generate_outline_docx.py` / `generate_outline_pdf.py` 生成优化版文档
+- **优化版大纲.docx**（python-docx 生成，通过 `scripts/generate_outline_docx.py`）：含格式规范的大纲全文 + 附录修改对照表
+- **优化版大纲.pdf**（fpdf2 生成，通过 `scripts/generate_outline_pdf.py`）：同上内容的 PDF 版本，适用于快速分享
 - 优化版大纲每处修改用灰色楷体注释标注修改理由
 - **通用 PDF 报告模板**：`references/outline-review-report-template.py` — 可复用的中文 A4 报告生成器，接受结构化 JSON 数据，一键生成评审报告 PDF
+
+**评审→优化工作流：**
+
+```bash
+# 在 Step 2b 评审完成后，导出修改记录 JSON：
+cat > changes.json << 'EOF'
+{ "paper_title": "论文标题", "version": "v2.0",
+  "changes": [ { "chapter": "Ch1", "section": "1.7",
+    "type": "added", "original": "（无）", "updated": "新增创新点列表",
+    "reason": "提升创新区分度", "priority": "P0" } ] }
+EOF
+
+# 生成优化版大纲（二选一）：
+python3 scripts/generate_outline_docx.py 大纲关键词.md --changes changes.json -o outline_v2.docx
+python3 scripts/generate_outline_pdf.py 大纲关键词.md --changes changes.json -o outline_v2.pdf
+```
 
 ### 2c. 基于工程文档的大纲优化（新增流程）
 
@@ -679,63 +733,219 @@ Stage 3: 逐章注入与优化
 
 ---
 
-> **下一步 → Step 3：** 大纲优化完成（v2.0定稿）后，生成结构化检索方案，按T1→T2→T3路由执行文献检索。
+> **下一步 → Step 3：** 大纲定稿后，生成结构化检索方案，按 L1→L2→L3 分层架构 + 概念块布尔构建执行文献检索。
 
-## Step 3: 生成文献检索方案 ← nature-academic-search
+## Step 3: 生成文献检索方案 ← paper-search-pro + nature-academic-search
 
-> 旧版的检索来源是简单的"Semantic, Crossref"平面映射。nature-academic-search 提供 T1→T2→T3 三级回退路由规则——每个子课题不是挂一个来源，而是挂一条 fallback 链。
+> v3.0 重大升级：旧版检索方案仅为"关键词 + 来源"的平面映射。v3.0 融合 paper-search-pro 的
+> 概念块布尔模型（PICO/Concept Block + 反模式清单）和 nature-academic-search 的回退路由思想，
+> 重建为工科专属 L1/L2/L3 分层架构——每个子课题不是挂一个来源，而是挂一条分层 fallback 链，
+> CS 交叉子领域 Semantic Scholar 可并行搜索。
 
-基于大纲和关键词，生成结构化检索方案。
+基于大纲和关键词，生成结构化检索方案。**执行前必须加载 `references/search-query-frameworks.md`。**
 
-### 检索源路由规则 ← nature-academic-search T1→T2→T3
+### Step 3 执行流程
 
-按研究领域选择合适的检索源路由：
+```
+Step 2 产出（大纲关键词.md）
+  → ① 领域识别：判断工科子领域（机械/电气/土木/材料/控制/信号/AI...）
+  → ② 框架选择：Concept Block（工科默认）/ PICO / Methods-focused
+  → ③ 概念块拆解：每个概念块 ≥2 同义词 + 可选排除词
+  → ④ 组装布尔查询：(syn1 OR syn2) AND (syn3 OR syn4) NOT (excl)
+  → ⑤ 反模式检查（7 项）
+  → ⑥ 分层路由分配：L1 OpenAlex → L2 Semantic Scholar → L3 PubMed/CNKI
+  → 产出：检索方案.md → 检索方案.pdf
+```
 
-| 领域 | 首选 (T1) | 备选 (T2) | 最后手段 (T3) |
-|------|----------|----------|-------------|
-| 医学/临床 | PubMed | Semantic Scholar | Google Scholar |
-| 跨学科/工程 | CrossRef | Semantic Scholar | Scopus |
-| 预印本/CS/物理 | arXiv | bioRxiv / medRxiv | — |
-| 全面综述 | PubMed + CrossRef + arXiv | Semantic Scholar + bioRxiv/medRxiv | WoS / Scopus |
-| 需要引文量数据 | Semantic Scholar | CrossRef | — |
-| 中文文献 | — | — | CNKI / 万方（手动） |
+### 3a. 查询构建框架 ← paper-search-pro
 
-> T1 优先，无结果或结果不足时 fallback 到 T2，依然不足到 T3。每次 fallback 时记录原因。
+#### 框架选择
 
-**检索源能力速查（借鉴 nature-academic-search tools.md）：**
+| 框架 | 适用场景 | 概念块结构 |
+|------|---------|-----------|
+| **Concept Block**（工科默认） | 探索性检索、大多数工科问题 | 2-4 个核心概念块，每个含 2-5 个同义词 |
+| **PICO** | 有明确干预/对比的工科问题 | Population + Intervention + Comparator + Outcome |
+| **Methods-focused** | 方法学论文 | Method + Application + Validation |
 
-| 工具 | 覆盖范围 | API 限制 | 费用 |
-|------|---------|---------|------|
-| Semantic Scholar | 2 亿+ 论文，CS/生物医学最强 | 100 req/s（带 Key），1/s（不带） | 免费 |
-| Crossref | 1.5 亿+ 元数据记录，全学科 | 50 req/s | 免费 |
-| PubMed (NCBI) | 3700 万+ 生物医学引文 | 10 req/s（带 Key），3/s（不带） | 免费 |
-| arXiv | 250 万+ 预印本，物理/CS/数学 | 1 req/3s（无 Key） | 免费 |
-| OpenAlex | 2.5 亿+ 学术作品，全学科 | 100k/天 | 免费 |
-| Google Scholar | 全学科 | 爬虫限制 | 需 skill 支持 |
+#### 概念块模型（核心范式）
 
-### 产出文件：`检索方案.md`（增强版）
+每个子课题的关键词**必须**组织为概念块形式：
+
+```
+✅ 正确 — 概念块模型：
+  C1 — 冷却对象: ("cold plate" OR "liquid cooling" OR "microchannel")
+  C2 — 方法: ("topology optimization" OR "shape optimization" OR "generative design")
+  C3 — 验证: ("experimental" OR "test rig" OR "measurement")
+  排除: NOT ("PCM" OR "phase change" OR "spray cooling")
+  组合: C1 AND C2 AND C3 NOT 排除
+
+❌ 错误 — 旧版平铺：
+  keyword1, keyword2, keyword3
+
+❌ 错误 — 无同义词展开：
+  "cold plate" AND "topology optimization" AND "experiment"
+  → 遗漏了用 "liquid cooling" "shape optimization" "test rig" 表述的论文
+```
+
+#### 同义词展开规则
+
+每个概念块至少 **2 个**同义词，推荐 **3-5 个**：
+
+| 展开类型 | 示例 |
+|---------|------|
+| 全称/缩写 | "CFD" ↔ "computational fluid dynamics" |
+| 上位/下位词 | "liquid cooling" → "water cooling", "oil cooling" |
+| 相关术语 | "topology optimization" → "shape optimization", "generative design" |
+| 中英对照 | "冷板" → "cold plate", "liquid cold plate", "LCP" |
+
+#### AND 块数限制
+
+| AND 块数 | 预期结果 | 建议 |
+|:--------:|---------|------|
+| 2 | 100-500 条 | ✅ 推荐 |
+| 3 | 20-200 条 | ✅ 常见 |
+| 4 | 5-50 条 | ⚠️ 边界 |
+| 5+ | 0-10 条 | ❌ 禁止，拆分为 2 个独立查询 |
+
+### 3b. 反模式检查清单 ← paper-search-pro
+
+检索方案生成后，**必须逐项检查**：
+
+| # | 反模式 | 说明 |
+|---|--------|------|
+| 1 | `language=english` 过滤 | ❌ 过严，丢弃中日韩研究 |
+| 2 | 无意义限定词 | ❌ `AND "human"` 等——半数论文不含此词 |
+| 3 | AND 块数 > 4 | ❌ 召回率断崖下跌 |
+| 4 | 单概念无双同义词 | ⚠️ 每个概念块至少 2 个同义词 |
+| 5 | 全文搜索优先 | ⚠️ 优先 `title.search`，零结果再 fallback 到全文 `search` |
+| 6 | 排除词用方法学术语 | ⚠️ 如 `NOT "simulation"` 会误杀含实验+仿真的论文 |
+
+### 3c. 工科检索分层架构
+
+> paper-search-pro 和 nature-academic-search 的分层逻辑偏向生物医学/CS。以下为工科专属分层：
+
+```
+L1  OpenAlex         ← 全学科覆盖最广（2.5 亿+），默认首选搜索源
+                        机械/热能/流体/电气/土木/材料/化工 → 独立 L1
+
+L2  Semantic Scholar ← 搜索 + 富集双角色：
+                        (1) 控制/机器人/信号处理/通信/AI 等 CS 交叉子领域
+                            → 与 OpenAlex 并行搜索（S2 在这些领域更强）
+                        (2) 传统工科（机械/土木/化工）
+                            → L1 结果 < 30 条时回退补充检索
+                        (3) 所有子领域
+                            → 取 influentialCitationCount 富集
+
+L3  PubMed           ← 仅医工交叉启用（生物医学工程、康复工程等）
+                        → MeSH 富集 + 文献补充
+
+L3  CNKI / 万方       ← 中文文献手动补充
+                        → 自动跑 OpenAlex country_code:CN 过滤覆盖 ~80%
+```
+
+#### 子领域 → L2 路由决策表
+
+| 工科子领域 | L2 Semantic Scholar | 理由 |
+|-----------|:---:|------|
+| 控制工程、机器人 | **并行 L1** | CS 交叉，S2 覆盖最强 |
+| 信号处理、通信 | **并行 L1** | CS/EE 交叉，S2 AI 排序好 |
+| AI/ML 应用 | **并行 L1** | S2 核心优势领域 |
+| 机械、热能、流体 | **L1 不足时回退** | S2 传统 ME 覆盖偏弱 |
+| 电气、电子 | **L1 不足时回退** | OA 中 IEEE 元数据更完整 |
+| 土木、结构 | **L1 不足时回退** | S2 基本不覆盖 |
+| 材料、化工 | **L1 不足时回退** | OA Crossref 继承覆盖全 |
+| 生物医学工程 | **PubMed L3** | 医工交叉，PubMed 更专业 |
+
+**检索源能力速查：**
+
+| 工具 | 覆盖范围 | API 限制 | 费用 | 角色 |
+|------|---------|---------|------|------|
+| OpenAlex | 2.5 亿+ 学术作品，全学科 | 100k/天 | 免费 | **L1 搜索** |
+| Semantic Scholar | 2 亿+ 论文，CS/生物医学最强 | 100 req/s（带 Key），1/s（不带） | 免费 | **L2 搜索+富集** |
+| Crossref | 1.5 亿+ 元数据记录，全学科 | 50 req/s | 免费 | DOI 验证 |
+| PubMed (NCBI) | 3700 万+ 生物医学引文 | 10 req/s（带 Key），3/s（不带） | 免费 | **L3 医工交叉** |
+| arXiv | 250 万+ 预印本，物理/CS/数学 | 1 req/3s（无 Key） | 免费 | CS 子领域补充 |
+| CNKI / 万方 | 中文期刊+学位论文 | 无 API | 机构访问 | **L3 手动** |
+
+### 3d. 多策略检索 ← paper-search-pro
+
+每个子课题的 L1 OpenAlex 检索应同时跑 **3 条策略线**，增加结果多样性：
+
+| 策略线 | 排序方式 | 产出 |
+|--------|---------|------|
+| **By relevance** | `sort=relevance_score:desc` | 最佳主题匹配 |
+| **By citations** | `sort=cited_by_count:desc` | 高引经典 + 奠基工作 |
+| **By recency** | `sort=publication_date:desc` | 最新发表 |
+
+> 同一篇论文出现在 ≥2 条策略线中 → 提升最终评分的「主题匹配度」维度。
+
+### 产出文件：`检索方案.md`（v3.0）
 
 ```markdown
 # 检索方案
 
-## 领域识别
-- 研究领域：[医学/工程/CS/跨学科]
-- 推荐路由：T1: [source] → T2: [source] → T3: [source]
+## 领域识别与框架选择
+- 研究领域：[工程/医工交叉/CS交叉/跨学科]
+- 工科子领域：[机械热能/电气电子/土木结构/材料化工/控制机器人/信号通信/AI]
+- 推荐框架：[Concept Block / PICO / Methods-focused]
+- L1 搜索：OpenAlex（多策略：relevance + cited + recent）
+- L2 搜索+富集：[Semantic Scholar 并行 / Semantic Scholar 回退 / 无] — 由子领域决定
+- L3 补充：[PubMed MeSH / CNKI 手动 / 无]
 
-## 检索子课题
-| 编号 | 子课题 | 关键词 | T1 | T2 | T3 |
-|------|--------|--------|----|----|-----|
-| S1 | 子课题一 | keyword1, keyword2 | Semantic Scholar | Crossref | OpenAlex |
-| S2 | 子课题二 | keyword3, keyword4 | CrossRef | PubMed | Semantic Scholar |
-| S3 | 子课题三 | keyword5, keyword6 | Semantic Scholar | Crossref | — |
-| S4 | 子课题四 | keyword7, keyword8 | arXiv | Semantic Scholar | Crossref |
+## 概念块拆解
+| 概念块 | 逻辑 | 核心词 | 同义词（OR） | 排除词（NOT） |
+|--------|:----:|--------|-------------|---------------|
+| C1 | — | cold plate | liquid cooling, microchannel, minichannel | phase change material |
+| C2 | AND | topology optimization | shape optimization, generative design, SIMP | — |
+| C3 | AND | experimental validation | test rig, measurement, prototype, lab test | pure numerical |
+
+## 组合查询
+### L1 OpenAlex
+(cold plate OR liquid cooling OR microchannel)
+  AND (topology optimization OR shape optimization OR generative design)
+  AND (experimental OR test rig OR measurement)
+  NOT (PCM OR phase change)
+
+### L2 Semantic Scholar（控制/信号/AI 子领域并行，其余回退）
++cold plate +"topology optimization" +experimental -PCM
+
+## 检索子课题（含分层路由）
+| 编号 | 子课题 | 布尔查询 | AND块数 | L1 | L2 | L3 |
+|------|--------|---------|:------:|----|----|-----|
+| S1 | 冷板拓扑优化 | (cold plate OR liquid cooling) AND (topology optimization OR generative design) | 2 | OpenAlex | SS 并行 | — |
+| S2 | 液冷散热实验 | (liquid cooling OR microchannel) AND (experiment OR test rig) AND (thermal resistance OR junction temp) | 3 | OpenAlex | SS 回退 | CNKI |
+| S3 | 流道设计方法 | (channel design OR flow field optimization) AND (CFD OR numerical simulation) AND (pressure drop OR heat transfer) | 3 | OpenAlex | SS 回退 | — |
+
+## 反模式检查
+- [ ] 无 language=english 过滤
+- [ ] AND 块数 ≤ 4（当前最大: 3）
+- [ ] 无无意义限定词（human / animal 等）
+- [ ] 每个概念块 ≥ 2 个同义词
+- [ ] 优先 title.search，非全文 search
+- [ ] 排除词不包含方法学术语
 
 ## 检索执行计划
-- 每子课题检索 50 条（T1 优先）
-- T1 不足 30 条时自动 fallback 到 T2 补充
-- 去重后总分 ≥200 条
+- 每子课题 L1 OpenAlex 检索 50 条 × 3 策略（relevance / cited / recent）
+- CS 交叉子领域（控制/信号/AI）：L2 Semantic Scholar 并行检索 50 条
+- 传统工科子领域：L1 不足 30 条时启用 L2 Semantic Scholar 回退
+- 所有结果取 L2 Semantic Scholar influentialCitationCount 富集
+- 去重后总分 ≥ 200 条
 - 最终筛选保留 100-150 条核心文献
+
+## 评分体系（5 维度，满分 25）
+| 维度 | 权重 | 说明 |
+|------|:----:|------|
+| 主题匹配度 | 35% | 标题+摘要与研究主题的相关程度 |
+| 方法学严谨性 | 20% | 采用的方法/实验设计是否可靠 |
+| 来源质量 | 15% | 期刊/会议等级 |
+| 时效性 | 15% | 近 3 年 +1，近 5 年 +0.5 |
+| 影响力 | 15% | 引用量 + influentialCitationCount |
 ```
+
+> ⚙️ **自动产出 PDF：** `检索方案.md` 生成后，立即自动执行：
+> ```bash
+> python3 scripts/md_to_pdf.py 检索方案.md
+> ```
 
 ### Pre-flight 检查（检索前）
 
@@ -745,34 +955,40 @@ Stage 3: 逐章注入与优化
 # 检查各检索源 API 是否可达
 python3 scripts/search_by_topic.py --preflight
 # 输出:
+#   ✅ OpenAlex — OK (280ms)
 #   ✅ Semantic Scholar — OK (200ms)
 #   ✅ Crossref — OK (350ms)
-#   ✅ OpenAlex — OK (280ms)
-#   ⚠️ PubMed — Slow (1200ms)，will use as T2 only
+#   ⚠️ PubMed — Slow (1200ms)，仅医工交叉启用
 ```
 
 ---
 
-> **下一步 → Step 4：** 按检索方案执行多渠道检索，对结果进行相关性评分和分级筛选。
+> **下一步 → Step 4：** 按检索方案的 L1→L2→L3 分层路由执行多渠道检索，对结果进行 5 维度评分和 Tier 分级筛选。
 
-## Step 4: 多渠道检索与相关性筛选 ← nature-academic-search
+## Step 4: 多渠道检索与相关性筛选 ← paper-search-pro + nature-academic-search
 
-> 新增引用验证（DOI 有效性 + 元数据完整性）+ 统一 .bib 导出 + DOI 去重策略。
+> v3.0 升级：检索执行改为 L1/L2/L3 分层架构，评分体系升级为 5 维度（含方法学严谨性）。
 
 ### 检索执行
 
-按 Step 3 方案的 T1→T2→T3 路由逐子课题检索：
+按 Step 3 方案的 L1→L2→L3 分层路由逐子课题检索：
 
 ```bash
-# 按子课题逐条检索，每个子课题自动走 T1→T2→T3 fallback
-python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
-  --t1 semantic_scholar --t2 crossref --t3 openalex \
-  --limit 50 --output s1_results.bib
+# L1 OpenAlex：每子课题跑 3 策略（relevance + cited + recent），每策略 50 条
+python3 scripts/search_by_topic.py --bool query_plan.json \
+  --source openalex --strategy relevance --limit 50 --output s1_l1_rel.bib
+python3 scripts/search_by_topic.py --bool query_plan.json \
+  --source openalex --strategy cited --limit 50 --output s1_l1_cited.bib
+python3 scripts/search_by_topic.py --bool query_plan.json \
+  --source openalex --strategy recent --limit 50 --output s1_l1_recent.bib
 
-python3 scripts/search_by_topic.py "spray cooling battery heat transfer" \
-  --t1 crossref --t2 pubmed --t3 semantic_scholar \
-  --limit 50 --output s2_results.bib
-# ...
+# L2 Semantic Scholar：CS 交叉子领域并行，传统工科在 L1<30 时回退
+python3 scripts/search_by_topic.py --bool query_plan.json \
+  --source semantic_scholar --limit 50 --output s1_l2.bib
+
+# 传统用法（向后兼容，不使用概念块）：
+python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
+  --t1 openalex --t2 semantic_scholar --limit 50 --output s1_results.bib
 ```
 
 ### 4a: 引文验证
@@ -800,19 +1016,24 @@ python3 scripts/search_by_topic.py "spray cooling battery heat transfer" \
   - 冲突时保留元数据最完整的条目
 ```
 
-### 相关性评分
+### 相关性评分（v3.0 五维度）
 
 检索结果按以下维度打分（每项 0-5 分，满分 25）：
 
 | 维度 | 权重 | 说明 |
-|------|------|------|
-| 主题匹配度 | ×1 | 标题+摘要与研究主题的相关程度 |
-| 方法一致性 | ×1 | 采用的方法与技术路线匹配度 |
-| 来源质量 | ×1 | 期刊/会议等级 |
-| 时效性 | ×1 | 近 3 年 +1，近 5 年 +0.5 |
-| 引用量 | ×1 | 高引用加分 |
+|------|:----:|------|
+| 主题匹配度 | **35%** | 标题+摘要与研究主题的相关程度；同一论文出现在 ≥2 条策略线中 → 该维度满分 |
+| 方法学严谨性 | **20%** | 采用的方法/实验设计是否可靠——有实验验证 > 纯仿真，有对照实验 > 无对照 |
+| 来源质量 | **15%** | 期刊/会议等级（SCI 一区/CCF-A > 二区 > 三区/四区 > 无检索） |
+| 时效性 | **15%** | 近 3 年 5 分，近 5 年 4 分，近 10 年 3 分，更早 2 分 |
+| 影响力 | **15%** | 引用量 + Semantic Scholar influentialCitationCount |
 
 **产出文件：`检索文献表.md`**（含评分列），同时可输出 `.xlsx`。
+
+> ⚙️ **自动产出 PDF：** `检索文献表.md` 生成后，立即自动执行（自动识别宽表、缩小字号适配）：
+> ```bash
+> python3 scripts/md_to_pdf.py 检索文献表.md
+> ```
 
 ### 筛选标准
 
@@ -1225,7 +1446,10 @@ python3 scripts/setup_zotero.py
 | `scripts/setup_zotero.py` | 6 | Zotero MCP Server 一键安装 + 模式选择（Web API / 本地） | ✅ |
 | `scripts/extract_docs.py` | 2c | 批量提取 .docx/.doc 文本（去重 + TOC 域代码清理） ← `references/docx-doc-extraction-and-pdf-report.md` | |
 | `scripts/generate_report_pdf.py` | 2b/6d | 通用中文 PDF 报告生成器（fpdf2 + 系统中文字体，结构化 JSON 输入） ← `references/docx-doc-extraction-and-pdf-report.md` | |
-| `scripts/generate_outline_docx.py` | 2c | 生成优化版大纲 .docx（灰色楷体修改注释 + 附录修改对照表） ← `references/outline-optimization-with-engineering-docs.md` | |
+| `scripts/generate_outline_docx.py` | 2c | 生成优化版大纲 .docx（灰色楷体修改注释 + 附录对照表） ← `references/outline-optimization-with-engineering-docs.md` | |
+| `scripts/generate_outline_pdf.py` | 2c | 生成优化版大纲 PDF（封面+正文+附录修改对照表），与 docx 版接口兼容 | ✅ |
+| `scripts/md_to_pdf.py` | 2/3/4/7f | 统一 Markdown → PDF 转换器（自动识别大纲/检索方案/检索文献表/评审报告/rebuttal 类型，复用 ReportPDF 引擎） | ✅ |
+| `scripts/md_to_docx.py` | 7/8 | Markdown → DOCX 转换器（pandoc 包装器，支持参考样式文档） | ✅ |
 | `references/literature-table-template.md` | 4 | 检索结果表示例 |
 | `references/zotero-structure-template.md` | 6 | Zotero 架构示例 |
 | `references/publisher-access-matrix.md` | 5 | 各出版商下载可行性对照表 |
@@ -1234,6 +1458,7 @@ python3 scripts/setup_zotero.py
 
 ## 参考文件
 
+- `references/search-query-frameworks.md` — 🆕 检索查询框架参考（概念块布尔模型 + PICO + 反模式清单 + 各 API 语法对照 + 工科分层路由）
 - `references/literature-table-template.md` — 含相关性评分的文献表格模板
 - `references/zotero-structure-template.md` — Zotero 集合结构示例
 - `references/publisher-access-matrix.md` — 各出版商下载可行性对照表
@@ -1309,6 +1534,16 @@ pip download zotero-mcp-server --dest scripts/packages/
 
 ### 不要写临时 Fetch 脚本下载 SD 论文
 必须使用 `cdp_utils.capture_pdf_via_fetch()`，不要自行实现 Fetch 拦截逻辑。自行实现容易踩 WebSocket 事件时序的坑：发送 `Page.enable`/`Fetch.enable` 后如果调用 `recv()` 等待响应，会吃掉 `Fetch.requestPaused` 事件，导致后续事件循环永远收不到。详见 `references/cdp-pdf-capture-limitations.md`。
+
+### generate_report_pdf.py 的 JSON 数据中中文引号导致解析失败
+
+`generate_report_pdf.py` 接受结构化 JSON 作为输入。如果通过 `write_file` 工具手工编写 JSON，中文弯引号/花引号（\u201c \u201d）出现在字符串值内部时会被 Python 的 JSON 解码器错误地解析为字符串终结符，导致 `json.JSONDecodeError`。
+
+**表现特征：** `json.JSONDecodeError: Expecting ',' delimiter`，定位在包含中文引号的文本行。
+
+**推荐方案：** 使用 `execute_code` 或 Python 脚本的 `json.dump(data, f, ensure_ascii=False, indent=2)` 生成 JSON 文件，而不是用手工 `write_file` 构建多级嵌套的 JSON。`json.dump` 自动转义所有特殊字符，不会出现引号冲突。
+
+**替代方案：** 如果不方便用 Python 生成，将文本中的中文弯引号替换为方括号（[内容]）或直角引号（「内容」）等不会被混淆的定界符。
 
 ### 用真实 Profile 启动 CDP Chrome 时 Profile 被锁
 
@@ -2086,6 +2321,11 @@ python3 scripts/batch_read_pdfs.py paper-temp/ --file-list chapter_pdfs.txt --sc
 - `论文初稿.md` — 含完整结构和参考文献的初稿，标注 paper_type + language + 引用格式
 - **zh-to-en 模式额外产出：** `中→英术语对照表.md`
 
+> ⚙️ **自动产出 DOCX：** `论文初稿.md` 生成后，立即自动执行：
+> ```bash
+> python3 scripts/md_to_docx.py 论文初稿.md
+> ```
+
 ---
 
 ### 7f. 同行评审仿真（质量门） ← nature-response
@@ -2208,6 +2448,11 @@ Reviewer [A/B/C]
 - `评审报告.md` — 五维评分表 + 逐维度问题定位 + 修改优先级
 - `rebuttal-预演.md` — 逐条问题 → response 草稿 + self-check 结论
 - 修改后的 `论文初稿.md`（第 2 轮后）
+- ⚙️ **自动产出 PDF：** `评审报告.md` 和 `rebuttal-预演.md` 生成后，立即自动执行：
+> ```bash
+> python3 scripts/md_to_pdf.py 评审报告.md
+> python3 scripts/md_to_pdf.py rebuttal-预演.md
+> ```
 
 ---
 
@@ -2624,3 +2869,8 @@ Phase 6: 终验
 - **`论文润色稿.md`** — 标注所有 Level 1–4 修改的润色版本
 - **`论文润色修改对照表.md`**（可选）— 仅 contain 修改项的 before/after/reason 表格（借鉴 academic-paragraph-refiner 格式）
 - **`论文终稿.docx` / `.pdf`** — 格式化最终版本（可选）
+
+> ⚙️ **自动产出 DOCX：** `论文润色稿.md` 生成后，立即自动执行：
+> ```bash
+> python3 scripts/md_to_docx.py 论文润色稿.md
+> ```

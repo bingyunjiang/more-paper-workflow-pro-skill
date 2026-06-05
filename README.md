@@ -558,7 +558,6 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 - README 新增 `## 🛡️ 质量防线` 章节
 - 删除 `scripts/generate_proposal.py`（不具有通用性）
-- 删除空目录 `url-to-markdown/`
 
 ### v1.0.3 (2026-06-03)
 
