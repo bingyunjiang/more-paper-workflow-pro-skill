@@ -554,6 +554,17 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 ### v1.0.5 (2026-06-05)
 
+ #### 统一下载路由架构
+
+- **新增 `unified_download_router.py`**：单一入口自动路由，四轮顺序执行（Sci-Hub → SD CDP → Generic CDP），覆盖 23 家出版社，产出 `download_log.md`
+- **新增 `generic_publisher_downloader.py`**：CDP 通用下载引擎，策略 A（直连 PDF URL）→ 策略 B（文章页 CSS 选择器提取），支持补充材料下载（`--include-si`）
+- **新增 `config/publishers.toml`**：24 家出版社集中式知识库（DOI 前缀 + URL 模板 + CSS 选择器 + 屏障检测规则）
+- **增强 `cdp_utils.py`**：新增 15 个反检测 Chrome flag + `warmup_profile()` 预热函数，借鉴 ref-downloader 反机器人验证策略
+- **IEEE 切换为 Generic CDP 引擎**，`download_via_ieee.py` 保留作为 SSO 交互备用
+- 可自动下载 **23 家出版社**文献；MDPI（Akamai Bot Manager 封锁）暂无自动化方案
+- 用户 Zotero 文库 9 篇真实论文实测全部通过（Sci-Hub 2 篇 + Generic CDP 7 篇）
+
+
 #### 检索方案全面升级 — T1→T2→T3 路由 + 检索后验证
 
 **Step 3 检索方案设计：从平面映射到三级回退链**
@@ -1359,6 +1370,16 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 ## 📋 Version History
 
 ### v1.0.5 (2026-06-05)
+
+#### Unified Download Router Architecture
+
+- **New `unified_download_router.py`**: single entry point with auto-routing, four-round sequential execution (Sci-Hub → SD CDP → Generic CDP), covers 23 publishers, produces `download_log.md`
+- **New `generic_publisher_downloader.py`**: CDP generic download engine, Strategy A (direct PDF URL) → Strategy B (article page CSS selector extraction), with supplementary info download support (`--include-si`)
+- **New `config/publishers.toml`**: centralized knowledge base for 24 publishers (DOI prefixes + URL templates + CSS selectors + barrier detection rules)
+- **Enhanced `cdp_utils.py`**: added 15 anti-detection Chrome flags + `warmup_profile()` function, adapted from ref-downloader's anti-bot strategies
+- **IEEE switched to Generic CDP engine**; `download_via_ieee.py` retained as SSO interactive fallback
+- Auto-download from **23 publishers** supported; MDPI excluded (Akamai Bot Manager blocks all automation)
+- Verified with 9 real papers from user's Zotero library (Sci-Hub: 2, Generic CDP: 7)
 
 #### Search Strategy Upgrade — T1→T2→T3 Routing + Post-Search Validation
 

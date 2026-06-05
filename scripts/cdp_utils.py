@@ -314,6 +314,12 @@ def start_browser(port, user_data_dir, url="about:blank", browser_path=None):
         browser_path: Path to browser executable. Auto-detected if None.
 
     Returns a Popen object, or None if the browser couldn't be started.
+
+    Anti-detection flags (adapted from ref-downloader's CloakBrowser approach):
+      - Disables AutomationControlled (hides navigator.webdriver)
+      - Disables component extensions, translate UI, sync, crash reporter
+      - Disables renderer backgrounding and hang monitor
+      - Hides "Chrome is being controlled by automated software" infobar
     """
     if browser_path is None:
         browser_path = find_chrome_path()
@@ -324,14 +330,47 @@ def start_browser(port, user_data_dir, url="about:blank", browser_path=None):
     # Ensure profile directory exists
     os.makedirs(user_data_dir, exist_ok=True)
 
+    # Anti-detection flags adapted from ref-downloader / CloakBrowser patterns
+    anti_detection_flags = [
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-blink-features=AutomationControlled",
+        # Remove "Chrome is being controlled by automated software" infobar
+        "--disable-infobars",
+        # Prevent extensions from adding detection vectors
+        "--disable-component-extensions-with-background-pages",
+        # Disable features that expose automation patterns
+        "--disable-features=TranslateUI,BlinkGenPropertyTrees,IsolateOrigins,site-per-process",
+        # Suppress crash/error reporting (avoids detection via crash patterns)
+        "--disable-breakpad",
+        "--disable-crash-reporter",
+        # Suppress permission prompts
+        "--deny-permission-prompts",
+        # Disable backgrounding (prevents timing-based detection)
+        "--disable-renderer-backgrounding",
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        # Disable sync and field trials
+        "--disable-sync",
+        "--disable-field-trial-config",
+        # Disable hang monitor (prevents detection via process monitoring)
+        "--disable-hang-monitor",
+        "--disable-ipc-flooding-protection",
+        # Use a common window size (not a telltale automation size)
+        "--window-size=1440,900",
+        # Disable default browser check and metrics
+        "--disable-default-apps",
+        "--metrics-recording-only",
+        # Password manager and form autofill (makes browser look used)
+        "--disable-features=InfiniteSessionRestore",
+    ]
+
     try:
         proc = subprocess.Popen([
             browser_path,
             f"--remote-debugging-port={port}",
             f"--remote-allow-origins=http://127.0.0.1:{port}",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--disable-blink-features=AutomationControlled",
+            *anti_detection_flags,
             f"--user-data-dir={user_data_dir}",
             url,
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -946,4 +985,71 @@ def print_missing_deps_summary(missing_list):
     print(f"{'='*55}", flush=True)
     for pip_name, hint in missing_list:
         print(f"  pip install {pip_name:25s} # {hint}", flush=True)
+
+
+# ── Profile Warming ─────────────────────────────────────────────────────────
+
+# Common non-academic sites to visit before downloading.
+# Building a mixed browsing fingerprint reduces bot detection triggers.
+_WARMUP_URLS = [
+    "https://www.google.com/",
+    "https://www.bing.com/",
+    "https://en.wikipedia.org/wiki/Main_Page",
+    "https://github.com/",
+    "https://stackoverflow.com/",
+]
+
+
+def warmup_profile(port: int, delay: float = 2.0) -> bool:
+    """Build natural browsing fingerprint before academic downloads.
+
+    Navigates through common non-academic sites with short pauses between
+    each visit. This creates a mixed browsing history that looks more like
+    normal human behavior and less like automated academic scraping.
+
+    Call once after browser startup, before batch downloads.
+
+    Returns True if warming completed, False if CDP was unreachable.
+    """
+    if not check_cdp(port):
+        return False
+
+    try:
+        wu = get_cdp_ws_url(port)
+        ws = websocket.create_connection(wu, timeout=10)
+        warmup_tab = None
+
+        for i, warmup_url in enumerate(_WARMUP_URLS):
+            try:
+                mid = int(time.time() * 1000) % 100000
+                if i == 0:
+                    ws.send(json.dumps({
+                        "id": mid, "method": "Target.createTarget",
+                        "params": {"url": warmup_url}
+                    }))
+                    resp = json.loads(ws.recv())
+                    warmup_tab = resp.get("result", {}).get("targetId")
+                elif warmup_tab:
+                    # Navigate existing tab
+                    tab_ws = get_tab_ws_url(port, warmup_tab)
+                    if tab_ws:
+                        tws = websocket.create_connection(tab_ws, timeout=5)
+                        tws.send(json.dumps({
+                            "id": mid, "method": "Page.navigate",
+                            "params": {"url": warmup_url}
+                        }))
+                        tws.close()
+                time.sleep(delay)
+            except Exception:
+                continue
+
+        ws.close()
+
+        # Close warmup tab
+        if warmup_tab:
+            close_tab(port, warmup_tab)
+    except Exception:
+        return False
+
+    return True
     print(f"{'='*55}\n", flush=True)

@@ -1,7 +1,7 @@
 ---
 name: more-paper-workflow-pro-skill
 version: v1.0.5-20260605
-description: 完整学术文献检索和写作工作流（8 步法）：①交互式确定研究主题（v2.0 增强版：阶段诊断→广度探索+预检索→深度聚焦→选题预审，借鉴 academic-mentor/nature-academic-search/deep-research/nature-reviewer 等 10 个 skill） ②生成大纲/关键词 ③制定检索方案 ④多渠道检索+评分 ⑤多轮下载（Sci-Hub→SD→IEEE） ⑥Zotero 文库管理（架构生成+PDF 导入+大纲对齐一致性调整+综述矩阵） ⑦论文写作（5 种模式含文献综述 + 中英文双边摘要 + 仿真评审质量门 + GB/T 7714 完整规范） ⑧论文润色（句长波动检测 + 四合一精修引擎：去 AI 痕迹 29 种模式 + 注入人味 + 章节风格指南 + before/after 对照表）
+description: 完整学术文献检索和写作工作流（8 步法）：①交互式确定研究主题（v2.0 增强版：阶段诊断→广度探索+预检索→深度聚焦→选题预审，借鉴 academic-mentor/nature-academic-search/deep-research/nature-reviewer 等 10 个 skill） ②生成大纲/关键词 ③制定检索方案 ④多渠道检索+评分 ⑤统一路由下载（Sci-Hub→SD CDP→IEEE CDP→Generic CDP） ⑥Zotero 文库管理（架构生成+PDF 导入+大纲对齐一致性调整+综述矩阵） ⑦论文写作（5 种模式含文献综述 + 中英文双边摘要 + 仿真评审质量门 + GB/T 7714 完整规范） ⑧论文润色（句长波动检测 + 四合一精修引擎：去 AI 痕迹 29 种模式 + 注入人味 + 章节风格指南 + before/after 对照表）
 author: Dr. Jiang Bingyun（江博士）
 wechat: Bingyunjiang
 category: research
@@ -50,19 +50,27 @@ triggers:
   - "文献检索"
   - "按检索方案执行多渠道文献检索，并进行相关性评分和分级"
   - "Execute the multi-source literature search and perform relevance scoring and grading"
-  # Step 5: 批量下载
+  # Step 5: 统一批量下载
+  - "下载论文"
+  - "下载文献"
+  - "批量下载"
   - "批量下载论文 PDF"
+  - "下载这几篇论文"
+  - "帮我下载文献"
+  - "下论文"
+  - "下载 DOI 列表"
   - "从参考文献列表中下载 PDF"
   - "BibTeX 批量下载 PDF"
-  - "批量下载 ScienceDirect 论文"
   - "Sci-Hub 下载论文"
-  - "开始批量下载论文 PDF，按出版商自动路由"
-  - "Start batch downloading paper PDFs, auto-routing by publisher"
-  # IEEE CDP 两步走
+  - "Start batch downloading paper PDFs"
+  - "Download all papers"
+  # Step 5 单篇测试与会话检查
+  - "测试下载这篇论文"
+  - "检查下载会话"
+  - "check download session"
+  - "下载路由预览"
+  # IEEE（自动走 Generic CDP，download_via_ieee.py 作为备用）
   - "IEEE 下载"
-  - "IEEE CDP 下载"
-  - "两步走策略"
-  # IEEE DOI 自动路由（10.1109/ 前缀自动识别）
   - "10.1109/*"
   - "doi:10.1109/*"
   # Zotero 附件管理
@@ -173,7 +181,7 @@ Step 4: 多渠道检索+评分（引文验证+.bib导出） → 检索文献表.
   ├─ 4a 引文验证    DOI有效性+元数据完整性
   ├─ 4b DOI去重     多源合并去重
   └─ 4c .bib导出    统一BibTeX格式+评分标签
-Step 5: 多轮下载（Sci-Hub → SD）    → paper-temp/ PDFs
+Step 5: 统一路由下载               → paper-temp/ PDFs
 Step 6: Zotero 文库管理              → zotero-架构.md + Zotero 桌面端 + 综述矩阵.csv
   ├─ 6a 生成架构    首次按大纲生成
   ├─ 6b 导入 PDF    将 PDF 拖入对应集合
@@ -1093,213 +1101,106 @@ python3 scripts/search_by_topic.py --convert 文献库.bib --to nbib # → PubMe
 
 > **下一步 → Step 5：** 开始批量下载。按出版商自动路由：全部论文先走 Sci-Hub（老论文免费下）；未下载到的按 DOI 前缀分流 → `10.1016/` 走 SD CDP，`10.1109/` 走 IEEE CDP，其余走多出版商 CDP。
 
-## Step 5: 多轮批量下载
+## Step 5: 统一批量下载（Unified Download Router）
 
-按出版商自动路由下载，目标覆盖率 90%+：
-
-| 轮次 | 目标 | DOI 前缀 | 脚本 |
-|------|------|----------|------|
-| **第一轮：Sci-Hub** | 所有论文（优先，免费） | 不限 | `download_via_scihub.py` |
-| **第二轮：SD CDP** | Elsevier 论文 | `10.1016/` | `auto_sd_downloader.py` |
-| **第三轮：IEEE CDP** | IEEE 论文 | `10.1109/` | `download_via_ieee.py` |
-| **第四轮：多出版商 CDP** | 其他出版商 | 其余 | 按需适配 |
-
-### 第一轮：Sci-Hub 优先（老论文）
-
-对 **2021 年以前** 的老论文，可通过 Sci-Hub CDP 下载（需要 Chrome 运行）。脚本会自动测试镜像站可用性。
+**单一命令，自动路由到最优下载策略：**
 
 ```bash
-# 标准流程：测试镜像站 → 取可用站 → 逐篇下载
-python3 scripts/download_via_scihub.py 检索文献表.md --output paper-temp/
+# 标准入口 — 自动按出版商路由下载
+python3 scripts/unified_download_router.py 检索文献表.md --output paper-temp/
 
-# 跳过镜像测试（如果上次已测过）
-python3 scripts/download_via_scihub.py 检索文献表.md --skip-test
+# Dry-run 模式 — 只看路由决策，不实际下载
+python3 scripts/unified_download_router.py 检索文献表.md --dry-run
 
-# 指定镜像站
-python3 scripts/download_via_scihub.py 检索文献表.md --mirror https://sci-hub.st
+# 单篇测试
+python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port 9223
 ```
 
-**镜像站自动检测：**
+### 路由矩阵
 
-脚本启动后先测试全部 13 个预置镜像站，输出每个的状态：
+路由器自动将每篇 DOI 分配到正确策略，四轮顺序执行：
 
-```
-测试 Sci-Hub 镜像站可用性...
-  ✅ sci-hub.st      可用（Sci-Hub. An experimental...）
-  ✅ sci-hub.ru      可用
-  ❌ sci-hub.se      Cloudflare 验证拦截
-  ❌ sci-hub.wf      重定向到首页
-  ...
-```
+| 轮次 | DOI 前缀 | 出版商 | 策略 | 成功率 |
+|------|----------|--------|------|--------|
+| **Round 1: Sci-Hub** | 不限（2021年前） | 全部 | Sci-Hub CDP | 9/13 镜像可用 |
+| **Round 2: SD CDP** | `10.1016/` | Elsevier | 专有混合策略 | 96% (180/185) |
+| **Round 3: IEEE CDP** | `10.1109/` | IEEE | 两步走 SSO | 100% (6/6) |
+| **Round 4: Generic CDP** | `10.1002/` | Wiley | pdfdirect URL → 文章页选择器 | 策略A优先 |
+| | `10.1021/` | ACS | 直连 PDF URL → 文章页选择器 | 策略A优先 |
+| | `10.1039/` | RSC | 文章页 articlepdf 选择器 | 策略B为主 |
+| | `10.1007/` | Springer | 直连 content/pdf URL | 策略A优先 |
+| | `10.1063/` | AIP | 文章页 + 加载页等待 | 含"请稍候"检测 |
+| | `10.1038/` | Nature | 直连 article.pdf / OA HTTP | OA可直连 |
+| | `10.1126/` | Science | 直连 PDF URL | 策略A优先 |
+| | `10.1073/` | PNAS | 直连 PDF URL | 策略A优先 |
+| | `10.1103/` | APS | 文章页 slug 解析 + 选择器 | slug解析 |
+| | `10.1088/` | IOP | 直连 article/pdf URL | 策略A优先 |
+| | `10.1080/` | T&F | 文章页选择器提取 | 策略B为主 |
+| | `10.1116/` | AVS | AIP平台 加载页等待 | 同AIP |
+| | `10.1149/` | ECS | IOP平台 文章页提取 | IOP族 |
+| | `10.1364/` | OSA | 文章页选择器提取 | 策略B为主 |
+| | `10.3762/` | Beilstein | 直连 OA | 开源 |
+| | `10.31635/` | CCS Chem | 文章页选择器提取 | Cloudflare风险 |
+| | `10.3389/` | Frontiers | 直连 HTTP（OA） | 无需认证 |
+| | `10.3390/` | MDPI | **SKIP** | Akamai封锁 |
+| | `10.2139/` | SSRN | 文章页选择器提取 | 预印本 |
 
-若全部不可用，自动联网搜索新的可用镜像站。
-
-**实测结论：**
-
-| 项目 | 结果 |
-|------|------|
-| 可用镜像站（CDP） | **9/13 个**（st/ru/shop/vg/in/al/box/red/ren） |
-| 下载方式 | CDP Chrome 导航 → 提取 `<object>` 的 PDF 链接 → Fetch 拦截捕获 |
-| 下载速度 | ~6s/篇 |
-| 有效范围 | **2021 年以前**论文（新论文 Sci-Hub 未收录） |
-| HTTP 直连 | ❌ 全部被 Cloudflare Turnstile 拦截，必须用 CDP |
-
-> 如果论文大部分是新出版（2022+），直接跳过第一轮。
-
-### v2.1 核心设计原则
-
-1. **默认所有论文都有访问权限，下不到是策略问题，不是权限问题。** 不要轻易将失败归因于"无权限"——先检查下载策略是否覆盖了 SD 的多种 PDF 加载机制（直接重定向 vs 文章页 JS 渲染）。
-2. **CDP 打开的标签页渲染状态不同于用户手动打开的标签页。** SD 的 SPA 页面在 CDP 环境下可能不显示 "View PDF" 按钮（自动化检测），此时需要更长的渲染等待时间（20-25s）或通过用户现有标签页操作。
-3. **双浏览器并行可翻倍速度但需隔离标签页。** Chrome 和 Edge 各自独立标签页上下文，一篇论文的 PDF 标签页残留不会影响另一浏览器的下一篇论文。但同一浏览器内必须关闭 PDF 标签页。
-
-### 第二阶段：ScienceDirect CDP（v2.1 混合策略）
-
-第一轮未下载到的 Elsevier 论文，通过 CDP + 机构认证补下。
+### 命令参考
 
 ```bash
-# 全自动版（推荐）：自动启动浏览器、断点续跑、跳过无权限论文
-python3 scripts/auto_sd_downloader.py --output-dir paper-temp/ --pii-map sd_pii_map.json
+# 前检查：验证 CDP 浏览器 + 各出版商会话状态
+python3 scripts/unified_download_router.py --check-session --port 9223
 
-# 手动版：需自行启动 CDP 浏览器
-python3 scripts/parallel_sd_download.py
+# 完整下载流程
+python3 scripts/unified_download_router.py 检索文献表.md --output paper-temp/
+
+# 跳过某些轮次
+python3 scripts/unified_download_router.py 检索文献表.md --skip-scihub   # 全是新论文
+python3 scripts/unified_download_router.py 检索文献表.md --skip-sd       # 无 Elsevier 论文
+
+# 下载辅助材料（Supplementary Info）
+python3 scripts/unified_download_router.py 检索文献表.md --include-si
+
+# 内联 DOI 列表
+python3 scripts/unified_download_router.py --papers "10.1021/x,10.1002/y,10.1016/z"
+
+# 不同 CDP 端口
+python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 ```
 
-### CDP 浏览器持久化配置
+### 下载记录
 
-**目标：** 登录 ScienceDirect 一次后永久保留会话，后续下载无需重新登录。
+路由器自动生成 `paper-temp/download_log.md`，逐篇追踪：
 
-**方案（v2.0）：** Chrome Profile 从 `/tmp/` 迁移到 `~/.hermes/chrome_sd_profile`。`auto_sd_downloader.py` 的 `restart_browser()` 不再删除 Profile 目录，重启后 SD Cookie 保留。
+| # | DOI | Status | Source | Size | Path |
+|---|-----|--------|--------|------|------|
+| 1 | `10.1016/...` | ✅ | SD CDP | 1024KB | paper_001.pdf |
+| 2 | `10.1002/...` | ✅ | Generic CDP | 856KB | paper_002.pdf |
+| 3 | `10.3390/...` | ⏳ | — | - | - |
 
-**一键启动脚本：**
-```bash
-# 启动 CDP Chrome（端口 9223），首次需手动登录 SD
-bash scripts/start_cdp_chrome.sh
+### 出版社配置
 
-# 验证 CDP 是否就绪
-curl -s http://127.0.0.1:9223/json/version | python3 -c "import sys,json; print(json.load(sys.stdin)['Browser'])"
-```
+所有出版社的下载策略（URL 模板、CSS 选择器、屏障检测规则）集中维护在：
+[`config/publishers.toml`](config/publishers.toml)
 
-**日常使用流程：**
-1. 机器重启后，首次运行 `bash scripts/start_cdp_chrome.sh`
-2. 在 Chrome 窗口中登录 ScienceDirect（Cloudflare 验证 + 机构登录）
-3. 后续所有下载脚本自动连接端口 9223，无需再次登录
-4. 下载脚本的 `restart_browser()` 保留 Profile，重启后 Cookie 仍在
+新增出版商时，只需在该文件中添加一个 `[publishers.xxx]` 段落即可。
 
-**Edge 双浏览器并行（可选）：**
-```bash
-# 同样方式启动 Edge（端口 9225）
-"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \
-  --remote-debugging-port=9225 \
-  --remote-allow-origins=http://127.0.0.1:9225 \
-  --no-first-run --no-default-browser-check \
-  --user-data-dir="$HOME/.hermes/edge_sd_profile" \
-  https://www.sciencedirect.com/ &
-```
+### 保留的专用脚本
 
-### 轮次记录
+以下脚本保持不变，路由器通过子进程调用它们（也可单独使用）：
 
-`下载记录.md` 追踪每篇论文的下载状态：
+| 脚本 | 用途 | 何时单独使用 |
+|------|------|-------------|
+| `download_via_scihub.py` | Sci-Hub 批量下载 | 只缺老论文时 |
+| `download_via_ieee.py` | IEEE CDP 下载 | 只下 IEEE 论文时 |
+| `auto_sd_downloader.py` | SD 全自动下载 | 只下 Elsevier 论文时 |
+| `generic_publisher_downloader.py` | 通用CDP下载引擎 | 测试特定非SD/IEEE论文 |
 
-| DOI | 状态 | 来源 | 文件路径 |
-|-----|------|------|----------|
-| 10.1016/... | ✅ | SD CDP | paper-temp/xxx.pdf |
-| 10.3390/... | ⬜ 待定 | 无可用方式 | - |
+### v2.1 核心设计原则（保留）
 
-### 第三轮：IEEE CDP 下载（10.1109/ 论文）
-
-第一轮（Sci-Hub）未下载到的 IEEE 论文，走专用 IEEE CDP 脚本（已固化，v1.0.1）。**跳过 ScienceDirect 和其他出版商。**
-
-```
-① 确认 CDP Chrome 已启动（--remote-debugging-port=9223）
-② 检查浏览器 Cookie → 确认机构会话有效
-   若 Cookie 为空 → CDP Chrome 使用隔离临时 Profile
-     → 方案A：在 CDP Chrome 窗口中手动完成机构登录
-     → 方案B：关闭日常 Chrome → 清理 stale lock 文件
-         (`rm -f ~/Library/Application\\ Support/Google/Chrome/Singleton*`)
-         → 用真实 Profile 启动 CDP Chrome
-③ 导航到论文 DOI 页面
-④ 在页面中找到 PDF 按钮/链接
-⑤ 使用 Fetch 拦截捕获 PDF
-
-#### IEEE 两步走策略（v1.0.1，已验证 6/6）
-
-```bash
-# 交互式：自动检测会话，无登录时弹出登录页
-python3 scripts/download_via_ieee.py --papers DOI1,DOI2 --port 9223
-
-# 从文件读取 DOI 列表
-python3 scripts/download_via_ieee.py dois.txt --output paper-temp/
-
-# 其他命令
-python3 scripts/download_via_ieee.py --check-session --port 9223   # 检查会话
-python3 scripts/download_via_ieee.py --login --port 9223           # 打开登录页
-python3 scripts/download_via_ieee.py --skip-session-check ...      # 跳过检查（调试用）
-```
-
-```
-Step A（首选，v1.0.1）：
-  ① 导航到文章页 ieeexplore.ieee.org/document/{arnumber}
-  ② 等待 8s SPA 渲染
-  ③ 提取 PDF 按钮的 stamp URL（分层选择器，不点击，只读 href）
-  ④ 关闭文章页标签页
-  ⑤ 创建新空白标签页 → 先启用 Fetch.enable → 再 Page.navigate 到 stamp URL
-     （关键：Fetch 必须在导航之前启用，否则 PDF 被 Chrome 查看器消费后捕获不到）
-  ⑥ 导航时带 Referrer（文章页 URL，IEEE 校验 Referer，缺失则 denyReason=-501）
-  ⑦ 在 Fetch.requestPaused 中检查 content-type=application/pdf
-  ⑧ 调用 Fetch.getResponseBody 获取原始 PDF 字节（超时 30s，适配大 PDF）
-
-Step B（回退，v1.0.1）：
-  ① 直接尝试 stamp/stamp.jsp?tp=&arnumber=XXXXX（带 Referrer）
-  ② 若失败，试 stampPDF/getPDF.jsp?tp=&arnumber=XXXXX（带 Referrer）
-
-失败信号：
-  - getPDF 重定向到 document/{arnumber}?denied= → 机构订阅未覆盖此论文
-  - Step A NO_BUTTON → 页面未渲染 PDF 按钮（通常需机构登录）
-
-前置条件：
-  - IEEE 不支持纯 IP 认证下载 PDF，必须通过 SSO/Shibboleth 登录。
-  - 首次使用需在 CDP Chrome 窗口中点击 "Institutional Sign In" → 选择机构 → SSO。
-  - 登录会话在 Chrome 关闭前保持有效，重启后需重新登录。
-```
-
-详见 `references/publisher-access-matrix.md` 中的「CDP 通用方案」和「出版商适配经验」章节，记录了各出版商的 PDF URL 模式和注意事项。
-#### Cookie 诊断（关键步骤）
-
-在尝试下载前，先通过内置命令检查是否有机构会话：
-
-```bash
-# 快速检查会话状态
-python3 scripts/download_via_ieee.py --check-session --port 9223
-```
-
-或手动诊断：
-
-```python
-import json, urllib.request, websocket
-wu = json.loads(urllib.request.urlopen(
-    'http://127.0.0.1:9223/json/version').read())['webSocketDebuggerUrl']
-ws = websocket.create_connection(wu, timeout=10)
-ws.send(json.dumps({'id':1,'method':'Network.getAllCookies'}))
-cookies = None
-while True:
-    msg = json.loads(ws.recv())
-    if msg.get('id') == 1:
-        cookies = msg['result']['cookies']
-        break
-pubs = ['ieee','wiley','aip','asme','springer','nature','sciencedirect','elsevier']
-pc = sum(1 for c in cookies if any(p in c.get('domain','') for p in pubs))
-print(f'出版商Cookie: {pc} | 总Cookie: {len(cookies)}')
-```
-
-若结果为 `出版商Cookie: 0`，原因及处理：
-- **最常见：CDP Chrome 使用隔离的临时 Profile**（如 `/tmp/chrome_scidownload`）—— 用户在日常 Chrome 中完成的登录不共享到 CDP 浏览器
-- 需要**在 CDP 浏览器窗口中**完成机构登录，或切换为用户的真实 Chrome Profile
-- **注意：IEEE 不支持纯 IP 认证下载 PDF，必须通过 SSO/Shibboleth 登录。**
-
-### 第四轮：多出版商 CDP 下载（Wiley / AIP / ASME / Springer / RSC 等）
-
-第一至三轮未覆盖的其他出版商论文，采用通用 CDP Fetch 拦截方案。
-详见 `references/publisher-access-matrix.md` 中的「CDP 通用方案」和「出版商适配经验」章节。
+1. **默认所有论文都有访问权限，下不到是策略问题，不是权限问题。**
+2. **`Fetch.enable` 必须在 `Page.navigate` 之前调用**（IEEE v1.0.1 验证）——否则 Chrome PDF 查看器消费响应体导致捕获失败。
+3. **双浏览器并行可翻倍速度但需隔离标签页。** Chrome 和 Edge 各自独立标签页上下文。
 
 ---
 
@@ -1537,6 +1438,9 @@ Step 6e 综述矩阵 ──→ Step 7 论文写作
 | `scripts/batch_read_pdfs.py` | 8 | 批量提取 PDF 全文文本（默认 6 进程，自动切换 A/B 方案） |
 | `scripts/download_via_scihub.py` | 5 | Sci-Hub CDP 下载（镜像站自动检测，`--mirror`/`--skip-test` 参数） |
 | `scripts/download_via_ieee.py` | 5 | IEEE CDP 两步走下载（v1.0.1：提取 stamp URL → Fetch 预启用 + Referrer 捕获 + 交互式登录 / 带 # --skip-session-check | Step A: 提取 stamp URL → 新标签 Fetch 预启用捕获 | Step B: 直连 getPDF + Referrer） |
+| `scripts/generic_publisher_downloader.py` | 5 | **NEW** 通用 CDP 下载引擎（策略A 直连PDF URL → 策略B 文章页CSS选择器提取，24家出版社配置） | ✅ |
+| `scripts/unified_download_router.py` | 5 | **NEW** 统一下载路由入口（DOI → Sci-Hub / SD CDP / IEEE CDP / Generic CDP 自动分流） | ✅ |
+| `config/publishers.toml` | 5 | **NEW** 集中式出版社知识库（URL模板 + CSS选择器 + 屏障检测规则） | — |
 | `scripts/batch_resolve_pii.py` | 5 | DOI → PII 解析（BibTeX / Markdown / 纯文本，自动检测格式） | ✅ |
 | `scripts/parallel_sd_download.py` | 5 | 双浏览器并行下载（混合策略：直连+文章页提取），引用 `sd_download.py` | ✅ |
 | `scripts/auto_sd_downloader.py` | 5 | 全自动版：启停浏览器 + 断点续跑 + 混合策略（引用 `sd_download.py`）| ✅ |

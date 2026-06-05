@@ -214,3 +214,38 @@ else:
 | **Springer** | 导航到 `link.springer.com/chapter/{doi}` | 需页面中提取 | 书章节可能需单独购买权限。 |
 | **RSC** | 导航到 `pubs.rsc.org/...` | 需机构会话 | HTTP 直连失败。 |
 | **SSRN** | 导航到 `papers.ssrn.com/sol3/papers.cfm?abstract_id=...` | 直连 | 预印本，但 HTTP 直连可能超时。 |
+
+## v3.0 统一路由架构（Unified Download Router）
+
+自 v3.0 起，所有 DOI 通过 `unified_download_router.py` 统一入口下载，自动路由到最佳策略。
+
+### 路由逻辑
+
+```
+DOI
+ ├─ 2021年前 → Sci-Hub CDP (download_via_scihub.py)
+ ├─ 10.1016/ → SD CDP (auto_sd_downloader.py, 96%)
+ ├─ 10.1109/ → IEEE CDP (download_via_ieee.py, 100% with SSO)
+ ├─ 10.3390/ → SKIP (MDPI: Akamai 封锁)
+ ├─ 10.3389/ → Direct HTTP (Frontiers OA)
+ └─ 其他    → Generic CDP (generic_publisher_downloader.py)
+     ├─ 策略A: Direct PDF URL 模板 (最快)
+     │  ACS/Wiley/Springer/Nature/Science/PNAS/IOP/APS
+     └─ 策略B: 文章页 CSS 选择器提取 (策略A失败时)
+        AIP/AVS/RSC/T&F/OSA/ECS/CCS 等
+```
+
+### Generic CDP 核心实现
+
+`generic_publisher_downloader.py` 将 ref-downloader 的 17+ Playwright 策略翻译为 CDP websocket 操作：
+
+- **策略A (Direct PDF URL):** 使用出版商特定的直连 PDF URL 模板（如 `pubs.acs.org/doi/pdf/{doi}`），通过 `Fetch.enable → Page.navigate` 模式捕获（复用 IEEE v1.0.1 验证过的方案）
+- **策略B (Article Page Extraction):** 导航到文章页 → `Runtime.evaluate` 提取 PDF 按钮的 href → 同上 Fetch 捕获
+- **AIP/AVS 加载页处理:** 检测 `请稍候` 标题 → 等待最多30s → 页面就绪后继续
+- **屏障检测:** Cloudflare/Radware/captcha/login wall 自动识别，返回明确状态而非静默失败
+- **SI 下载:** 支持 ACS/Wiley/Springer/RSC 的辅助材料下载
+
+### 出版社配置
+
+所有策略数据（URL 模板、CSS 选择器、屏障检测规则）集中在 `config/publishers.toml`。
+新增出版商只需添加配置段落，无需改代码。

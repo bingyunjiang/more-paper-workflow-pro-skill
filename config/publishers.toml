@@ -1,0 +1,464 @@
+# Publisher Download Strategy Configuration
+# ==========================================
+# Single source of truth for all publisher-specific PDF download knowledge.
+# Used by generic_publisher_downloader.py and unified_download_router.py.
+#
+# Strategy types:
+#   sd_cdp      → Use existing sd_download.py (96% success, dedicated infrastructure)
+#   ieee_cdp    → Use existing download_via_ieee.py (100% with SSO)
+#   generic     → Use generic_publisher_downloader.py (strategy A → B fallback)
+#   direct_http → Standard urllib download (OA journals, no auth needed)
+#   scihub_only → Only Sci-Hub works for this publisher (post-2021 papers may miss)
+#   skip        → Known impossible to automate (Akamai/Cloudflare without fallback)
+
+
+# =============================================================================
+# ROUTED PUBLISHERS (dedicated scripts, preserved unchanged)
+# =============================================================================
+
+[publishers.sd_elsevier]
+doi_prefixes = ["10.1016/"]
+strategy = "sd_cdp"
+requires_auth = "ip_or_sso"
+notes = "ScienceDirect CDP. 96% success (180/185). Requires PII resolution first."
+
+[publishers.ieee]
+doi_prefixes = ["10.1109/"]
+strategy = "generic"
+pdf_url_requires_referrer = true
+selectors = [
+    "a[href*=\"/stamp/\"]",
+    "a.stats-document-lh-action-downloads-PDF",
+    "a:has-text(\"PDF\")",
+    "button:has-text(\"PDF\")",
+]
+requires_auth = "sso"
+publisher_domain = "ieeexplore.ieee.org"
+notes = "Generic CDP via Strategy B (article page → stamp URL extraction → getPDF.jsp capture). Dedicated download_via_ieee.py available as fallback for interactive SSO login flow."
+
+
+# =============================================================================
+# SKIP PUBLISHERS (known impossible to automate)
+# =============================================================================
+
+[publishers.mdpi]
+doi_prefixes = ["10.3390/"]
+strategy = "skip"
+requires_auth = "none"
+notes = "MDPI: Akamai Bot Manager on CDN blocks all automation. Manual browser download only."
+
+
+# =============================================================================
+# DIRECT HTTP PUBLISHERS (OA, no auth needed)
+# =============================================================================
+
+[publishers.frontiers]
+doi_prefixes = ["10.3389/"]
+strategy = "direct_http"
+pdf_url_template = "https://www.frontiersin.org/articles/{doi}/pdf"
+requires_auth = "none"
+publisher_domain = "www.frontiersin.org"
+notes = "Open Access. Direct HTTP download works."
+
+
+# =============================================================================
+# GENERIC CDP PUBLISHERS (new generic_publisher_downloader.py)
+# =============================================================================
+
+# --- ACS Publications ---
+[publishers.acs]
+doi_prefixes = ["10.1021/"]
+strategy = "generic"
+pdf_url_template = "https://pubs.acs.org/doi/pdf/{doi}"
+article_url_template = "https://pubs.acs.org/doi/{doi}"
+selectors = [
+    "a[href*=\"/doi/pdf/\"]",
+    "a[title*=\"PDF\"]",
+    "a[href*=\"pdf\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+]
+si_selectors = [
+    "a[href*=\"/doi/suppl/\"]",
+    "a[href*=\"suppl_file\"]",
+    "a[href*=\"supporting\"]",
+]
+requires_auth = "institution"
+publisher_domain = "pubs.acs.org"
+
+# --- Wiley ---
+[publishers.wiley]
+doi_prefixes = ["10.1002/"]
+strategy = "generic"
+pdf_url_template = "https://onlinelibrary.wiley.com/doi/pdfdirect/{doi}"
+article_url_template = "https://onlinelibrary.wiley.com/doi/{doi}"
+selectors = [
+    "a.pdf-download",
+    "a[href*=\"pdfdirect\"]",
+    "a[href*=\"/doi/pdf/\"]",
+    "a[href*=\"/doi/epdf/\"]",
+    "a[title*=\"PDF\"]",
+    "a:has-text(\"Download PDF\")",
+    "a:has-text(\"PDF\")",
+]
+si_selectors = [
+    "a[href*=\"downloadSupplement\"]",
+    "a[href*=\"supplementary\"]",
+    "a[href*=\"/suppl\"]",
+]
+requires_auth = "institution"
+publisher_domain = "onlinelibrary.wiley.com"
+known_issues = "cloud-reader captures empty via Fetch; prefer pdfdirect URL (strategy A)"
+
+# --- RSC (Royal Society of Chemistry) ---
+[publishers.rsc]
+doi_prefixes = ["10.1039/"]
+strategy = "generic"
+article_url_template = "https://pubs.rsc.org/en/content/articlelanding/{doi}"
+selectors = [
+    "a[href*=\"articlepdf\"]",
+    "a.btn--pdf",
+    "a[href*=\"/pdf/\"]",
+    "a:has-text(\"Article PDF\")",
+    "a:has-text(\"PDF\")",
+]
+si_selectors = [
+    "a[href*=\"suppdata\"]",
+    "a[href*=\"supplementary\"]",
+    "a[href*=\"ESI\"]",
+]
+requires_auth = "institution"
+publisher_domain = "pubs.rsc.org"
+
+# --- Springer ---
+[publishers.springer]
+doi_prefixes = ["10.1007/", "10.1147/"]
+strategy = "generic"
+pdf_url_template = "https://link.springer.com/content/pdf/{doi}.pdf"
+article_url_template = "https://link.springer.com/article/{doi}"
+selectors = [
+    "a[data-track-action*=\"pdf\"]",
+    "a[href*=\"content/pdf\"]",
+    "a[href*=\"/pdf/\"]",
+    "a:has-text(\"Download PDF\")",
+    "a:has-text(\"PDF\")",
+]
+si_selectors = [
+    "a[href*=\"esm\"]",
+    "a[href*=\"supplementary\"]",
+    "a[href*=\"/MediaObjects/\"]",
+]
+requires_auth = "institution"
+publisher_domain = "link.springer.com"
+known_issues = "book chapters may need separate institutional purchase"
+
+# --- Nature (Springer Nature) ---
+[publishers.nature]
+doi_prefixes = ["10.1038/"]
+strategy = "generic"
+pdf_url_template = "https://www.nature.com/articles/{slug}.pdf"
+article_url_template = "https://www.nature.com/articles/{slug}"
+selectors = [
+    "a.c-pdf-download__link",
+    "a[data-track-action=\"download pdf\"]",
+    "a[href$=\".pdf\"]",
+    "div.c-pdf-download a",
+    "a:has-text(\"Download PDF\")",
+    "a:has-text(\"PDF\")",
+]
+si_selectors = [
+    "a[href*=\"supplementary\"]",
+    "a[href*=\"esm\"]",
+]
+requires_auth = "institution"
+publisher_domain = "www.nature.com"
+notes = "Many Nature journals are OA. The {slug} in URL templates is derived from the DOI suffix (dots stripped). Non-OA papers need institutional auth."
+
+# --- Science (AAAS) ---
+[publishers.science]
+doi_prefixes = ["10.1126/"]
+strategy = "generic"
+pdf_url_template = "https://www.science.org/doi/pdf/{doi}"
+article_url_template = "https://www.science.org/doi/{doi}"
+selectors = [
+    "a[href*=\"/doi/pdf/\"]",
+    "a[href*=\"epdf\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+]
+si_selectors = [
+    "a[href*=\"suppl\"]",
+    "a[href*=\"SM\"]",
+]
+requires_auth = "institution"
+publisher_domain = "www.science.org"
+
+# --- PNAS ---
+[publishers.pnas]
+doi_prefixes = ["10.1073/"]
+strategy = "generic"
+pdf_url_template = "https://www.pnas.org/doi/pdf/{doi}"
+article_url_template = "https://www.pnas.org/doi/{doi}"
+selectors = [
+    "a[href*=\"/doi/pdf/\"]",
+    "a[href$=\".pdf\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+]
+requires_auth = "institution"
+publisher_domain = "www.pnas.org"
+
+# --- APS (American Physical Society) ---
+[publishers.aps]
+doi_prefixes = ["10.1103/"]
+strategy = "generic"
+article_url_template = "https://journals.aps.org/{slug}/abstract/{doi}"
+selectors = [
+    "a[href*=\"/pdf/\"]",
+    "a[title*=\"PDF\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+]
+requires_auth = "institution"
+publisher_domain = "journals.aps.org"
+notes = "APS journals use slug-based URLs. The {slug} is resolved from the DOI redirect. APS journal slugs: PhysRevLett→prl, PhysRevB→prb, PhysRevX→prx, RevModPhys→rmp, etc."
+
+# --- IOP Publishing ---
+[publishers.iop]
+doi_prefixes = ["10.1088/", "10.1143/"]
+strategy = "generic"
+pdf_url_template = "https://iopscience.iop.org/article/{doi}/pdf"
+article_url_template = "https://iopscience.iop.org/article/{doi}"
+selectors = [
+    "a[href$=\"/pdf\"]",
+    "a[href*=\"/article/\"][href*=\"/pdf\"]",
+    "a:has-text(\"Full Text PDF\")",
+    "a:has-text(\"Download article PDF\")",
+    "a:has-text(\"PDF\")",
+]
+requires_auth = "institution"
+publisher_domain = "iopscience.iop.org"
+
+# --- AIP Publishing ---
+[publishers.aip]
+doi_prefixes = ["10.1063/"]
+strategy = "generic"
+article_url_template = "https://pubs.aip.org/aip/{slug}/article-abstract/{doi}"
+selectors = [
+    "a[href*=\"/pdf/\"]",
+    "a[data-article-url*=\"pdf\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+    "button:has-text(\"PDF\")",
+    "a[href*=\".pdf\"]",
+]
+requires_auth = "institution"
+publisher_domain = "pubs.aip.org"
+known_issues = "Chinese loading page '请稍候' may appear before content loads. Detected and waited (up to 30s)."
+
+# --- AVS (American Vacuum Society) ---
+[publishers.avs]
+doi_prefixes = ["10.1116/"]
+strategy = "generic"
+# AVS is hosted on pubs.aip.org (same platform as AIP)
+article_url_template = "https://pubs.aip.org/avs/{slug}/article-abstract/{doi}"
+selectors = [
+    "a[href*=\"/pdf/\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+    "button:has-text(\"PDF\")",
+]
+requires_auth = "institution"
+publisher_domain = "pubs.aip.org"
+known_issues = "Shares AIP platform. Same Chinese loading page behavior."
+
+# --- ECS (Electrochemical Society) ---
+[publishers.ecs]
+doi_prefixes = ["10.1149/"]
+strategy = "generic"
+pdf_url_template = "https://iopscience.iop.org/article/{doi}/pdf"
+article_url_template = "https://iopscience.iop.org/article/{doi}"
+selectors = [
+    "a[href$=\"/pdf\"]",
+    "a[href*=\"/article/\"][href*=\"/pdf\"]",
+    "a:has-text(\"Full Text PDF\")",
+    "a:has-text(\"Download article PDF\")",
+    "a:has-text(\"PDF\")",
+]
+requires_auth = "institution"
+publisher_domain = "iopscience.iop.org"
+notes = "ECS Digital Library has a Radware barrier. IOP family routing shared with ecs/iop."
+
+# --- OSA / Optica Publishing Group ---
+[publishers.osa]
+doi_prefixes = ["10.1364/"]
+strategy = "generic"
+selectors = [
+    "a[href*=\"viewmedia\"]",
+    "a[href*=\"/pdf\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+]
+requires_auth = "institution"
+publisher_domain = "opg.optica.org"
+
+# --- Taylor & Francis ---
+[publishers.tandf]
+doi_prefixes = ["10.1080/"]
+strategy = "generic"
+selectors = [
+    "a[href*=\"/doi/pdf/\"]",
+    "a[href*=\"download?\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+]
+si_selectors = [
+    "a[href*=\"/doi/suppl/\"]",
+    "a[href*=\"supplementary\"]",
+]
+requires_auth = "institution"
+publisher_domain = "www.tandfonline.com"
+
+# --- Annual Reviews ---
+[publishers.annual_reviews]
+doi_prefixes = ["10.1146/"]
+strategy = "generic"
+article_url_template = "https://www.annualreviews.org/content/journals/{doi}"
+selectors = [
+    "a[href*=\"/doi/pdf/\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+]
+requires_auth = "institution"
+publisher_domain = "www.annualreviews.org"
+
+# --- Beilstein ---
+[publishers.beilstein]
+doi_prefixes = ["10.3762/"]
+strategy = "generic"
+selectors = [
+    "a[href*=\"/downloads/pdf/\"]",
+    "a[href*=\".pdf\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+]
+requires_auth = "none"
+publisher_domain = "www.beilstein-journals.org"
+notes = "Open access. Usually works via direct URL."
+
+# --- CCS Chemistry ---
+[publishers.ccs]
+doi_prefixes = ["10.31635/"]
+strategy = "generic"
+selectors = [
+    "a[href*=\".pdf\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+]
+requires_auth = "institution"
+publisher_domain = "www.chinesechemsoc.org"
+known_issues = "Site behind Cloudflare. May need manual verification. Generic CDP may be blocked."
+
+# --- Korean Physical Society ---
+[publishers.kps]
+doi_prefixes = ["10.3938/"]
+strategy = "generic"
+selectors = [
+    "a[href*=\".pdf\"]",
+    "a:has-text(\"PDF\")",
+]
+requires_auth = "institution"
+publisher_domain = "www.jkps.or.kr"
+
+# --- ASME ---
+[publishers.asme]
+doi_prefixes = ["10.1115/"]
+strategy = "generic"
+article_url_template = "https://asmedigitalcollection.asme.org/{slug}/article-abstract/{doi}"
+selectors = [
+    "a[href*=\"/pdf/\"]",
+    "a[title*=\"PDF\"]",
+    "a:has-text(\"PDF\")",
+    "a:has-text(\"Download PDF\")",
+]
+requires_auth = "institution"
+publisher_domain = "asmedigitalcollection.asme.org"
+
+# --- SSRN ---
+[publishers.ssrn]
+doi_prefixes = ["10.2139/"]
+strategy = "generic"
+selectors = [
+    "a[href*=\".pdf\"]",
+    "a:has-text(\"Download\")",
+    "a:has-text(\"PDF\")",
+]
+requires_auth = "none"
+publisher_domain = "papers.ssrn.com"
+known_issues = "Preprints. HTTP direct may timeout. Try CDP browser."
+
+
+# =============================================================================
+# ACCESS BARRIER DETECTION (global, used by all generic strategies)
+# =============================================================================
+
+[barriers.cloudflare]
+title_patterns = [
+    "just a moment",
+    "attention required",
+    "checking your browser",
+    "verifying you are human",
+    "ddos protection",
+    "please wait",
+    "请稍候",
+    "challenge",
+    "security check",
+    "access denied",
+]
+body_selectors = [
+    "div.cf-turnstile",
+    "#cf-challenge-running",
+    ".cf-browser-verification",
+    "#challenge-form",
+    "iframe[src*=\"challenge\"]",
+]
+url_patterns = [
+    "challenge",
+    "turnstile",
+    "captcha",
+]
+
+[barriers.radware]
+title_patterns = [
+    "radware bot manager captcha",
+    "bot manager",
+]
+body_selectors = []
+
+[barriers.captcha]
+detection_selectors = [
+    "iframe[src*=\"hcaptcha\"]",
+    "iframe[src*=\"recaptcha\"]",
+    "#px-captcha",
+    "iframe[src*=\"captcha\"]",
+    "div.g-recaptcha",
+]
+
+[barriers.login_wall]
+url_patterns = [
+    "/login",
+    "/signin",
+    "/sso",
+    "/auth",
+    "wayf",
+    "shibboleth",
+    "idp",
+]
+title_patterns = [
+    "sign in",
+    "log in",
+    "institutional access",
+    "authentication required",
+    "please sign in",
+    "single sign-on",
+]
