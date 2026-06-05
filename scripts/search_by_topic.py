@@ -35,6 +35,7 @@ Usage:
   # Verify DOIs from a file
   python3 search_by_topic.py --verify-dois dois.txt
 """
+import hashlib
 import json
 import urllib.request
 import urllib.parse
@@ -43,15 +44,71 @@ import sys
 import re
 import os
 
+# ── Semantic Cache ─────────────────────────────────────────────────────────
+
+CACHE_DIR = os.path.expanduser("~/.cache/more-paper-workflow/search_cache")
+CACHE_TTL_SECONDS = 7 * 24 * 3600  # 7 days
+CACHE_MAX_ENTRIES = 500
+
+
+def _cache_key(query, source, limit, strategy=""):
+    raw = f"{query}|{source}|{limit}|{strategy}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _cache_get(key):
+    cache_file = os.path.join(CACHE_DIR, key + ".json")
+    if not os.path.exists(cache_file):
+        return None
+    if time.time() - os.path.getmtime(cache_file) > CACHE_TTL_SECONDS:
+        try:
+            os.remove(cache_file)
+        except OSError:
+            pass
+        return None
+    try:
+        with open(cache_file, "r") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _cache_set(key, data):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    # LRU eviction
+    try:
+        cache_files = sorted(
+            [os.path.join(CACHE_DIR, f) for f in os.listdir(CACHE_DIR) if f.endswith(".json")],
+            key=os.path.getmtime,
+        )
+        while len(cache_files) >= CACHE_MAX_ENTRIES:
+            try:
+                os.remove(cache_files.pop(0))
+            except OSError:
+                break
+    except OSError:
+        pass
+    tmp = os.path.join(CACHE_DIR, key + ".tmp")
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, os.path.join(CACHE_DIR, key + ".json"))
+
 
 # ── API Search Functions ───────────────────────────────────────────────────
 
-def search_semantic_scholar(query, limit=20):
+def search_semantic_scholar(query, limit=20, use_cache=True):
     """Search Semantic Scholar API. Free, no key needed for basic search."""
+    if use_cache:
+        key = _cache_key(query, "semantic_scholar", limit)
+        cached = _cache_get(key)
+        if cached is not None:
+            print(f"  Semantic Scholar: cache hit ({len(cached)} results)", flush=True)
+            return cached
+
     params = urllib.parse.urlencode({
         "q": query,
         "limit": min(limit, 100),
-        "fields": "title,authors,externalIds,year,venue,citationCount,abstract"
+        "fields": "title,authors,externalIds,year,venue,citationCount,influentialCitationCount,abstract"
     })
     url = f"https://api.semanticscholar.org/graph/v1/paper/search?{params}"
     req = urllib.request.Request(url, headers={"User-Agent": "Hermes/1.0"})
@@ -71,17 +128,27 @@ def search_semantic_scholar(query, limit=20):
         venue = p.get("venue", "?")
         authors = [a.get("name", "?") for a in p.get("authors", [])]
         citations = p.get("citationCount", 0) or 0
+        influential_citations = p.get("influentialCitationCount", 0) or 0
         if doi:
             results.append({
                 "doi": doi, "title": title, "year": year, "venue": venue,
                 "authors": authors, "citations": citations,
+                "influential_citations": influential_citations,
                 "source": "semantic_scholar"
             })
+    if use_cache:
+        _cache_set(key, results)
     return results
 
 
-def search_crossref(query, limit=20):
+def search_crossref(query, limit=20, use_cache=True):
     """Search Crossref API. Free, generous rate limits."""
+    if use_cache:
+        key = _cache_key(query, "crossref", limit)
+        cached = _cache_get(key)
+        if cached is not None:
+            print(f"  Crossref: cache hit ({len(cached)} results)", flush=True)
+            return cached
     params = urllib.parse.urlencode({
         "query.title": query,
         "rows": min(limit, 100),
@@ -120,11 +187,19 @@ def search_crossref(query, limit=20):
                 "authors": authors, "citations": 0,
                 "source": "crossref"
             })
+    if use_cache:
+        _cache_set(key, results)
     return results
 
 
-def search_openalex(query, limit=20):
+def search_openalex(query, limit=20, use_cache=True):
     """Search OpenAlex API. Free, no key needed."""
+    if use_cache:
+        key = _cache_key(query, "openalex", limit)
+        cached = _cache_get(key)
+        if cached is not None:
+            print(f"  OpenAlex: cache hit ({len(cached)} results)", flush=True)
+            return cached
     params = urllib.parse.urlencode({
         "search": query,
         "per_page": min(limit, 50),
@@ -161,6 +236,8 @@ def search_openalex(query, limit=20):
                 "authors": authors, "citations": citations,
                 "source": "openalex"
             })
+    if use_cache:
+        _cache_set(key, results)
     return results
 
 
@@ -177,6 +254,117 @@ SOURCE_ALIASES = {
     "cr": "crossref",
     "oa": "openalex",
 }
+
+
+# ── Citation Network Expansion ─────────────────────────────────────────────
+
+def fetch_citation_network(doi, refs_limit=30, cited_by_limit=50, existing_dois=None):
+    """Fetch forward (cited_by) and backward (references) citations for a DOI.
+
+    Uses OpenAlex API to resolve the DOI to a work ID, then fetches the
+    citation network in both directions.
+
+    Args:
+        doi: DOI string (with or without 'https://doi.org/' prefix).
+        refs_limit: Max backward references to fetch (default: 30).
+        cited_by_limit: Max forward citations to fetch (default: 50).
+        existing_dois: set of DOIs to exclude from results (already in KG).
+
+    Returns:
+        List of flat paper dicts (same format as search functions) with
+        source="openalex_citation_network".
+    """
+    existing_dois = existing_dois or set()
+    doi_clean = doi.strip().replace("https://doi.org/", "")
+
+    # Step 1: Resolve DOI to OpenAlex work ID
+    resolve_url = f"https://api.openalex.org/works/doi:{urllib.parse.quote(doi_clean)}"
+    req = urllib.request.Request(resolve_url, headers={"User-Agent": "Hermes/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            work = json.loads(resp.read())
+    except Exception as e:
+        print(f"  citation-network: DOI resolve error for {doi_clean} — {e}", flush=True)
+        return []
+
+    oa_id = work.get("id", "")
+    if not oa_id:
+        print(f"  citation-network: no OpenAlex ID for {doi_clean}", flush=True)
+        return []
+
+    # Remove https://openalex.org/ prefix to get clean ID for filter
+    oa_id_clean = oa_id.replace("https://openalex.org/", "")
+
+    results = []
+
+    # Step 2: Fetch backward references (papers THIS paper cites)
+    refs_url = (
+        f"https://api.openalex.org/works"
+        f"?filter=cites:{oa_id_clean}"
+        f"&per_page={min(refs_limit, 50)}"
+        f"&sort=cited_by_count:desc"
+    )
+    try:
+        with urllib.request.urlopen(
+            urllib.request.Request(refs_url, headers={"User-Agent": "Hermes/1.0"}),
+            timeout=15,
+        ) as resp:
+            refs_data = json.loads(resp.read())
+    except Exception as e:
+        print(f"  citation-network: refs fetch error — {e}", flush=True)
+        refs_data = {}
+
+    for p in refs_data.get("results", []):
+        p_doi = (p.get("doi") or "").replace("https://doi.org/", "")
+        if p_doi and p_doi not in existing_dois:
+            results.append(_openalex_work_to_dict(p, "openalex_citation_network"))
+
+    # Step 3: Fetch forward citations (papers that cite THIS paper)
+    cited_by_url = (
+        f"https://api.openalex.org/works"
+        f"?filter=cited_by:{oa_id_clean}"
+        f"&per_page={min(cited_by_limit, 50)}"
+        f"&sort=cited_by_count:desc"
+    )
+    try:
+        with urllib.request.urlopen(
+            urllib.request.Request(cited_by_url, headers={"User-Agent": "Hermes/1.0"}),
+            timeout=15,
+        ) as resp:
+            cited_data = json.loads(resp.read())
+    except Exception as e:
+        print(f"  citation-network: cited_by fetch error — {e}", flush=True)
+        cited_data = {}
+
+    for p in cited_data.get("results", []):
+        p_doi = (p.get("doi") or "").replace("https://doi.org/", "")
+        if p_doi and p_doi not in existing_dois:
+            results.append(_openalex_work_to_dict(p, "openalex_citation_network"))
+
+    return results
+
+
+def _openalex_work_to_dict(p, source_label):
+    """Convert an OpenAlex work JSON object to a flat paper dict."""
+    doi = (p.get("doi") or "").replace("https://doi.org/", "")
+    title = p.get("title", "?")
+    year = p.get("publication_year", "?")
+    venue = (p.get("primary_location") or {}).get("source", {}).get("display_name", "?")
+    authors = []
+    for a in p.get("authorships", []):
+        name = (a.get("author") or {}).get("display_name", "")
+        if name:
+            authors.append(name)
+    citations = p.get("cited_by_count", 0) or 0
+    return {
+        "doi": doi,
+        "title": title,
+        "year": year,
+        "venue": venue,
+        "authors": authors,
+        "citations": citations,
+        "source": source_label,
+    }
 
 
 # ── Boolean Query Builder (v3.0) ─────────────────────────────────────────────
@@ -334,6 +522,15 @@ def preflight():
         print("All endpoints reachable.")
     else:
         print("Some endpoints unreachable — check network/proxy.")
+
+    # Cache status
+    cache_count = 0
+    if os.path.isdir(CACHE_DIR):
+        try:
+            cache_count = len([f for f in os.listdir(CACHE_DIR) if f.endswith(".json")])
+        except OSError:
+            pass
+    print(f"Cache: {cache_count} entries in {CACHE_DIR}")
     return all_ok
 
 
@@ -517,6 +714,8 @@ def export_bibtex(results, output_path, tier_map=None):
         if doi in tier_map:
             note_parts.append(tier_map[doi])
         note_parts.append(f"source: {source}")
+        if r.get("influential_citations"):
+            note_parts.append(f"influential_citations: {r['influential_citations']}")
         note = " | ".join(note_parts)
 
         entry_type = "article"
@@ -797,6 +996,18 @@ Examples:
     # Pre-flight mode
     parser.add_argument("--preflight", action="store_true", help="Run API health check and exit")
 
+    # Citation network mode
+    parser.add_argument("--citation-network", metavar="DOI",
+                        help="Fetch citation network (forward+backward) for a given DOI via OpenAlex")
+    parser.add_argument("--refs-limit", type=int, default=30,
+                        help="Max backward references for --citation-network (default: 30)")
+    parser.add_argument("--cited-by-limit", type=int, default=50,
+                        help="Max forward citations for --citation-network (default: 50)")
+    parser.add_argument("--existing-dois", help="File of DOIs to exclude from citation network results")
+
+    # Cache control
+    parser.add_argument("--no-cache", action="store_true", help="Bypass semantic cache for fresh results")
+
     # Scoring
     parser.add_argument("--score", action="store_true", help="Auto-score results with heuristics")
 
@@ -819,6 +1030,55 @@ Examples:
     # ── Verify mode ──
     if args.verify_dois:
         verify_dois_from_file(args.verify_dois)
+        sys.exit(0)
+
+    # ── Citation network mode ──
+    if args.citation_network:
+        existing_dois = set()
+        if args.existing_dois:
+            try:
+                with open(args.existing_dois, "r") as f:
+                    for line in f:
+                        doi_match = re.search(r'10\.\d{4,}/[^\s"\'},\]]+', line)
+                        if doi_match:
+                            existing_dois.add(
+                                doi_match.group(0)
+                                .replace("https://doi.org/", "")
+                                .lower()
+                                .strip()
+                            )
+            except Exception as e:
+                print(f"Warning: could not read existing DOIs file: {e}", file=sys.stderr)
+
+        print(f"Citation network for: {args.citation_network}", flush=True)
+        print(f"  refs_limit={args.refs_limit}, cited_by_limit={args.cited_by_limit}, "
+              f"existing_dois={len(existing_dois)}", flush=True)
+
+        results = fetch_citation_network(
+            args.citation_network,
+            refs_limit=args.refs_limit,
+            cited_by_limit=args.cited_by_limit,
+            existing_dois=existing_dois,
+        )
+
+        # Auto-score if keywords provided
+        if args.score or args.keywords:
+            keywords = []
+            if args.keywords:
+                keywords = [k.strip() for k in args.keywords.split(",")]
+            score_results(results, keywords)
+
+        # Output
+        if args.export_bib:
+            export_bibtex(results, args.export_bib)
+        elif args.output:
+            with open(args.output, "w") as f:
+                json.dump(results, f, indent=2, ensure_ascii=False)
+            print(f"Saved {len(results)} citation network papers to {args.output}", flush=True)
+        else:
+            for r in results:
+                print(json.dumps(r, ensure_ascii=False))
+        print(f"\nCitation network complete: {len(results)} new papers found", flush=True)
         sys.exit(0)
 
     # ── v3.0 Boolean query mode ──
@@ -848,7 +1108,7 @@ Examples:
                 query_str = query_params.pop("q", query_params.pop("search", args.query))
 
                 print(f"  [{sq_id}:{strat}] {source_canon}: {query_str[:80]}...", flush=True)
-                results = SOURCE_FUNCTIONS[source_canon](query_str, args.limit)
+                results = SOURCE_FUNCTIONS[source_canon](query_str, args.limit, use_cache=not args.no_cache)
                 print(f"  [{sq_id}:{strat}] {source_canon}: {len(results)} results", flush=True)
                 # Tag results with sub-query ID and strategy
                 for r in results:
@@ -879,7 +1139,7 @@ Examples:
                     continue
 
                 print(f"  [{label}] Querying {src_canon}...", flush=True)
-                results = SOURCE_FUNCTIONS[src_canon](args.query, args.limit)
+                results = SOURCE_FUNCTIONS[src_canon](args.query, args.limit, use_cache=not args.no_cache)
                 print(f"  [{label}] {src_canon}: {len(results)} results", flush=True)
                 all_results.extend(results)
 
@@ -891,13 +1151,13 @@ Examples:
             # Legacy mode: --source
             if args.source in ("semantic", "semantic_scholar", "all"):
                 print("  Querying Semantic Scholar...", flush=True)
-                all_results.extend(search_semantic_scholar(args.query, args.limit))
+                all_results.extend(search_semantic_scholar(args.query, args.limit, use_cache=not args.no_cache))
             if args.source in ("crossref", "all"):
                 print("  Querying Crossref...", flush=True)
-                all_results.extend(search_crossref(args.query, args.limit))
+                all_results.extend(search_crossref(args.query, args.limit, use_cache=not args.no_cache))
             if args.source in ("openalex", "all"):
                 print("  Querying OpenAlex...", flush=True)
-                all_results.extend(search_openalex(args.query, args.limit))
+                all_results.extend(search_openalex(args.query, args.limit, use_cache=not args.no_cache))
 
     # Deduplicate
     unique = deduplicate(all_results)

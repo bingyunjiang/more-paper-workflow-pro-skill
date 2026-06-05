@@ -9,6 +9,7 @@
 执行本步骤前，必须确认以下文件已加载：
 
 - [ ] `agents/step_2_outline.md` — 大纲关键词（章节结构 + 关键词清单）
+- [ ] `agents/step_1_topic.md` — 🆕 Tier 元数据（检索深度：quick/standard/deep）
 - [ ] `references/search-query-frameworks.md` — 检索查询框架参考（概念块布尔模型 + PICO + 反模式清单）
 - [ ] `references/term_aliases.md` — 🆕 术语标准化映射（确保查询用词与大纲一致）
 - [ ] `references/error_log.md` — 已知错误及修复规则
@@ -121,9 +122,23 @@ Step 2 产出（大纲关键词.md）
 ```
 L1  OpenAlex         ← 全学科覆盖最广（2.5 亿+），默认首选
 L2  Semantic Scholar ← CS 交叉子领域并行，传统工科回退
+L2  arXiv (条件触发)  ← 🆕 仅 CS/AI 跨域信号时启用（T-0~T-4 新鲜度窗口）
 L3  PubMed           ← 仅医工交叉启用
 L3  CNKI / 万方       ← 中文文献手动补充
 ```
+
+**🆕 arXiv 触发条件：**
+
+| 信号 | 触发 arXiv? | 说明 |
+|------|:----------:|------|
+| 查询含 "machine learning" / "deep learning" / "neural network" / "transformer" | ✅ YES | CS/AI 核心术语 |
+| 查询含 "computer vision" / "NLP" / "reinforcement learning" / "large language model" | ✅ YES | CS 子领域 |
+| 查询含 "AI" / "artificial intelligence" / "LLM" / "GPT" / "graph neural" | ✅ YES | AI 通用术语 |
+| 用户明确要求"最新预印本" / "arXiv" / "preprint" | ✅ YES | 显式要求 |
+| 传统工科（机械/电气/土木/材料/化工）且无上述信号 | ❌ NO | 默认跳过 |
+| 医工交叉 | ❌ NO | PubMed 覆盖 |
+
+**触发时**：在检索方案中写入 `arxiv_enabled: true` + arXiv 查询命令。**未触发时**：写入 `arxiv_enabled: false`。
 
 ### 3d. 多策略检索
 
@@ -136,6 +151,18 @@ L3  CNKI / 万方       ← 中文文献手动补充
 | **By recency** | `sort=publication_date:desc` | 最新发表 |
 
 > 同一篇论文出现在 ≥2 条策略线中 → 提升最终评分的「主题匹配度」维度。
+
+### 3e. Tier-driven 检索参数配置 🆕
+
+> 从 Step 1e 的 `研究主题.md` YAML 元数据中读取 tier，自动配置检索深度。
+
+| Tier | limit/策略 | strategies | 补充策略 | 适用场景 |
+|------|:--------:|-----------|---------|---------|
+| Quick | 30 | relevance only | 无 | 快速摸底、博三冲刺 |
+| Standard（默认） | 50 | relevance + cited + recent | 无 | 一般文献检索、开题 |
+| Deep | 100 | relevance + cited + recent | + seminal cutoff + review type | 综述写作、深度研究 |
+
+**配置写入**：在检索方案的每个子课题中标注 `tier: quick|standard|deep`，Step 4 根据 tier 选择 `--limit` 值。
 
 ### Pre-flight 检查
 
@@ -152,6 +179,8 @@ python3 scripts/search_by_topic.py --preflight
 - [ ] AND 块数 ≤ 4
 - [ ] 反模式检查 7 项全部通过
 - [ ] L1→L2→L3 分层路由分配合理
+- [ ] 🆕 arXiv 触发条件已检测（arxiv_enabled: true/false）
+- [ ] 🆕 Tier 检索参数已配置（tier: quick/standard/deep）
 - [ ] 🆕 核心术语与 `references/term_aliases.md` 中 Main Term 一致
 - [ ] Pre-flight 检查已通过
 

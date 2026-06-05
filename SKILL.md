@@ -30,6 +30,14 @@ triggers:
   - "选题预审"
   - "选题创新性评估"
   - "审稿人视角评估选题"
+  # Step 1e: 检索深度
+  - "深度检索"
+  - "快速检索"
+  - "标准检索"
+  - "深度文献检索"
+  - "快速文献扫描"
+  - "comprehensive search"
+  - "quick literature scan"
   # Step 2: 大纲
   - "生成论文大纲"
   - "论文关键词"
@@ -51,6 +59,27 @@ triggers:
   - "搜索论文并下载"
   - "按检索方案执行多渠道文献检索，并进行相关性评分和分级"
   - "Execute the multi-source literature search and perform relevance scoring and grading"
+  # Step 4d: 饱和度曲线
+  - "饱和度曲线"
+  - "文献覆盖率"
+  - "文献饱和度"
+  - "discovery curve"
+  - "saturation analysis"
+  - "检索覆盖率"
+  # Step 4e: 引文扩展
+  - "引文扩展"
+  - "引文网络"
+  - "citation expansion"
+  - "citation network"
+  - "向前向后引用"
+  - "追溯引用"
+  - "参考文献扩展"
+  # Step 4f: PRISMA-S 日志
+  - "PRISMA"
+  - "PRISMA-S"
+  - "检索合规"
+  - "检索透明度"
+  - "search compliance"
   # Step 5: 统一批量下载
   - "批量下载"
   - "批量下载论文 PDF"
@@ -231,13 +260,19 @@ Step 1: 交互式确定研究主题（v2.0 增强版） → 研究主题.md
   ├─ 1a 研究阶段诊断    确认用户画像 + 推荐入口
   ├─ 1b 广度探索+预检索  发散子方向 → 文献量/趋势/gap初判
   ├─ 1c 深度聚焦        方法论深化 + 创新点预判
-  └─ 1d 选题预审        originality/importance/feasibility 三问
+  ├─ 1d 选题预审        originality/importance/feasibility 三问
+  └─ 1e 检索深度推断 🆕  auto tier: quick|standard|deep
 Step 2: 生成研究大纲与关键词        → 大纲关键词.md → 大纲关键词.pdf
-Step 3: 生成文献检索方案（L1→L2→L3分层路由+概念块布尔）→ 检索方案.md → 检索方案.pdf
-Step 4: 多渠道检索+评分（引文验证+.bib导出） → 检索文献表.md / .xlsx / .bib → 检索文献表.pdf
+Step 3: 生成文献检索方案（L1→L2→L3分层路由+概念块布尔+arXiv条件触发）→ 检索方案.md → 检索方案.pdf
+Step 4: 多渠道检索+评分+报告（4a-4h） → 检索文献表.md / .xlsx / .pdf / .bib
   ├─ 4a 引文验证    DOI有效性+元数据完整性
   ├─ 4b DOI去重     多源合并去重
-  └─ 4c .bib导出    统一BibTeX格式+评分标签
+  ├─ 4c 相关性评分   五维度 0-25 + rcs-rubric 启发
+  ├─ 4d 筛选标准     Tier 1-4 分级，T4 剔除
+  ├─ 4e 引文扩展 🆕  单轮1-hop/T1种子/内部评分闭环
+  ├─ 4f 饱和度曲线 🆕 全量 T1-T3 覆盖率估算
+  ├─ 4g 检索报告 🆕  统一交付物 .md+.xlsx+.pdf+.bib +饱和度+PRISMA
+  └─ 4h 完成 🆕      汇报 + 决策记录 + 转交 Step 5
 Step 5: 统一路由下载               → paper-temp/ PDFs
 Step 6: Zotero 文库管理              → zotero-架构.md + Zotero 桌面端 + 综述矩阵.csv
   ├─ 6a 生成架构    首次按大纲生成
@@ -272,7 +307,9 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 | "确定研究主题" / "厘清研究方向" / Step 1 相关触发词 | `agents/step_1_topic.md` | v2.0 增强版：阶段诊断→广度探索→深度聚焦→选题预审 |
 | "生成论文大纲" / "大纲评审" / Step 2 相关触发词 | `agents/step_2_outline.md` | 大纲生成 + 五维评审 + 导师视角 + 术语映射表 |
 | "制定检索方案" / Step 3 相关触发词 | `agents/step_3_search_plan.md` | L1→L2→L3 分层路由 + 概念块布尔 |
-| "检索论文" / Step 4 相关触发词 | `agents/step_4_search_score.md` | 多渠道检索 + 5 维评分 + 引文验证 |
+| "检索论文" / Step 4 相关触发词 | `agents/step_4_search_score.md` | 多渠道检索 + 5 维评分 + 引文验证 + 🆕 引文扩展/饱和度/检索报告 |
+| "饱和度曲线" / "discovery curve" | `agents/step_4_search_score.md` | 🆕 子步骤 4f：文献覆盖率估算 |
+| "引文扩展" / "citation network" | `agents/step_4_search_score.md` | 🆕 子步骤 4e：单轮 1-hop 引文网络扩展 |
 | "下载论文" / Step 5 相关触发词 | `agents/step_5_download.md` | 统一下载路由（Sci-Hub→SD→IEEE→Generic） |
 | "Zotero 文库整理" / Step 6 相关触发词 | `agents/step_6_zotero.md` | 架构生成 + PDF 导入 + 一致性调整 + 综述矩阵 + 期刊风格 |
 | "写论文" / Step 7 相关触发词 | `agents/step_7_writing.md` | 5 种写作模式 + 引用审计 + 图表生成 |
@@ -304,6 +341,7 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 |------|------|------|----------|------|
 | **Python 3.9+** | 运行所有脚本 | 全部 | 已有 | ✅ 必选 |
 | **websocket-client** | CDP 协议连接 Chrome/Edge | Step 5 | `pip install websocket-client` | ✅ 必选 |
+| **arxiv (>=2.1)** | arXiv API 检索（可选，仅 CS/AI 触发） | Step 4 | `pip install arxiv` | ⬜ 可选 |
 | **PyMuPDF (fitz)** | 提取 PDF 全文文本 | Step 8 | `pip install pymupdf` | ⬜ 可选 |
 | **python-docx** | 提取 .docx 文本 + 生成优化版大纲 | Step 2b/2c | `pip install python-docx` | ⬜ 可选 |
 | **fpdf2 (>=2.5.1)** | 生成中文 PDF 分析报告 | Step 2b/6d | `pip install fpdf2` | ⬜ 可选 |
@@ -315,7 +353,9 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 
 | 脚本 | 步骤 | 用途 |
 |------|------|------|
-| `scripts/search_by_topic.py` | 4 | 多渠道检索（Semantic Scholar / Crossref / OpenAlex） |
+| `scripts/search_by_topic.py` | 4 | 多渠道检索（Semantic Scholar / Crossref / OpenAlex）+ 🆕 引文网络 + 语义缓存 |
+| `scripts/discovery_curve.py` | 4d | 🆕 饱和度曲线估算 |
+| `scripts/arxiv_helper.py` | 4a | 🆕 arXiv 新鲜度检索（L2 条件触发） |
 | `scripts/unified_download_router.py` | 5 | 统一下载路由入口 |
 | `scripts/generic_publisher_downloader.py` | 5 | 通用 CDP 下载引擎 |
 | `scripts/download_via_scihub.py` | 5 | Sci-Hub CDP 下载 |
@@ -342,6 +382,7 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 | `references/decision_log.md` 🆕 | 全部 — 结构性决策记录 |
 | `references/term_aliases.md` 🆕 | Step 2/3/7/8 — 术语标准化映射 |
 | `references/search-query-frameworks.md` | Step 3 — 检索查询框架参考 |
+| `references/rcs-rubric.md` 🆕 | Step 4 — 主题匹配度评鉴启发指南（RCS 启发） |
 | `references/literature-review-matrix-schema.md` | Step 6e — 13 列综述矩阵定义 |
 | `references/literature-review-docx-guide.md` | Step 7 — 综述 DOCX 写作结构 |
 | `references/gbt7714-2015-citation-format.md` | Step 7 — GB/T 7714 引用格式 |
