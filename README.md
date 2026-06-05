@@ -867,6 +867,43 @@ Citation accuracy is paramount in paper writing. This tool uses **direct PDF rea
 
 ---
 
+## 🛡️ Quality Defense Line
+
+More Paper Workflow embeds **6 review gates** across the 8-step pipeline, forming a progressively tightening quality defense. Design principle: **the earlier you catch a problem, the cheaper it is to fix.** A yellow flag at the topic stage costs 100× less than a red flag at the manuscript stage.
+
+### Defense Line Overview
+
+```
+Topic Stage       Outline Stage     Search Stage      Writing Stage     Manuscript Stage
+     │                │                │                │                │
+  Step 1d          Step 2b          Step 4          Step 7d.1        Step 7f
+Topic Review  →   Outline Review →  Lit Scoring  →  Paragraph     →  Final Review
+(Direction OK?)   (Structure OK?)   (Sources OK?)    Self-Check       (Overall OK?)
+  🟢🟡🔴           0-25 pts          0-25 pts         5 checks          0-50 pts
+Qualitative       Quantitative      Quantitative     Qualitative       Quant+Narrative
+     │                │                                 │               │
+     └────────────────┴─────────────────────────────────┴───────────────┘
+                                     │                                 │
+                              Advisor Check                     3-Reviewer Panel
+                              (Can you graduate?)              Rebuttal Rehearsal
+                              workload/planB                   (Can you convince
+                              /timeline/publish                 the reviewers?)
+```
+
+### Gate Summary
+
+| Gate | When | Type | What | Decision |
+|------|------|:--:|------|------|
+| **1d Topic Review** | After direction defined | Qualitative | Originality / Importance / Feasibility | 🟢Go 🟡Revise 🔴Change |
+| **2b Outline Review** | After outline generated | Quantitative | 5-dimension (0-25) | P0→P3 priority |
+| **2b Advisor Check** | After outline review | Qualitative | Workload / Risks / Plan B / Timeline / Publish Strategy | Graduation go/no-go |
+| **4 Lit Scoring** | After search | Quantitative | 5-dimension (0-25) | ⭐T1 must / 📘T2 / 📄T3 / ⬜T4 skip |
+| **7d.1 Paragraph Check** | After each section | Qualitative | One-job-per-¶ / Evidence-first / Verb Calibration / No False Novelty / Flow | Self-check & fix |
+| **7e Citation Eval** | After each paragraph | Qualitative | Strong / Moderate / Weak | Only cite abstract-verified sources |
+| **7f Final Review** | After full draft | Quant+Narrative | 5-dim + 3-Reviewer + Rebuttal | Max 2 revision rounds; <5→return to source step |
+
+---
+
 ## 📋 Workflow Overview
 
 ```
@@ -1321,6 +1358,58 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 
 ## 📋 Version History
 
+### v1.0.5 (2026-06-05)
+
+#### Search Strategy Upgrade — T1→T2→T3 Routing + Post-Search Validation
+
+- **Step 3** upgraded from flat source mapping to T1→T2→T3 fallback chains; 6 domain-specific routing rules (Medical/Engineering/CS/Review/Chinese)
+- **Step 4** adds 3 post-search processes: citation verification (DOI + metadata), DOI dedup, unified `.bib` export with tier/score tags
+- **`search_by_topic.py` v3.0**: T1→T2→T3 routing, preflight, `.bib`/`.ris`/`.nbib` export, format conversion, DOI verification, boolean query building, multi-strategy search
+- **New**: literature review matrix (13-column evidence extraction), GB/T 7714-2015 citation format guide, review writing discipline (7 rules)
+
+#### Quality Defense Line — 6 Review Gates
+
+- Unified quality defense system across 5 stages (Topic→Outline→Search→Writing→Manuscript)
+- Step 2b adds **Advisor Perspective Check**: workload / risk identification / Plan B / timeline / publication strategy
+- Step 7d.1 adds **Paragraph Self-Checks**: one-job-per-paragraph / evidence-first / verb calibration / false novelty removal / paragraph flow
+- Step 7f adds **3-Reviewer Panel** + **Rebuttal Rehearsal** (borrowed from nature-reviewer + nature-response)
+
+#### SKILL.md Architecture Overhaul
+
+- Step 7 restructured: paper_type (5) × language (en/zh/zh-to-en) dual-axis writing engine
+- New: zh-to-en 4-step conversion + Chinese journal standards (GB/T 7714)
+- New: Step 7c language differentiation, Step 7d section-level rules, Step 7e live citation support, Step 7f.2 3-reviewer + Step 7f.4 rebuttal rehearsal
+- Removed performance baselines (dev benchmark) + cleaned 17 🆕 markers
+
+#### Script Enhancements
+
+- `search_by_topic.py` v3.0: T1→T2→T3 routing, preflight, .bib/.ris/.nbib export, boolean queries
+- `batch_resolve_pii.py` refactored: cognitive complexity 38→12
+- New: `generate_outline_pdf.py`, `md_to_docx.py`, `md_to_pdf.py`
+
+### v1.0.4 (2026-06-04)
+
+#### Quality Defense Line + Advisor Perspective
+
+- 6-node review system embedded across the pipeline; Step 2b advisor checks (graduation risk)
+- Step 7d.1 paragraph self-checks (borrowed from nature-writing)
+- Step 7f 3-reviewer panel + rebuttal rehearsal (borrowed from nature-reviewer + nature-response)
+- README adds `## 🛡️ Quality Defense Line` section with full gate summary table
+- Removed `generate_proposal.py` (not general-purpose)
+
+#### SKILL.md Restructuring
+
+- Step 7 reordered to correct 7a→7b→7c→7d→7e→7f sequence
+- Step 7 dual-axis writing engine (paper_type × language)
+- Step 3-4 T1→T2→T3 routing + .bib export (borrowed from nature-academic-search)
+- Step 1 v2.0: 4-phase topic definition (diagnosis→pre-search→deep focus→pre-review)
+- Cleaned up 17 🆕 emoji and 5 v1.0.3 changelog markers
+
+#### Scripts
+
+- `search_by_topic.py` v2.0: T1→T2→T3 routing, preflight, .bib export, format conversion
+- `batch_resolve_pii.py` refactored: 5 single-responsibility functions
+
 ### v1.0.3 (2026-06-03)
 
 #### Zotero MCP Multi-Environment Compatibility
@@ -1441,6 +1530,14 @@ Version format: `v<major>.<minor>.<patch>-<YYYYMMDD>`
 - **patch**: Bug fixes, docs updates, minor optimizations
 
 ---
+
+## 👥 Contributors
+
+| Contributor | GitHub | Role |
+|-------------|--------|------|
+| Dr. Jiang Bingyun | [@bingyunjiang](https://github.com/bingyunjiang) | Author, Architecture Design, Python Scripts |
+| Vincent Zhu | [@vincentzju2014](https://github.com/vincentzju2014) | Code Contributions |
+| Peter Bruce | [@peterbruce716-art](https://github.com/peterbruce716-art) | Code Contributions |
 
 ## 📄 License
 
