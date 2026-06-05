@@ -323,6 +323,7 @@ def parse_markdown(text: str) -> List[Block]:
 
 TYPE_SIGNATURES = [
     ("literature_table",  re.compile(r'检索文献表')),
+    ("search_report",     re.compile(r'文献检索报告|检索报告')),
     ("review_report",      re.compile(r'评审报告')),
     ("search_strategy",    re.compile(r'检索方案')),
     ("outline",            re.compile(r'论文大纲|大纲关键词')),
@@ -606,7 +607,7 @@ def main():
     )
     parser.add_argument(
         "--type", dest="force_type", default="auto",
-        choices=["auto", "search_strategy", "literature_table",
+        choices=["auto", "search_strategy", "literature_table", "search_report",
                  "review_report", "rebuttal", "outline", "generic"],
         help="强制指定文件类型（默认: auto 自动检测）",
     )

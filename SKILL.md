@@ -264,14 +264,14 @@ Step 1: 交互式确定研究主题（v2.0 增强版） → 研究主题.md
   └─ 1e 检索深度推断 🆕  auto tier: quick|standard|deep
 Step 2: 生成研究大纲与关键词        → 大纲关键词.md → 大纲关键词.pdf
 Step 3: 生成文献检索方案（L1→L2→L3分层路由+概念块布尔+arXiv条件触发）→ 检索方案.md → 检索方案.pdf
-Step 4: 多渠道检索+评分+报告（4a-4h） → 检索文献表.md / .xlsx / .pdf / .bib
+Step 4: 多渠道检索+评分+报告（4a-4h） → 检索文献表.md / .xlsx / .bib + 检索报告.md / .pdf
   ├─ 4a 引文验证    DOI有效性+元数据完整性
   ├─ 4b DOI去重     多源合并去重
   ├─ 4c 相关性评分   五维度 0-25 + rcs-rubric 启发
   ├─ 4d 筛选标准     Tier 1-4 分级，T4 剔除
   ├─ 4e 引文扩展 🆕  单轮1-hop/T1种子/内部评分闭环
-  ├─ 4f 饱和度曲线 🆕 全量 T1-T3 覆盖率估算
-  ├─ 4g 检索报告 🆕  统一交付物 .md+.xlsx+.pdf+.bib +饱和度+PRISMA
+  ├─ 4f 饱和度曲线 🆕 全量 T1-T3 覆盖率估算 + 解释 + 建议
+  ├─ 4g 检索报告 🆕  统一交付物 .md+.xlsx+.bib +检索报告(.md+.pdf)+饱和度+PRISMA
   └─ 4h 完成 🆕      汇报 + 决策记录 + 转交 Step 5
 Step 5: 统一路由下载               → paper-temp/ PDFs
 Step 6: Zotero 文库管理              → zotero-架构.md + Zotero 桌面端 + 综述矩阵.csv
@@ -337,15 +337,22 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 
 ## ⚙️ 依赖清单与配置提示
 
-| 依赖 | 用途 | 步骤 | 安装方式 | 必选 |
-|------|------|------|----------|------|
-| **Python 3.9+** | 运行所有脚本 | 全部 | 已有 | ✅ 必选 |
-| **websocket-client** | CDP 协议连接 Chrome/Edge | Step 5 | `pip install websocket-client` | ✅ 必选 |
-| **arxiv (>=2.1)** | arXiv API 检索（可选，仅 CS/AI 触发） | Step 4 | `pip install arxiv` | ⬜ 可选 |
-| **PyMuPDF (fitz)** | 提取 PDF 全文文本 | Step 8 | `pip install pymupdf` | ⬜ 可选 |
-| **python-docx** | 提取 .docx 文本 + 生成优化版大纲 | Step 2b/2c | `pip install python-docx` | ⬜ 可选 |
-| **fpdf2 (>=2.5.1)** | 生成中文 PDF 分析报告 | Step 2b/6d | `pip install fpdf2` | ⬜ 可选 |
-| **Zotero MCP Server** | 对话读写 Zotero 文库 | Step 6-7 | `python3 scripts/setup_zotero.py --install` | ⬜ 可选 |
+> **一键安装：** `pip install -r requirements.txt`
+> 详细说明见 [`requirements.txt`](requirements.txt) — 必选依赖已解注，可选依赖按需安装。
+
+| 依赖 | 用途 | 步骤 | 必选 |
+|------|------|------|:--:|
+| **Python 3.9+** | 运行所有脚本 | 全部 | ✅ 必选 |
+| **websocket-client** | CDP 协议连接 Chrome/Edge | Step 5 | ✅ 必选 |
+| **openpyxl** | 检索文献表 .xlsx 生成 | Step 4g | ✅ 必选 |
+| **arxiv (>=2.1)** | arXiv API 检索 | Step 4 | ⬜ 可选 |
+| **PyMuPDF (fitz)** | 提取 PDF 全文文本 | Step 8 | ⬜ 可选 |
+| **python-docx** | 提取/生成 .docx | Step 2b/2c | ⬜ 可选 |
+| **fpdf2 (>=2.5.1)** | 生成中文 PDF 报告 | Step 2b/6d | ⬜ 可选 |
+| **numpy** | 图表数据处理 | Step 7g | ⬜ 可选 |
+| **matplotlib** | 科研图表生成 | Step 7g | ⬜ 可选 |
+| **Pillow** | 图片生成/海报 | Step 7g | ⬜ 可选 |
+| **Zotero MCP Server** | 对话读写 Zotero 文库 | Step 6-7 | ⬜ 可选 |
 
 ---
 
@@ -354,6 +361,8 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 | 脚本 | 步骤 | 用途 |
 |------|------|------|
 | `scripts/search_by_topic.py` | 4 | 多渠道检索（Semantic Scholar / Crossref / OpenAlex）+ 🆕 引文网络 + 语义缓存 |
+| `scripts/generate_retrieval_report.py` | 4g | 🆕 检索文献表一键交付（.xlsx + .bib）— 🔴 Step 4 强制 |
+| `scripts/generate_search_report.py` | 4g | 🆕 检索方法论报告（8 章节：范围→流水线→评分→分布→饱和度→建议） |
 | `scripts/discovery_curve.py` | 4d | 🆕 饱和度曲线估算 |
 | `scripts/arxiv_helper.py` | 4a | 🆕 arXiv 新鲜度检索（L2 条件触发） |
 | `scripts/unified_download_router.py` | 5 | 统一下载路由入口 |

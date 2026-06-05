@@ -1,0 +1,19 @@
+# More Paper Workflow Pro — Python Dependencies
+# 安装：pip install -r requirements.txt
+# 可选依赖（已注释）：pip install -r requirements.txt --no-deps 后按需安装
+
+# ── 必选（核心功能依赖） ──
+
+websocket-client          # CDP 协议：Step 5 统一下载路由 (Sci-Hub/SD/IEEE/Generic)
+openpyxl                  # Step 4g 检索文献表 .xlsx 生成
+
+# ── 可选（按需安装） ──
+
+# arxiv>=2.1              # arXiv API 检索：Step 4 L2 条件触发（仅 CS/AI 领域）
+# pymupdf                 # PyMuPDF：Step 8 批量提取 PDF 全文文本
+# python-docx             # Step 2b/2c 提取/生成优化版大纲 .docx
+# fpdf2>=2.5.1            # 中文 PDF 报告生成 (Step 2b/6d/7f)
+# numpy                   # Step 7g 科研图表数据处理
+# matplotlib              # Step 7g 科研图表生成
+# Pillow                  # Step 7g 科研图表/海报（generate_posters.py）
+# pyyaml                  # 配置文件解析（备用，目前使用 TOML）

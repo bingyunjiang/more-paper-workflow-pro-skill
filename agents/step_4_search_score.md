@@ -47,17 +47,19 @@
 
 ---
 
-## 5. 标准输出 (Standard Outputs)
+## 5. 标准输出 (Standard Outputs) 🔴 6 件套强制交付
 
+> **🔴 所有 6 个产出必须全部生成，Step 4 才算完成。仅生成 .md 不算完成。**
 > 所有产出仅含 **T1-T3 论文**（T4 已在 4d 剔除）。
 
-| 输出 | 格式 | 说明 |
-|------|------|------|
-| 检索文献表 | .md | 最终版（原始+扩展），顶部含饱和度摘要，底部含 PRISMA-S 摘要 |
-| 检索文献表 | .xlsx | 🆕 agent 用 openpyxl 生成，可直接筛选排序 |
-| 检索文献表 PDF | .pdf | 自动由 md_to_pdf.py 生成 |
-| 文献库 | .bib | 全量 T1-T3，含 Tier/Score/influential_citations/子课题归属 |
-| 饱和度曲线快照 🆕 | .json | 文献覆盖率估算，含置信区间 |
+| # | 输出 | 格式 | 生成工具 | 说明 |
+|---|------|------|---------|------|
+| 1 | 检索文献表 | .md | Agent 直接写入 | 最终版（原始+扩展），顶部含饱和度摘要，底部含 PRISMA-S 摘要 |
+| 2 | 检索文献表 | .xlsx | `generate_retrieval_report.py` | openpyxl 生成，冻结表头+自动筛选+Tier 色标 |
+| 3 | 检索报告 PDF | .pdf | `generate_search_report.py` → `md_to_pdf.py` | 检索方法论报告 PDF，面向审稿人/导师 |
+| 4 | 文献库 | .bib | `generate_retrieval_report.py` | 全量 T1-T3，含 Tier/Score/influential_citations/子课题归属 |
+| 5 | 饱和度曲线快照 🆕 | .json | `discovery_curve.py`（4f 步骤） | 文献覆盖率估算，含置信区间；< 30 篇时标注跳过 |
+| 6 | **检索报告** 🆕 | .md | `generate_search_report.py`（4g 步骤） | **完整检索方法论报告**：检索范围→流水线→评分→分布→饱和度→行动建议 |
 
 ---
 
@@ -190,7 +192,8 @@ python3 scripts/search_by_topic.py --citation-network <DOI> \
 ```bash
 python3 scripts/discovery_curve.py \
   --results 检索文献表.md \
-  --output saturation_snapshot.json
+  --output saturation_snapshot.json \
+  --report 饱和度分析报告.md
 ```
 
 **解读输出**：
@@ -203,18 +206,14 @@ python3 scripts/discovery_curve.py \
 | < 0.6 | — | ❌ 覆盖不足 |
 | fit_failed | — | ⚠️ 无法拟合 |
 
-### 4g: 生成检索报告 🆕
+### 4g: 生成检索报告（强制全套交付） 🆕
 
-> **统一交付物**。在所有检索、评分、扩展、饱和度分析完成后执行。仅导出 **T1-T3 论文**（T4 已剔除）。
+> **🔴 强制规则**：本步骤为阻塞式步骤。在所有检索、评分、扩展、饱和度分析完成后，**必须**生成以下 **5 个文件 + 1 个饱和度快照**。
+> **仅生成 .md 不算完成 Step 4。** 4h 完成检查点会逐一验证文件存在。
 
-**产出清单**：
+**4g.1 生成 .md 检索文献表**（Agent 直接写入）
 
-| 产出 | 格式 | 生成方式 |
-|------|------|---------|
-| 检索文献表 | .md | Agent 生成最终版，顶部嵌入饱和度摘要，底部嵌入 PRISMA-S 摘要 |
-| 检索文献表 | .xlsx | Agent 用 openpyxl 生成，列：DOI/标题/年份/来源/评分/Tier/旗标/引用/influential_citations |
-| 检索文献表 | .pdf | `python3 scripts/md_to_pdf.py 检索文献表.md` |
-| 文献库 | .bib | `python3 scripts/search_by_topic.py --export-bib 检索文献表.md --output 文献库.bib`（仅含 T1-T3） |
+Agent 生成最终版 .md 文件，**仅含 T1-T3**（T4 已剔除），格式如下：
 
 **.md 顶部 — 饱和度摘要**：
 ```
@@ -228,12 +227,87 @@ python3 scripts/discovery_curve.py \
 - 饱和度：coverage% (CI: ci_l%–ci_u%) [✅ 覆盖良好 / ⚠️ 中等 / ❌ 不足]
 ```
 
-**.md 底部 — PRISMA-S 摘要**（精简自原 4f）：
+**.md 正文 — 检索文献表**：
+| DOI | 标题 | 作者 | 年份 | 期刊/会议 | 来源 | 评分 | Tier | 引用数 | 影响力引用 | 旗标 | 子课题 |
+|-----|------|------|------|-----------|------|------|------|--------|------------|------|--------|
+| ... | ...  | ...  | ...  | ...       | ...  | ...  | ...  | ...    | ...        | ...  | ...    |
+
+**.md 底部 — PRISMA-S 摘要**（可折叠区域）：
 - 7 项已执行：数据库、多源、策略、日期、记录数、去重、记录管理
 - 9 项未执行：标注原因"非本自动化检索范围"
-- 不单独生成 `prisma_s_log.md`，摘要直接写入 .md 末尾可折叠区域
 
-**.bib 文件含完整标签**：
+**4g.2 生成全套交付物（一键脚本）** 🔴 必须执行
+
+> .md 文件写入完成后，**立即执行以下命令**生成 .xlsx + .bib：
+
+```bash
+python3 scripts/generate_retrieval_report.py 检索文献表.md
+```
+
+该脚本自动完成：
+| 产出 | 格式 | 说明 |
+|------|------|------|
+| 检索文献表 | .xlsx | openpyxl 生成，列：DOI/标题/作者/年份/期刊/来源/评分/Tier/引用数/影响力引用/旗标/子课题，含冻结表头+自动筛选+Tier 色标 |
+| 文献库 | .bib | 全量 T1-T3，含 Tier/Score/influential_citations/子课题归属在 note 字段 |
+
+**脚本依赖**：`pip install openpyxl`（必选，已在依赖清单中）
+
+**4g.2b 生成检索报告（完整方法论）** 🔴 必须执行
+
+> 检索报告是一份**独立的、人类可读的方法论文档**，涵盖从检索到筛选到评级的全过程。
+> 不同于检索文献表（纯数据表），检索报告面向读者和审稿人，解释"怎么搜的、为什么这样搜、搜到了什么"。
+> **该脚本自动同时生成 `检索报告.md` 和 `检索报告.pdf`。**
+
+```bash
+# 基础用法（无元数据 JSON 时也能生成，会标注缺失项）
+python3 scripts/generate_search_report.py \
+  --results 检索文献表.md \
+  --saturation saturation_snapshot.json \
+  --output 检索报告.md
+
+# 完整用法（推荐：先保存 search_metadata.json 再运行）
+python3 scripts/generate_search_report.py \
+  --results 检索文献表.md \
+  --metadata search_metadata.json \
+  --saturation saturation_snapshot.json \
+  --output 检索报告.md
+```
+
+**检索报告 8 大章节**：
+
+| 章节 | 内容 |
+|------|------|
+| 1. 检索概览 | 日期/深度/数据库/策略/全流程数字一览 |
+| 2. 检索范围与方法 | L1→L2→L3 路由表 + 概念块检索式 + Tier 参数 |
+| 3. 检索结果流水线 | PRISMA-S 文本流程图 + 16 项合规清单 |
+| 4. 评分维度与方法 | 五维度权重表 + Tier 分级 + 特殊旗标解释 |
+| 5. 最终文献库分析 | Tier/子课题/年份/来源/期刊/Top10/引用 七维分布 |
+| 6. 引文网络扩展 | 种子数/新增数/去重/评分闭环摘要 |
+| 7. 饱和度分析 | 覆盖率 + CI + 解释 + 行动建议 |
+| 8. 下一步行动 | 下载路由 → Zotero → 写作 |
+
+**元数据 JSON（可选但推荐）**：Agent 在检索过程中保存 `search_metadata.json` 以生成更完整的报告：
+
+```json
+{
+  "raw_total": 120,
+  "after_dedup": 95,
+  "after_verify": 72,
+  "t4_removed": 23,
+  "expansion_added": 15,
+  "expansion_seeds": 5,
+  "expansion_t1": 2, "expansion_t2": 7, "expansion_t3": 6,
+  "arxiv_enabled": false,
+  "source_breakdown": {"openalex": 65, "semantic_scholar": 30, "crossref": 25},
+  "query_summary": [
+    {"subtopic": "S1: XXX", "query": "(cold plate OR ...) AND (topology ...) AND ..."}
+  ]
+}
+```
+
+> 如未提供 `--metadata`，脚本会从 .md 表格中推导可用的数据，缺失章节标注 `⚠️ 需补充`。
+
+**.bib 文件含完整标签示例**：
 ```bibtex
 @article{liu_topology_2025,
   title     = {Topology Optimization of Cold Plate Flow Channels...},
@@ -241,21 +315,77 @@ python3 scripts/discovery_curve.py \
   journal   = {Applied Thermal Engineering},
   year      = {2025},
   doi       = {10.1016/j.applthermaleng.2025.127040},
-  note      = {Tier 1 | Score: 22/25 | influential_citations: 15 | S1: 冷板拓扑优化}
+  note      = {Tier T1 | Score: 22 | source: openalex | influential_citations: 15 | subtopic: S1: 冷板拓扑优化}
 }
 ```
 
-### 4h: 完成 🆕
+**4g.3 验证饱和度快照 + 检索报告** 🔴 必须检查
 
-- [ ] 向用户汇报检索报告路径 + 关键数字
-- [ ] 更新 `references/decision_log.md`（引文扩展统计）
-- [ ] 明确下一步
+> 饱和度快照 `saturation_snapshot.json`、可读报告 `饱和度分析报告.md`、和 `检索报告.md` 已生成。确认文件存在。
 
-> **下一步 → Step 5：** 开始批量下载。当前文献库共 X 篇（T1-T3，含引文扩展 Y 篇）。饱和度 Z%。按出版商自动路由 → Sci-Hub → SD CDP → IEEE CDP → Generic CDP。
+```
+[ -f saturation_snapshot.json ] && echo "✅ saturation_snapshot.json" || echo "⚠️ 缺失（可能 < 30 篇）"
+[ -f 饱和度分析报告.md ] && echo "✅ 饱和度分析报告.md" || echo "⚠️ 缺失（可能 < 30 篇）"
+[ -f 检索报告.md ] && echo "✅ 检索报告.md" || echo "❌ 缺失 — 需回到 4g.2b"
+```
+
+### 4h: 完成（交付物验证门） 🆕
+
+> 🔴 **阻塞式检查点**：以下 **6 个交付物** 必须全部存在，Step 4 才算完成。
+> 任一缺失 → 回到对应子步骤补充生成，不得声明 Step 4 完成。
+
+**4h.1 交付物存在性验证** 🔴
+
+```bash
+# 逐一检查 5 个交付物
+for f in "检索文献表.md" "检索文献表.xlsx" "检索报告.pdf" "文献库.bib" "检索报告.md"; do
+  if [ -f "$f" ]; then
+    echo "✅ $f"
+  else
+    echo "❌ 缺失: $f — 需回到 4g.2 补充生成"
+  fi
+done
+# 饱和度快照 + 报告（条件性：≥ 30 篇时必须存在）
+if [ -f "saturation_snapshot.json" ]; then
+  echo "✅ saturation_snapshot.json"
+else
+  echo "⚠️ saturation_snapshot.json 不存在（可能因 < 30 篇未触发 4f）"
+fi
+if [ -f "饱和度分析报告.md" ]; then
+  echo "✅ 饱和度分析报告.md"
+else
+  echo "⚠️ 饱和度分析报告.md 不存在（可能因 < 30 篇未触发 4f）"
+fi
+```
+
+**4h.2 汇报与记录**
+
+- [ ] 向用户展示 5 交付物清单 + 文件路径 + 关键数字（总数/T1-T3 分布/饱和度）
+- [ ] 更新 `references/decision_log.md`（引文扩展统计 + 最终文献分布）
+- [ ] 更新 `references/error_log.md`（本轮新出现的错误/偏差）
+
+**4h.3 转交 Step 5**
+
+仅在 **6 交付物全部验证通过** 后，输出以下转交信息：
+
+> **✅ Step 4 完成 → 下一步 Step 5：开始批量下载。**
+>
+> 交付物：
+> - `检索文献表.md` — 文献检索表（Z 篇 T1-T3）
+> - `检索文献表.xlsx` — 可筛选排序的 Excel 版
+> - `检索报告.pdf` — 完整检索方法论报告 PDF（面向审稿人/导师）
+> - `文献库.bib` — BibTeX 文献库（含 Tier/Score/influential_citations）
+> - `检索报告.md` — 完整检索方法论报告（8 章节，面向审稿人）
+> - `saturation_snapshot.json` — 饱和度曲线快照 [若 ≥ 30 篇]
+>
+> 当前文献库共 X 篇（T1: a | T2: b | T3: c，含引文扩展 Y 篇）。饱和度 Z%。
+> 按出版商自动路由 → Sci-Hub → SD CDP → IEEE CDP → Generic CDP。
 
 ---
 
-## 7. 质量门槛 (Quality Gates)
+## 7. 质量门槛 (Quality Gates) 🔴 阻塞式
+
+> 以下检查项**全部通过**才能进入 4h 完成。任一未通过 → 回到对应子步骤修复。
 
 - [ ] 4a 引文验证已完成——无效 DOI 已剔除
 - [ ] 4b DOI 去重已完成——无重复条目
@@ -263,7 +393,9 @@ python3 scripts/discovery_curve.py \
 - [ ] 4d Tier 分级已完成——T4 已剔除
 - [ ] 🆕 4e 引文网络扩展已完成（若有 T1 触发）——新论文已评分+分级
 - [ ] 🆕 4f 饱和度曲线已生成（若 ≥ 30 篇）
-- [ ] 🆕 4g 检索报告已生成（.md + .xlsx + .pdf + .bib，仅含 T1-T3）
+- [ ] 🔴 4g.1 `.md` 检索文献表已写入——含饱和度+PRISMA-S 摘要，仅含 T1-T3
+- [ ] 🔴 4g.2 `generate_retrieval_report.py` 已成功执行——`.xlsx` + `.bib` 已生成
+- [ ] 🔴 4g.3 饱和度快照 `saturation_snapshot.json` 存在（若 ≥ 30 篇）或已标注跳过原因
 
 ---
 
@@ -271,12 +403,20 @@ python3 scripts/discovery_curve.py \
 
 > 4g 检索报告和 4h 完成步骤已涵盖大部分收尾工作。此处做最终核对。
 
-### 产出完整性
-- [ ] `检索文献表.md` 已生成（含饱和度+PRISMA-S 摘要，仅 T1-T3）
-- [ ] `检索文献表.xlsx` 已生成（openpyxl，可直接筛选排序）
-- [ ] `检索文献表.pdf` 已自动生成
-- [ ] `文献库.bib` 已导出（全量 T1-T3，含 Tier/Score/influential_citations）
-- [ ] 🆕 `saturation_snapshot.json` 已生成（若 ≥ 30 篇）
+### 产出完整性 🔴 逐一确认
+
+在执行 4h 汇报之前，必须用 `ls` 或文件存在性检查确认以下 **5 个文件** 全部存在：
+
+| # | 文件 | 检查命令 | 若缺失 |
+|---|------|---------|--------|
+| 1 | `检索文献表.md` | `[ -f "检索文献表.md" ]` | 回到 4g.1 |
+| 2 | `检索文献表.xlsx` | `[ -f "检索文献表.xlsx" ]` | 回到 4g.2 |
+| 3 | `检索报告.pdf` | `[ -f "检索报告.pdf" ]` | 回到 4g.2b |
+| 4 | `文献库.bib` | `[ -f "文献库.bib" ]` | 回到 4g.2 |
+| 5 | `检索报告.md` | `[ -f "检索报告.md" ]` | 回到 4g.2b |
+| 6 | `saturation_snapshot.json` | `[ -f "saturation_snapshot.json" ]` | 若 ≥ 30 篇回到 4f；若 < 30 篇标注跳过 |
+
+**🔴 仅当以上 6 个检查项全部通过（或 #6 合理跳过）后，才能进入 4h.3 转交 Step 5。**
 
 ### 错误日志更新 🆕
 - [ ] 本轮是否出现新的 AI 操作错误？
@@ -284,11 +424,13 @@ python3 scripts/discovery_curve.py \
   - DOI 验证失败新模式 → `references/error_log.md`
   - 饱和度曲线拟合失败 → `references/error_log.md`
   - 引文扩展查询失败 → `references/error_log.md`
+  - `generate_retrieval_report.py` 执行失败 → `references/error_log.md`
 
 ### 决策日志更新 🆕
 - [ ] 评分权重调整？→ `references/decision_log.md`
 - [ ] 筛选阈值修改？→ `references/decision_log.md`
 - [ ] 🆕 引文扩展统计（新增 X 篇/种子 Y 篇）→ `references/decision_log.md`
+- [ ] 🆕 最终交付物生成结果 → `references/decision_log.md`
 
 ---
 
