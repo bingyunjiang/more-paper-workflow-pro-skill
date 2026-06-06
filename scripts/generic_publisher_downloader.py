@@ -162,6 +162,13 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
             if pdf_path:
                 return pdf_path, "ok", pub_name
             return None, "failed", pub_name
+        # CNKI: click-based download (requires Referrer from article page)
+        elif pub_name == "cnki":
+            pdf_path = _download_cnki(port, article_url, publisher, timeout,
+                                      output_dir=output_dir)
+            if pdf_path:
+                return pdf_path, "ok", pub_name
+            return None, "failed", pub_name
         else:
             pdf_data = _strategy_article_page(port, doi, publisher, timeout,
                                               article_url_override=article_url)
@@ -440,6 +447,81 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
                 # Copy to output_dir with hash name for router compatibility
                 dest = _os.path.join(output_dir,
                     f"wanfang.{hashlib.md5(article_url.encode()).hexdigest()[:16]}.pdf")
+                _shutil.copy2(dl_path, dest)
+                close_tab(port, tid)
+                return dest
+
+    close_tab(port, tid)
+    return None
+
+
+# ── CNKI Download ────────────────────────────────────────────────────────────
+
+def _download_cnki(port: int, article_url: str, publisher: dict,
+                   timeout: int = DEFAULT_TIMEOUT,
+                   output_dir: str = "") -> Optional[str]:
+    """Download CNKI paper by clicking PDF download on article detail page.
+
+    CNKI requires Referrer from the article page, so we must click from
+    the detail page rather than navigating directly to bar.cnki.net.
+    """
+    import os as _os, glob as _glob, hashlib, shutil as _shutil
+
+    # Step 1: Create tab and navigate to CNKI article detail page
+    browser_ws_url = get_cdp_ws_url(port)
+    bws = websocket.create_connection(browser_ws_url, timeout=10)
+    bws.send(json.dumps({"id": 1, "method": "Target.createTarget",
+                         "params": {"url": article_url}}))
+    tid = json.loads(bws.recv())["result"]["targetId"]
+    bws.close()
+    time.sleep(5)  # CNKI detail pages are heavy
+
+    # Get tab WS for click operation
+    tab_ws_url = get_tab_ws_url(port, tid)
+    if not tab_ws_url:
+        return None
+    tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
+
+    # Step 2: Click PDF download (#pdfDown), removing target attr first
+    js = '''
+(function(){
+  var a = document.querySelector('#pdfDown');
+  if (!a) {
+    // Fallback: look for any PDF download link
+    var all = document.querySelectorAll('a');
+    for (var i=0; i<all.length; i++) {
+      if (all[i].innerText.indexOf('PDF下载')>=0) { a = all[i]; break; }
+    }
+  }
+  if (!a) return 'no_pdfDown';
+  a.removeAttribute('target');
+  a.click();
+  return 'clicked: ' + a.href.substring(0, 80);
+})()
+'''
+    tab_ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate",
+                            "params": {"expression": js}}))
+    click_result = json.loads(tab_ws.recv())
+    result_val = click_result.get("result", {}).get("result", {}).get("value", "")
+    tab_ws.close()
+
+    if "no_pdfDown" in str(result_val):
+        close_tab(port, tid)
+        return None
+
+    # Step 3: Wait for PDF in ~/Downloads
+    downloads_dir = _os.path.expanduser("~/Downloads")
+    before_dl = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
+    for i in range(timeout + 15):
+        time.sleep(1)
+        current = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
+        new_pdfs = current - before_dl
+        crdownloads = _glob.glob(_os.path.join(downloads_dir, "*.crdownload"))
+        if new_pdfs and not crdownloads:
+            dl_path = list(new_pdfs)[0]
+            if _os.path.getsize(dl_path) > MIN_PDF_SIZE:
+                dest = _os.path.join(output_dir,
+                    f"cnki.{hashlib.md5(article_url.encode()).hexdigest()[:16]}.pdf")
                 _shutil.copy2(dl_path, dest)
                 close_tab(port, tid)
                 return dest
