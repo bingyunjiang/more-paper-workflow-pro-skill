@@ -921,7 +921,7 @@ def build_report(
     # Footer
     lines.append("---")
     lines.append("")
-    lines.append(f"*报告由 `generate_search_report.py` 自动生成 | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
+    lines.append(f"*本内容由 Dr. Jiang 的 More Paper Workflow Pro Skill 生成 | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
     lines.append("")
 
     return "\n".join(lines)

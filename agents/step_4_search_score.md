@@ -142,19 +142,19 @@
 ```bash
 # L1 OpenAlex：每子课题跑 3 策略（relevance + cited + recent），每策略 50 条
 python3 scripts/search_by_topic.py --bool query_plan.json \
-  --source openalex --strategy relevance --limit 50 --output s1_l1_rel.bib
+  --source openalex --strategy relevance --limit 50 --export-bib s1_l1_rel.bib
 python3 scripts/search_by_topic.py --bool query_plan.json \
-  --source openalex --strategy cited --limit 50 --output s1_l1_cited.bib
+  --source openalex --strategy cited --limit 50 --export-bib s1_l1_cited.bib
 python3 scripts/search_by_topic.py --bool query_plan.json \
-  --source openalex --strategy recent --limit 50 --output s1_l1_recent.bib
+  --source openalex --strategy recent --limit 50 --export-bib s1_l1_recent.bib
 
 # L2 Semantic Scholar：CS 交叉子领域并行，传统工科在 L1<30 时回退
 python3 scripts/search_by_topic.py --bool query_plan.json \
-  --source semantic_scholar --limit 50 --output s1_l2.bib
+  --source semantic_scholar --limit 50 --export-bib s1_l2.bib
 
 # 传统用法（向后兼容，不使用概念块）：
 python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
-  --t1 openalex --t2 semantic_scholar --limit 50 --output s1_results.bib
+  --t1 openalex --t2 semantic_scholar --limit 50 --export-bib s1_results.bib
 
 ### L2 Crossref 🆕（DOI/出版社元数据补充，Deep tier 必跑）
 
@@ -166,11 +166,11 @@ python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
 ```bash
 # L2 Crossref：逐子课题补检，结果与 OpenAlex DOI 去重
 python3 scripts/search_by_topic.py --bool query_plan.json \
-  --source crossref --limit 50 --output s1_l2_crossref.bib
+  --source crossref --limit 50 --export-bib s1_l2_crossref.bib
 
 # 多子课题可合并在一条命令中
 python3 scripts/search_by_topic.py --bool query_plan.json \
-  --source crossref --limit 50 --output all_l2_crossref.bib
+  --source crossref --limit 50 --export-bib all_l2_crossref.bib
 ```
 
 ### L1 CNKI 🆕
@@ -183,15 +183,15 @@ python3 scripts/search_by_topic.py --bool query_plan.json \
 ```bash
 # CNKI 中文文献检索
 python3 scripts/search_by_topic.py "冷板拓扑优化" \
-  --source cnki --limit 50 --output s1_cnki.bib
+  --source cnki --limit 50 --export-bib s1_cnki.bib
 
 # CNKI 多策略检索（被引排序）
 python3 scripts/search_by_topic.py "冷板拓扑优化" \
-  --source cnki --strategy cited --limit 50 --output s1_cnki_cited.bib
+  --source cnki --strategy cited --limit 50 --export-bib s1_cnki_cited.bib
 
 # 概念块布尔查询模式
 python3 scripts/search_by_topic.py --bool query_plan.json \
-  --source cnki --limit 50 --output s1_cnki.bib
+  --source cnki --limit 50 --export-bib s1_cnki.bib
 
 # T1 CNKI + T2 Wanfang 级联
 python3 scripts/search_by_topic.py "冷板拓扑优化" \
@@ -208,11 +208,11 @@ python3 scripts/search_by_topic.py "冷板拓扑优化" \
 ```bash
 # L2 Wanfang Data：中文文献检索
 python3 scripts/search_by_topic.py "冷板拓扑优化" \
-  --source wanfang --limit 50 --output s1_l2_wanfang.bib
+  --source wanfang --limit 50 --export-bib s1_l2_wanfang.bib
 
 # 概念块布尔查询模式（PQ 语法自动转换）
 python3 scripts/search_by_topic.py --bool query_plan.json \
-  --source wanfang --limit 50 --output s1_l2_wanfang.bib
+  --source wanfang --limit 50 --export-bib s1_l2_wanfang.bib
 
 # 通过 T2 补充：CNKI T1 → 不足时万方补充
 python3 scripts/search_by_topic.py "冷板拓扑优化" \

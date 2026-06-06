@@ -207,6 +207,11 @@ class ReportPDF:
         self.pdf.set_text_color(140, 140, 140)
         self.pdf.cell(0, 8, f"生成时间: {time.strftime('%Y-%m-%d %H:%M')}",
                       align="C")
+        self.pdf.ln(8)
+        self.pdf.set_font(self.font_name, "", 8)
+        self.pdf.set_text_color(160, 160, 160)
+        self.pdf.cell(0, 6, "由 Dr. Jiang 的 More Paper Workflow Pro Skill 生成",
+                      align="C")
 
     def add_heading(self, text: str, level: int = 1):
         """添加章节标题。

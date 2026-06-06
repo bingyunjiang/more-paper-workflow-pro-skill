@@ -2273,7 +2273,7 @@ Examples:
     parser.add_argument("--min-results", type=int, default=30,
                         help="Min results from T1 before falling back to T2 (default: 30)")
     parser.add_argument("--limit", type=int, default=20, help="Max results per source (default: 20)")
-    parser.add_argument("--output", "-o", help="Output file (DOI list, default: stdout)")
+    parser.add_argument("--output", "-o", help="Export DOI list only (plain text, one per line). Use --export-bib for full BibTeX.")
     parser.add_argument("--include-no-doi", action="store_true", help="Include results without DOIs")
 
     # v3.0 Boolean query mode
@@ -2285,7 +2285,7 @@ Examples:
                              "Use 'all' to run all 3 strategies.")
 
     # Export mode
-    parser.add_argument("--export-bib", help="Export results as .bib file (with tier/score notes)")
+    parser.add_argument("--export-bib", help="Export full BibTeX (.bib) with title/author/year/doi/abstract/tier/score notes")
     parser.add_argument("--keywords", help="Comma-separated topic keywords for auto-scoring")
 
     # Convert mode
