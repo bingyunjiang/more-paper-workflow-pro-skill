@@ -406,7 +406,7 @@ known_issues = "Preprints. HTTP direct may timeout. Try CDP browser."
 
 # --- CNKI (中国知网) ---
 [publishers.cnki]
-doi_prefixes = ["10.3969/"]  # CNKI papers occasionally have real DOIs with this prefix
+doi_prefixes = ["10.3969/"]
 strategy = "chinese_cdp"
 selectors = [
     "a.downlink",
@@ -425,21 +425,20 @@ known_issues = "大多数中文论文无真实 DOI，需通过检索结果中的
 
 # --- Wanfang Data (万方数据) ---
 [publishers.wanfang]
-doi_prefixes = []  # 万方论文几乎都没有真实 DOI
+doi_prefixes = []
 strategy = "chinese_cdp"
 selectors = [
-    "a[href*=\"/download/\"]",
-    "a.download-btn",
-    "a[href*=\"downloadFile\"]",
-    "a[href*=\".pdf\"]",
-    "div.download-box a",
-    "a.down",
+    "a.download-whole",
+    "a.download.buttonItem",
+    "a[class*=\"download-whole\"]",
+    "a[class*=\"download\"]",
+    "a:has-text(\"整篇下载\")",
     "a:has-text(\"下载\")",
     "a:has-text(\"PDF\")",
 ]
 requires_auth = "institution"
-publisher_domain = "www.wanfangdata.com.cn"
-known_issues = "大多数论文无真实 DOI，需通过检索结果中的详情页链接直接下载。需 CARSI SSO 或校园网 IP。搜索结果页直接提供摘要，详情页可下载全文。"
+publisher_domain = "d.wanfangdata.com.cn"
+known_issues = "下载按钮为 JS onclick 无 href，需点击触发跳转到 f.wanfangdata.com.cn/download/ 中转页后捕获 PDF。需 CARSI SSO 或校园网 IP。"
 
 
 # =============================================================================

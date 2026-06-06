@@ -119,7 +119,15 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
     pub_name = publisher.get("_key", "unknown") if publisher else "unknown"
 
     if publisher is None:
-        publisher = {"strategy": "generic", "_key": "unknown"}
+        # Check if article_url identifies a Chinese publisher without DOI match
+        if article_url and "wanfangdata.com.cn" in article_url:
+            publisher = {"strategy": "chinese_cdp", "_key": "wanfang"}
+            pub_name = "wanfang"
+        elif article_url and "cnki.net" in article_url:
+            publisher = {"strategy": "chinese_cdp", "_key": "cnki"}
+            pub_name = "cnki"
+        else:
+            publisher = {"strategy": "generic", "_key": "unknown"}
 
     strategy = publisher.get("strategy", "generic")
 
@@ -140,8 +148,23 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
         if not article_url:
             return None, "no_url", pub_name
         dest = _doi_to_filename(doi, output_dir)
-        pdf_data = _strategy_article_page(port, doi, publisher, timeout,
-                                          article_url_override=article_url)
+
+        # Identify Chinese publisher from article_url if not matched by DOI
+        if "wanfangdata.com.cn" in article_url:
+            pub_name = "wanfang"
+        elif "cnki.net" in article_url:
+            pub_name = "cnki"
+
+        # Wanfang: download directly to output_dir, returns path (no _save_pdf)
+        if pub_name == "wanfang":
+            pdf_path = _download_wanfang(port, article_url, publisher, timeout,
+                                         output_dir=output_dir)
+            if pdf_path:
+                return pdf_path, "ok", pub_name
+            return None, "failed", pub_name
+        else:
+            pdf_data = _strategy_article_page(port, doi, publisher, timeout,
+                                              article_url_override=article_url)
         if pdf_data:
             return _save_pdf(pdf_data, dest), "ok", pub_name
         return None, "failed", pub_name
@@ -350,6 +373,81 @@ def _strategy_article_page(port: int, doi: str, publisher: dict,
 
     # Capture the PDF
     return _navigate_and_capture_pdf(port, pdf_url, referrer=referrer, timeout=timeout)
+
+
+# ── Wanfang Download ─────────────────────────────────────────────────────────
+
+def _download_wanfang(port: int, article_url: str, publisher: dict,
+                      timeout: int = DEFAULT_TIMEOUT,
+                      output_dir: str = "") -> Optional[str]:
+    """Download Wanfang paper to output_dir. Returns PDF path or None.
+
+    Downloads go to output_dir (no temp dirs, no deletions).
+    A duplicate copy also appears in ~/Downloads (Chrome CDP behavior).
+    """
+    import os as _os, glob as _glob, tempfile
+
+    # Download directly to output dir — don't use temp dir that gets deleted
+    if not output_dir:
+        output_dir = tempfile.mkdtemp(prefix="wf_")
+    _os.makedirs(output_dir, exist_ok=True)
+    # Record existing PDFs so we only pick up the new one
+    before = set(_glob.glob(_os.path.join(output_dir, "*.pdf")))
+
+    # Step 1: Construct download page URL from article URL
+    # Thesis:  d.wanfangdata.com.cn/thesis/{id} → f.wanfangdata.com.cn/download/pc/thesis/{id}
+    # Periodical: d.wanfangdata.com.cn/periodical/{id} → f.wanfangdata.com.cn/download/pc/periodical/{id}
+    import re as _re
+    m = _re.match(r'https?://d\.wanfangdata\.com\.cn/(thesis|periodical)/(.+)', article_url)
+    if not m:
+        return None
+    download_url = f"https://f.wanfangdata.com.cn/download/pc/{m.group(1)}/{m.group(2)}"
+
+    # Step 2: Reuse existing page tab (same as Wanfang CDP search pattern)
+    targets = json.loads(
+        urllib.request.urlopen(f"http://127.0.0.1:{port}/json").read()
+    )
+    page_target = None
+    for t in targets:
+        if t.get("type") == "page":
+            page_target = t
+            break
+    if not page_target:
+        return None
+    tab_ws_url = page_target["webSocketDebuggerUrl"]
+    tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
+
+    # Navigate to download page
+    tab_ws.send(json.dumps({"id": 1, "method": "Page.navigate",
+                            "params": {"url": download_url}}))
+    json.loads(tab_ws.recv())
+
+    # Set download behavior
+    tab_ws.send(json.dumps({"id": 0, "method": "Browser.setDownloadBehavior", "params": {
+        "behavior": "allow", "downloadPath": output_dir
+    }}))
+    json.loads(tab_ws.recv())
+
+    # Step 3: Wait for download page countdown, then click "点击此处"
+    time.sleep(10)
+
+    js_click = '(function(){var as=document.querySelectorAll("a");for(var i=0;i<as.length;i++){if(as[i].innerText.indexOf("点击此处")>=0){as[i].click();return"clicked";}}return"not found";})()'
+    tab_ws.send(json.dumps({"id": 2, "method": "Runtime.evaluate", "params": {"expression": js_click}}))
+    json.loads(tab_ws.recv())
+    tab_ws.close()
+
+    # Step 4: Wait for PDF file to appear
+    for i in range(timeout + 30):
+        time.sleep(1)
+        current = set(_glob.glob(_os.path.join(output_dir, "*.pdf")))
+        new_pdfs = current - before
+        crdownloads = _glob.glob(_os.path.join(output_dir, "*.crdownload"))
+        if new_pdfs and not crdownloads:
+            pdf_path = list(new_pdfs)[0]
+            if _os.path.getsize(pdf_path) > MIN_PDF_SIZE:
+                return pdf_path
+
+    return None
 
 
 # ── Strategy C: Direct HTTP Download ────────────────────────────────────────
