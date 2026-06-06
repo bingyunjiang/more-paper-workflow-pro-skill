@@ -346,6 +346,7 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 | **websocket-client** | CDP 协议连接 Chrome/Edge | Step 5 | ✅ 必选 |
 | **openpyxl** | 检索文献表 .xlsx 生成 | Step 4g | ✅ 必选 |
 | **arxiv (>=2.1)** | arXiv API 检索 | Step 4 | ⬜ 可选 |
+| **beautifulsoup4** | 万方数据 HTML 解析 | Step 4 | ⬜ 可选 |
 | **PyMuPDF (fitz)** | 提取 PDF 全文文本 | Step 8 | ⬜ 可选 |
 | **python-docx** | 提取/生成 .docx | Step 2b/2c | ⬜ 可选 |
 | **fpdf2 (>=2.5.1)** | 生成中文 PDF 报告 | Step 2b/6d | ⬜ 可选 |

@@ -13,6 +13,7 @@ openpyxl                  # Step 4g 检索文献表 .xlsx 生成
 # pymupdf                 # PyMuPDF：Step 8 批量提取 PDF 全文文本
 # python-docx             # Step 2b/2c 提取/生成优化版大纲 .docx
 # fpdf2>=2.5.1            # 中文 PDF 报告生成 (Step 2b/6d/7f)
+# beautifulsoup4          # 万方数据 HTML 解析：Step 4 L3 中文文献检索
 # numpy                   # Step 7g 科研图表数据处理
 # matplotlib              # Step 7g 科研图表生成
 # Pillow                  # Step 7g 科研图表/海报（generate_posters.py）

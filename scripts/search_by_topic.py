@@ -50,15 +50,11 @@ CACHE_DIR = os.path.expanduser("~/.cache/more-paper-workflow/search_cache")
 CACHE_TTL_SECONDS = 7 * 24 * 3600  # 7 days
 CACHE_MAX_ENTRIES = 500
 
-# ── Wanfang Data API Credentials ──────────────────────────────────────────
+# ── Wanfang Web Search ──────────────────────────────────────────────────
 
-WFDATA_APP_KEY = os.environ.get("WFDATA_APP_KEY", "")
-WFDATA_APP_CODE = os.environ.get("WFDATA_APP_CODE", "")
-HAS_WFDATA = bool(WFDATA_APP_KEY and WFDATA_APP_CODE)
-
-WFDATA_BASE_URL = "https://api.wanfangdata.com.cn"
-WFDATA_SEARCH_URL = f"{WFDATA_BASE_URL}/openwanfang/getQuery"
-WFDATA_COLLECTIONS = ["OpenPeriodicalChi", "OpenThesis", "OpenConference"]
+WANFANG_SEARCH_URL = "https://www.wanfangdata.com.cn/search/searchList.do"
+WANFANG_CDP_PORT = 9223
+WANFANG_SPA_URL = "https://s.wanfangdata.com.cn/paper"
 
 
 def _cache_key(query, source, limit, strategy=""):
@@ -253,107 +249,106 @@ def search_openalex(query, limit=20, use_cache=True):
     return results
 
 
-# ── Wanfang Data Search ──────────────────────────────────────────────────
+# ── Wanfang Web Search ──────────────────────────────────────────────────
 
-def search_wanfang(query, limit=20, use_cache=True):
-    """Search Wanfang Data API for Chinese academic literature.
+def _build_wanfang_url(query, page=1, page_size=20):
+    """Build Wanfang search URL with query parameters.
 
-    Searches across three collections (OpenPeriodicalChi, OpenThesis,
-    OpenConference) sequentially with a 0.5s inter-collection delay.
-    Requires WFDATA_APP_KEY and WFDATA_APP_CODE environment variables.
-
-    Papers without DOIs receive a synthetic 'wanfang.{doc_id}' identifier
-    so they pass through the standard --include-no-doi filter and can be
-    deduplicated via title+author+year fallback key.
-
-    Args:
-        query: Free-text query string or PQ-format query (auto-detected).
-        limit: Max results per collection (total <= limit * 3).
-        use_cache: If True, check/write disk cache.
-
-    Returns:
-        List of paper dicts with keys: doi, title, year, venue, authors,
-        citations, source, wanfang_id, collection.
+    Uses the SPA-based search endpoint at s.wanfangdata.com.cn/paper,
+    which works with CARSI SSO sessions.
     """
-    if not HAS_WFDATA:
-        print("  Wanfang Data: credentials not configured "
-              "(set WFDATA_APP_KEY and WFDATA_APP_CODE)", flush=True)
-        return []
+    params = {
+        "q": query,
+        "p": str(page),
+        "pageSize": str(min(page_size, 50)),
+    }
+    return WANFANG_SPA_URL + "?" + urllib.parse.urlencode(params)
 
-    cache_key = _cache_key(query, "wanfang", limit)
-    if use_cache:
-        cached = _cache_get(cache_key)
-        if cached is not None:
-            print(f"  Wanfang Data: cache hit ({len(cached)} results)", flush=True)
-            return cached
 
-    # Auto-detect PQ vs free-text: if query starts with a field prefix (e.g. "标题:"),
-    # treat as PQ; otherwise wrap with "全部:" for all-fields search.
-    query_str = query if re.match(r'^[一-鿿\w]+:', query) else f"全部:{query}"
+def _parse_wanfang_html(html, max_results):
+    """Parse Wanfang search results HTML into paper dicts.
 
+    Uses BeautifulSoup with fallback to regex-based extraction.
+    """
     results = []
-    per_collection = min(limit, 50)
 
-    for collection in WFDATA_COLLECTIONS:
-        payload = json.dumps({
-            "collection": collection,
-            "query": query_str,
-            "rows": per_collection,
-            "start": 0,
-            "sort": {"sort_name": "score desc"},
-        }).encode("utf-8")
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, "html.parser")
+        # Try common result container selectors
+        items = (soup.select("div.result-item")
+                 or soup.select("div.search-result-item")
+                 or soup.select("div[class*='result'] li")
+                 or soup.select("ul.search-list > li")
+                 or [])
 
-        req = urllib.request.Request(
-            WFDATA_SEARCH_URL,
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "X-Ca-AppKey": WFDATA_APP_KEY,
-                "Authorization": f"APPCODE {WFDATA_APP_CODE}",
-            },
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                data = json.loads(resp.read())
-        except Exception as e:
-            print(f"  Wanfang Data ({collection}): {e}", flush=True)
-            time.sleep(0.5)
-            continue
+        for item in items:
+            if len(results) >= max_results:
+                break
 
-        # Defensive parsing — the exact response key is not guaranteed.
-        docs = (data.get("documents") or data.get("result")
-                or data.get("data") or [])
-
-        for item in docs:
-            doc_id = str(item.get("id") or item.get("Id") or "")
-            if not doc_id:
+            # Title: try link text within a heading
+            title_el = (item.select_one("h3.title a")
+                        or item.select_one("div.title a")
+                        or item.select_one("a[href*='detail']"))
+            if not title_el:
+                continue
+            title = title_el.get_text(strip=True)
+            if not title or title == "?":
                 continue
 
-            # Use real DOI when available; otherwise synthetic wanfang.{id}
-            doi_raw = (item.get("doi") or item.get("DOI") or "").strip()
-            doi = doi_raw if doi_raw else f"wanfang.{doc_id}"
+            # DOI: look for DOI pattern in text or link
+            doi = ""
+            doi_el = item.select_one("span.doi a, a[href*='doi']")
+            if doi_el:
+                doi_text = doi_el.get_text(strip=True)
+                doi_match = re.search(r'(10\.\d{4,}/[^\s<"]+)', doi_text)
+                if doi_match:
+                    doi = doi_match.group(1)
+            if not doi:
+                # Check any text block for DOI pattern
+                doi_match = re.search(r'DOI[:\s]*(10\.\d{4,}/[^\s<"]+)',
+                                      item.get_text())
+                if doi_match:
+                    doi = doi_match.group(1)
+            if not doi:
+                # Synthetic identifier from title hash
+                title_hash = hashlib.md5(title.encode()).hexdigest()[:12]
+                doi = f"wanfang.{title_hash}"
 
-            title = str(item.get("title") or item.get("Title") or "?")
+            # Authors
+            author_el = (item.select_one("p.author")
+                         or item.select_one("div.author")
+                         or item.select_one("[class*='author']"))
+            authors = []
+            if author_el:
+                authors_raw = author_el.get_text(strip=True)
+                authors = [a.strip() for a in re.split(r'[;；,，]', authors_raw) if a.strip()[:2]]
 
-            # Year extraction: try several field names and parse 4-digit year
-            date_raw = str(item.get("year") or item.get("Year")
-                           or item.get("date") or item.get("Date")
-                           or item.get("PublishYear") or "")
-            year_match = re.search(r"(\d{4})", date_raw)
-            year = int(year_match.group(1)) if year_match else 0
+            # Year + venue from source info
+            year = 0
+            venue = ""
+            source_el = (item.select_one("p.source")
+                         or item.select_one("div.source-info")
+                         or item.select_one("[class*='source']")
+                         or item.select_one("[class*='journal']"))
+            if source_el:
+                source_text = source_el.get_text(strip=True)
+                year_match = re.search(r'(\d{4})', source_text)
+                if year_match:
+                    year = int(year_match.group(1))
+                # Venue: first part before the first comma or year
+                venue_part = re.split(r'[，,]', source_text)[0].strip()
+                if venue_part and not re.match(r'^\d{4}', venue_part):
+                    venue = venue_part
 
-            venue = str(item.get("source") or item.get("Source")
-                        or item.get("journal") or item.get("Journal")
-                        or item.get("publication_name") or "")
-
-            # Authors: typically semicolon-delimited string
-            authors_raw = str(item.get("creator") or item.get("Creator")
-                              or item.get("authors") or item.get("Authors") or "")
-            authors = [a.strip() for a in authors_raw.split(";") if a.strip()]
-
-            # Citation count
-            citations = int(item.get("citation_count") or item.get("CitedCount")
-                            or item.get("cited_count") or 0)
+            # Citations (optional)
+            citations_el = (item.select_one("span.cited-count")
+                            or item.select_one("[class*='cited']"))
+            citations = 0
+            if citations_el:
+                cit_match = re.search(r'(\d+)', citations_el.get_text())
+                if cit_match:
+                    citations = int(cit_match.group(1))
 
             results.append({
                 "doi": doi,
@@ -363,18 +358,386 @@ def search_wanfang(query, limit=20, use_cache=True):
                 "authors": authors,
                 "citations": citations,
                 "source": "wanfang",
-                "wanfang_id": doc_id,
-                "collection": collection,
+            })
+    except Exception:
+        # Fallback: regex-based extraction
+        try:
+            _parse_wanfang_html_regex(html, max_results, results)
+        except Exception:
+            pass
+
+    return results
+
+
+def _parse_wanfang_html_regex(html, max_results, results):
+    """Fallback HTML parser using regex patterns."""
+    # Find result blocks by looking for title-anchor patterns
+    title_pattern = re.compile(
+        r'<a[^>]*href="[^"]*detail[^"]*"[^>]*>([^<]+)</a>', re.IGNORECASE
+    )
+    year_pattern = re.compile(r'(\d{4})')
+    doi_pattern = re.compile(r'DOI[:\s]*(10\.\d{4,}/[^\s<"]+)', re.IGNORECASE)
+
+    for match in title_pattern.finditer(html):
+        if len(results) >= max_results:
+            break
+        title = match.group(1).strip()
+        if not title:
+            continue
+
+        title_hash = hashlib.md5(title.encode()).hexdigest()[:12]
+        doi = f"wanfang.{title_hash}"
+
+        # Search for DOI near this title match
+        context = html[match.end():match.end() + 500]
+        doi_m = doi_pattern.search(context)
+        if doi_m:
+            doi = doi_m.group(1)
+
+        year_m = year_pattern.search(context)
+        year = int(year_m.group(1)) if year_m else 0
+
+        results.append({
+            "doi": doi,
+            "title": title,
+            "year": year,
+            "venue": "",
+            "authors": [],
+            "citations": 0,
+            "source": "wanfang",
+        })
+
+
+def _try_wanfang_ip(query, limit=20):
+    """Try direct HTTP search to Wanfang via institutional IP.
+
+    Works when on campus / VPN. Returns parsed results on success.
+    Returns None if blocked/CAS redirect detected (should try CARSI mode).
+    """
+    url = _build_wanfang_url(query, page=1, page_size=min(limit, 20))
+    headers = {
+        "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/125.0.0.0 Safari/537.36"),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Referer": "https://www.wanfangdata.com.cn/",
+    }
+
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            html_bytes = resp.read()
+    except urllib.error.HTTPError as e:
+        if e.code in (301, 302, 303, 307, 308, 401, 403):
+            return None
+        print(f"  Wanfang Data HTTP error: {e.code}", flush=True)
+        return []
+    except urllib.error.URLError as e:
+        print(f"  Wanfang Data connection error: {e.reason}", flush=True)
+        return None
+    except Exception as e:
+        print(f"  Wanfang Data error: {e}", flush=True)
+        return None
+
+    try:
+        html = html_bytes.decode("utf-8", errors="replace")
+    except Exception:
+        html = html_bytes.decode("gbk", errors="replace")
+
+    # Detect login/CAS redirect page.
+    # The login keywords often appear deep in JS (6000+ chars),
+    # so scan the full HTML but require the page lacks result content.
+    has_login_keywords = any(ind in html.lower() for ind in
+                            ["登录", "login", "统一身份认证",
+                             "CARSI", "fsso", "my.wanfangdata.com.cn/auth"])
+    if has_login_keywords:
+        # Quick check: does the HTML contain any result-like structure?
+        has_results = any(marker in html.lower() for marker in
+                         ["result-item", "search-result", "searchList.do",
+                          "class=\"title\"", "class=\"author\""])
+        if not has_results:
+            return None
+
+    results = _parse_wanfang_html(html, limit)
+    return results
+
+
+def _parse_wanfang_results_from_text(text, max_results):
+    """Parse Wanfang search results from visible page text.
+
+    The SPA renders results as structured text blocks like:
+    1. title
+       [authors] [source] [year]
+       [abstract...]
+       [links and metrics]
+
+    Returns list of paper dicts.
+    """
+    results = []
+    # Split into lines and find result blocks
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines) and len(results) < max_results:
+        line = lines[i].strip()
+        # Check if line starts with a result number (e.g. "1.", "2.")
+        m = re.match(r'^\d+[.．\s]\s*(.+)$', line)
+        if m:
+            title = m.group(1).strip()
+            # Remove leading/trailing brackets or special chars
+            title = re.sub(r'^["\'\[\(]+|["\'\]\)]+$', '', title).strip()
+            # Skip non-result lines: pagination ("1 / 19", "/ 19 >"), UI noise, very short
+            if (not title or len(title) < 4
+                    or re.match(r'[\d]*\s*/\s*\d+|^\d+\s*页$', title)
+                    or title in ["上一页", "下一页", "首页", "末页", "上一页下一页"]
+                    or title.strip().startswith("/")):
+                i += 1
+                continue
+
+            # Collect the next few lines for author/venue/year info
+            info_lines = []
+            for j in range(i + 1, min(i + 6, len(lines))):
+                next_line = lines[j].strip()
+                if not next_line or re.match(r'^\d+[.．\s]', next_line):
+                    break  # Next result or end
+                info_lines.append(next_line)
+
+            info_text = " ".join(info_lines)
+
+            # Parse year
+            year = 0
+            year_m = re.search(r'(?:^|\D)(\d{4})(?:\D|$)', info_text)
+            if year_m:
+                year = int(year_m.group(1))
+                if not (1990 <= year <= 2026):
+                    year = 0
+
+            # Parse authors (semicolon or comma separated before the year)
+            authors = []
+            author_part = info_text.split(str(year))[0].strip() if year else info_text
+            # Authors are typically before the source/journal info
+            for sep in [";", "；", "，", ","]:
+                if sep in author_part:
+                    parts = [a.strip() for a in author_part.split(sep) if a.strip()]
+                    # Check if first result looks like a name
+                    if parts and len(parts[0]) >= 2 and len(parts) <= 8:
+                        authors = parts
+                        break
+            if not authors and len(author_part) >= 2 and len(author_part) <= 20:
+                authors = [author_part]
+
+            # Parse venue
+            venue = ""
+            venue_m = re.search(r'[-—]\s*(.+?)(?:\d{4}|\[\d)', info_text)
+            if venue_m:
+                venue = venue_m.group(1).strip().rstrip("，,")
+
+            # Extract DOI if present in the text
+            doi = ""
+            doi_m = re.search(r'(10\.\d{4,}/[^\s<"]+)', text[max(0, i*50):(i+10)*50])
+            if doi_m:
+                doi = doi_m.group(1)
+            if not doi:
+                title_hash = hashlib.md5(title.encode()).hexdigest()[:12]
+                doi = f"wanfang.{title_hash}"
+
+            # Extract citation/download counts
+            citations = 0
+            cit_m = re.search(r'被引[：:](\d+)', info_text)
+            if cit_m:
+                citations = int(cit_m.group(1))
+
+            results.append({
+                "doi": doi,
+                "title": title,
+                "year": year,
+                "venue": venue,
+                "authors": authors,
+                "citations": citations,
+                "source": "wanfang",
             })
 
-            if len(results) >= limit * len(WFDATA_COLLECTIONS):
+        i += 1
+
+    return results
+
+
+def _try_wanfang_cdp(query, limit=20):
+    """Search Wanfang via CDP browser with CARSI SSO session.
+
+    Uses the CDP browser to navigate to the SPA search at
+    s.wanfangdata.com.cn/paper?q=... The CAS authentication
+    flow happens automatically as the browser session is already
+    authenticated. Results are extracted from the rendered page
+    innerText for reliable parsing.
+
+    Returns parsed results or None if CDP browser unavailable.
+    """
+    try:
+        from cdp_utils import check_cdp
+        if not check_cdp(WANFANG_CDP_PORT):
+            return None
+    except Exception:
+        return None
+
+    try:
+        import websocket
+        targets = json.loads(
+            urllib.request.urlopen(
+                f"http://127.0.0.1:{WANFANG_CDP_PORT}/json"
+            ).read()
+        )
+        # Find a page target
+        page_target = None
+        for t in targets:
+            if t.get("type") == "page":
+                page_target = t
+                break
+        if not page_target:
+            return None
+
+        wu = page_target["webSocketDebuggerUrl"]
+        ws = websocket.create_connection(wu, timeout=10)
+
+        # Navigate to SPA search URL
+        search_url = _build_wanfang_url(query, page=1, page_size=min(limit, 20))
+        ws.send(json.dumps({
+            "id": 1,
+            "method": "Page.navigate",
+            "params": {"url": search_url},
+        }))
+        resp = json.loads(ws.recv())
+        if "error" in resp:
+            ws.close()
+            return None
+
+        # Wait for SPA to load and render search results
+        # The SPA takes time to fetch data via AJAX after the shell loads
+        timeout = time.time() + 15
+        max_wait = 15
+        last_body_len = 0
+        stable_for = 0
+
+        for _ in range(max_wait):
+            time.sleep(1)
+
+            # Check body text length — if stable and > 1000, data is ready
+            ws.send(json.dumps({
+                "id": 2,
+                "method": "Runtime.evaluate",
+                "params": {"expression": "document.body ? document.body.innerText.length : 0"},
+            }))
+            r = json.loads(ws.recv())
+            body_len = r.get("result", {}).get("result", {}).get("value", 0)
+
+            if body_len > 2000 and body_len == last_body_len:
+                stable_for += 1
+                if stable_for >= 2:  # Stable for 2 seconds → data loaded
+                    break
+            else:
+                stable_for = 0
+
+            last_body_len = body_len
+
+            if time.time() > timeout:
                 break
 
-        time.sleep(0.5)
+        # Extract the rendered page text
+        ws.send(json.dumps({
+            "id": 3,
+            "method": "Runtime.evaluate",
+            "params": {"expression": "document.body ? document.body.innerText : ''"},
+        }))
+        r = json.loads(ws.recv())
+        ws.close()
 
+        text = r.get("result", {}).get("result", {}).get("value", "")
+        if not text or len(text) < 100:
+            return None
+
+        # Check for results — if we see "找到X条文献" or result numbers, we're good
+        has_results = bool(re.search(r'找到\d+条文献', text))
+        is_login_page = any(ind in text.lower()[:600] for ind in
+                           ["统一身份认证", "CARSI", "fsso"])
+        if is_login_page and not has_results:
+            print("  Wanfang Data: CDP mode — still on login page. "
+                  "Please complete CARSI login in the browser.", flush=True)
+            return None
+
+        # Parse results from the rendered text
+        results = _parse_wanfang_results_from_text(text, limit)
+        return results
+
+    except Exception as e:
+        print(f"  Wanfang Data CDP error: {e}", flush=True)
+        try:
+            ws.close()
+        except Exception:
+            pass
+        return None
+
+
+def search_wanfang(query, limit=20, use_cache=True):
+    """Search Wanfang Data via institutional web access (no API key needed).
+
+    Two modes:
+      1. IP mode (auto): Direct HTTP GET to searchList.do
+         Works when on-campus or on institutional VPN.
+      2. CARSI mode (fallback): CDP-assisted session cookies
+         Requires user to log in via CARSI SSO in CDP browser.
+
+    Papers without DOIs receive a synthetic 'wanfang.{title_md5[:12]}'
+    identifier so they pass through the standard --include-no-doi filter.
+
+    Args:
+        query: Search query string.
+        limit: Max results (default: 20).
+        use_cache: If True, check/write disk cache.
+
+    Returns:
+        List of paper dicts with keys: doi, title, year, venue, authors,
+        citations, source.
+    """
+    # Cache check
+    cache_key = _cache_key(query, "wanfang", limit)
     if use_cache:
-        _cache_set(cache_key, results)
-    return results
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            print(f"  Wanfang Data: cache hit ({len(cached)} results)", flush=True)
+            return cached
+
+    # Try IP mode first (on-campus or VPN)
+    print("  Wanfang Data: trying IP-direct mode...", flush=True)
+    results = _try_wanfang_ip(query, limit)
+
+    if results is not None:
+        # IP mode succeeded (may be 0 results — that's fine)
+        if use_cache:
+            _cache_set(cache_key, results)
+        return results
+
+    # IP mode failed → try CARSI mode with CDP browser
+    print("  Wanfang Data: IP access not available, trying CARSI mode...", flush=True)
+    results = _try_wanfang_cdp(query, limit)
+
+    if results is not None:
+        if use_cache:
+            _cache_set(cache_key, results)
+        return results
+
+    # CDP browser or CARSI session not available
+    print("", flush=True)
+    print("  ╔══════════════════════════════════════════════════════════════╗", flush=True)
+    print("  ║  万方校外访问 — CARSI 机构登录                             ║", flush=True)
+    print("  ╠══════════════════════════════════════════════════════════════╣", flush=True)
+    print("  ║ 1. 启动 CDP Chrome:                                        ║", flush=True)
+    print("  ║    scripts/start_cdp_chrome.sh                             ║", flush=True)
+    print("  ║ 2. 在浏览器中访问:                                         ║", flush=True)
+    print("  ║    https://fsso.wanfangdata.com.cn                         ║", flush=True)
+    print("  ║ 3. 选择您的学校 → 完成统一身份认证登录                      ║", flush=True)
+    print("  ║ 4. 保留浏览器窗口，重新执行检索                              ║", flush=True)
+    print("  ╚══════════════════════════════════════════════════════════════╝", flush=True)
+    return []
 
 
 # ── Source Registration ──────────────────────────────────────────────────
@@ -658,8 +1021,7 @@ def preflight():
         "Crossref": "https://api.crossref.org/works?query.title=test&rows=1",
         "OpenAlex": "https://api.openalex.org/works?search=test&per_page=1",
     }
-    if HAS_WFDATA:
-        endpoints["Wanfang Data"] = WFDATA_SEARCH_URL
+    endpoints["Wanfang Data"] = _build_wanfang_url("test", page=1, page_size=1)
 
     print("Pre-flight API Health Check")
     print("=" * 55)
@@ -669,9 +1031,19 @@ def preflight():
         start = time.time()
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read())
+                body = resp.read()
+                # Wanfang returns HTML, other sources return JSON
+                if name == "Wanfang Data":
+                    ok = len(body) > 100  # Got actual content, not a redirect page
+                else:
+                    json.loads(body)  # Verify JSON is parseable
+                    ok = True
             elapsed_ms = int((time.time() - start) * 1000)
-            print(f"  ✅ {name:<20} OK ({elapsed_ms}ms)")
+            if ok:
+                print(f"  ✅ {name:<20} OK ({elapsed_ms}ms)")
+            else:
+                print(f"  ❌ {name:<20} FAIL ({elapsed_ms}ms) — truncated/redirect")
+                all_ok = False
         except Exception as e:
             elapsed_ms = int((time.time() - start) * 1000)
             err_msg = str(e)[:50]
@@ -679,8 +1051,6 @@ def preflight():
             all_ok = False
 
     print("=" * 55)
-    if not HAS_WFDATA:
-        print("  Wanfang Data: SKIPPED (set WFDATA_APP_KEY + WFDATA_APP_CODE to enable)")
     if all_ok:
         print("All endpoints reachable.")
     else:
@@ -1120,7 +1490,7 @@ Examples:
   # Verify DOIs from a file
   python3 search_by_topic.py --verify-dois dois.txt
 
-  # Wanfang Data Chinese literature search (requires WFDATA_APP_KEY + WFDATA_APP_CODE)
+  # Wanfang Data Chinese literature search (requires institutional IP or CARSI SSO login)
   python3 search_by_topic.py "冷板拓扑优化" --source wanfang --limit 20
 
   # T1/T2/T3 routing with Wanfang fallback

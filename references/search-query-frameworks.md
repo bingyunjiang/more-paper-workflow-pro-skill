@@ -195,4 +195,4 @@ query=(cold plate OR liquid cooling) AND (topology optimization OR generative de
 | **OpenAlex** | L1 搜索 | 所有工科子领域，默认首选 |
 | **Semantic Scholar** | L2 搜索+富集 | CS 交叉子领域→并行 L1；传统工科→L1 不足时回退；始终取 `influentialCitationCount` |
 | **PubMed** | L3 搜索 | 仅医工交叉（生物医学工程、康复工程等） |
-| **Wanfang Data** | L3 自动 🆕 | 中文文献检索（OpenPeriodicalChi / OpenThesis / OpenConference 三集合），需配置 WFDATA_APP_KEY + WFDATA_APP_CODE |
+| **Wanfang Data** | L3 自动 🆕 | 中文文献检索，机构IP直连或CARSI SSO登录 |

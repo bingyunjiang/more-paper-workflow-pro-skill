@@ -124,7 +124,7 @@ L1  OpenAlex         ← 全学科覆盖最广（2.5 亿+），默认首选
 L2  Semantic Scholar ← CS 交叉子领域并行，传统工科回退
 L2  arXiv (条件触发)  ← 🆕 仅 CS/AI 跨域信号时启用（T-0~T-4 新鲜度窗口）
 L3  PubMed           ← 仅医工交叉启用
-L3  Wanfang Data     ← 🆕 中文文献自动检索（需配置 WFDATA_APP_KEY + WFDATA_APP_CODE）
+L3  Wanfang Data     ← 🆕 中文文献自动检索（机构IP直连或CARSI SSO登录）
                    本文库尚不支持 CNKI（无开放 API）
 ```
 
@@ -137,7 +137,8 @@ L3  Wanfang Data     ← 🆕 中文文献自动检索（需配置 WFDATA_APP_KE
 | 仅英文查询且无中文语境 | ⚠️ 推荐 | Agent 判断是否可能遗漏国内团队工作 |
 | 用户明确要求"仅英文" | ❌ NO | 尊重用户意愿 |
 
-> **Wanfang 限制**：万方 API 仅支持 `score desc` 排序，不支持多策略（relevance/cited/recent）切换。在 L3 阶段统一使用 `--source wanfang` 或通过 T3 回退调用。
+> **Wanfang 访问方式**：自动检测。校内IP直连（零配置），校外CARSI SSO需在CDP Chrome中完成一次机构登录。
+> **Wanfang 限制**：万方 Web 搜索仅支持默认排序，不支持多策略（relevance/cited/recent）切换。在 L3 阶段统一使用 `--source wanfang` 或通过 T3 回退调用。
 
 **🆕 arXiv 触发条件：**
 

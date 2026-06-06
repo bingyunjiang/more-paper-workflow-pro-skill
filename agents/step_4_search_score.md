@@ -88,8 +88,10 @@ python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
 
 ### L3 Wanfang Data 🆕
 
-> 中文文献自动检索。需要 `WFDATA_APP_KEY` + `WFDATA_APP_CODE` 环境变量。
-> 未配置时自动跳过，不影响其他源。万方无多策略，仅支持 `score desc` 排序。
+> 中文文献自动检索。支持两种访问模式：
+> 1. **机构 IP 直连**（校园网/VPN）：自动检测，无需额外配置
+> 2. **CARSI SSO 登录**（校外）：需在 CDP Chrome 中完成一次机构登录
+> 万方无多策略（relevance/cited/recent）支持，搜索请求为单次网页查询。
 
 ```bash
 # L3 Wanfang Data：中文文献检索
@@ -140,7 +142,7 @@ python3 scripts/arxiv_helper.py "query string" \
      ✅ 完整 → 进入评分
 ```
 
-> **万方数据备注** 🆕：万方论文没有真实 DOI 时使用 `wanfang.{id}` 作为标识符。
+> **万方数据备注** 🆕：万方论文没有真实 DOI 时使用 `wanfang.{title_hash}` 作为标识符。
 > 这些条目不进入 Crossref 验证（跳过步骤①），直接进入评分阶段。
 > 若有真实 DOI（`10.xxxx/...` 格式），则正常验证。
 
