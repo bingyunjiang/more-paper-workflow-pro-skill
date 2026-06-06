@@ -385,7 +385,7 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
     Downloads go to output_dir (no temp dirs, no deletions).
     A duplicate copy also appears in ~/Downloads (Chrome CDP behavior).
     """
-    import os as _os, glob as _glob, tempfile
+    import os as _os, glob as _glob, hashlib, shutil as _shutil
 
     # Download directly to output dir — don't use temp dir that gets deleted
     if not output_dir:
@@ -403,32 +403,22 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
         return None
     download_url = f"https://f.wanfangdata.com.cn/download/pc/{m.group(1)}/{m.group(2)}"
 
-    # Step 2: Reuse existing page tab (same as Wanfang CDP search pattern)
-    targets = json.loads(
-        urllib.request.urlopen(f"http://127.0.0.1:{port}/json").read()
-    )
-    page_target = None
-    for t in targets:
-        if t.get("type") == "page":
-            page_target = t
-            break
-    if not page_target:
+    # Step 2: Create tab and navigate to download page
+    browser_ws_url = get_cdp_ws_url(port)
+    bws = websocket.create_connection(browser_ws_url, timeout=10)
+    bws.send(json.dumps({"id": 1, "method": "Target.createTarget",
+                         "params": {"url": download_url}}))
+    tid = json.loads(bws.recv())["result"]["targetId"]
+    bws.close()
+    time.sleep(4)
+
+    # Get tab WS for click operation
+    tab_ws_url = get_tab_ws_url(port, tid)
+    if not tab_ws_url:
         return None
-    tab_ws_url = page_target["webSocketDebuggerUrl"]
     tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
 
-    # Navigate to download page
-    tab_ws.send(json.dumps({"id": 1, "method": "Page.navigate",
-                            "params": {"url": download_url}}))
-    json.loads(tab_ws.recv())
-
-    # Set download behavior
-    tab_ws.send(json.dumps({"id": 0, "method": "Browser.setDownloadBehavior", "params": {
-        "behavior": "allow", "downloadPath": output_dir
-    }}))
-    json.loads(tab_ws.recv())
-
-    # Step 3: Wait for download page countdown, then click "点击此处"
+    # Step 3: Wait for countdown, then click "点击此处"
     time.sleep(10)
 
     js_click = '(function(){var as=document.querySelectorAll("a");for(var i=0;i<as.length;i++){if(as[i].innerText.indexOf("点击此处")>=0){as[i].click();return"clicked";}}return"not found";})()'
@@ -436,17 +426,25 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
     json.loads(tab_ws.recv())
     tab_ws.close()
 
-    # Step 4: Wait for PDF file to appear
+    # Step 4: Wait for PDF in ~/Downloads (Browser.setDownloadBehavior path is unreliable)
+    downloads_dir = _os.path.expanduser("~/Downloads")
+    before_dl = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
     for i in range(timeout + 30):
         time.sleep(1)
-        current = set(_glob.glob(_os.path.join(output_dir, "*.pdf")))
-        new_pdfs = current - before
-        crdownloads = _glob.glob(_os.path.join(output_dir, "*.crdownload"))
+        current = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
+        new_pdfs = current - before_dl
+        crdownloads = _glob.glob(_os.path.join(downloads_dir, "*.crdownload"))
         if new_pdfs and not crdownloads:
-            pdf_path = list(new_pdfs)[0]
-            if _os.path.getsize(pdf_path) > MIN_PDF_SIZE:
-                return pdf_path
+            dl_path = list(new_pdfs)[0]
+            if _os.path.getsize(dl_path) > MIN_PDF_SIZE:
+                # Copy to output_dir with hash name for router compatibility
+                dest = _os.path.join(output_dir,
+                    f"wanfang.{hashlib.md5(article_url.encode()).hexdigest()[:16]}.pdf")
+                _shutil.copy2(dl_path, dest)
+                close_tab(port, tid)
+                return dest
 
+    close_tab(port, tid)
     return None
 
 
