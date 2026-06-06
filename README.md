@@ -738,6 +738,7 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 - 评分升级：维度① 标题+摘要关键词匹配，维度② 摘要检测实验/仿真信号 → 方法学区分度
 - 摘要贯通输出：.md / .bib / .xlsx 全部含摘要列
 - 容错增强：Semantic Scholar 429 指数退避重试 + 免费 API Key 提示
+- Step 6d 独立可触发：新增 11 条触发词（文库大纲对照表/覆盖热力图等），路由表 + 概览图同步更新
 
 ### v1.0.5 (2026-06-05)
 - 统一下载路由：单一入口自动路由，覆盖 23+ 家出版社，通用 CDP 下载引擎 + 出版社配置知识库
@@ -1539,6 +1540,7 @@ Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are hig
 - Scoring upgrade: dimension① title+abstract keyword matching, dimension② experiment/simulation signal detection → methodology differentiation
 - Abstract in all outputs: .md / .bib / .xlsx all include abstract columns
 - Resilience: Semantic Scholar 429 exponential backoff retry + free API key prompt
+- Step 6d independent triggers: 11 new trigger phrases (collection coverage heatmap/outline mapping report etc.), routing table + overview diagram updated
 
 ### v1.0.5 (2026-06-05)
 - Unified download router: single-entry auto-routing across 23+ publishers, Generic CDP engine + publisher config knowledge base
