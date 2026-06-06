@@ -141,13 +141,13 @@ C3 — 验证: ("experimental" OR "test rig" OR "measurement" OR "prototype")
 
 统一布尔表达式需要按各 API 翻译：
 
-| 语义 | OpenAlex | Semantic Scholar | Crossref |
-|------|----------|-----------------|----------|
-| AND | `AND`（`search=` 参数） | 空格（隐式 AND） | `AND`（`query=` 参数） |
-| OR | `OR` | `+` 强制包含 | `OR` |
-| NOT | 不原生支持，用过滤器替代 | `-` 排除 | 不原生支持 |
-| 精确短语 | `"exact phrase"` | `"exact phrase"` | `"exact phrase"` |
-| 标题限定 | `filter=title.search:...` | `title:` 字段 | `query.title=...` |
+| 语义 | OpenAlex | Semantic Scholar | Crossref | Wanfang (PQ) 🆕 |
+|------|----------|-----------------|----------|-----------------|
+| AND | `AND`（`search=` 参数） | 空格（隐式 AND） | `AND`（`query=` 参数） | `AND`（PQ 语法） |
+| OR | `OR` | `+` 强制包含 | `OR` | `OR`（同义词括号内） |
+| NOT | 不原生支持，用过滤器替代 | `-` 排除 | 不原生支持 | `NOT 标题:term` |
+| 精确短语 | `"exact phrase"` | `"exact phrase"` | `"exact phrase"` | `"exact phrase"` |
+| 标题限定 | `filter=title.search:...` | `title:` 字段 | `query.title=...` | `标题:term` |
 
 ### 翻译示例
 
@@ -173,6 +173,11 @@ filter=title.search:cold plate|liquid cooling|microchannel
 query=(cold plate OR liquid cooling) AND (topology optimization OR generative design)
 ```
 
+**→ Wanfang (PQ):**
+```
+标题:("cold plate" OR "liquid cooling") AND 标题:("topology optimization" OR "generative design") NOT 标题:"PCM"
+```
+
 ## 7. 年份启发式
 
 | 用户表述 | 年份范围 |
@@ -190,4 +195,4 @@ query=(cold plate OR liquid cooling) AND (topology optimization OR generative de
 | **OpenAlex** | L1 搜索 | 所有工科子领域，默认首选 |
 | **Semantic Scholar** | L2 搜索+富集 | CS 交叉子领域→并行 L1；传统工科→L1 不足时回退；始终取 `influentialCitationCount` |
 | **PubMed** | L3 搜索 | 仅医工交叉（生物医学工程、康复工程等） |
-| **CNKI/万方** | L3 手动 | 中文文献补充，含 OpenAlex `country_code:CN` 过滤 |
+| **Wanfang Data** | L3 自动 🆕 | 中文文献检索（OpenPeriodicalChi / OpenThesis / OpenConference 三集合），需配置 WFDATA_APP_KEY + WFDATA_APP_CODE |

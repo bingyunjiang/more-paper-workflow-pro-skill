@@ -50,6 +50,16 @@ CACHE_DIR = os.path.expanduser("~/.cache/more-paper-workflow/search_cache")
 CACHE_TTL_SECONDS = 7 * 24 * 3600  # 7 days
 CACHE_MAX_ENTRIES = 500
 
+# ── Wanfang Data API Credentials ──────────────────────────────────────────
+
+WFDATA_APP_KEY = os.environ.get("WFDATA_APP_KEY", "")
+WFDATA_APP_CODE = os.environ.get("WFDATA_APP_CODE", "")
+HAS_WFDATA = bool(WFDATA_APP_KEY and WFDATA_APP_CODE)
+
+WFDATA_BASE_URL = "https://api.wanfangdata.com.cn"
+WFDATA_SEARCH_URL = f"{WFDATA_BASE_URL}/openwanfang/getQuery"
+WFDATA_COLLECTIONS = ["OpenPeriodicalChi", "OpenThesis", "OpenConference"]
+
 
 def _cache_key(query, source, limit, strategy=""):
     raw = f"{query}|{source}|{limit}|{strategy}"
@@ -243,11 +253,137 @@ def search_openalex(query, limit=20, use_cache=True):
     return results
 
 
-# Map source names to functions
+# ── Wanfang Data Search ──────────────────────────────────────────────────
+
+def search_wanfang(query, limit=20, use_cache=True):
+    """Search Wanfang Data API for Chinese academic literature.
+
+    Searches across three collections (OpenPeriodicalChi, OpenThesis,
+    OpenConference) sequentially with a 0.5s inter-collection delay.
+    Requires WFDATA_APP_KEY and WFDATA_APP_CODE environment variables.
+
+    Papers without DOIs receive a synthetic 'wanfang.{doc_id}' identifier
+    so they pass through the standard --include-no-doi filter and can be
+    deduplicated via title+author+year fallback key.
+
+    Args:
+        query: Free-text query string or PQ-format query (auto-detected).
+        limit: Max results per collection (total <= limit * 3).
+        use_cache: If True, check/write disk cache.
+
+    Returns:
+        List of paper dicts with keys: doi, title, year, venue, authors,
+        citations, source, wanfang_id, collection.
+    """
+    if not HAS_WFDATA:
+        print("  Wanfang Data: credentials not configured "
+              "(set WFDATA_APP_KEY and WFDATA_APP_CODE)", flush=True)
+        return []
+
+    cache_key = _cache_key(query, "wanfang", limit)
+    if use_cache:
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            print(f"  Wanfang Data: cache hit ({len(cached)} results)", flush=True)
+            return cached
+
+    # Auto-detect PQ vs free-text: if query starts with a field prefix (e.g. "标题:"),
+    # treat as PQ; otherwise wrap with "全部:" for all-fields search.
+    query_str = query if re.match(r'^[一-鿿\w]+:', query) else f"全部:{query}"
+
+    results = []
+    per_collection = min(limit, 50)
+
+    for collection in WFDATA_COLLECTIONS:
+        payload = json.dumps({
+            "collection": collection,
+            "query": query_str,
+            "rows": per_collection,
+            "start": 0,
+            "sort": {"sort_name": "score desc"},
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            WFDATA_SEARCH_URL,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "X-Ca-AppKey": WFDATA_APP_KEY,
+                "Authorization": f"APPCODE {WFDATA_APP_CODE}",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read())
+        except Exception as e:
+            print(f"  Wanfang Data ({collection}): {e}", flush=True)
+            time.sleep(0.5)
+            continue
+
+        # Defensive parsing — the exact response key is not guaranteed.
+        docs = (data.get("documents") or data.get("result")
+                or data.get("data") or [])
+
+        for item in docs:
+            doc_id = str(item.get("id") or item.get("Id") or "")
+            if not doc_id:
+                continue
+
+            # Use real DOI when available; otherwise synthetic wanfang.{id}
+            doi_raw = (item.get("doi") or item.get("DOI") or "").strip()
+            doi = doi_raw if doi_raw else f"wanfang.{doc_id}"
+
+            title = str(item.get("title") or item.get("Title") or "?")
+
+            # Year extraction: try several field names and parse 4-digit year
+            date_raw = str(item.get("year") or item.get("Year")
+                           or item.get("date") or item.get("Date")
+                           or item.get("PublishYear") or "")
+            year_match = re.search(r"(\d{4})", date_raw)
+            year = int(year_match.group(1)) if year_match else 0
+
+            venue = str(item.get("source") or item.get("Source")
+                        or item.get("journal") or item.get("Journal")
+                        or item.get("publication_name") or "")
+
+            # Authors: typically semicolon-delimited string
+            authors_raw = str(item.get("creator") or item.get("Creator")
+                              or item.get("authors") or item.get("Authors") or "")
+            authors = [a.strip() for a in authors_raw.split(";") if a.strip()]
+
+            # Citation count
+            citations = int(item.get("citation_count") or item.get("CitedCount")
+                            or item.get("cited_count") or 0)
+
+            results.append({
+                "doi": doi,
+                "title": title,
+                "year": year,
+                "venue": venue,
+                "authors": authors,
+                "citations": citations,
+                "source": "wanfang",
+                "wanfang_id": doc_id,
+                "collection": collection,
+            })
+
+            if len(results) >= limit * len(WFDATA_COLLECTIONS):
+                break
+
+        time.sleep(0.5)
+
+    if use_cache:
+        _cache_set(cache_key, results)
+    return results
+
+
+# ── Source Registration ──────────────────────────────────────────────────
+
 SOURCE_FUNCTIONS = {
     "semantic_scholar": search_semantic_scholar,
     "crossref": search_crossref,
     "openalex": search_openalex,
+    "wanfang": search_wanfang,
 }
 
 SOURCE_ALIASES = {
@@ -255,6 +391,7 @@ SOURCE_ALIASES = {
     "ss": "semantic_scholar",
     "cr": "crossref",
     "oa": "openalex",
+    "wf": "wanfang",
 }
 
 
@@ -379,13 +516,14 @@ def build_query(concept_blocks, source, strategy="relevance"):
         - "synonyms": list[str] (optional) — OR-connected synonyms
         - "exclude": list[str] (optional) — terms to exclude
         - "logic": "AND"|"OR"|"NOT" (default "AND") — how to connect to previous block
-    source: "openalex" | "semantic_scholar" | "crossref"
+    source: "openalex" | "semantic_scholar" | "crossref" | "wanfang"
     strategy: "relevance" | "cited" | "recent" — for sort params
 
     Returns a dict with keys appropriate for each API:
         - openalex: {"search": ..., "filter": ..., "sort": ...}
         - semantic_scholar: {"q": ...}
         - crossref: {"query.title": ..., "sort": ..., "order": ...}
+        - wanfang: {"q": ...} (PQ-format query string)
     """
     if not concept_blocks:
         return {}
@@ -444,6 +582,25 @@ def build_query(concept_blocks, source, strategy="relevance"):
         # Crossref uses query.title for title-focused search
         return {"query.title": query, "sort": "relevance", "order": "desc"}
 
+    elif source == "wanfang":
+        # Wanfang PQ query: 标题:(term1 OR term2) AND 标题:(term3) NOT 标题:excl
+        and_clauses = []
+        not_terms = []
+        for block in concept_blocks:
+            terms = [block["concept"]] + block.get("synonyms", [])
+            quoted = [f'"{t}"' if " " in t else t for t in terms]
+            or_clause = " OR ".join(quoted)
+            if len(terms) > 1:
+                or_clause = f"({or_clause})"
+            and_clauses.append(f"标题:{or_clause}")
+            for ex in block.get("exclude", []):
+                ex_quoted = f'"{ex}"' if " " in ex else ex
+                not_terms.append(f"NOT 标题:{ex_quoted}")
+        pq = " AND ".join(and_clauses)
+        if not_terms:
+            pq += " " + " ".join(not_terms)
+        return {"q": pq}
+
     else:
         # Unknown source: return raw AND-joined query
         return {"q": " AND ".join(and_clauses)}
@@ -501,6 +658,8 @@ def preflight():
         "Crossref": "https://api.crossref.org/works?query.title=test&rows=1",
         "OpenAlex": "https://api.openalex.org/works?search=test&per_page=1",
     }
+    if HAS_WFDATA:
+        endpoints["Wanfang Data"] = WFDATA_SEARCH_URL
 
     print("Pre-flight API Health Check")
     print("=" * 55)
@@ -520,6 +679,8 @@ def preflight():
             all_ok = False
 
     print("=" * 55)
+    if not HAS_WFDATA:
+        print("  Wanfang Data: SKIPPED (set WFDATA_APP_KEY + WFDATA_APP_CODE to enable)")
     if all_ok:
         print("All endpoints reachable.")
     else:
@@ -958,16 +1119,22 @@ Examples:
 
   # Verify DOIs from a file
   python3 search_by_topic.py --verify-dois dois.txt
+
+  # Wanfang Data Chinese literature search (requires WFDATA_APP_KEY + WFDATA_APP_CODE)
+  python3 search_by_topic.py "冷板拓扑优化" --source wanfang --limit 20
+
+  # T1/T2/T3 routing with Wanfang fallback
+  python3 search_by_topic.py "battery thermal management" --t1 openalex --t2 wanfang
         """
     )
 
     # Search mode
     parser.add_argument("query", nargs="?", help="Search query string")
-    parser.add_argument("--source", choices=["semantic", "crossref", "openalex", "all",
-                                              "semantic_scholar"],
+    parser.add_argument("--source", choices=["semantic", "crossref", "openalex", "wanfang", "wf",
+                                              "all", "semantic_scholar"],
                         default="all",
                         help="Search source (default: all). Use --t1/--t2/--t3 for routing.")
-    parser.add_argument("--t1", help="Primary source (T1). Options: semantic_scholar, crossref, openalex")
+    parser.add_argument("--t1", help="Primary source (T1). Options: semantic_scholar, crossref, openalex, wanfang")
     parser.add_argument("--t2", help="Secondary source (T2), used if T1 returns < --min-results")
     parser.add_argument("--t3", help="Last resort source (T3)")
     parser.add_argument("--min-results", type=int, default=30,
@@ -1160,6 +1327,9 @@ Examples:
             if args.source in ("openalex", "all"):
                 print("  Querying OpenAlex...", flush=True)
                 all_results.extend(search_openalex(args.query, args.limit, use_cache=not args.no_cache))
+            if args.source in ("wanfang", "wf", "all"):
+                print("  Querying Wanfang Data...", flush=True)
+                all_results.extend(search_wanfang(args.query, args.limit, use_cache=not args.no_cache))
 
     # Deduplicate
     unique = deduplicate(all_results)

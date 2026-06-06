@@ -360,7 +360,7 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 
 | 脚本 | 步骤 | 用途 |
 |------|------|------|
-| `scripts/search_by_topic.py` | 4 | 多渠道检索（Semantic Scholar / Crossref / OpenAlex）+ 🆕 引文网络 + 语义缓存 |
+| `scripts/search_by_topic.py` | 4 | 多渠道检索（Semantic Scholar / Crossref / OpenAlex / 🆕 Wanfang Data）+ 引文网络 + 语义缓存 |
 | `scripts/generate_retrieval_report.py` | 4g | 🆕 检索文献表一键交付（.xlsx + .bib）— 🔴 Step 4 强制 |
 | `scripts/generate_search_report.py` | 4g | 🆕 检索方法论报告（8 章节：范围→流水线→评分→分布→饱和度→建议） |
 | `scripts/discovery_curve.py` | 4d | 🆕 饱和度曲线估算 |

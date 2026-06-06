@@ -124,8 +124,20 @@ L1  OpenAlex         ← 全学科覆盖最广（2.5 亿+），默认首选
 L2  Semantic Scholar ← CS 交叉子领域并行，传统工科回退
 L2  arXiv (条件触发)  ← 🆕 仅 CS/AI 跨域信号时启用（T-0~T-4 新鲜度窗口）
 L3  PubMed           ← 仅医工交叉启用
-L3  CNKI / 万方       ← 中文文献手动补充
+L3  Wanfang Data     ← 🆕 中文文献自动检索（需配置 WFDATA_APP_KEY + WFDATA_APP_CODE）
+                   本文库尚不支持 CNKI（无开放 API）
 ```
+
+### 3c.1 🆕 Wanfang 触发条件
+
+| 信号 | 触发 Wanfang? | 说明 |
+|------|:------------:|------|
+| 查询含中文字符 | ✅ YES | 只要有中文关键词即推荐启用 |
+| 用户明确要求"中文文献"/"万方"/"Wanfang" | ✅ YES | 显式要求 |
+| 仅英文查询且无中文语境 | ⚠️ 推荐 | Agent 判断是否可能遗漏国内团队工作 |
+| 用户明确要求"仅英文" | ❌ NO | 尊重用户意愿 |
+
+> **Wanfang 限制**：万方 API 仅支持 `score desc` 排序，不支持多策略（relevance/cited/recent）切换。在 L3 阶段统一使用 `--source wanfang` 或通过 T3 回退调用。
 
 **🆕 arXiv 触发条件：**
 
@@ -182,6 +194,7 @@ python3 scripts/search_by_topic.py --preflight
 - [ ] 🆕 arXiv 触发条件已检测（arxiv_enabled: true/false）
 - [ ] 🆕 Tier 检索参数已配置（tier: quick/standard/deep）
 - [ ] 🆕 核心术语与 `references/term_aliases.md` 中 Main Term 一致
+- [ ] 🆕 Wanfang 触发条件已检测（wanfang_enabled: true/false + 凭证存在性）
 - [ ] Pre-flight 检查已通过
 
 ---
