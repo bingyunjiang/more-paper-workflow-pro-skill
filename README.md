@@ -732,6 +732,13 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
+### v1.0.6 (2026-06-06)
+- **CNKI + Wanfang 中文双源并行检索**：CDP Chrome 驱动，无 API Key 依赖，校园网 IP / 校外 CARSI 双模式
+- 摘要贯穿全链路：CNKI（详情页提取）、Wanfang（结果页解析）、OpenAlex（倒排索引重建）、Semantic Scholar（API 返回保留）
+- 评分升级：维度① 标题+摘要关键词匹配，维度② 摘要检测实验/仿真信号 → 方法学区分度
+- 摘要贯通输出：.md / .bib / .xlsx 全部含摘要列
+- 容错增强：Semantic Scholar 429 指数退避重试 + 免费 API Key 提示
+
 ### v1.0.5 (2026-06-05)
 - 统一下载路由：单一入口自动路由，覆盖 23+ 家出版社，通用 CDP 下载引擎 + 出版社配置知识库
 - Agent 模块化：3284 行 SKILL.md 拆分为 9 个独立 Agent 文件（377 行）
@@ -1514,6 +1521,13 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 ## 📋 Version History
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
+
+### v1.0.6 (2026-06-06)
+- **CNKI + Wanfang dual-source parallel Chinese search**: CDP Chrome driven, no API key required, on-campus IP / off-campus CARSI dual mode
+- Abstracts across the pipeline: CNKI (detail page extraction), Wanfang (result page parsing), OpenAlex (inverted index reconstruction), Semantic Scholar (API return preserved)
+- Scoring upgrade: dimension① title+abstract keyword matching, dimension② experiment/simulation signal detection → methodology differentiation
+- Abstract in all outputs: .md / .bib / .xlsx all include abstract columns
+- Resilience: Semantic Scholar 429 exponential backoff retry + free API key prompt
 
 ### v1.0.5 (2026-06-05)
 - Unified download router: single-entry auto-routing across 23+ publishers, Generic CDP engine + publisher config knowledge base

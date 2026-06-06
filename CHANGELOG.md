@@ -8,6 +8,58 @@
 
 ---
 
+## v1.0.6 (2026-06-06)
+
+### 中文检索新增 — CNKI + Wanfang 双源并行
+
+- **新增 CNKI 检索**：通过 CDP Chrome 操作旧版 `kns.cnki.net/kns/AdvSearch` 接口，含摘要提取（详情页）、请求间隔（3s）防反爬
+- **新增 Wanfang 检索**：支持校园网 IP 直连 + 校外 CARSI CDP 双模式，搜索页直接解析摘要（结果页自带）
+- **双源并行路由**：新增 `--parallel` 参数，中文查询 CNKI + Wanfang 同时跑，Step 4b DOI 去重合并
+- **CDP 端口可配**：`_CDP_PORT` 通过 `CDP_PORT` 环境变量或 `--cdp-port` CLI 参数覆盖，默认 9222
+
+### 英文源增强
+
+- **OpenAlex**：新增 `_reconstruct_abstract()` 解析 `abstract_inverted_index` 倒排索引 → 明文摘要
+- **Semantic Scholar + Crossref**：API 已返回 `abstract` 之前丢弃，现在保留
+- **Semantic Scholar**：新增指数退避重试（429/SSL），限流后主动提示免费申请 API Key
+
+### 评分升级 — 摘要驱动
+
+- 维度① 主题匹配度：从仅标题 → **标题×2 + 摘要×1**
+- 维度② 方法学严谨性：从固定 3/5 → 从摘要检测实验/仿真信号（中英文关键词）→ 5/3/2
+
+### 输出贯通
+
+| 产出 | 摘要 |
+|------|:---:|
+| CLI 表格 | `Abs` 列 + 统计 `X with abstracts` |
+| `.bib` | `abstract = {...}` |
+| `.xlsx` | 摘要列（第 3 列，自动换行） |
+| `.md` 模板 | 摘要列 |
+
+### 清理
+
+- 删除 `step_3_search_plan.md` 中硬编码学校账号
+- 删除废弃的 `CNKI_LOGIN_URL`、`CNKI_KNS8S_URL` 常量
+- 移除摘要截断（之前 .bib 500 字 / .md 200 字限制）
+
+### 修改文件
+
+| 文件 | 改动 |
+|------|------|
+| `scripts/search_by_topic.py` | +280/-42 |
+| `scripts/generate_retrieval_report.py` | +14 |
+| `agents/step_3_search_plan.md` | 路由文档 |
+| `agents/step_4_search_score.md` | 表格模板 + 命令 |
+
+### 实测
+
+- Zotero 个人论文 4 中文 + 10 英文测试
+- CNKI 3/4 + Wanfang 4/4 → 合并 4/4（100%）
+- OpenAlex 10/10（100%），摘要覆盖 76%
+
+---
+
 ## v1.0.5 (2026-06-05)
 
 ### 检索融合更新
