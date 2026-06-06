@@ -7,10 +7,11 @@ routing matrix, then orchestrates download rounds:
 
   1. Sci-Hub CDP    → pre-2021 papers (free, ~6s/paper)
   2. SD CDP         → 10.1016/ Elsevier papers (96% success)
-  3. IEEE CDP       → 10.1109/ IEEE papers (100% with SSO)
-  4. Generic CDP    → all remaining publishers (Wiley, ACS, RSC, etc.)
-
-Replaces the previous four-round manual flow from SKILL.md Step 5.
+  3. Generic CDP    → IEEE (10.1109/) + all other publishers
+                     (Wiley, ACS, RSC, Nature, Springer, etc.)
+                     IEEE uses generic engine (strategy B: article page
+                     → stamp URL extraction). Dedicated download_via_ieee.py
+                     available as fallback for interactive SSO login flow.
 
 Usage:
   python3 scripts/unified_download_router.py 检索文献表.md --output paper-temp/
@@ -257,7 +258,12 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
 
 
 def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str], list[str]]:
-    """Round 3: IEEE CDP for 10.1109/ papers.
+    """Round 3 (fallback): IEEE CDP for 10.1109/ papers.
+
+    NOTE: IEEE is now handled by Round 4 (Generic CDP) via publishers.toml
+    strategy="generic". This round is a fallback that only triggers if
+    the publisher config is overridden to strategy="ieee_cdp" or when
+    download_via_ieee.py is invoked directly for interactive SSO login.
     Returns (downloaded_dois, remaining_dois)."""
     ieee_dois = []
     other_dois = []

@@ -225,22 +225,23 @@ else:
 DOI
  ├─ 2021年前 → Sci-Hub CDP (download_via_scihub.py)
  ├─ 10.1016/ → SD CDP (auto_sd_downloader.py, 96%)
- ├─ 10.1109/ → IEEE CDP (download_via_ieee.py, 100% with SSO)
  ├─ 10.3390/ → SKIP (MDPI: Akamai 封锁)
  ├─ 10.3389/ → Direct HTTP (Frontiers OA)
  └─ 其他    → Generic CDP (generic_publisher_downloader.py)
+     ├─ 10.1109/ → IEEE: 策略B 文章页 stamp URL 提取 + getPDF.jsp
+     │              download_via_ieee.py 作为交互式 SSO 备用
      ├─ 策略A: Direct PDF URL 模板 (最快)
      │  ACS/Wiley/Springer/Nature/Science/PNAS/IOP/APS
-     └─ 策略B: 文章页 CSS 选择器提取 (策略A失败时)
-        AIP/AVS/RSC/T&F/OSA/ECS/CCS 等
+     └─ 策略B: 文章页 CSS 选择器提取 (策略A失败时或需 Referrer 校验)
+        IEEE/AIP/AVS/RSC/T&F/OSA/ECS/CCS 等
 ```
 
 ### Generic CDP 核心实现
 
 `generic_publisher_downloader.py` 将 ref-downloader 的 17+ Playwright 策略翻译为 CDP websocket 操作：
 
-- **策略A (Direct PDF URL):** 使用出版商特定的直连 PDF URL 模板（如 `pubs.acs.org/doi/pdf/{doi}`），通过 `Fetch.enable → Page.navigate` 模式捕获（复用 IEEE v1.0.1 验证过的方案）
-- **策略B (Article Page Extraction):** 导航到文章页 → `Runtime.evaluate` 提取 PDF 按钮的 href → 同上 Fetch 捕获
+- **策略A (Direct PDF URL):** 使用出版商特定的直连 PDF URL 模板（如 `pubs.acs.org/doi/pdf/{doi}`），通过 `Fetch.enable → Page.navigate` 模式捕获
+- **策略B (Article Page Extraction):** 导航到文章页 → `Runtime.evaluate` 提取 PDF 按钮的 href → 同上 Fetch 捕获。IEEE（`10.1109/`）走此路径：文章页提取 stamp URL → 新标签 Fetch 预启用 + 带 Referrer 导航 → 捕获
 - **AIP/AVS 加载页处理:** 检测 `请稍候` 标题 → 等待最多30s → 页面就绪后继续
 - **屏障检测:** Cloudflare/Radware/captcha/login wall 自动识别，返回明确状态而非静默失败
 - **SI 下载:** 支持 ACS/Wiley/Springer/RSC 的辅助材料下载

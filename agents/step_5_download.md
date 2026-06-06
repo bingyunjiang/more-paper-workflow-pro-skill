@@ -1,6 +1,6 @@
 # Step 5: 统一批量下载 (Unified Download Router)
 
-> 单一命令自动路由，四轮顺序执行（Sci-Hub → SD CDP → IEEE CDP → Generic CDP），覆盖 24 家出版社。
+> 单一命令自动路由，三轮顺序执行（Sci-Hub → SD CDP → Generic CDP），覆盖 24 家出版社。IEEE 走 Generic CDP 策略 B（文章页提取 stamp URL），专用 `download_via_ieee.py` 作为交互式 SSO 备用。
 
 ---
 
@@ -69,14 +69,14 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 
 ### 路由矩阵
 
-路由器自动将每篇 DOI 分配到正确策略，四轮顺序执行：
+路由器自动将每篇 DOI 分配到正确策略，三轮顺序执行：
 
 | 轮次 | DOI 前缀 | 出版商 | 策略 | 成功率 |
 |------|----------|--------|------|--------|
 | **Round 1: Sci-Hub** | 不限（2021年前） | 全部 | Sci-Hub CDP | 9/13 镜像可用 |
 | **Round 2: SD CDP** | `10.1016/` | Elsevier | 专有混合策略 | 96% (180/185) |
-| **Round 3: IEEE CDP** | `10.1109/` | IEEE | 两步走 SSO | 100% (6/6) |
-| **Round 4: Generic CDP** | `10.1002/` | Wiley | pdfdirect URL → 文章页选择器 | 策略A优先 |
+| **Round 3: Generic CDP** | `10.1109/` | IEEE | 文章页 stamp URL 提取 + getPDF.jsp 捕获 | 需 SSO，`download_via_ieee.py` 备用 |
+| | `10.1002/` | Wiley | pdfdirect URL → 文章页选择器 | 策略A优先 |
 | | `10.1021/` | ACS | 直连 PDF URL → 文章页选择器 | 策略A优先 |
 | | `10.1039/` | RSC | 文章页 articlepdf 选择器 | 策略B为主 |
 | | `10.1007/` | Springer | 直连 content/pdf URL | 策略A优先 |
