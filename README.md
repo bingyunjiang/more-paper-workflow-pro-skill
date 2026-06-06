@@ -33,7 +33,7 @@
 - [🏆 核心优势](#核心优势)
 - [🛡️ 论文质量防线](#论文质量防线)
 - [📋 工作流一览](#工作流一览)
-- [🚀 安装](#安装)
+- [🚀 安装仅是参考](#安装仅是参考)
 - [📖 使用指南](#使用指南)
 - [📂 项目结构](#项目结构)
 - [❓ 常见问题](#常见问题)
@@ -708,12 +708,12 @@ More-paper-workflow-pro-skill/
 
 <details>
 <summary><b>需要机构订阅吗？</b></summary>
-ScienceDirect 下载需要机构订阅（IP 或 SSO）。Sci-Hub 下载不需要，对 2021 年前老论文更有效。
+ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-Hub 下载不需要，对 2021 年前老论文更有效。
 </details>
 
 <details>
-<summary><b>需要 Hermes Agent、OpenClaw 或 Claude Code 吗？</b></summary>
-**不需要。** 所有脚本都是标准 Python 脚本，可直接命令行调用。Hermes / OpenClaw / Claude Code 提供的是智能调度层，非必需。
+<summary><b>需要Codex、Hermes Agent、OpenClaw 或 Claude Code 吗？</b></summary>
+**需要。** 虽然所有脚本都是标准 Python 脚本，可直接命令行调用。但用 Codex、Hermes / OpenClaw / Claude Code等提供的是智能调度层，非常便捷使用。
 </details>
 
 <details>
@@ -733,7 +733,7 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
 ### v1.0.6 (2026-06-06)
-- **CNKI + Wanfang 中文双源并行检索**：CDP Chrome 驱动，无 API Key 依赖，校园网 IP / 校外 CARSI 双模式
+- **新增CNKI、Wanfang 中文检索**：CDP Chrome 驱动，无 API Key 依赖，校园网 IP / 校外 CARSI 双模式
 - 摘要贯穿全链路：CNKI（详情页提取）、Wanfang（结果页解析）、OpenAlex（倒排索引重建）、Semantic Scholar（API 返回保留）
 - 评分升级：维度① 标题+摘要关键词匹配，维度② 摘要检测实验/仿真信号 → 方法学区分度
 - 摘要贯通输出：.md / .bib / .xlsx 全部含摘要列
@@ -810,30 +810,30 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
-A complete academic literature retrieval and writing workflow (8-step method): ① Interactive research topic definition → ② Outline & keyword generation → ③ Search strategy design → ④ Multi-source search + relevance scoring → **⑤ Multi-round download (Sci-Hub → SD → IEEE)** → ⑥ Zotero library management (architecture generation + PDF import) → ⑦ Paper writing → ⑧ Paper polishing.
+A complete academic literature retrieval and writing workflow (8-step method): ① Interactive research topic definition → ② Outline & keyword generation → ③ Search strategy design → ④ Multi-source search + relevance scoring → **⑤ Unified download routing (Sci-Hub → SD CDP → IEEE CDP → Generic CDP, 23+ publishers)** → ⑥ Zotero library management (architecture generation + PDF import + outline alignment + review matrix + journal style learning) → ⑦ Paper writing (literature review + GB/T 7714 citations + figure generation + citation audit) → ⑧ Paper polishing.
 
 ---
 
 ## 📑 Table of Contents
 
-- [📖 Introduction](#introduction)
-- [🎯 Who Is This For?](#who-is-this-for)
-- [✨ Features](#features)
-- [🏆 Key Advantages](#key-advantages)
-- [🛡️ Quality Defense Line](#quality-defense-line)
-- [📋 Workflow Overview](#workflow-overview)
-- [🚀 Installation](#installation)
-- [📖 Usage Guide](#usage-guide)
-- [📂 Project Structure](#project-structure)
-- [❓ FAQ](#faq)
-- [📋 Version History](#version-history)
-- [👥 Contributors](#contributors)
-- [📄 License](#license)
-- [🔗 Links](#links)
+- [📖 Introduction](#Introduction)
+- [🎯 Who Is This For?](#Who-Is-This-For)
+- [✨ Features](#Features)
+- [🏆 Key Advantages](#Key-Advantages)
+- [🛡️ Quality Defense Line](#Quality-Defense-Line)
+- [📋 Workflow Overview](#Workflow-Overview)
+- [🚀 Installation (Reference Only)](#Installation-Reference-Only)
+- [📖 Usage Guide](#Usage-Guide)
+- [📂 Project Structure](#Project-Structure)
+- [❓ FAQ](#FAQ)
+- [📋 Version History](#Version-History)
+- [👥 Contributors](#Contributors)
+- [📄 License](#License)
+- [🔗 Links](#Links)
 
 ## 📖 Introduction
 
-**More Paper Workflow Pro Skill** is a complete academic literature workflow toolchain, covering everything from research direction identification to polished manuscript submission. 30+ Python CLI scripts + 9 Agent modules + shared utility library + publisher config system, usable standalone or integrated with Hermes/OpenClaw/Claude Code AI agents for conversational orchestration.
+**More Paper Workflow Pro Skill** is a complete academic literature workflow toolchain, covering everything from research direction identification to polished manuscript submission. 34+ Python CLI scripts + 9 Agent modules + shared utility library + publisher config system, usable standalone or integrated with Hermes/OpenClaw/Claude Code AI agents for conversational orchestration.
 
 ### In One Sentence
 
