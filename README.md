@@ -95,6 +95,8 @@
 - T1→T2→T3 三级回退路由，6 领域路由规则（医学/工程/CS/综述/中文）
 - 引文验证 + 饱和度分析（发现曲线） + 检索报告（.md+.xlsx+.pdf+.bib）
 
+![中文海报](posters/step3-4_search-routing-poster.png)
+
 **📥 PDF 批量下载（Step 5）——核心突破**
 - **统一下载路由**： 单一入口自动路由，三路顺序回退（Sci-Hub → SD CDP → Generic CDP），覆盖 **23+ 家出版社**
 - **通用下载引擎**：策略 A（直连 PDF URL）→ 策略 B（CSS 选择器提取），支持补充材料下载
@@ -102,6 +104,8 @@
 - 通过 Chrome/Edge **CDP 协议**操控真实浏览器，绕过 Cloudflare/Akamai 反爬
 - 15 个反检测 Chrome flag + `warmup_profile()` 预热函数
 - 支持 **IP 认证**（全自动零干预）和 **SSO 机构登录**（仅首次需手动）
+
+![中文海报](posters/Step5_download-routing-poster.png)
 
 **📚 Zotero 文库AI管理（Step 6）**
 - 按论文大纲AI生成集合结构和标签方案
