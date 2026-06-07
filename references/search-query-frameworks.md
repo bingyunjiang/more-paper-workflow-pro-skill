@@ -110,12 +110,13 @@ C3 — 验证: ("experimental" OR "test rig" OR "measurement" OR "prototype")
 | # | 反模式 | 说明 |
 |---|--------|------|
 | 1 | `language=english` 过滤 | ❌ 过严，丢弃中日韩研究（有英文摘要即可） |
-| 2 | `AND "human"` | ❌ 一半相关论文不含此词；依赖主题聚类而非关键词 |
-| 3 | AND 块数 > 4 | ❌ 召回率断崖下跌；拆分多查询 |
-| 4 | 单概念无双同义词 | ⚠️ 至少 2 个同义词/块，否则遗漏大量变体表述 |
-| 5 | 用全文 `search=` 代替 `title.search=` | ⚠️ 全文搜索噪音大，优先标题搜索，零结果时再 fallback |
-| 6 | 排除词用方法学术语 | ⚠️ 如 `NOT "simulation"` 会误杀含实验+仿真的论文 |
-| 7 | 用缩写不作全称展开 | ⚠️ "CFD" 应同时匹配 "computational fluid dynamics" |
+| 2 | 🔴 CNKI/万方检索不带 `--language zh` | ❌ 中文数据库中混有英文论文（中国期刊英文发表），这些论文难以通过 CDP 下载，必须在检索阶段排除。始终使用 `--language zh` |
+| 3 | `AND "human"` | ❌ 一半相关论文不含此词；依赖主题聚类而非关键词 |
+| 4 | AND 块数 > 4 | ❌ 召回率断崖下跌；拆分多查询 |
+| 5 | 单概念无双同义词 | ⚠️ 至少 2 个同义词/块，否则遗漏大量变体表述 |
+| 6 | 用全文 `search=` 代替 `title.search=` | ⚠️ 全文搜索噪音大，优先标题搜索，零结果时再 fallback |
+| 7 | 排除词用方法学术语 | ⚠️ 如 `NOT "simulation"` 会误杀含实验+仿真的论文 |
+| 8 | 用缩写不作全称展开 | ⚠️ "CFD" 应同时匹配 "computational fluid dynamics" |
 
 ## 5. 多策略组合 ← paper-search-pro
 

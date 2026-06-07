@@ -82,6 +82,49 @@ CNKI_OLD_SEARCH_URL = "http://kns.cnki.net/kns/brief/brief.aspx"
 CNKI_SEARCH_HANDLER = "http://kns.cnki.net/kns/request/SearchHandler.ashx"
 CNKI_CDP_PORT = _CDP_PORT
 
+# ── Language Detection ─────────────────────────────────────────────────────
+
+# CJK Unified Ideographs range: U+4E00 – U+9FFF
+_CJK_RE = re.compile(r'[一-鿿]')
+
+
+def _has_chinese(text):
+    """Return True if text contains at least one Chinese character."""
+    if not text:
+        return False
+    return bool(_CJK_RE.search(text))
+
+
+def _filter_by_language(results, language):
+    """Post-search language filter on result titles.
+
+    When language='zh': keep only results whose title contains Chinese characters.
+    When language='en': keep only results whose title contains NO Chinese characters.
+    When language='any': no filtering.
+
+    This is a safety net for CNKI/Wanfang — even after query-level filtering,
+    some English papers may leak through because Chinese journals publish
+    bilingual content.  English papers in CNKI/Wanfang are hard to download
+    via the CDP pipeline, so filtering them out early prevents Step 5 failures.
+
+    Returns filtered list and a count of removed items.
+    """
+    if language == "any" or not language:
+        return results, 0
+    filtered = []
+    removed = 0
+    for r in results:
+        title = r.get("title", "")
+        is_cn = _has_chinese(title)
+        if language == "zh" and not is_cn:
+            removed += 1
+            continue
+        if language == "en" and is_cn:
+            removed += 1
+            continue
+        filtered.append(r)
+    return filtered, removed
+
 
 def _cache_key(query, source, limit, strategy=""):
     raw = f"{query}|{source}|{limit}|{strategy}"
@@ -370,17 +413,32 @@ def search_openalex(query, limit=20, use_cache=True):
 
 # ── Wanfang Web Search ──────────────────────────────────────────────────
 
-def _build_wanfang_url(query, page=1, page_size=20):
+def _build_wanfang_url(query, page=1, page_size=20, language="any"):
     """Build Wanfang search URL with query parameters.
 
     Uses the SPA-based search endpoint at s.wanfangdata.com.cn/paper,
     which works with CARSI SSO sessions.
+
+    Args:
+        query: Search query string.
+        page: Page number (1-indexed).
+        page_size: Results per page (max 50).
+        language: "zh" → add Chinese-only filter to URL;
+                  "en"/"any" → no language filter.
     """
     params = {
         "q": query,
         "p": str(page),
         "pageSize": str(min(page_size, 50)),
     }
+    # Wanfang SPA supports a language facet via the "lang" parameter.
+    # When set to "chi", only Chinese-language papers are returned.
+    # This prevents English papers (published in Chinese journals)
+    # from appearing in Chinese-language searches — those English
+    # papers are difficult to download via the CDP pipeline and
+    # should be sourced from OpenAlex/Semantic Scholar/Crossref instead.
+    if language == "zh":
+        params["lang"] = "chi"
     return WANFANG_SPA_URL + "?" + urllib.parse.urlencode(params)
 
 
@@ -584,13 +642,16 @@ def _parse_wanfang_html_regex(html, max_results, results):
         })
 
 
-def _try_wanfang_ip(query, limit=20):
+def _try_wanfang_ip(query, limit=20, language="any"):
     """Try direct HTTP search to Wanfang via institutional IP.
 
     Works when on campus / VPN. Returns parsed results on success.
     Returns None if blocked/CAS redirect detected (should try CARSI mode).
+
+    Args:
+        language: "zh" adds lang=chi URL param; "en"/"any" skips it.
     """
-    url = _build_wanfang_url(query, page=1, page_size=min(limit, 20))
+    url = _build_wanfang_url(query, page=1, page_size=min(limit, 20), language=language)
     headers = {
         "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                        "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -788,7 +849,7 @@ def _enrich_wanfang_authors_cdp(ws, results):
         print(f"  Wanfang CDP: enriched {enriched} authors from detail pages", flush=True)
 
 
-def _try_wanfang_cdp(query, limit=20):
+def _try_wanfang_cdp(query, limit=20, language="any"):
     """Search Wanfang via CDP browser with CARSI SSO session.
 
     Uses the CDP browser to navigate to the SPA search at
@@ -798,6 +859,10 @@ def _try_wanfang_cdp(query, limit=20):
     innerText for reliable parsing.
 
     Returns parsed results or None if CDP browser unavailable.
+
+    Args:
+        language: "zh" adds lang=chi URL param + post-search title filter;
+                  "en"/"any" skips filtering.
     """
     try:
         from cdp_utils import check_cdp
@@ -826,7 +891,7 @@ def _try_wanfang_cdp(query, limit=20):
         ws = websocket.create_connection(wu, timeout=10)
 
         # Navigate to SPA search URL
-        search_url = _build_wanfang_url(query, page=1, page_size=min(limit, 20))
+        search_url = _build_wanfang_url(query, page=1, page_size=min(limit, 20), language=language)
         ws.send(json.dumps({
             "id": 1,
             "method": "Page.navigate",
@@ -1013,6 +1078,13 @@ def _try_wanfang_cdp(query, limit=20):
         else:
             return []
 
+        # Post-search language filter (safety net — even with lang=chi param,
+        # some English papers from Chinese journals may still appear.)
+        if language == "zh":
+            results, removed = _filter_by_language(results, "zh")
+            if removed:
+                print(f"  Wanfang Data CDP: filtered {removed} English-language results", flush=True)
+
         return results
 
     except Exception as e:
@@ -1024,7 +1096,7 @@ def _try_wanfang_cdp(query, limit=20):
         return None
 
 
-def search_wanfang(query, limit=20, use_cache=True):
+def search_wanfang(query, limit=20, use_cache=True, language="any"):
     """Search Wanfang Data via institutional web access (no API key needed).
 
     Two modes:
@@ -1040,13 +1112,15 @@ def search_wanfang(query, limit=20, use_cache=True):
         query: Search query string.
         limit: Max results (default: 20).
         use_cache: If True, check/write disk cache.
+        language: "zh" → lang=chi URL param + post-search title filter;
+                  "en"/"any" → no filtering.
 
     Returns:
         List of paper dicts with keys: doi, title, year, venue, authors,
         citations, source.
     """
-    # Cache check
-    cache_key = _cache_key(query, "wanfang", limit)
+    # Cache check — include language in cache key to avoid cross-contamination
+    cache_key = _cache_key(query, "wanfang", limit, language)
     if use_cache:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -1055,7 +1129,7 @@ def search_wanfang(query, limit=20, use_cache=True):
 
     # Try IP mode first (on-campus or VPN)
     print("  Wanfang Data: trying IP-direct mode...", flush=True)
-    results = _try_wanfang_ip(query, limit)
+    results = _try_wanfang_ip(query, limit, language=language)
 
     if results is not None:
         # IP mode succeeded (may be 0 results — that's fine)
@@ -1065,7 +1139,7 @@ def search_wanfang(query, limit=20, use_cache=True):
 
     # IP mode failed → try CARSI mode with CDP browser
     print("  Wanfang Data: IP access not available, trying CARSI mode...", flush=True)
-    results = _try_wanfang_cdp(query, limit)
+    results = _try_wanfang_cdp(query, limit, language=language)
 
     if results is not None:
         if use_cache:
@@ -1095,17 +1169,30 @@ CNKI_STRATEGY_MAP = {
     "cited":     "(被引频次,'INTEGER') desc",
 }
 
-def _build_cnki_post_data(query, page=1, sorttype=""):
+def _build_cnki_post_data(query, page=1, sorttype="", language="any"):
     """Build POST form data for CNKI's SearchHandler.ashx.
 
     The old HTTP interface uses the same params as verified by
     mohuishou/PaperDownload (Go) and itstyren/CNKI-download (Python).
+
+    Args:
+        query: Search query string.
+        page: Page number (unused; kept for API stability).
+        sorttype: CNKI sort expression (e.g., "(发表时间,'TIME') desc").
+        language: "zh" → disable Chinese-English expansion (isinEn=0);
+                  "en"/"any" → enable expansion (isinEn=1, default).
     """
+    # When searching for Chinese papers, disable the Chinese-English
+    # cross-language expansion so CNKI doesn't return English papers
+    # that happen to match the topic keywords.  English papers in CNKI
+    # are hard to download via the CDP pipeline and should be sourced
+    # from OpenAlex/Semantic Scholar instead.
+    isin_en = "0" if language == "zh" else "1"
     data = {
         "action": "",
         "NaviCode": "*",
         "ua": "1.21",
-        "isinEn": "1",
+        "isinEn": isin_en,
         "PageName": "ASP.brief_default_result_aspx",
         "DbPrefix": "SCDB",
         "DbCatalog": "中国学术期刊网络出版总库",
@@ -1217,11 +1304,14 @@ def _parse_cnki_html(html, max_results):
     return results
 
 
-def _try_cnki_ip(query, limit=20, strategy=""):
+def _try_cnki_ip(query, limit=20, strategy="", language="any"):
     """Search CNKI via old HTTP POST/GET interface (campus IP / VPN).
 
     Uses urllib with CookieJar for session management.
     Returns parsed results on success, None if blocked/CAS redirect.
+
+    Args:
+        language: "zh" disables isinEn expansion; "en"/"any" keeps it on.
     """
     import http.cookiejar
 
@@ -1252,7 +1342,7 @@ def _try_cnki_ip(query, limit=20, strategy=""):
 
     # Step 2: POST to SearchHandler.ashx
     sort_expr = CNKI_STRATEGY_MAP.get(strategy, "(发表时间,'TIME') desc")
-    post_data = _build_cnki_post_data(query, sorttype=sort_expr)
+    post_data = _build_cnki_post_data(query, sorttype=sort_expr, language=language)
     try:
         req = urllib.request.Request(
             CNKI_SEARCH_HANDLER,
@@ -1344,7 +1434,7 @@ def _try_cnki_ip(query, limit=20, strategy=""):
     return results
 
 
-def _try_cnki_cdp(query, limit=20):
+def _try_cnki_cdp(query, limit=20, language="any"):
     """Search CNKI via CDP browser using the old AdvSearch interface.
 
     Verified flow (2026-06-06):
@@ -1358,6 +1448,10 @@ def _try_cnki_cdp(query, limit=20):
     The old interface renders results inside #gridTable via AJAX.
     No captcha issues unlike the new kns8s SPA.
     Falls back gracefully if CDP browser is unavailable.
+
+    Args:
+        language: "zh" applies post-search title language filtering;
+                  "en"/"any" skips filtering.
     """
     # Brief delay to avoid triggering CNKI anti-bot rate limiting
     time.sleep(3)
@@ -1547,6 +1641,15 @@ def _try_cnki_cdp(query, limit=20):
         # Step 6: Navigate to each paper's detail page to extract abstract
         _extract_cnki_abstracts(ws, results, limit)
         ws.close()
+
+        # Post-search language filter (safety net — CDP mode doesn't use
+        # _build_cnki_post_data's isinEn parameter, so we rely on title
+        # language detection to catch English papers that leak through.)
+        if language == "zh":
+            results, removed = _filter_by_language(results, "zh")
+            if removed:
+                print(f"  CNKI CDP: filtered {removed} English-language results", flush=True)
+
         return results
 
     except Exception:
@@ -1630,7 +1733,7 @@ def _extract_cnki_abstracts(ws, results, limit):
         time.sleep(0.5)
 
 
-def search_cnki(query, limit=20, use_cache=True, strategy=""):
+def search_cnki(query, limit=20, use_cache=True, strategy="", language="any"):
     """Search CNKI (中国知网) for Chinese academic papers.
 
     Two modes:
@@ -1647,12 +1750,14 @@ def search_cnki(query, limit=20, use_cache=True, strategy=""):
         limit: Max results (default: 20).
         use_cache: If True, check/write disk cache.
         strategy: Sort order — unused in CDP mode (SPA default sort).
+        language: "zh" → disable isinEn expansion + post-search title filter;
+                  "en"/"any" → no filtering.
 
     Returns:
         List of paper dicts with keys: doi, title, year, venue, authors,
         citations, source.
     """
-    cache_key = _cache_key(query, "cnki", limit, strategy)
+    cache_key = _cache_key(query, "cnki", limit, strategy + language)
     if use_cache:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -1661,7 +1766,7 @@ def search_cnki(query, limit=20, use_cache=True, strategy=""):
 
     # Try CDP mode first (kns8s SPA, requires running Chrome)
     print("  CNKI: trying CDP mode...", flush=True)
-    results = _try_cnki_cdp(query, limit)
+    results = _try_cnki_cdp(query, limit, language=language)
 
     if results is not None:
         print(f"  CNKI CDP mode: {len(results)} results", flush=True)
@@ -2540,6 +2645,15 @@ Examples:
     # Cache control
     parser.add_argument("--no-cache", action="store_true", help="Bypass semantic cache for fresh results")
 
+    # Language filter (CNKI/Wanfang)
+    parser.add_argument("--language", choices=["zh", "en", "any"],
+                        default="any",
+                        help="Language filter for CNKI/Wanfang sources. "
+                             "'zh' keeps only Chinese-titled papers (isinEn=0 + title filter). "
+                             "'en' keeps only English-titled papers. "
+                             "'any' (default) disables filtering. "
+                             "Use --language zh when searching Chinese databases for Chinese literature.")
+
     # CDP port
     parser.add_argument("--cdp-port", type=int, default=None,
                         help="CDP Chrome DevTools port (default: $CDP_PORT env or 9222)")
@@ -2651,7 +2765,10 @@ Examples:
                 query_str = query_params.pop("q", query_params.pop("search", args.query))
 
                 print(f"  [{sq_id}:{strat}] {source_canon}: {query_str[:80]}...", flush=True)
-                results = SOURCE_FUNCTIONS[source_canon](query_str, args.limit, use_cache=not args.no_cache)
+                if source_canon in ("cnki", "wanfang"):
+                    results = SOURCE_FUNCTIONS[source_canon](query_str, args.limit, use_cache=not args.no_cache, language=args.language)
+                else:
+                    results = SOURCE_FUNCTIONS[source_canon](query_str, args.limit, use_cache=not args.no_cache)
                 print(f"  [{sq_id}:{strat}] {source_canon}: {len(results)} results", flush=True)
                 # Tag results with sub-query ID and strategy
                 for r in results:
@@ -2682,7 +2799,11 @@ Examples:
                     continue
 
                 print(f"  [{label}] Querying {src_canon}...", flush=True)
-                results = SOURCE_FUNCTIONS[src_canon](args.query, args.limit, use_cache=not args.no_cache)
+                # Pass language for CNKI/Wanfang sources
+                if src_canon in ("cnki", "wanfang"):
+                    results = SOURCE_FUNCTIONS[src_canon](args.query, args.limit, use_cache=not args.no_cache, language=args.language)
+                else:
+                    results = SOURCE_FUNCTIONS[src_canon](args.query, args.limit, use_cache=not args.no_cache)
                 print(f"  [{label}] {src_canon}: {len(results)} results", flush=True)
                 all_results.extend(results)
 
@@ -2704,10 +2825,10 @@ Examples:
                 all_results.extend(search_openalex(args.query, args.limit, use_cache=not args.no_cache))
             if args.source in ("wanfang", "wf", "all"):
                 print("  Querying Wanfang Data...", flush=True)
-                all_results.extend(search_wanfang(args.query, args.limit, use_cache=not args.no_cache))
+                all_results.extend(search_wanfang(args.query, args.limit, use_cache=not args.no_cache, language=args.language))
             if args.source in ("cnki", "cn", "all"):
                 print("  Querying CNKI...", flush=True)
-                all_results.extend(search_cnki(args.query, args.limit, use_cache=not args.no_cache, strategy=args.strategy if args.strategy and args.strategy != "all" else ""))
+                all_results.extend(search_cnki(args.query, args.limit, use_cache=not args.no_cache, strategy=args.strategy if args.strategy and args.strategy != "all" else "", language=args.language))
 
     # Deduplicate
     unique = deduplicate(all_results)

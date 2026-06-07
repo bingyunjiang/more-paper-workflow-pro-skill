@@ -182,21 +182,21 @@ python3 scripts/search_by_topic.py --bool query_plan.json \
 > CNKI 支持多策略切换（相关度/时间/被引），可使用 `--strategy` 参数。
 
 ```bash
-# CNKI 中文文献检索
+# CNKI 中文文献检索（🔴 必须带 --language zh，排除英文论文）
 python3 scripts/search_by_topic.py "冷板拓扑优化" \
-  --source cnki --limit 50 --export-bib s1_cnki.bib
+  --source cnki --language zh --limit 50 --export-bib s1_cnki.bib
 
 # CNKI 多策略检索（被引排序）
 python3 scripts/search_by_topic.py "冷板拓扑优化" \
-  --source cnki --strategy cited --limit 50 --export-bib s1_cnki_cited.bib
+  --source cnki --language zh --strategy cited --limit 50 --export-bib s1_cnki_cited.bib
 
 # 概念块布尔查询模式
 python3 scripts/search_by_topic.py --bool query_plan.json \
-  --source cnki --limit 50 --export-bib s1_cnki.bib
+  --source cnki --language zh --limit 50 --export-bib s1_cnki.bib
 
 # T1 CNKI + T2 Wanfang 级联
 python3 scripts/search_by_topic.py "冷板拓扑优化" \
-  --t1 cnki --t2 wanfang --limit 50
+  --t1 cnki --t2 wanfang --language zh --limit 50
 ```
 
 ### L2 Wanfang Data
@@ -207,17 +207,17 @@ python3 scripts/search_by_topic.py "冷板拓扑优化" \
 > 万方无多策略（relevance/cited/recent）支持，搜索请求为单次网页查询。
 
 ```bash
-# L2 Wanfang Data：中文文献检索
+# L2 Wanfang Data：中文文献检索（🔴 必须带 --language zh）
 python3 scripts/search_by_topic.py "冷板拓扑优化" \
-  --source wanfang --limit 50 --export-bib s1_l2_wanfang.bib
+  --source wanfang --language zh --limit 50 --export-bib s1_l2_wanfang.bib
 
 # 概念块布尔查询模式（PQ 语法自动转换）
 python3 scripts/search_by_topic.py --bool query_plan.json \
-  --source wanfang --limit 50 --export-bib s1_l2_wanfang.bib
+  --source wanfang --language zh --limit 50 --export-bib s1_l2_wanfang.bib
 
 # 通过 T2 补充：CNKI T1 → 不足时万方补充
 python3 scripts/search_by_topic.py "冷板拓扑优化" \
-  --t1 cnki --t2 wanfang --limit 50
+  --t1 cnki --t2 wanfang --language zh --limit 50
 ```
 
 ### Tier-driven 检索参数 🆕

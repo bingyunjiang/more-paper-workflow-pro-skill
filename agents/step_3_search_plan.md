@@ -21,7 +21,7 @@
 
 - 将论文大纲拆解为子课题检索方案
 - 构建概念块布尔查询（Concept Block / PICO / Methods-focused）
-- 反模式检查（7 项）
+- 反模式检查（8 项）
 - 分配 L1→L2→L3 分层路由
 - 生成多策略检索计划（relevance / cited / recent）
 
@@ -65,7 +65,7 @@ Step 2 产出（大纲关键词.md）
   → ② 框架选择：Concept Block（工科默认）/ PICO / Methods-focused
   → ③ 概念块拆解：每个概念块 ≥2 同义词 + 可选排除词
   → ④ 组装布尔查询：(syn1 OR syn2) AND (syn3 OR syn4) NOT (excl)
-  → ⑤ 反模式检查（7 项）
+  → ⑤ 反模式检查（8 项）
   → ⑥ 读 Step 2 产出中的「检索语言」字段 → 中文→L1 CNKI→L2 Wanfang；英文→L1 OpenAlex→L2 Crossref→L2 Semantic Scholar→L3 PubMed
   → 产出：检索方案.md → 检索方案.pdf
 ```
@@ -111,11 +111,12 @@ Step 2 产出（大纲关键词.md）
 | # | 反模式 | 说明 |
 |---|--------|------|
 | 1 | `language=english` 过滤 | ❌ 过严，丢弃中日韩研究 |
-| 2 | 无意义限定词 | ❌ `AND "human"` 等 |
-| 3 | AND 块数 > 4 | ❌ 召回率断崖下跌 |
-| 4 | 单概念无双同义词 | ⚠️ 每个概念块至少 2 个同义词 |
-| 5 | 全文搜索优先 | ⚠️ 优先 `title.search` |
-| 6 | 排除词用方法学术语 | ⚠️ 如 `NOT "simulation"` 会误杀 |
+| 2 | 🔴 CNKI/万方检索不带 `--language zh` | ❌ 中文库中混有英文论文，必须加 `--language zh` |
+| 3 | 无意义限定词 | ❌ `AND "human"` 等 |
+| 4 | AND 块数 > 4 | ❌ 召回率断崖下跌 |
+| 5 | 单概念无双同义词 | ⚠️ 每个概念块至少 2 个同义词 |
+| 6 | 全文搜索优先 | ⚠️ 优先 `title.search` |
+| 7 | 排除词用方法学术语 | ⚠️ 如 `NOT "simulation"` 会误杀 |
 
 ### 3c. 工科检索分层架构
 
@@ -126,6 +127,10 @@ Step 2 产出（大纲关键词.md）
   → CNKI + Wanfang     ← 双源并行检索（--parallel），结果在 Step 4b 以 DOI 去重合并。
                          同一论文出现在两个源 → Step 4c 评分「主题匹配度」+1。
                          两库高度重叠，并行再合并是最高效策略。
+  → 🔴 必须加 --language zh   ← CNKI 和万方数据库中包含中文学术期刊发表的英文论文。
+                                  这些英文论文难以通过 CDP 下载管线获取，应在检索阶段排除。
+                                  --language zh 会：(1) CNKI 端设置 isinEn=0 停用中英文扩展；
+                                  (2) 万方端设置 lang=chi URL 参数；(3) 结果级标题语言检测安全网。
 
 检索语言: 英文
   → L1  OpenAlex         ← 全学科覆盖最广（2.5 亿+），默认首选
@@ -219,7 +224,7 @@ python3 scripts/search_by_topic.py --preflight
 - [ ] 领域识别和框架选择正确
 - [ ] 每个概念块 ≥ 2 个同义词
 - [ ] AND 块数 ≤ 4
-- [ ] 反模式检查 7 项全部通过
+- [ ] 反模式检查 8 项全部通过（含 🔴 `--language zh` 检查）
 - [ ] L1→L2→L3 分层路由分配合理
 - [ ] 🆕 arXiv 触发条件已检测（arxiv_enabled: true/false）
 - [ ] 🆕 Tier 检索参数已配置（tier: quick/standard/deep）
