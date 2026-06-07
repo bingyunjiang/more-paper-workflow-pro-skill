@@ -164,7 +164,7 @@ Phase 3 ────────────────────────
 | 中国知网 (CNKI) | `source=cnki` + `文章链接` 列 | 文章详情页 → CSS 选择器 → CDP Fetch | 校园网 IP 或 CARSI SSO |
 | 万方数据 (Wanfang) | `source=wanfang` + `文章链接` 列 | 文章详情页 → CSS 选择器 → CDP Fetch | 校园网 IP 或 CARSI SSO |
 
-> **中文论文路由说明：** CNKI/万方论文多数无真实 DOI（使用 `cnki.{hash}` / `wanfang.{hash}` 合成标识符），不进入英文 DOI 路由器。中文管道通过检索文献表的 `source` 列和 `文章链接` 列驱动，与英文管道通过 `ThreadPoolExecutor` 并行启动，共享同一 CDP 端口。缺少 `文章链接` 的论文将被跳过。
+> **中文论文路由说明：** CNKI/万方论文多数无真实 DOI（使用 `cnki.{hash}` / `wanfang.{hash}` 合成标识符），不进入英文 DOI 路由器。**优先使用 Step 4 产出的 `chinese_papers.json`**（字段显式、无 Markdown 解析歧义），与英文管道通过 `ThreadPoolExecutor` 并行启动，共享同一 CDP 端口。若 JSON 缺失，回退到 Markdown 表格解析（`--chinese-input 检索文献表.md`）。缺少 `article_url` 的论文将被跳过。
 
 ### 命令参考
 
@@ -181,11 +181,14 @@ python3 scripts/unified_download_router.py 检索文献表.md --output paper-tem
 # 跳过登录门控（仅 OA/免费来源，Agent 需确认无付费墙出版社）
 python3 scripts/unified_download_router.py 检索文献表.md --output paper-temp/
 
-# 中文论文下载 🆕
-python3 scripts/unified_download_router.py 检索文献表.md --chinese-input 检索文献表.md --output paper-temp/ --require-login-confirm
+# 中文+英文下载（推荐，使用 Step 4 产出的 chinese_papers.json） 🆕
+python3 scripts/unified_download_router.py 检索文献表.md --chinese-input chinese_papers.json --output paper-temp/ --require-login-confirm
 
 # 仅中文下载（无英文 DOI）
 python3 scripts/unified_download_router.py --chinese-input chinese_papers.json --output paper-temp/
+
+# 中文下载兜底（JSON 缺失时，从 Markdown 表格解析）
+python3 scripts/unified_download_router.py 检索文献表.md --chinese-input 检索文献表.md --output paper-temp/ --require-login-confirm
 
 # 中文单篇测试 🆕
 python3 scripts/unified_download_router.py --test-cnki "https://kns.cnki.net/kcms2/article/abstract?..." --port 9223
