@@ -8,6 +8,88 @@
 
 ---
 
+## v1.0.7 (2026-06-07)
+
+### CDP 登录门控 — 文档规则 + 脚本机制双层防护 🆕
+
+- **问题**：Agent 在执行 CDP 下载时直接调用路由器，未提示用户完成机构登录，导致批量失败
+- **文档层** `agents/step_5_download.md`：新增 Section 6.0 硬性规则
+  - Agent 必须先 `--dry-run` 查看需要登录的出版社
+  - Agent 必须打开浏览器并暂停，提示用户完成机构登录
+  - 仅收到"已登录"确认后才能执行下载
+  - 质量门槛新增 2 项登录检查点
+- **脚本层** `scripts/unified_download_router.py`：
+  - 新增 `show_login_gate()` — 扫描分类结果，列出需登录的出版社及域名
+  - 新增 `--require-login-confirm` 参数
+  - 支持 `已登录/y/yes/done/继续` 确认，`q/quit/abort` 中止
+  - OA 出版社（direct_http）和 Sci-Hub 自动跳过门控
+
+### 中文文献下载路由 — CNKI + Wanfang CDP 🆕
+
+- **问题**：v1.0.6 已支持 CNKI/Wanfang 检索，但下载管线仅覆盖英文出版社，中文文献无法下载
+- **核心设计**：中文文献多数无真实 DOI，无法走英文前缀路由。新增 Round 5 Chinese CDP，通过 `source` 字段识别，直接按文章页 URL 下载
+- **`config/publishers.toml`**：新增 CNKI + Wanfang 条目，`strategy = "chinese_cdp"`
+- **`scripts/generic_publisher_downloader.py`**：
+  - `download_one()` 新增 `article_url` 参数
+  - 新增 `chinese_cdp` 策略路由：导航文章页 → CSS 选择器提取 PDF → CDP Fetch 捕获
+- **`scripts/unified_download_router.py`**：
+  - 新增 `parse_chinese_papers()` / `run_chinese_round()`（Round 5 Chinese CDP）
+  - 新增 `--chinese-input`、`--skip-chinese`、`--test-cnki`、`--test-wanfang` 参数
+  - `show_login_gate()` 扩展为包含 CNKI/Wanfang 登录提示
+- **`agents/step_5_download.md`**：路由矩阵新增 Round 5 Chinese CDP，命令参考 +4 条中文下载命令
+- **`agents/step_4_search_score.md`**：新增中文论文文章 URL 保留规则
+
+### SKILL.md frontmatter 压缩
+
+- `description` 压缩为单行中英混合（~300 字），末尾保留中文链条保证语义路由跨语言匹配
+- 适配 Codex 只读 `name` + `description` 的解析器行为
+
+### 检索报告元数据化
+
+**`scripts/generate_search_report.py`：**
+- metadata 优先级改为 `meta → summary → default` 三级回退
+- `source_breakdown` 支持嵌套 dict
+- 无 metadata 时显示 `—` 而非错误数字
+- PRISMA 流程图支持 `initial_tier_counts` / `expansion_tier_counts` 分阶段展示
+- 路由表改为 `_build_source_routing_table()` 动态生成
+- 记录管理改为 `.md + .xlsx + .bib` 导出，不再默认声称已进 Zotero
+
+**`scripts/search_by_topic.py`：** OpenAlex venue 提取容错
+
+### 检索执行规则修正
+
+- **Step 3**：英文路由新增 L2 Crossref（必选源），Deep tier 下不得仅用 OpenAlex 完成检索
+- **Step 4**：新增 CNKI/万方 preflight + CDP/CARSI 登录流程；英文源和中文源拆分独立决策表；新增「用户无机构账号」分支
+
+### Step 6d 独立触发词 + 路由表
+
+- 新增 11 条触发词（文库大纲对照表、覆盖热力图等中英文）
+- 路由表新增独立 6d 路由行，概览图新增 `├─ 6d 对照表 PDF` 节点
+- **设计意图**：此前 6d 仅作为 6c 隐式产出，现在可独立触发重新生成
+
+### 其他修复
+
+- `auto_sd_downloader.py` 重构内部逻辑（+19/-11）
+- 新增 3 个中文论文测试 PDF（约 16 MB 合计），验证 CNKI/Wanfang 下载管线
+
+### 修改文件
+
+| 文件 | 改动 |
+|------|------|
+| `agents/step_5_download.md` | +Section 6.0 登录门控、+Round 5、+4 命令示例、+2 质量门槛项 |
+| `scripts/unified_download_router.py` | +`show_login_gate()`、+`parse_chinese_papers()`、+`run_chinese_round()`、+5 CLI 参数 |
+| `scripts/generic_publisher_downloader.py` | +`chinese_cdp` 路由、+`article_url` 参数、+110 行 |
+| `scripts/generate_search_report.py` | PRISMA 分阶段 + 动态路由表 + 元数据驱动 |
+| `scripts/search_by_topic.py` | +OpenAlex 容错、+中文检索增强 |
+| `scripts/auto_sd_downloader.py` | 重构内部逻辑 |
+| `config/publishers.toml` | +2 条目（CNKI、Wanfang） |
+| `agents/step_4_search_score.md` | +登录流程、+决策表拆分、+文章 URL 规则 |
+| `agents/step_3_search_plan.md` | +L2 Crossref 路由 |
+| `SKILL.md` | +11 触发词、+1 路由行、概览图 +1 节点、description 压缩 |
+| `references/literature-table-template.md` | +中文论文备注 |
+
+---
+
 ## v1.0.6 (2026-06-06)
 
 ### 中文检索新增 — CNKI + Wanfang 双源并行
@@ -58,100 +140,85 @@
 - CNKI 3/4 + Wanfang 4/4 → 合并 4/4（100%）
 - OpenAlex 10/10（100%），摘要覆盖 76%
 
-### SKILL.md frontmatter 压缩
-
-- description 压缩为单行中英混合（~300 字），末尾保留中文链条保证语义路由跨语言匹配
-- 适配 Codex 只读 `name` + `description` 的解析器行为
-
-### 检索报告全面元数据化
-
-**`scripts/generate_search_report.py` 重构：**
-
-- metadata 优先级：tier/databases/strategy 改为 `meta → summary → default` 三级回退
-- source_breakdown 支持嵌套 dict（`{"openalex": {"raw": 65, "dedup": 55, "named": "OpenAlex"}}`）
-- len(rows) 不再回退为原始检索数，无 metadata 时显示 `—` 而非错误数字
-- PRISMA 流程图支持 `initial_tier_counts`/`expansion_tier_counts` 分阶段展示（初始筛选→扩展→最终）
-- 路由表改为 `_build_source_routing_table()` 按 `source_status` 动态生成
-- PRISMA-S 清单 + 检索策略改为 `_build_strategy_text()` 元数据驱动
-- 记录管理改为 `.md + .xlsx + .bib 导出`，不再默认声称已进 Zotero
-
-**`scripts/search_by_topic.py`：**
-
-- OpenAlex venue 提取容错：source 缺失时填写 `"?"` 而非空字符串
-
-### 检索执行规则修正
-
-- **Step 3** (`step_3_search_plan.md`)：英文路由新增 L2 Crossref（必选源），Deep tier 下不得仅用 OpenAlex 完成检索
-- **Step 4** (`step_4_search_score.md`)：新增 CNKI/万方 preflight + CDP/CARSI 登录流程；英文源和中文源拆分独立决策表；新增「用户无机构账号」分支（先确认再给登录 URL）；Crossref 执行命令嵌入检索流
-
-### Step 6d 独立触发词 + 路由表
-
-- **SKILL.md triggers**：新增 Step 6d 独立触发词 11 条（中文：文库大纲对照表、生成文库对照表、文献覆盖热力图、大纲对应关系 PDF、Zotero 大纲对应、文库覆盖图、大纲覆盖报告、文库覆盖热力图；英文：collection coverage heatmap、outline mapping report、Zotero coverage PDF）
-- **路由表**：新增独立 6d 路由行（`"文库大纲对照表" / "覆盖热力图" → agents/step_6_zotero.md`）
-- **概览图**：Step 6 流水线新增 `├─ 6d 对照表 PDF  文库-大纲对照表 + 覆盖热力图 🆕` 节点
-- **设计意图**：此前 6d 仅作为 6c 的隐式产出（无独立触发词），用户无法在 6c 完成后单独重新生成对照表 PDF。现在 6d 可独立触发，支持 `generate_report_pdf.py` 单独调用
-
-### 修改文件
-
-| 文件 | 改动 |
-|------|------|
-| `SKILL.md` | +11 触发词、+1 路由行、概览图 +1 节点 |
-
-### CDP 登录门控 — 文档规则 + 脚本机制双层防护 🆕
+### CDP 登录门控 — 文档规则 + 脚本机制双层防护
 
 - **问题**：Agent 在执行 CDP 下载时直接调用路由器，未提示用户完成机构登录，导致批量失败
-- **文档层**：`agents/step_5_download.md` 新增 Section 6.0 CDP 登录门控硬性规则
+- **文档层** `agents/step_5_download.md`：新增 Section 6.0 硬性规则
   - Agent 必须先 `--dry-run` 查看需要登录的出版社
   - Agent 必须打开浏览器并暂停，提示用户完成机构登录
   - 仅收到"已登录"确认后才能执行下载
   - 质量门槛新增 2 项登录检查点
-- **脚本层**：`scripts/unified_download_router.py` 新增 `--require-login-confirm` 参数
-  - `show_login_gate()` 扫描分类结果，列出需登录的出版社及其域名
-  - 提示用户完成 SSO 登录后回车确认
+- **脚本层** `scripts/unified_download_router.py`：
+  - 新增 `show_login_gate()` — 扫描分类结果，列出需登录的出版社及域名
+  - 新增 `--require-login-confirm` 参数
   - 支持 `已登录/y/yes/done/继续` 确认，`q/quit/abort` 中止
   - OA 出版社（direct_http）和 Sci-Hub 自动跳过门控
-  - `--dry-run` 不受门控限制
 
-### 修改文件
+### 中文文献下载路由 — CNKI + Wanfang CDP
 
-| 文件 | 改动 |
-|------|------|
-| `agents/step_5_download.md` | +Section 6.0 登录门控规则、+2 质量门槛项、+3 命令示例 |
-| `scripts/unified_download_router.py` | +`show_login_gate()` 函数、+`--require-login-confirm` 参数、+`LOGIN_REQUIRED_STRATEGIES` |
-
-### 中文文献下载路由 — CNKI + Wanfang CDP 🆕
-
-- **问题**：v1.0.6 已支持 CNKI/Wanfang 检索，但下载管线仅覆盖英文出版社，中文文献检索到了但下不了
-- **核心设计**：中文文献多数无真实 DOI，无法走英文 DOI 前缀路由。新增独立 Chinese CDP Round，通过 `source` 字段识别后直接按文章页 URL 下载
-- **`config/publishers.toml`**：新增 CNKI 和 Wanfang publisher 条目，`strategy = "chinese_cdp"`
+- **问题**：v1.0.6 已支持 CNKI/Wanfang 检索，但下载管线仅覆盖英文出版社，中文文献无法下载
+- **核心设计**：中文文献多数无真实 DOI，无法走英文前缀路由。新增 Round 5 Chinese CDP，通过 `source` 字段识别，直接按文章页 URL 下载
+- **`config/publishers.toml`**：新增 CNKI + Wanfang 条目，`strategy = "chinese_cdp"`
 - **`scripts/generic_publisher_downloader.py`**：
-  - `download_one()` 新增 `article_url` 参数，支持直接传入文章页 URL
-  - `_strategy_article_page()` 新增 `article_url_override` 参数，绕过 DOI→URL 映射
-  - `chinese_cdp` 策略路由：直接导航文章页 → CSS 选择器提取 PDF 链接 → CDP Fetch 捕获
+  - `download_one()` 新增 `article_url` 参数
+  - 新增 `chinese_cdp` 策略路由：导航文章页 → CSS 选择器提取 PDF → CDP Fetch 捕获
 - **`scripts/unified_download_router.py`**：
-  - 新增 `parse_chinese_papers()` — 从 Markdown 文献表/JSON 中提取中文论文
-  - 新增 `run_chinese_round()` — Round 5 Chinese CDP，复用 Generic CDP 引擎
+  - 新增 `parse_chinese_papers()` / `run_chinese_round()`（Round 5 Chinese CDP）
   - 新增 `--chinese-input`、`--skip-chinese`、`--test-cnki`、`--test-wanfang` 参数
   - `show_login_gate()` 扩展为包含 CNKI/Wanfang 登录提示
-  - `chinese_cdp` 加入 `STRATEGY_ORDER` 和 `LOGIN_REQUIRED_STRATEGIES`
-- **`agents/step_5_download.md`**：路由矩阵新增 Round 5 Chinese CDP，命令参考新增 4 条中文下载命令
+- **`agents/step_5_download.md`**：路由矩阵新增 Round 5 Chinese CDP，命令参考 +4 条中文下载命令
 - **`agents/step_4_search_score.md`**：新增中文论文文章 URL 保留规则
-- **`references/literature-table-template.md`**：新增中文论文备注（文章链接保留要求）
+
+### SKILL.md frontmatter 压缩
+
+- `description` 压缩为单行中英混合（~300 字），末尾保留中文链条保证语义路由跨语言匹配
+- 适配 Codex 只读 `name` + `description` 的解析器行为
+
+### 检索报告元数据化
+
+**`scripts/generate_search_report.py`：**
+- metadata 优先级改为 `meta → summary → default` 三级回退
+- `source_breakdown` 支持嵌套 dict
+- 无 metadata 时显示 `—` 而非错误数字
+- PRISMA 流程图支持 `initial_tier_counts` / `expansion_tier_counts` 分阶段展示
+- 路由表改为 `_build_source_routing_table()` 动态生成
+- 记录管理改为 `.md + .xlsx + .bib` 导出，不再默认声称已进 Zotero
+
+**`scripts/search_by_topic.py`：** OpenAlex venue 提取容错
+
+### 检索执行规则修正
+
+- **Step 3**：英文路由新增 L2 Crossref（必选源），Deep tier 下不得仅用 OpenAlex 完成检索
+- **Step 4**：新增 CNKI/万方 preflight + CDP/CARSI 登录流程；英文源和中文源拆分独立决策表；新增「用户无机构账号」分支
+
+### Step 6d 独立触发词 + 路由表
+
+- 新增 11 条触发词（文库大纲对照表、覆盖热力图等中英文）
+- 路由表新增独立 6d 路由行，概览图新增 `├─ 6d 对照表 PDF` 节点
+- **设计意图**：此前 6d 仅作为 6c 隐式产出，现在可独立触发重新生成
+
+### 其他修复
+
+- `auto_sd_downloader.py` 重构内部逻辑（+19/-11）
+- 新增 3 个中文论文测试 PDF（约 16 MB 合计），验证 CNKI/Wanfang 下载管线
 
 ### 修改文件
 
 | 文件 | 改动 |
 |------|------|
+| `agents/step_5_download.md` | +Section 6.0 登录门控、+Round 5、+4 命令示例、+2 质量门槛项 |
+| `scripts/unified_download_router.py` | +`show_login_gate()`、+`parse_chinese_papers()`、+`run_chinese_round()`、+5 CLI 参数 |
+| `scripts/generic_publisher_downloader.py` | +`chinese_cdp` 路由、+`article_url` 参数、+110 行 |
+| `scripts/generate_search_report.py` | PRISMA 分阶段 + 动态路由表 + 元数据驱动 |
+| `scripts/search_by_topic.py` | +OpenAlex 容错、+中文检索增强 |
+| `scripts/auto_sd_downloader.py` | 重构内部逻辑 |
 | `config/publishers.toml` | +2 条目（CNKI、Wanfang） |
-| `scripts/generic_publisher_downloader.py` | +`chinese_cdp` 路由、+`article_url`/`article_url_override` 参数 |
-| `scripts/unified_download_router.py` | +`parse_chinese_papers()`、+`run_chinese_round()`、+4 CLI 参数、+门控扩展 |
-| `agents/step_5_download.md` | +Round 5 矩阵行、+4 命令示例、+门控范围更新 |
-| `agents/step_4_search_score.md` | +文章 URL 保留规则 |
+| `agents/step_4_search_score.md` | +登录流程、+决策表拆分、+文章 URL 规则 |
+| `agents/step_3_search_plan.md` | +L2 Crossref 路由 |
+| `SKILL.md` | +11 触发词、+1 路由行、概览图 +1 节点、description 压缩 |
 | `references/literature-table-template.md` | +中文论文备注 |
 
 ---
-
-
 ## v1.0.5 (2026-06-05)
 
 ### 检索融合更新

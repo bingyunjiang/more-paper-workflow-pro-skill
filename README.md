@@ -22,7 +22,7 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 more paper workflow pro skill `v1.0.5-20260605`
+# 📚 more paper workflow pro skill `v1.0.7-20260607`
 
 ## 📑 目录
 
@@ -732,15 +732,20 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
+### v1.0.7 (2026-06-07)
+- **CDP 登录门控**：Step 5 硬性规则（Agent 必须先 `--dry-run` → 等待用户确认登录 → 才能执行 CDP）+ `--require-login-confirm` 脚本门控参数
+- **中文文献下载路由**：新增 CNKI/Wanfang CDP 下载（Chinese CDP Round），通过文章详情页 URL 绕过无 DOI 问题
+- **SKILL.md 压缩**：description 压缩为 ~300 字单行中英混合，适配 Codex 解析器
+- **检索报告元数据化**：PRISMA 分阶段展示、动态路由表、元数据三级回退，记录管理改为 .md/.xlsx/.bib 导出
+- **检索规则修正**：Step 3 L2 Crossref 必选源，Step 4 中英文源拆分独立决策表 + 用户无机构账号分支
+- **Step 6d 独立触发**：+11 条触发词（文库大纲对照表/覆盖热力图等），6d 从隐式产出变为可独立触发重新生成
+
 ### v1.0.6 (2026-06-06)
-- **新增CNKI、Wanfang 中文检索**：CDP Chrome 驱动，无 API Key 依赖，校园网 IP / 校外 CARSI 双模式
+- **新增 CNKI + Wanfang 中文检索**：CDP Chrome 驱动，无 API Key 依赖，校园网 IP / 校外 CARSI 双模式
 - 摘要贯穿全链路：CNKI（详情页提取）、Wanfang（结果页解析）、OpenAlex（倒排索引重建）、Semantic Scholar（API 返回保留）
 - 评分升级：维度① 标题+摘要关键词匹配，维度② 摘要检测实验/仿真信号 → 方法学区分度
 - 摘要贯通输出：.md / .bib / .xlsx 全部含摘要列
 - 容错增强：Semantic Scholar 429 指数退避重试 + 免费 API Key 提示
-- Step 6d 独立可触发：新增 11 条触发词（文库大纲对照表/覆盖热力图等），路由表 + 概览图同步更新
-- CDP 登录门控：Step 5 新增硬性规则（Agent 必须先确认用户机构登录）+ `--require-login-confirm` 脚本门控参数
-- 中文文献下载路由：新增 CNKI/Wanfang CDP 下载（Chinese CDP Round），复用 Generic CDP 引擎，通过文章详情页 URL 下载
 
 ### v1.0.5 (2026-06-05)
 - 统一下载路由：单一入口自动路由，覆盖 23+ 家出版社，通用 CDP 下载引擎 + 出版社配置知识库
@@ -809,7 +814,7 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 ---
 
 <a id="english"></a>
-# 📚 more paper workflow pro skill `v1.0.5-20260605`
+# 📚 more paper workflow pro skill `v1.0.7-20260607`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
@@ -1536,15 +1541,20 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
 
+### v1.0.7 (2026-06-07)
+- **CDP login gate**: Step 5 hard rule (agent must `--dry-run` → wait for user login confirmation → then execute CDP) + `--require-login-confirm` script-level gate
+- **Chinese literature download**: CNKI/Wanfang CDP download via Chinese CDP Round, bypassing missing DOI issues via article detail page URL navigation
+- **SKILL.md compression**: description compressed to ~300 chars single-line bilingual, Codex parser compatible
+- **Search report metadata-driven**: PRISMA staged display, dynamic routing table, 3-level metadata fallback, output limited to .md/.xlsx/.bib
+- **Search rule fixes**: Step 3 L2 Crossref mandatory source, Step 4 split CN/EN decision tables + no-institution-account branch
+- **Step 6d independent triggers**: +11 trigger phrases (collection coverage heatmap/outline mapping report etc.), 6d decoupled from 6c for standalone re-generation
+
 ### v1.0.6 (2026-06-06)
 - **CNKI + Wanfang dual-source parallel Chinese search**: CDP Chrome driven, no API key required, on-campus IP / off-campus CARSI dual mode
 - Abstracts across the pipeline: CNKI (detail page extraction), Wanfang (result page parsing), OpenAlex (inverted index reconstruction), Semantic Scholar (API return preserved)
-- Scoring upgrade: dimension① title+abstract keyword matching, dimension② experiment/simulation signal detection → methodology differentiation
+- Scoring upgrade: title+abstract keyword matching ×2 weight, experiment/simulation signal detection → methodology differentiation
 - Abstract in all outputs: .md / .bib / .xlsx all include abstract columns
 - Resilience: Semantic Scholar 429 exponential backoff retry + free API key prompt
-- Step 6d independent triggers: 11 new trigger phrases (collection coverage heatmap/outline mapping report etc.), routing table + overview diagram updated
-- CDP login gate: Step 5 hard rule (agent must confirm institutional login before CDP) + `--require-login-confirm` script-level gate
-- Chinese literature download: CNKI/Wanfang CDP download via Chinese CDP Round, reuses Generic CDP engine with article detail page URL navigation
 
 ### v1.0.5 (2026-06-05)
 - Unified download router: single-entry auto-routing across 23+ publishers, Generic CDP engine + publisher config knowledge base
