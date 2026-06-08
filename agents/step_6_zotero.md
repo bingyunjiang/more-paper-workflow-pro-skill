@@ -58,29 +58,37 @@
 
 ## 6. 执行流程 (Execution Flow)
 
-### 6.0：Zotero 环境检查（本地模式专用）
 
-执行 Step 6 任何 Zotero 交互操作前，AI agent 必须先执行以下检查：
+---
 
-```bash
-python3 -c "import json; c=json.load(open('$HOME/.config/zotero-mcp/config.json')); print(c.get('ZOTERO_LOCAL','false'))"
-```
+### 6.0：Zotero 模式选择（云端 vs 本地）
 
-**如果返回 `true`（本地模式）：**
-1. 运行连接检测：`python3 -c "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:23119/api/users/1/items?limit=1', timeout=3); print('connected')"`
-2. 如果连接失败（Zotero 桌面端未运行），AI agent **必须暂停**并向用户显示以下提示：
+执行 Step 6 任何 Zotero 交互操作前，AI agent **必须先暂停**，向用户展示以下选择提示，根据用户的选择决定后续所有 Zotero 操作的执行方式：
 
-   > ⏸ **Zotero 桌面端未检测到。**
-   > 当前 Zotero MCP 配置为本地模式（`ZOTERO_LOCAL=true`），需要 Zotero 桌面端在后台运行。
-   > 请执行以下操作之一：
-   > 1. **打开 Zotero 桌面端**（如已安装），然后回复「已打开」继续
-   > 2. **切换到云端模式**：修改 `~/.config/zotero-mcp/config.json`，将 `ZOTERO_LOCAL` 设为 `false`，回复「已切换」继续
-   > 3. **跳过 Zotero 交互**：仅生成架构和矩阵文件（6a/6e），PDF 导入后续手动处理，回复「跳过」继续
+> ⏸ **请选择 Zotero 工作模式：**
+>
+> 后续所有 Zotero 操作（导入文献/创建集合等）将按此模式执行。
+>
+> 1. **本地模式（推荐）** — 需要 Zotero 桌面端在后台运行，导入的文献可自动下载 PDF 附件
+> 2. **云端模式** — 通过 Zotero Web API 操作，导入文献仅有元数据，PDF 后续需手动同步
+> 3. **跳过 Zotero 交互** — 仅生成架构和矩阵文件（6a/6e），所有 Zotero 操作后续手动处理
 
-3. 连接成功后，可继续执行 6b（Zotero 导入）等需要 MCP 交互的操作。
+#### 用户选择后的分支执行
 
-**如果返回 `false`（云端模式）：**
-- 无需本地 Zotero，直接执行后续步骤。但注意：通过 `zotero_add_by_doi` 导入的文献**不会自动附加 PDF**（需用户后续在 Zotero 桌面端通过机构 VPN 同步下载）。
+**如果用户选择「本地模式」：**
+1. 检查当前配置：运行 `python3 -c "import json; c=json.load(open('$HOME/.config/zotero-mcp/config.json')); print(c.get('ZOTERO_LOCAL','false'))"`
+2. 如果返回 `false`，提示用户手动修改 `~/.config/zotero-mcp/config.json` 将 `ZOTERO_LOCAL` 设为 `true`，确认修改后继续
+3. 运行本地连接检测：`python3 -c "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:23119/api/users/1/items?limit=1', timeout=3); print('connected')"`
+4. 如果连接失败，提示用户打开 Zotero 桌面端，回复「已打开」后重试
+5. 连接成功后，执行后续 6b-6d（可使用 `zotero_add_by_doi` 等 MCP 工具，导入时自动附加可获取的 PDF）
+
+**如果用户选择「云端模式」：**
+1. 保持当前配置不变（`ZOTERO_LOCAL` 可为 `false` 或 `true`）
+2. 执行后续 6b-6d（通过 `zotero_add_by_doi` 导入文献**仅含元数据，不含 PDF 附件**，需用户后续在 Zotero 桌面端通过机构 VPN 同步下载）
+
+**如果用户选择「跳过 Zotero 交互」：**
+1. 跳过 6b/6c/6d，直接执行 6a（生成架构）和 6e（综述矩阵）/ 6f（期刊风格）
+2. 所有 PDF 导入和 Zotero 整理工作标记为「后续手动处理」
 
 ---
 
