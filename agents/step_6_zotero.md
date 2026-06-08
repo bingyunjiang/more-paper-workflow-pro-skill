@@ -13,8 +13,8 @@
 - [ ] `references/zotero-structure-template.md` — Zotero 架构示例
 - [ ] `references/literature-review-matrix-schema.md` — 综述矩阵 schema
 - [ ] `references/journal-style-learning-guide.md` — 期刊风格学习方法论
-- [ ] `references/error_log.md` — 已知错误及修复规则
-- [ ] `references/decision_log.md` — 影响本 Step 的结构性决策
+- [ ] `.skill-state/error_log.md` — 已知错误及修复规则
+- [ ] `.skill-state/decision_log.md` — 影响本 Step 的结构性决策
 
 ---
 
@@ -164,13 +164,13 @@ python3 scripts/generate_writing_rationale.py research_dossier/section_blueprint
 
 ### 错误日志更新 🆕
 - [ ] 本轮是否出现新的 AI 操作错误？
-  - 文库架构与大纲不一致 → 追加到 `references/error_log.md`
-  - 综述矩阵证据填充错误 → 追加到 `references/error_log.md`
-  - 期刊风格分析偏差 → 追加到 `references/error_log.md`
+  - 文库架构与大纲不一致 → 追加到 `.skill-state/error_log.md`
+  - 综述矩阵证据填充错误 → 追加到 `.skill-state/error_log.md`
+  - 期刊风格分析偏差 → 追加到 `.skill-state/error_log.md`
 
 ### 决策日志更新 🆕
-- [ ] 是否调整了文库架构策略？→ 记录到 `references/decision_log.md`
-- [ ] 是否修改了综述矩阵列定义？→ 记录到 `references/decision_log.md`
+- [ ] 是否调整了文库架构策略？→ 记录到 `.skill-state/decision_log.md`
+- [ ] 是否修改了综述矩阵列定义？→ 记录到 `.skill-state/decision_log.md`
 
 ### 下一步提示
 - [ ] 向用户明确说明下一步：开始撰写论文（Step 7）

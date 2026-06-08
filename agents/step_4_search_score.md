@@ -12,8 +12,8 @@
 - [ ] `agents/step_1_topic.md` — 🆕 Tier 元数据（检索深度：quick/standard/deep）
 - [ ] `references/search-query-frameworks.md` — 检索查询框架参考
 - [ ] `references/rcs-rubric.md` — 🆕 主题匹配度评鉴启发指南
-- [ ] `references/error_log.md` — 已知错误及修复规则
-- [ ] `references/decision_log.md` — 影响本 Step 的结构性决策
+- [ ] `.skill-state/error_log.md` — 已知错误及修复规则
+- [ ] `.skill-state/decision_log.md` — 影响本 Step 的结构性决策
 
 ---
 
@@ -537,8 +537,8 @@ fi
 **4h.2 汇报与记录**
 
 - [ ] 向用户展示 5 交付物清单 + 文件路径 + 关键数字（总数/T1-T3 分布/饱和度）
-- [ ] 更新 `references/decision_log.md`（引文扩展统计 + 最终文献分布）
-- [ ] 更新 `references/error_log.md`（本轮新出现的错误/偏差）
+- [ ] 更新 `.skill-state/decision_log.md`（引文扩展统计 + 最终文献分布）
+- [ ] 更新 `.skill-state/error_log.md`（本轮新出现的错误/偏差）
 
 **4h.3 转交 Step 5**
 
@@ -599,17 +599,17 @@ fi
 
 ### 错误日志更新 🆕
 - [ ] 本轮是否出现新的 AI 操作错误？
-  - 评分偏差 → `references/error_log.md`
-  - DOI 验证失败新模式 → `references/error_log.md`
-  - 饱和度曲线拟合失败 → `references/error_log.md`
-  - 引文扩展查询失败 → `references/error_log.md`
-  - `generate_retrieval_report.py` 执行失败 → `references/error_log.md`
+  - 评分偏差 → `.skill-state/error_log.md`
+  - DOI 验证失败新模式 → `.skill-state/error_log.md`
+  - 饱和度曲线拟合失败 → `.skill-state/error_log.md`
+  - 引文扩展查询失败 → `.skill-state/error_log.md`
+  - `generate_retrieval_report.py` 执行失败 → `.skill-state/error_log.md`
 
 ### 决策日志更新 🆕
-- [ ] 评分权重调整？→ `references/decision_log.md`
-- [ ] 筛选阈值修改？→ `references/decision_log.md`
-- [ ] 🆕 引文扩展统计（新增 X 篇/种子 Y 篇）→ `references/decision_log.md`
-- [ ] 🆕 最终交付物生成结果 → `references/decision_log.md`
+- [ ] 评分权重调整？→ `.skill-state/decision_log.md`
+- [ ] 筛选阈值修改？→ `.skill-state/decision_log.md`
+- [ ] 🆕 引文扩展统计（新增 X 篇/种子 Y 篇）→ `.skill-state/decision_log.md`
+- [ ] 🆕 最终交付物生成结果 → `.skill-state/decision_log.md`
 
 ---
 

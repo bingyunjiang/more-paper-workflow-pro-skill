@@ -10,15 +10,15 @@
 执行本步骤前，必须确认以下文件已加载：
 
 - [ ] `研究主题.md` — Step 1 产出（研究方向 + 预审结论）
-- [ ] `大纲关键词.md` — Step 2 产出（章节结构） + `references/term_aliases.md` 🆕
+- [ ] `大纲关键词.md` — Step 2 产出（章节结构） + `.skill-state/term_aliases.md` 🆕
 - [ ] `检索文献表.md` — Step 4 产出（参考文献 + 评分）
 - [ ] `zotero-架构.md` — Step 6 产出（PDF 按章节分类）
 - [ ] `综述矩阵.csv` — Step 6e 产出（证据矩阵）
 - [ ] `research_dossier/style_profile.md` — Step 6f 产出 🆕（目标期刊风格约束）
 - [ ] `research_dossier/section_blueprints.md` — Step 6f 产出 🆕（逐节写作蓝图）
-- [ ] `references/term_aliases.md` — 🆕 术语标准化映射（确保写作用词与检索一致）
+- [ ] `.skill-state/term_aliases.md` — 🆕 术语标准化映射（确保写作用词与检索一致）
 - [ ] `references/gbt7714-2015-citation-format.md` — 引用格式规范
-- [ ] `references/error_log.md` — 已知错误及修复规则
+- [ ] `.skill-state/error_log.md` — 已知错误及修复规则
 
 ---
 
@@ -141,7 +141,7 @@
 
 #### 🆕 术语对齐检查
 
-- 每章写作前，确认本章核心术语与 `references/term_aliases.md` 中 Recommended page 匹配
+- 每章写作前，确认本章核心术语与 `.skill-state/term_aliases.md` 中 Recommended page 匹配
 - 中文论文：全篇统一使用 Main Term 的中文形式
 - 英文论文：全篇统一使用 Main Term 的英文形式
 - 同一概念在全文中的术语形式不超过 1 个（禁止同义词轮换）
@@ -218,7 +218,7 @@ python3 scripts/citation_audit.py 论文初稿.md --output 引用审计报告.md
 - [ ] paper_type 和 language 已识别
 - [ ] 防幻觉机制：每处引用均来自实际 PDF 内容
 - [ ] 7d.1 段落自查：每段一个工作 / 从证据向外写 / 动词校准 / 无虚假新颖性 / 段落流
-- [ ] 🆕 术语对齐：核心术语与 `references/term_aliases.md` 一致
+- [ ] 🆕 术语对齐：核心术语与 `.skill-state/term_aliases.md` 一致
 - [ ] 7f 同行评审：五维评分全部 ≥ 5 分（<5 分已回退修复）
 - [ ] 7h 引用审计：❌ 不支撑引用已移除或替换
 
@@ -234,18 +234,18 @@ python3 scripts/citation_audit.py 论文初稿.md --output 引用审计报告.md
 - [ ] figures/ 目录图表完整
 
 ### 术语对齐检查 🆕
-- [ ] 逐章扫描核心术语，确认与 `references/term_aliases.md` 一致
+- [ ] 逐章扫描核心术语，确认与 `.skill-state/term_aliases.md` 一致
 - [ ] 发现术语不一致 → 修正为 Main Term → 如 Main Term 不当 → 更新 term_aliases.md → 记录到 decision_log.md
 
 ### 错误日志更新 🆕
 - [ ] 本轮是否出现新的 AI 操作错误？
-  - 引用编造 → 追加到 `references/error_log.md`
-  - 术语混用 → 追加到 `references/error_log.md`
-  - 7h 审计发现系统性误引 → 追加到 `references/error_log.md`
+  - 引用编造 → 追加到 `.skill-state/error_log.md`
+  - 术语混用 → 追加到 `.skill-state/error_log.md`
+  - 7h 审计发现系统性误引 → 追加到 `.skill-state/error_log.md`
 
 ### 决策日志更新 🆕
-- [ ] 是否调整了章节结构？→ 记录到 `references/decision_log.md`
-- [ ] 是否修改了 paper_type 判定？→ 记录到 `references/decision_log.md`
+- [ ] 是否调整了章节结构？→ 记录到 `.skill-state/decision_log.md`
+- [ ] 是否修改了 paper_type 判定？→ 记录到 `.skill-state/decision_log.md`
 
 ### 下一步提示
 - [ ] 向用户明确说明下一步：论文润色（Step 8）
@@ -260,4 +260,4 @@ python3 scripts/citation_audit.py 论文初稿.md --output 引用审计报告.md
 - **引用不足**：运行 7e 扩展搜索补充引用；检查引用密度指南
 - **AI 痕迹明显**：7d.1 自查步骤逐项检查；Step 8 Level 3 去 AI 化
 - **引用审计大量不支撑**：7h 逐条处理，❌ 级别优先替换或移除
-- **术语不一致**：回查 `references/term_aliases.md`，全篇统一为 Main Term
+- **术语不一致**：回查 `.skill-state/term_aliases.md`，全篇统一为 Main Term

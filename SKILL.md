@@ -344,9 +344,30 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 
 | 文件 | 用途 | 写入者 | 读取者 |
 |------|------|--------|--------|
-| `references/error_log.md` | AI 错误积累 | 所有 agent | 所有 agent |
-| `references/decision_log.md` | 结构性决策记录 | 所有 agent | 所有 agent |
-| `references/term_aliases.md` | 术语标准化映射 | Step 2, Step 8 | Step 3, Step 7, Step 8 |
+| `.skill-state/error_log.md` | AI 错误积累 | 所有 agent | 所有 agent |
+| `.skill-state/decision_log.md` | 结构性决策记录 | 所有 agent | 所有 agent |
+| `.skill-state/term_aliases.md` | 术语标准化映射 | Step 2, Step 8 | Step 3, Step 7, Step 8 |
+
+### 🆕 .skill-state/ 初始化规则
+
+运行态的状态文件存放在项目工作目录下的 `.skill-state/` 中（与 skill 目录隔离）。
+
+**初始化时机：** 每个 agent 启动时，在 Pre-read Checklist 阶段检查：
+
+```
+if [ ! -d "$CWD/.skill-state/" ]; then
+  mkdir -p "$CWD/.skill-state/"
+  cp "$SKILL_DIR/references/templates/"*.md "$CWD/.skill-state/"
+fi
+```
+
+- `$CWD` = 当前项目工作目录（即用户运行 agent 的目录）
+- `$SKILL_DIR` = skill 安装目录（即本 SKILL.md 所在目录）
+- 三个文件（`term_aliases.md`、`error_log.md`、`decision_log.md`）通过模板复制获得初始内容
+- **注意：** 不要直接修改 `references/templates/` 下的文件——修改应写入 `.skill-state/` 中的副本
+- **多项目隔离：** 每个项目目录下的 `.skill-state/` 独立维护，互不干扰
+- **git 隔离：** `.skill-state/` 已在 `.gitignore` 中，不会污染技能仓库
+
 
 ---
 
@@ -403,9 +424,30 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 
 | 文件 | 关联步骤 |
 |------|---------|
-| `references/error_log.md` 🆕 | 全部 — AI 错误积累与修正规则 |
-| `references/decision_log.md` 🆕 | 全部 — 结构性决策记录 |
-| `references/term_aliases.md` 🆕 | Step 2/3/7/8 — 术语标准化映射 |
+| `.skill-state/error_log.md` 🆕 | 全部 — AI 错误积累与修正规则 |
+| `.skill-state/decision_log.md` 🆕 | 全部 — 结构性决策记录 |
+| `.skill-state/term_aliases.md` 🆕 | Step 2/3/7/8 — 术语标准化映射 |
+
+### 🆕 .skill-state/ 初始化规则
+
+运行态的状态文件存放在项目工作目录下的 `.skill-state/` 中（与 skill 目录隔离）。
+
+**初始化时机：** 每个 agent 启动时，在 Pre-read Checklist 阶段检查：
+
+```
+if [ ! -d "$CWD/.skill-state/" ]; then
+  mkdir -p "$CWD/.skill-state/"
+  cp "$SKILL_DIR/references/templates/"*.md "$CWD/.skill-state/"
+fi
+```
+
+- `$CWD` = 当前项目工作目录（即用户运行 agent 的目录）
+- `$SKILL_DIR` = skill 安装目录（即本 SKILL.md 所在目录）
+- 三个文件（`term_aliases.md`、`error_log.md`、`decision_log.md`）通过模板复制获得初始内容
+- **注意：** 不要直接修改 `references/templates/` 下的文件——修改应写入 `.skill-state/` 中的副本
+- **多项目隔离：** 每个项目目录下的 `.skill-state/` 独立维护，互不干扰
+- **git 隔离：** `.skill-state/` 已在 `.gitignore` 中，不会污染技能仓库
+
 | `references/search-query-frameworks.md` | Step 3 — 检索查询框架参考 |
 | `references/rcs-rubric.md` 🆕 | Step 4 — 主题匹配度评鉴启发指南（RCS 启发） |
 | `references/literature-review-matrix-schema.md` | Step 6e — 13 列综述矩阵定义 |
@@ -438,7 +480,7 @@ More-Paper-Workflow-Pro-Skill/
 ├── config/
 │   └── publishers.toml
 ├── scripts/                          ← Python 可执行脚本
-├── references/                       ← 模板与参考文档（含 🆕 error_log/decision_log/term_aliases）
+├── references/                       ← 参考文档 references/                       ← 模板与参考文档（含 🆕 error_log/decision_log/term_aliases） templates/（空模板，运行态复制到 .skill-state/）
 └── docs/
 ```
 

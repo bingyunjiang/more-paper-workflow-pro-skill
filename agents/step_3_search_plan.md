@@ -11,9 +11,9 @@
 - [ ] `agents/step_2_outline.md` — 大纲关键词（章节结构 + 关键词清单）
 - [ ] `agents/step_1_topic.md` — 🆕 Tier 元数据（检索深度：quick/standard/deep）
 - [ ] `references/search-query-frameworks.md` — 检索查询框架参考（概念块布尔模型 + PICO + 反模式清单）
-- [ ] `references/term_aliases.md` — 🆕 术语标准化映射（确保查询用词与大纲一致）
-- [ ] `references/error_log.md` — 已知错误及修复规则
-- [ ] `references/decision_log.md` — 影响本 Step 的结构性决策
+- [ ] `.skill-state/term_aliases.md` — 🆕 术语标准化映射（确保查询用词与大纲一致）
+- [ ] `.skill-state/error_log.md` — 已知错误及修复规则
+- [ ] `.skill-state/decision_log.md` — 影响本 Step 的结构性决策
 
 ---
 
@@ -42,7 +42,7 @@
 | 输入 | 来源 | 格式 | 必选 |
 |------|------|------|:--:|
 | 大纲关键词 | Step 2 | .md | ✅ |
-| 术语映射表 | Step 2 → references/term_aliases.md | .md | ✅ |
+| 术语映射表 | Step 2 → .skill-state/term_aliases.md | .md | ✅ |
 
 ---
 
@@ -93,7 +93,7 @@ Step 2 产出（大纲关键词.md）
 
 #### 🆕 术语一致性规则
 
-- 概念块中的**核心词**必须与 `references/term_aliases.md` 中的 Main Term 一致
+- 概念块中的**核心词**必须与 `.skill-state/term_aliases.md` 中的 Main Term 一致
 - 同义词展开时，将 Aliases 列的内容作为 OR 候选项
 - 若发现大纲关键词使用了与众不同的术语变体，在此处统一为 Main Term
 
@@ -228,7 +228,7 @@ python3 scripts/search_by_topic.py --preflight
 - [ ] L1→L2→L3 分层路由分配合理
 - [ ] 🆕 arXiv 触发条件已检测（arxiv_enabled: true/false）
 - [ ] 🆕 Tier 检索参数已配置（tier: quick/standard/deep）
-- [ ] 🆕 核心术语与 `references/term_aliases.md` 中 Main Term 一致
+- [ ] 🆕 核心术语与 `.skill-state/term_aliases.md` 中 Main Term 一致
 - [ ] 🆕 CNKI 触发条件已检测（cnki_enabled: true/false + 访问模式：IP/CDP）
 - [ ] 🆕 Wanfang 触发条件已检测（wanfang_enabled: true/false + 凭证存在性）
 - [ ] Pre-flight 检查已通过
@@ -242,13 +242,13 @@ python3 scripts/search_by_topic.py --preflight
 - [ ] `检索方案.pdf` 已自动生成
 
 ### 术语一致性检查 🆕
-- [ ] 检索方案中的核心词是否与 `references/term_aliases.md` 中的 Main Term 一致？
+- [ ] 检索方案中的核心词是否与 `.skill-state/term_aliases.md` 中的 Main Term 一致？
 - [ ] 是否发现了新的术语变体？→ 追加到 Aliases 列
 
 ### 错误日志更新 🆕
 - [ ] 本轮是否出现新的 AI 操作错误？
-  - 框架选择不当 → 追加到 `references/error_log.md`
-  - 同义词展开遗漏 → 追加到 `references/error_log.md`
+  - 框架选择不当 → 追加到 `.skill-state/error_log.md`
+  - 同义词展开遗漏 → 追加到 `.skill-state/error_log.md`
 
 ### 下一步提示
 - [ ] 向用户明确说明下一步：执行多渠道检索（Step 4）
@@ -260,4 +260,4 @@ python3 scripts/search_by_topic.py --preflight
 
 - **Pre-flight 检查失败**：检查网络连接，确认各 API 端点可达
 - **检索结果预期过少**：减少 AND 块数（4→3→2），放宽同义词范围
-- **术语不一致**：回查 `references/term_aliases.md`，确保概念块核心词与 Main Term 对齐
+- **术语不一致**：回查 `.skill-state/term_aliases.md`，确保概念块核心词与 Main Term 对齐

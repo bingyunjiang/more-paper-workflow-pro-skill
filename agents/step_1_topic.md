@@ -8,8 +8,8 @@
 
 执行本步骤前，必须确认以下文件已加载：
 
-- [ ] `references/error_log.md` — 已知错误及修复规则
-- [ ] `references/decision_log.md` — 影响本 Step 的结构性决策
+- [ ] `.skill-state/error_log.md` — 已知错误及修复规则
+- [ ] `.skill-state/decision_log.md` — 影响本 Step 的结构性决策
 
 ---
 
@@ -187,11 +187,11 @@ tier_reason: "博三冲刺+3个月投稿 → Quick 快速扫描"
 
 ### 错误日志更新 🆕
 - [ ] 本轮是否出现新的 AI 操作错误？
-  - 预检索数据不准 → 追加到 `references/error_log.md`
-  - 选题预审偏差 → 追加到 `references/error_log.md`
+  - 预检索数据不准 → 追加到 `.skill-state/error_log.md`
+  - 选题预审偏差 → 追加到 `.skill-state/error_log.md`
 
 ### 决策日志更新 🆕
-- [ ] 是否做了选题相关的结构性决策？（如排除某个子方向）→ 记录到 `references/decision_log.md`
+- [ ] 是否做了选题相关的结构性决策？（如排除某个子方向）→ 记录到 `.skill-state/decision_log.md`
 
 ### 下一步提示
 - [ ] 向用户明确说明下一步：生成论文大纲与关键词（Step 2）

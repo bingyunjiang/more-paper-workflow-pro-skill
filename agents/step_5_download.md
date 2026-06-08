@@ -11,8 +11,8 @@
 - [ ] `agents/step_4_search_score.md` — 检索文献表（含 DOI 和 Tier 分级）
 - [ ] `config/publishers.toml` — 出版社下载策略配置
 - [ ] `references/publisher-access-matrix.md` — 各出版商下载可行性对照表
-- [ ] `references/error_log.md` — 已知下载错误及修复规则
-- [ ] `references/decision_log.md` — 下载策略相关决策
+- [ ] `.skill-state/error_log.md` — 已知下载错误及修复规则
+- [ ] `.skill-state/decision_log.md` — 下载策略相关决策
 
 ---
 
@@ -268,12 +268,12 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 
 ### 错误日志更新 🆕
 - [ ] 本轮执行中是否出现新的下载失败模式？
-  - 新的出版商屏障 → 追加到 `references/error_log.md` + 更新 `config/publishers.toml`
-  - 新的 CDP 陷阱 → 追加到 `references/error_log.md` + 更新 `agents/known_pitfalls.md`
-  - 会话过期的新触发条件 → 追加到 `references/error_log.md`
+  - 新的出版商屏障 → 追加到 `.skill-state/error_log.md` + 更新 `config/publishers.toml`
+  - 新的 CDP 陷阱 → 追加到 `.skill-state/error_log.md` + 更新 `agents/known_pitfalls.md`
+  - 会话过期的新触发条件 → 追加到 `.skill-state/error_log.md`
 
 ### 决策日志更新 🆕
-- [ ] 是否调整了下载策略？（如新增 skip 规则）→ 记录到 `references/decision_log.md`
+- [ ] 是否调整了下载策略？（如新增 skip 规则）→ 记录到 `.skill-state/decision_log.md`
 
 ### 下一步提示
 - [ ] 向用户明确说明下一步：管理 Zotero 文库（Step 6）

@@ -9,9 +9,9 @@
 执行本步骤前，必须确认以下文件已加载：
 
 - [ ] `agents/step_1_topic.md` — 研究主题（用户画像 + 聚焦方向 + 预审结论）
-- [ ] `references/term_aliases.md` — 🆕 术语标准化映射（Step 2 负责填充此表）
-- [ ] `references/error_log.md` — 已知错误及修复规则
-- [ ] `references/decision_log.md` — 影响本 Step 的结构性决策
+- [ ] `.skill-state/term_aliases.md` — 🆕 术语标准化映射（Step 2 负责填充此表）
+- [ ] `.skill-state/error_log.md` — 已知错误及修复规则
+- [ ] `.skill-state/decision_log.md` — 影响本 Step 的结构性决策
 
 ---
 
@@ -125,9 +125,9 @@
 
 1. 从关键词清单中提取**所有中英文术语对**
 2. 为每个术语确定 Main Term / Aliases / Recommended page / Note
-3. 写入 `references/term_aliases.md`
+3. 写入 `.skill-state/term_aliases.md`
 
-**产出更新：** `references/term_aliases.md` 术语映射表填充完毕
+**产出更新：** `.skill-state/term_aliases.md` 术语映射表填充完毕
 
 ---
 
@@ -149,19 +149,19 @@
 - [ ] 如有评审：`changes.json` 已导出
 
 ### 术语映射更新 🆕
-- [ ] `references/term_aliases.md` 是否已从大纲关键词中提取术语？
+- [ ] `.skill-state/term_aliases.md` 是否已从大纲关键词中提取术语？
   - Main Term / Aliases / Recommended page / Note 四字段已填充
   - 中文论文：Main Term 使用中文形式
   - 英文论文：Main Term 使用英文形式
 
 ### 错误日志更新 🆕
 - [ ] 本轮是否出现新的 AI 操作错误？
-  - 大纲评审偏差 → 追加到 `references/error_log.md`
-  - 术语选择不当 → 追加到 `references/error_log.md`
+  - 大纲评审偏差 → 追加到 `.skill-state/error_log.md`
+  - 术语选择不当 → 追加到 `.skill-state/error_log.md`
 
 ### 决策日志更新 🆕
-- [ ] 是否做了大纲结构相关的结构性决策？→ 记录到 `references/decision_log.md`
-- [ ] 术语 Main Term 选择有争议？→ 记录到 `references/decision_log.md`
+- [ ] 是否做了大纲结构相关的结构性决策？→ 记录到 `.skill-state/decision_log.md`
+- [ ] 术语 Main Term 选择有争议？→ 记录到 `.skill-state/decision_log.md`
 
 ### 下一步提示
 - [ ] 向用户明确说明下一步：生成结构化检索方案（Step 3）
