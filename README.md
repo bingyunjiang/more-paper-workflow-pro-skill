@@ -68,7 +68,7 @@
 
 ## 📖 简介
 
-**More Paper Workflow Pro Skill** 是一套完整的学术文献工作流工具链，覆盖从研究方向确定到论文润色投稿的全过程。34+ 个 Python CLI 脚本 + 9 个 Agent 模块 + 共享工具库 + 配置体系，可独立使用或接入 Hermes/OpenClaw/Claude Code 等 AI Agent 实现对话式编排。
+**More Paper Workflow Pro Skill** 是一套完整的学术文献工作流工具链，覆盖从研究方向确定到论文润色投稿的全过程。34+ 个 Python CLI 脚本 + 9 个 Agent 模块 + 共享工具库 + 配置体系，可独立使用或接入 **Claude Code / Codex / Hermes / OpenClaw** 等任意支持 Claude 模型的 AI Agent 平台实现对话式编排。
 
 完整学术文献检索和写作工作流（8 步法）：①交互式确定研究主题 → ②生成大纲/关键词 → ③制定检索方案 → ④多渠道检索+评分 → **⑤统一路由下载（Sci-Hub→SD CDP→IEEE CDP→Generic CDP，覆盖 23+ 家出版社）** → ⑥Zotero 文库管理（架构生成+PDF 导入+大纲对齐+综述矩阵+期刊风格学习） → ⑦论文写作（含文献综述+GB/T 7714 完整规范+图表生成+引用审计） → ⑧论文润色。
 

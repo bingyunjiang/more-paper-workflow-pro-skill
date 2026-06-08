@@ -1,0 +1,17 @@
+{
+  "_comment": "Copy this file to settings.json and fill in your own values. settings.json is gitignored — never commit it.",
+  "permissions": {
+    "allow": [
+      "Bash(python3 scripts/*)",
+      "Bash(python3 -c ' *)",
+      "Bash(bash scripts/start_cdp_chrome.sh *)",
+      "Bash(pkill -f \"Google Chrome.*remote-debugging-port=*\")",
+      "Bash(curl -s \"http://127.0.0.1:9223/json/version\")",
+      "Bash(/Library/Frameworks/Python.framework/Versions/3.*/bin/zotero-mcp *)",
+      "Bash(cat ~/.claude/mcp.json)"
+    ],
+    "additionalDirectories": [
+      "your-pdf-download-directory-here"
+    ]
+  }
+}
