@@ -397,7 +397,7 @@ fi
 
 | 脚本 | 步骤 | 用途 |
 |------|------|------|
-| `scripts/search_by_topic.py` | 4 | 多渠道检索（Semantic Scholar / Crossref / OpenAlex / 🆕 CNKI / 🆕 Wanfang Data）+ 引文网络 + 语义缓存。CNKI 中文文献：校园 IP 直连零配置；校外 CDP Chrome。Wanfang：校内 IP；校外 CARSI SSO。|
+| `scripts/search_by_topic.py` | 4 | 多渠道检索（Semantic Scholar / Crossref / OpenAlex / 🆕 CNKI / 🆕 Wanfang Data）+ 引文网络 + 语义缓存。CNKI 中文文献：校园 IP 直连零配置；校外 CDP Chrome（🚀 Agent 自动打开浏览器并导航到目标网站）。Wanfang：校内 IP；校外 CARSI SSO（🚀 Agent 自动打开浏览器并导航到目标网站）。|
 | `scripts/generate_retrieval_report.py` | 4g | 🆕 检索文献表一键交付（.xlsx + .bib）— 🔴 Step 4 强制 |
 | `scripts/generate_search_report.py` | 4g | 🆕 检索方法论报告（8 章节：范围→流水线→评分→分布→饱和度→建议） |
 | `scripts/discovery_curve.py` | 4d | 🆕 饱和度曲线估算 |

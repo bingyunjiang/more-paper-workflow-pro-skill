@@ -114,29 +114,59 @@
 | **Wanfang** | 用户无机构账号 | 📝 确认后跳过，报告标注「中文源: 用户无机构账号」 |
 | **Wanfang** | 用户选择跳过 | 📝 报告标注「中文源: 用户跳过」 |
 
-**中文源认证流程（CDP/CARSI 时——先确认账号，再决定路径）：**
+**中文源认证流程（CDP/CARSI 时——先确认账号，再自动启动浏览器）：**
 
 ```
 🔐 检测到 CNKI/万方需要 CARSI 机构登录。
 
-   第一步：先问用户，不盲目打开登录页：
+   第一步：先问用户，不盲目启动：
    > "CNKI/万方需要机构账号（CARSI SSO）才能访问。请问你有学校/机构的统一身份认证账号吗？"
-   > 选项 A: 有账号 → 执行下方「有账号」流程
+   > 选项 A: 有账号 → 🚀 自动打开浏览器并导航到目标网站，用户登录后告知完成
    > 选项 B: 没有账号 → 确认是否跳过中文源，报告中标注原因
    > 选项 C: 不确定 → 建议先尝试 CARSI 登录页查看学校列表
 
    第二步（用户选 A — 有账号）：
-   > CNKI 登录页: https://kns.cnki.net/kns8s/
-   >   右上角「机构登录」→ 选择你的学校 → 统一身份认证
-   > 万方登录页: https://www.wanfangdata.com.cn/
-   >   右上角「登录」→「CARSI」→ 选择你的学校
-   ⚠️ 暂停检索，等待用户回复「已登录」或「done」
+   🚀 Agent 自动执行以下操作（无需用户手动操作）：
+     1. 关闭已有 CDP Chrome 进程（如有）
+     2. 使用 open 命令启动 Chrome，带 --remote-debugging-port=9223
+     3. 自动导航到以下目标页面：
+        • CNKI 登录页: https://kns.cnki.net/kns8s/
+          右上角「机构登录」→ 选择你的学校 → 统一身份认证
+        • 万方登录页: https://www.wanfangdata.com.cn/
+          右上角「登录」→「CARSI」→ 选择你的学校
+     4. Agent 在 CDP 可用后，通过 Page.navigate 自动跳转到对应页面
+   ⚠️ 浏览器窗口已打开并指向目标网站，请完成 CARSI 机构登录后告知「已登录」或「done」
 
    第二步（用户选 B — 无机构账号）：
    > "确认跳过 CNKI/万方中文检索。检索报告中将标注「中文源: 用户无机构账号」。"
    > 可以建议备用方案：联系学校图书馆获取 VPN、或使用 iData 等第三方镜像。
    ⚠️ 确认后继续英文源检索，不阻塞流程。
 ```
+
+**Agent 自动启动 CDP Chrome 的参考命令：**
+```bash
+# 启动 Chrome 并导航到 CNKI（Step 4 中推荐）
+open -na "Google Chrome" --args --remote-debugging-port=9223 \
+  --remote-allow-origins=http://127.0.0.1:9223 \
+  --no-first-run --no-default-browser-check \
+  --disable-blink-features=AutomationControlled \
+  --user-data-dir="$HOME/.hermes/chrome_sd_profile" \
+  https://kns.cnki.net/kns8s/
+
+# 或启动后通过 CDP 自动导航
+# curl -s -X PUT "http://127.0.0.1:9223/json/activate/0"  # 激活已有标签
+# 然后发送 Page.navigate 到目标标签页
+
+# 验证 CDP 是否就绪
+for i in {1..10}; do
+  if curl -s "http://127.0.0.1:9223/json/version" >/dev/null 2>&1; then
+    echo "✅ CDP ready on :9223"
+    break
+  fi
+  sleep 1
+done
+```
+
 
 
 

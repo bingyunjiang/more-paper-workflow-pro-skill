@@ -56,6 +56,8 @@
 
 ### 6.0 CDP 登录门控 🚧 硬性规则
 
+### 6.0 CDP 登录门控 🚧 硬性规则
+
 > **两个独立门控，分阶段触发。Sci-Hub 不需要门控。中文和英文各自独立确认。**
 
 **中文门控（Phase 1）：** Sci-Hub 后台启动的同时立即触发。仅提示 CNKI/万方。
@@ -70,18 +72,31 @@
 Phase 1:
 1. Sci-Hub 后台启动（免费，不阻塞）
 2. 🚧 中文登录门控立即显示
-   "Please verify CNKI/Wanfang login:
+   "CNKI/万方需要 CARSI 机构登录。
+    🚀 Agent 将自动打开 Chrome 并导航到目标网站。
     • cnki (kns.cnki.net)
     • wanfang (www.wanfangdata.com.cn)
     Type '已登录' to proceed, 'q' to skip Chinese: "
-3. 用户确认 → Chinese CDP 启动
+3. 🚀 Agent 自动执行以下操作（确认用户选择后）：
+   a) 如果 CDP 端口 9223 无响应，自动启动 Chrome：
+      open -na "Google Chrome" --args --remote-debugging-port=9223 \
+        --remote-allow-origins=http://127.0.0.1:9223 \
+        --no-first-run --no-default-browser-check \
+        --disable-blink-features=AutomationControlled \
+        --user-data-dir="$HOME/.hermes/chrome_sd_profile" \
+        https://kns.cnki.net/kns8s/
+   b) 等待 CDP 就绪（轮询 http://127.0.0.1:9223/json/version）
+   c) 通过 CDP Page.navigate 跳转到 CNKI/万方（若需）
+   d) 告知用户：「浏览器已自动打开并导航到 CNKI/万方，请完成 CARSI 机构登录后告知」
+4. 用户确认 → Chinese CDP 启动
 
 Phase 2:
-4. 等待 Sci-Hub 完成
-5. 若有剩余英文 CDP 论文 → 🚧 英文登录门控
+5. 等待 Sci-Hub 完成
+6. 若有剩余英文 CDP 论文 → 🚧 英文登录门控
    "[ScienceDirect CDP]  elsevier (sciencedirect.com)
     [Generic CDP]  ieee (ieeexplore.ieee.org), acs (pubs.acs.org), ..."
-6. 用户确认 → English CDP 启动（R2 SD → R3 Generic）
+7. 🚀 Agent 自动打开对应出版社首页（同上方式），用户登录后告知
+8. 用户确认 → English CDP 启动（R2 SD → R3 Generic）
 ```
 
 **强制要求：**
@@ -95,7 +110,10 @@ Phase 2:
 # Step 1: 先 dry-run 查看需要登录的出版社
 python3 scripts/unified_download_router.py 检索文献表.md --dry-run
 
-# Step 2: Agent 根据 dry-run 输出，打开对应出版社首页，提示用户登录
+# Step 2: Agent 根据 dry-run 输出，自动打开对应出版社首页
+#    CNKI:   open -na "Google Chrome" --args --remote-debugging-port=9223 ... https://kns.cnki.net/kns8s/
+#    Wanfang: open -na "Google Chrome" --args --remote-debugging-port=9223 ... https://www.wanfangdata.com.cn/
+#    ScienceDirect: open -na "Google Chrome" --args --remote-debugging-port=9223 ... https://www.sciencedirect.com/
 
 # Step 3: 用户确认后，带门控参数执行
 python3 scripts/unified_download_router.py 检索文献表.md --output paper-temp/ --require-login-confirm
