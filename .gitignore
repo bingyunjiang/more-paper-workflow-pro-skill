@@ -19,5 +19,4 @@ Thumbs.db
 # Browser profiles (generated at runtime)
 /tmp/
 *.log
-.claude/settings.json
-.claude/settings.local.json
+.claude/
