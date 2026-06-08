@@ -397,7 +397,8 @@ fi
 
 | 脚本 | 步骤 | 用途 |
 |------|------|------|
-| `scripts/search_by_topic.py` | 4 | 多渠道检索（Semantic Scholar / Crossref / OpenAlex / 🆕 CNKI / 🆕 Wanfang Data）+ 引文网络 + 语义缓存。CNKI 中文文献：校园 IP 直连零配置；校外 CDP Chrome（🚀 Agent 自动打开浏览器并导航到目标网站）。Wanfang：校内 IP；校外 CARSI SSO（🚀 Agent 自动打开浏览器并导航到目标网站）。|
+| `scripts/search_by_topic.py` | 4 | 多渠道检索（Semantic Scholar / Crossref / OpenAlex / 🆕 CNKI / 🆕 Wanfang Data）+ 引文网络 + 语义缓存。CNKI 中文文献：校园 IP 直连零配置；校外 CDP Chrome（🚀 配合 batch_chinese_search.sh 交互式批量检索，防止跨命令 CDP 断连）。Wanfang：校内 IP；校外 CARSI SSO（同上）。
+| `scripts/batch_chinese_search.sh` 🆕 | 4/5 | 🆕 交互式批量 CDP 检索脚本。同一条命令内完成：启动/复用 CDP Chrome → 导航到目标网站 → 等待 CARSI 登录确认 → 批量执行所有 CNKI/万方检索 → 输出 .bib 文件。支持 `--login-only` 模式（仅启动 Chrome + 等待登录，用于 Step 5 下载门控）。解决 `require_escalated` 跨命令 CDP 断连问题。 ||
 | `scripts/generate_retrieval_report.py` | 4g | 🆕 检索文献表一键交付（.xlsx + .bib）— 🔴 Step 4 强制 |
 | `scripts/generate_search_report.py` | 4g | 🆕 检索方法论报告（8 章节：范围→流水线→评分→分布→饱和度→建议） |
 | `scripts/discovery_curve.py` | 4d | 🆕 饱和度曲线估算 |

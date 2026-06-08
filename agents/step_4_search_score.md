@@ -114,28 +114,43 @@
 | **Wanfang** | 用户无机构账号 | 📝 确认后跳过，报告标注「中文源: 用户无机构账号」 |
 | **Wanfang** | 用户选择跳过 | 📝 报告标注「中文源: 用户跳过」 |
 
-**中文源认证流程（CDP/CARSI 时——先确认账号，再自动启动浏览器）：**
+**中文源认证流程（CDP/CARSI 时——先确认账号，再交互式批量检索）：**
 
 ```
 🔐 检测到 CNKI/万方需要 CARSI 机构登录。
 
-   第一步：先问用户，不盲目启动：
+   第一步：先问用户：
    > "CNKI/万方需要机构账号（CARSI SSO）才能访问。请问你有学校/机构的统一身份认证账号吗？"
-   > 选项 A: 有账号 → 🚀 自动打开浏览器并导航到目标网站，用户登录后告知完成
+   > 选项 A: 有账号 → 🚀 执行下方「交互式批量检索」流程
    > 选项 B: 没有账号 → 确认是否跳过中文源，报告中标注原因
    > 选项 C: 不确定 → 建议先尝试 CARSI 登录页查看学校列表
 
    第二步（用户选 A — 有账号）：
-   🚀 Agent 自动执行以下操作（无需用户手动操作）：
-     1. 关闭已有 CDP Chrome 进程（如有）
-     2. 使用 open 命令启动 Chrome，带 --remote-debugging-port=9223
-     3. 自动导航到以下目标页面：
-        • CNKI 登录页: https://kns.cnki.net/kns8s/
-          右上角「机构登录」→ 选择你的学校 → 统一身份认证
-        • 万方登录页: https://www.wanfangdata.com.cn/
-          右上角「登录」→「CARSI」→ 选择你的学校
-     4. Agent 在 CDP 可用后，通过 Page.navigate 自动跳转到对应页面
-   ⚠️ 浏览器窗口已打开并指向目标网站，请完成 CARSI 机构登录后告知「已登录」或「done」
+   🚀 Agent 执行交互式批量检索（一条命令内完成全部操作，防止 CDP 断连）：
+
+   a) Agent 基于 Step 3 检索方案，汇总所有 CNKI/Wanfang 查询 → 写入临时 JSON 文件
+      （文件格式见下方 queries.json 模板）
+
+   b) Agent 启动一条长驻 exec_command（yield_time_ms=30000）：
+        bash scripts/batch_chinese_search.sh <queries.json> --output-dir <output/>
+
+   c) 脚本自动处理 CDP Chrome：
+      ├─ 端口 9223 已有 CDP → 复用（打印 CDP_ALIVE）
+      └─ 无 CDP → 自动启动 Chrome → 导航到 CNKI/万方 → 等待就绪（打印 CDP_READY）
+
+   d) 脚本打印 === LOGIN_REQUIRED === 后阻塞等待 stdin
+
+   e) Agent 检测到 === LOGIN_REQUIRED ===，告知用户：
+      「Chrome 已自动打开并导航到 CNKI/万方，请完成 CARSI 机构登录后回复「已登录」」
+
+   f) 用户完成 CARSI 登录后回复「已登录」
+
+   g) Agent 调用 write_stdin("go\n")，脚本继续执行全部检索
+
+   h) 逐条执行查询（打印 SEARCH_START:Sx / SEARCH_DONE:Sx:N）
+      每条命令自动加 --no-cache（避免空结果毒化缓存）和 --language zh
+
+   i) 脚本打印 === ALL_DONE === 汇总结果数 + .bib 文件列表
 
    第二步（用户选 B — 无机构账号）：
    > "确认跳过 CNKI/万方中文检索。检索报告中将标注「中文源: 用户无机构账号」。"
@@ -143,9 +158,36 @@
    ⚠️ 确认后继续英文源检索，不阻塞流程。
 ```
 
-**Agent 自动启动 CDP Chrome 的参考命令：**
+**queries.json 模板（Agent 动态生成）：**
+```json
+[
+  {"id":"S1","query":"冷板拓扑优化","source":"cnki","limit":50,"strategy":"relevance"},
+  {"id":"S1","query":"冷板拓扑优化","source":"wanfang","limit":50},
+  {"id":"S2","query":"液冷板 结构优化 传热","source":"cnki","limit":50}
+]
+```
+
+**Agent 执行参考命令：**
 ```bash
-# 启动 Chrome 并导航到 CNKI（Step 4 中推荐）
+# 1. Agent 动态生成查询 JSON 文件
+cat > .skill-state/chinese_queries.json << 'JSONEOF'
+[
+  {"id":"S1","query":"子课题1","source":"cnki","limit":50,"strategy":"relevance"},
+  {"id":"S1","query":"子课题1","source":"wanfang","limit":50}
+]
+JSONEOF
+
+# 2. 启动交互式批量检索（一条命令，CDP 不会断连）
+bash scripts/batch_chinese_search.sh .skill-state/chinese_queries.json \
+  --output-dir .skill-state/
+
+# 3. 检测到 === LOGIN_REQUIRED === 后告知用户登录，等回复后用 write_stdin("go\n")
+# 4. 检测到 === ALL_DONE === 后取结果
+```
+
+**CDP Chrome 手动启动（备用）：**
+```bash
+# 仅当 batch_chinese_search.sh 自动启动失败时手动兜底
 open -na "Google Chrome" --args --remote-debugging-port=9223 \
   --remote-allow-origins=http://127.0.0.1:9223 \
   --no-first-run --no-default-browser-check \
@@ -153,24 +195,15 @@ open -na "Google Chrome" --args --remote-debugging-port=9223 \
   --user-data-dir="$HOME/.hermes/chrome_sd_profile" \
   https://kns.cnki.net/kns8s/
 
-# 或启动后通过 CDP 自动导航
-# curl -s -X PUT "http://127.0.0.1:9223/json/activate/0"  # 激活已有标签
-# 然后发送 Page.navigate 到目标标签页
-
 # 验证 CDP 是否就绪
 for i in {1..10}; do
   if curl -s "http://127.0.0.1:9223/json/version" >/dev/null 2>&1; then
-    echo "✅ CDP ready on :9223"
-    break
+    echo "✅ CDP ready on :9223"; break
   fi
   sleep 1
 done
 ```
 
-
-
-
-```bash
 # L1 OpenAlex：每子课题跑 3 策略（relevance + cited + recent），每策略 50 条
 python3 scripts/search_by_topic.py --bool query_plan.json \
   --source openalex --strategy relevance --limit 50 --export-bib s1_l1_rel.bib

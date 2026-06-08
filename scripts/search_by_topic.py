@@ -67,9 +67,9 @@ CACHE_MAX_ENTRIES = 500
 
 WANFANG_SEARCH_URL = "https://www.wanfangdata.com.cn/search/searchList.do"
 # CDP Chrome port — override via env var CDP_PORT or --cdp-port CLI arg.
-# Default 9222 matches the shared ScienceDirect/Wanfang/CNKI Chrome instance.
-# Run:  bash scripts/start_cdp_chrome.sh --port 9222
-_CDP_PORT = int(os.environ.get("CDP_PORT", "9222"))
+# Default 9223 matches start_cdp_chrome.sh. Use env CDP_PORT to override.
+# Run:  bash scripts/start_cdp_chrome.sh --port 9223
+_CDP_PORT = int(os.environ.get("CDP_PORT", "9223"))
 
 WANFANG_CDP_PORT = _CDP_PORT
 WANFANG_SPA_URL = "https://s.wanfangdata.com.cn/paper"
@@ -2656,7 +2656,7 @@ Examples:
 
     # CDP port
     parser.add_argument("--cdp-port", type=int, default=None,
-                        help="CDP Chrome DevTools port (default: $CDP_PORT env or 9222)")
+                        help="CDP Chrome DevTools port (default: $CDP_PORT env or 9223)")
 
     # Scoring
     parser.add_argument("--score", action="store_true", help="Auto-score results with heuristics")

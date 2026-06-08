@@ -55,7 +55,6 @@
 ## 6. 执行流程 (Execution Flow)
 
 ### 6.0 CDP 登录门控 🚧 硬性规则
-
 ### 6.0 CDP 登录门控 🚧 硬性规则
 
 > **两个独立门控，分阶段触发。Sci-Hub 不需要门控。中文和英文各自独立确认。**
@@ -73,59 +72,63 @@ Phase 1:
 1. Sci-Hub 后台启动（免费，不阻塞）
 2. 🚧 中文登录门控立即显示
    "CNKI/万方需要 CARSI 机构登录。
-    🚀 Agent 将自动打开 Chrome 并导航到目标网站。
-    • cnki (kns.cnki.net)
-    • wanfang (www.wanfangdata.com.cn)
-    Type '已登录' to proceed, 'q' to skip Chinese: "
-3. 🚀 Agent 自动执行以下操作（确认用户选择后）：
-   a) 如果 CDP 端口 9223 无响应，自动启动 Chrome：
-      open -na "Google Chrome" --args --remote-debugging-port=9223 \
-        --remote-allow-origins=http://127.0.0.1:9223 \
-        --no-first-run --no-default-browser-check \
-        --disable-blink-features=AutomationControlled \
-        --user-data-dir="$HOME/.hermes/chrome_sd_profile" \
-        https://kns.cnki.net/kns8s/
-   b) 等待 CDP 就绪（轮询 http://127.0.0.1:9223/json/version）
-   c) 通过 CDP Page.navigate 跳转到 CNKI/万方（若需）
-   d) 告知用户：「浏览器已自动打开并导航到 CNKI/万方，请完成 CARSI 机构登录后告知」
-4. 用户确认 → Chinese CDP 启动
+    🚀 Agent 将自动启动交互式 CDP 会话（同一条命令内，不会断连）。"
+3. 🚀 Agent 执行交互式 CDP 启动（使用 batch_chinese_search.sh --login-only）：
+   a) Agent 启动一条长驻 exec_command（yield_time_ms=60000）：
+        bash scripts/batch_chinese_search.sh --login-only
+   b) 脚本自动处理：
+      ├─ 端口 9223 已有 CDP → 复用
+      └─ 无 CDP → 自动启动 Chrome → 导航到 CNKI/万方 → 等待就绪
+   c) 脚本打印 === LOGIN_REQUIRED === 后阻塞等待 stdin
+   d) Agent 告知用户：「Chrome 已自动打开并导航到 CNKI/万方，请完成 CARSI 登录后回复「已登录」」
+   e) 用户完成登录后回复「已登录」
+   f) Agent 调用 write_stdin("go\n")，脚本继续
+   g) 脚本打印 CHINESE_CDP_READY → Agent 确认 CDP 可用
+4. Agent 执行 Chinese CDP 下载（unified_download_router.py 连接同一 9223 端口）
 
 Phase 2:
 5. 等待 Sci-Hub 完成
 6. 若有剩余英文 CDP 论文 → 🚧 英文登录门控
+   Agent 执行同样的交互式 CDP 启动，导航到对应出版社首页：
    "[ScienceDirect CDP]  elsevier (sciencedirect.com)
     [Generic CDP]  ieee (ieeexplore.ieee.org), acs (pubs.acs.org), ..."
-7. 🚀 Agent 自动打开对应出版社首页（同上方式），用户登录后告知
-8. 用户确认 → English CDP 启动（R2 SD → R3 Generic）
+7. 🚀 Agent 自动启动交互式 CDP 会话（同一条命令内）：
+   a) 启动 exec_command：检查/启动 CDP Chrome → 导航到出版社首页
+   b) 打印 === LOGIN_REQUIRED === → 用户登录后告知 → Agent write_stdin("go\n")
+   c) 脚本确认 CDP 可用后退出
+8. Agent 执行 English CDP 下载（R2 SD → R3 Generic）
 ```
 
 **强制要求：**
 - Agent 禁止在用户确认登录前调用 `unified_download_router.py`（除 `--dry-run` 外）
 - Agent 必须先运行 `--dry-run` 或 `--test` 确认路由，再提示登录
 - 推荐使用 `--require-login-confirm` 参数启动路由器，由脚本层面再次门控
+- **CDP 启动和下载如果跨命令，必须在同一条 exec_command session 内完成**
 
 **命令示例：**
 
 ```bash
-# Step 1: 先 dry-run 查看需要登录的出版社
+# Step 0: 先 dry-run 查看需要登录的出版社
 python3 scripts/unified_download_router.py 检索文献表.md --dry-run
 
-# Step 2: Agent 根据 dry-run 输出，自动打开对应出版社首页
-#    CNKI:   open -na "Google Chrome" --args --remote-debugging-port=9223 ... https://kns.cnki.net/kns8s/
-#    Wanfang: open -na "Google Chrome" --args --remote-debugging-port=9223 ... https://www.wanfangdata.com.cn/
-#    ScienceDirect: open -na "Google Chrome" --args --remote-debugging-port=9223 ... https://www.sciencedirect.com/
+# Step 1: 交互式启动 CDP + 登录 (Phase 1 中文门控)
+#   Agent 启动长驻命令，等待用户登录后 write_stdin 继续
+bash scripts/batch_chinese_search.sh --login-only
 
-# Step 3: 用户确认后，带门控参数执行
-python3 scripts/unified_download_router.py 检索文献表.md --output paper-temp/ --require-login-confirm
+# Step 2: 用户确认后 (同一条命令内) 执行中文下载
+#   Agent 新开命令（CDP 端口仍然存活）
+python3 scripts/unified_download_router.py 检索文献表.md \
+  --chinese-input chinese_papers.json \
+  --output paper-temp/ --require-login-confirm
 
-# Dry-run 模式 — 只看路由决策，不实际下载（不受门控限制）
-python3 scripts/unified_download_router.py 检索文献表.md --dry-run
+# Step 3: 同上方式处理英文 CDP (Phase 2 英文门控)
+#   Agent 先交互式确认登录 → 再执行下载（同一 CDP 端口）
+
+# 完整下载流程（跳过交互式登录，仅 OA/免费来源时使用）
+python3 scripts/unified_download_router.py 检索文献表.md --output paper-temp/
 
 # 单篇测试
 python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port 9223
-```
-
-### 三阶段执行架构
 
 ```
 Phase 1 ──────────────────────────────────────────────────
