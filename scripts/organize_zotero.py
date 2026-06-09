@@ -26,7 +26,7 @@ TEMPLATE = """# Zotero 文库架构
 ## 文库结构
 
 ```
-📁 研究主题论文文献库 （根集合）
+📁 {root_name} （根集合）
 {structure}
 ```
 
@@ -45,6 +45,74 @@ TEMPLATE = """# Zotero 文库架构
 由 AI agent 通过 `zotero_create_collection` 工具递归创建，
 详见 `agents/step_6_zotero.md` → 6a-MCP 节。
 """
+
+DEFAULT_ROOT_NAME = "论文文献库"
+TEMPLATE_TITLES = {"论文大纲与关键词", "论文大纲", "大纲关键词"}
+HEADER_TAGS = {
+    "关键词", "关键字", "标签", "术语", "说明", "章节",
+    "keyword", "keywords", "tag", "tags", "term", "terms", "section",
+}
+
+
+def _clean_title(value):
+    """Normalize a candidate paper title extracted from the outline."""
+    if not value:
+        return ""
+    value = value.strip().strip("#").strip()
+    value = re.sub(r"^[：:\-\s]+", "", value).strip()
+    value = re.sub(r"\s+", " ", value)
+    return value
+
+
+def extract_paper_title(keywords_text):
+    """Extract the paper title from 大纲关键词.md using Step 2's format."""
+    lines = keywords_text.splitlines()
+
+    # Preferred Step 2 format:
+    # ## 论文标题
+    # Actual title
+    for i, line in enumerate(lines):
+        if re.match(r"^##+\s*论文标题\s*$", line.strip()):
+            for nxt in lines[i + 1:]:
+                if nxt.strip().startswith("#"):
+                    break
+                candidate = _clean_title(nxt)
+                if not candidate:
+                    continue
+                return candidate
+
+    # Inline title lines.
+    inline_patterns = [
+        r"^\s*(论文题目|题目|标题|研究主题)\s*[：:]\s*(.+?)\s*$",
+    ]
+    for line in lines:
+        for pat in inline_patterns:
+            m = re.match(pat, line)
+            if m:
+                candidate = _clean_title(m.group(2))
+                if candidate:
+                    return candidate
+
+    # YAML/frontmatter title.
+    if lines and lines[0].strip() == "---":
+        for line in lines[1:]:
+            if line.strip() == "---":
+                break
+            m = re.match(r"^\s*title\s*:\s*[\"']?(.+?)[\"']?\s*$", line)
+            if m:
+                candidate = _clean_title(m.group(1))
+                if candidate:
+                    return candidate
+
+    # Last resort: a first-level heading that is not the template title.
+    for line in lines:
+        m = re.match(r"^#\s+(.+?)\s*$", line.strip())
+        if m:
+            candidate = _clean_title(m.group(1))
+            if candidate and candidate not in TEMPLATE_TITLES:
+                return candidate
+
+    return DEFAULT_ROOT_NAME
 
 
 def generate_structure(keywords_text):
@@ -87,7 +155,7 @@ def generate_structure(keywords_text):
         if tm and chapters:
             tag = tm.group(1).strip()
             desc = tm.group(2).strip()
-            if tag and tag != "关键词" and not tag.startswith("-"):
+            if tag and tag.lower() not in HEADER_TAGS and not tag.startswith("-"):
                 table_rows.append((tag, desc))
                 in_table = True
             continue
@@ -132,13 +200,13 @@ def generate_tags(tag_map):
     return "\n".join(rows)
 
 
-def build_tree(chapters):
+def build_tree(chapters, root_name=DEFAULT_ROOT_NAME):
     """将扁平的章节列表转换为嵌套树结构，供 JSON 输出和 MCP 递归创建。
 
     每个 chapter 有 level (1-based, 1=一级标题) 和 path (从根到当前节点的标题列表)。
-    返回: {"name": "论文文献库", "children": [...]}
+    返回: {"name": root_name, "children": [...]}
     """
-    root = {"name": "论文文献库", "children": []}
+    root = {"name": root_name, "children": []}
 
     # path_stack[i] = 当前 depth i 对应的树节点引用
     # depth 0 = root, depth 1 = 一级标题, ...
@@ -175,6 +243,8 @@ if __name__ == "__main__":
     parser.add_argument("--json", "-j", dest="json_output", default=None,
                         help="额外输出 JSON 树结构（供 MCP 自动创建集合使用）")
     parser.add_argument("--template", "-t", help="标签方案示例文件")
+    parser.add_argument("--root-name", default=None,
+                        help="Zotero 根集合名；不传时从大纲中的论文标题自动解析")
     args = parser.parse_args()
 
     keywords = ""
@@ -185,10 +255,14 @@ if __name__ == "__main__":
             keywords = f.read()
         source = args.input
 
+    root_name = _clean_title(args.root_name) if args.root_name else (
+        extract_paper_title(keywords) if keywords else DEFAULT_ROOT_NAME
+    )
+
     if keywords:
         structure, tag_map, chapters = generate_structure(keywords)
         tags_table = generate_tags(tag_map)
-        tree = build_tree(chapters)
+        tree = build_tree(chapters, root_name=root_name)
     else:
         structure = "    📁 1-基础\n    📁 2-散热\n    📁 3-预测\n    📁 4-控制"
         tags_table = "| P0-A1 | 基础理论 | 领域基础理论 |"
@@ -197,6 +271,7 @@ if __name__ == "__main__":
     content = TEMPLATE.format(
         time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
         source=source,
+        root_name=root_name,
         structure=structure,
         tags=tags_table,
     )

@@ -71,7 +71,7 @@
 
 **More Paper Workflow Pro Skill** 是一套完整的学术文献工作流工具链，覆盖从研究方向确定到论文润色投稿的全过程。34+ 个 Python CLI 脚本 + 9 个 Agent 模块 + 共享工具库 + 配置体系，可独立使用或接入 **Claude Code / Codex / Hermes / OpenClaw** 等任意支持 Claude 模型的 AI Agent 平台实现对话式编排。
 
-完整学术文献检索和写作工作流（8 步法）：①交互式确定研究主题 → ②生成大纲/关键词 → ③制定检索方案 → ④多渠道检索+评分并导出 BibTeX → **⑤统一路由下载（Sci-Hub→SD CDP→IEEE CDP→Generic CDP，覆盖 23+ 家出版社）** → ⑥Zotero 文库管理（架构生成+BibTeX 条目入库+PDF 附件关联+一致性检查） → ⑦论文写作（含文献证据矩阵+目标体裁/文档风格学习+GB/T 7714 完整规范+图表生成+引用审计） → ⑧论文润色。
+完整学术文献检索和写作工作流（8 步法）：①交互式确定研究主题 → ②生成大纲/关键词 → ③制定检索方案 → ④多渠道检索+评分并导出 BibTeX → **⑤统一路由下载（Sci-Hub→SD CDP/IEEE CDP→Generic CDP，覆盖 23+ 家出版社）** → ⑥Zotero 文库管理（架构生成+BibTeX 条目入库+PDF 附件关联+一致性检查） → ⑦论文写作（含文献证据矩阵+目标体裁/文档风格学习+GB/T 7714 完整规范+图表生成+引用审计） → ⑧论文润色。
 
 ### 文档定位：Source of Truth
 
@@ -309,6 +309,8 @@ python3 scripts/auto_sd_downloader.py --browser-path "/custom/path/chrome"
 
 ## 📖 使用指南
 
+> README 只展示推荐主路径。备用脚本、失败回退、平台差异和执行边界，请以 [`SKILL.md`](SKILL.md) 与 [`agents/step_*.md`](agents/) 为准。
+
 ### Step 1: 确定研究主题
 
 与 AI 交互对话，厘清研究方向：
@@ -358,35 +360,19 @@ python3 scripts/auto_sd_downloader.py --browser-path "/custom/path/chrome"
 
 > 💬 按检索方案执行多渠道文献检索，并进行引文验证、评分、分级、饱和度分析和检索报告生成。
 
-**8 道子工序流程：**
+**核心流程：**
 ```
 4a 引文验证 → 4b DOI 去重 → 4c 五维评分 → 4d T1-T4 分级(T4剔除)
 → 4e 引文扩展(评分闭环) → 4f 饱和度分析 → 4g 检索报告(4 格式) → 4h 完成
 ```
 
-**4a 引文验证** — DOI 格式校验 + 元数据完整性检查（title/authors/year）
-**4b DOI 去重** — 多源合并，DOI 主键 + title+author+year 回退键
-**4c 五维评分** — 主题匹配 / 方法一致 / 来源质量 / 时效性 / 引用量（各 0-5）
-**4d T1-T4 分级** — ⭐T1≥20 / 📘T2 15-19 / 📄T3 10-14 / ⬜T4<10 显式剔除
-**4e 引文扩展** — 从 T1 文献参考文献扩展检索，新文献自动加入评分
-**4f 饱和度分析** — `discovery_curve.py` 指数拟合估算文献覆盖率
-**4g 检索报告** — 导出为 .md + .xlsx + .pdf + .bib 四种格式
-**4h 完成** — 检查 T1 数量（综述≥30，研究论文≥15）
-
 ```bash
 # 推荐：T1→T2→T3 三级路由检索
 python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
   --t1 crossref --t2 openalex --t3 semantic_scholar --min-results 30 --score
-
-# 预检所有 API 端点
-python3 scripts/search_by_topic.py --preflight
-
-# 饱和度分析
-python3 scripts/discovery_curve.py 检索文献表.md
-
-# arXiv 辅助检索（CS/AI 主题自动触发）
-python3 scripts/arxiv_helper.py "liquid cooling" --categories cs.CE,cs.AR
 ```
+
+完整的预检、饱和度分析、分级阈值和扩展检索规则见 [`agents/step_4_search_score.md`](agents/step_4_search_score.md)。
 
 **产出：** `检索文献表.md` + `检索报告.md/.xlsx/.pdf/.bib`
 
@@ -399,32 +385,9 @@ python3 scripts/arxiv_helper.py "liquid cooling" --categories cs.CE,cs.AR
 ```bash
 # 单一入口，三轮顺序执行，自动路由到对应策略
 python3 scripts/unified_download_router.py 检索文献表.md -o paper-temp/
-
-# 产出：download_log.md（详细下载状态记录）
 ```
 
-> **设计原则：默认所有论文均可访问，下载失败是策略问题，不是权限问题。**
-
-**通用出版社下载引擎**（`generic_publisher_downloader.py`）：策略 A 直连 PDF URL → 策略 B 文章页 CSS 选择器提取，支持 `--include-si` 补充材料下载。
-
-**出版社配置**（`config/publishers.toml`）：24 家出版社的 DOI 前缀、URL 模板、CSS 选择器、屏障检测规则集中管理。
-
-**备用分步下载：**
-
-| 轮次 | 目标 | 命令 |
-|------|------|------|
-| **Sci-Hub** | 2021 年前老论文（免费） | `python3 scripts/download_via_scihub.py 检索文献表.md -o paper-temp/` |
-| **ScienceDirect** | Elsevier 论文（需机构） | `python3 scripts/auto_sd_downloader.py -o paper-temp/` |
-| **Generic CDP** | 其他 23 家出版社（需机构） | `python3 scripts/generic_publisher_downloader.py 剩余DOIs.txt -o paper-temp/` |
-| **IEEE** | IEEE 论文（已切换 Generic CDP） | `python3 scripts/generic_publisher_downloader.py ieee_dois.txt -o paper-temp/` |
-
-**SD 混合策略**：先 `/pdfft` 直连（8s 快拒），失败则文章页 JS 渲染（25s）提取 `?md5=` URL 后捕获。全自动版 `auto_sd_downloader.py` 支持 IP 认证零干预 + 断点续跑 + 会话过期自动重启。
-
-**IEEE 两步走**：已默认切换为 Generic CDP 引擎。`download_via_ieee.py` 保留作为 SSO 交互备用。
-
-**浏览器要求**：Chrome 需以 CDP 模式启动（端口 9223），Edge 可选（端口 9225 并行加速）。详见 `scripts/start_cdp_chrome.sh` 一键启动器。
-
-> 📖 Cloudflare 应对、跨平台 Chrome 启动指令等详见 `references/publisher-access-matrix.md`。
+**产出：** `download_log.md` 和 PDF 附件池。出版商路由、CDP 登录门控、失败回退和 Cloudflare 应对详见 [`agents/step_5_download.md`](agents/step_5_download.md) 与 [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md)。
 
 ### Step 6: Zotero 文库管理
 
@@ -432,9 +395,7 @@ python3 scripts/unified_download_router.py 检索文献表.md -o paper-temp/
 
 #### 6a: 生成 Zotero 架构
 
-```bash
-python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md --json zotero-架构.json
-```
+根据 Step 2 大纲生成 `zotero-架构.md/json`，作为后续集合创建和一致性检查的源文件。
 
 #### 6b: 生成文献-Zotero架构对照
 
@@ -442,27 +403,7 @@ python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md 
 
 #### 6c: 通过 Zotero MCP 创建集合
 
-按 `zotero-架构.json` 递归创建 Zotero 集合，并检查 Zotero 实际集合树与架构文件一致。首次使用需配置 Zotero MCP：
-
-```bash
-# 一键安装+配置（自动检测 Claude Code / Hermes / Cursor）
-python3 scripts/setup_zotero.py --install --target auto
-
-# 验证
-python3 scripts/setup_zotero.py --smoke-test
-```
-
-| 环境 | `--target` | 配置方式 |
-|------|-----------|----------|
-| **Claude Code** | `claude-code` | `claude mcp add` CLI（推荐） |
-| Hermes/OpenClaw | `hermes` | `~/.hermes/config.yaml` |
-| Cursor | `cursor` | `~/.cursor/mcp.json` |
-| 自动检测 | `auto` | 自动选择 |
-
-**连接模式：** Web API（远程读写，需 [API Key](https://www.zotero.org/settings/keys)）或本地 API（桌面端直连，仅读取）。
-
->
-> 📖 详细指南：[`docs/ZOTERO_MCP_SETUP.md`](docs/ZOTERO_MCP_SETUP.md) | 离线安装：[`scripts/packages/README.md`](scripts/packages/README.md)
+按 `zotero-架构.json` 递归创建 Zotero 集合，并检查 Zotero 实际集合树与架构文件一致。首次使用 Zotero MCP 时，配置和诊断见 [`docs/ZOTERO_MCP_SETUP.md`](docs/ZOTERO_MCP_SETUP.md)。
 
 #### 6d: 导入条目并关联PDF附件
 
@@ -509,110 +450,27 @@ Step 7 的核心能力：
 
 ```
 More-paper-workflow-pro-skill/
-├── README.md                           ← 本文件
-├── SKILL.md                            ← 轻量路由器（~380 行，触发词 + Agent 路由表）
-├── CHANGELOG.md                        ← 🆕 完整版本历史
-├── config/                             ← 🆕 配置文件
-│   └── publishers.toml                 ← 24 家出版社知识库（DOI 前缀/URL 模板/CSS 选择器）
-├── agents/                             ← 🆕 9 个独立 Agent 文件
-│   ├── step_1_topic.md                 ← Step 1: 交互式定题（v2.0 增强版）
-│   ├── step_2_outline.md               ← Step 2: 大纲生成 + 术语映射
-│   ├── step_3_search_plan.md           ← Step 3: L1→L2→L3 分层路由检索方案
-│   ├── step_4_search_score.md          ← Step 4: 多渠道检索 + 5 维评分
-│   ├── step_5_download.md              ← Step 5: 统一下载路由
-│   ├── step_6_zotero.md                ← Step 6: Zotero 架构 + BibTeX 条目 + PDF 附件一致性
-│   ├── step_7_writing.md               ← Step 7: 文献证据矩阵 + 目标体裁/文档风格 + 论文写作 + 图表/引用审计
-│   ├── step_8_polishing.md             ← Step 8: 四合一润色引擎 + 术语标准化
-│   └── known_pitfalls.md               ← 已知陷阱与故障排除（跨 Step 通用）
-├── docs/                               ← 详细文档
-│   └── ZOTERO_MCP_SETUP.md             ← Zotero MCP 多平台配置指南
-├── scripts/                            ← Python 可执行脚本
-│   ├── cdp_utils.py                    ← 共享 CDP 模块（浏览器管理 + 依赖检查）
-│   ├── sd_download.py                  ← 下载核心（双重策略）
-│   │
-│   ├── Step 3-4: 检索与评分
-│   │   ├── search_by_topic.py          ← 三源检索 + T1→T2→T3 路由 + 布尔查询
-│   │   ├── arxiv_helper.py             ← arXiv L2 条件检索
-│   │   ├── discovery_curve.py          ← 饱和度曲线分析
-│   │   ├── generate_search_report.py   ← 检索报告生成
-│   │   └── generate_retrieval_report.py← 检索评估报告
-│   │
-│   ├── Step 5: 统一下载
-│   │   ├── unified_download_router.py  ← 统一下载路由入口 🔧
-│   │   ├── generic_publisher_downloader.py ← 通用出版社下载引擎 🔧
-│   │   ├── download_via_scihub.py      ← Sci-Hub CDP 下载 + 镜像检测
-│   │   ├── auto_sd_downloader.py       ← SD 全自动（断点续跑）
-│   │   ├── parallel_sd_download.py     ← Chrome+Edge 并行
-│   │   ├── hybrid_sd_download.py       ← SD 混合策略
-│   │   ├── download_via_ieee.py        ← IEEE 备用脚本（SSO 交互）
-│   │   ├── batch_resolve_pii.py        ← DOI→PII 批量解析
-│   │   ├── resolve_remaining_pii.py    ← PII 续跑
-│   │   ├── start_cdp_chrome.sh         ← CDP Chrome 启动器
-│   │   └── extract_docs.py             ← 文献元数据提取
-│   │
-│   ├── Step 6: Zotero 管理
-│   │   ├── organize_zotero.py          ← 生成 Zotero 文库架构
-│   │   └── setup_zotero.py             ← Zotero MCP 安装配置
-│   │
-│   ├── Step 7: 论文写作
-│   │   ├── learn_journal_style.py      ← 目标体裁/文档风格学习 🔧
-│   │   ├── generate_section_blueprints.py ← 章节蓝皮书生成 🔧
-│   │   ├── generate_writing_rationale.py  ← 写作理由书生成 🔧
-│   │   ├── latex_guard.py              ← LaTeX 合规检查 🔧
-│   │   ├── generate_figures.py         ← 科研图表生成 🔧
-│   │   ├── figure_utils.py             ← 图表工具函数 🔧
-│   │   ├── citation_audit.py           ← 引用审计 🔧
-│   │   ├── generate_academic_reference_docx.py ← 样式模板生成
-│   │   └── batch_read_pdfs.py          ← PDF 批量提取
-│   │
-│   ├── Step 8: 论文润色与导出
-│   │   ├── md_to_docx.py               ← Markdown→DOCX 导出
-│   │   ├── md_to_pdf.py                ← Markdown→PDF 导出
-│   │   ├── generate_outline_docx.py    ← 大纲 DOCX 导出
-│   │   ├── generate_outline_pdf.py     ← 大纲 PDF 导出
-│   │   ├── generate_report_pdf.py      ← 报告 PDF 生成
-│   │   └── generate_posters.py         ← 海报生成
-│   │
-│   └── packages/                       ← Zotero MCP 离线依赖
-│       └── README.md                   ← wheel 兼容性说明
-├── posters/                            ← 🆕 版本更新海报
-│   ├── generate_update_poster.py       ← 通用海报生成脚本
-│   └── v105-update-poster.png          ← v1.0.5 更新海报
-└── references/                         ← 模板与参考文档
-    ├── 错误与决策日志
-    │   ├── error_log.md                ← AI 错误积累与修正规则
-    │   ├── decision_log.md             ← 结构性决策记录
-    │   └── term_aliases.md             ← 术语别名映射表
-    │
-    ├── 检索与下载
-    │   ├── literature-table-template.md← 含评分列的文献表格模板
-    │   ├── rcs-rubric.md               ← RCS 主题匹配度评鉴指南
-    │   ├── publisher-access-matrix.md  ← 各出版商下载策略对照
-    │   ├── sd-cdp-architecture.md      ← SD 下载架构
-    │   ├── cdp-pdf-capture-limitations.md← CDP PDF 捕获限制
-    │   ├── direct-api-search-fallback.md← API 搜索回退
-    │   └── search-query-frameworks.md  ← 检索查询框架
-    │
-    ├── Zotero
-    │   ├── zotero-structure-template.md← 集合结构示例
-    │   ├── zotero-missing-attachments.md← 缺 PDF 补下指南
-    │   └── zotero-outline-mapping.md   ← 大纲对齐对照表方案
-    │
-    ├── 写作与评审
-    │   ├── literature-review-matrix-schema.md ← 🆕 综述矩阵 Schema
-    │   ├── literature-review-docx-guide.md    ← 🆕 综述 DOCX 写作指南
-    │   ├── gbt7714-2015-citation-format.md    ← 🆕 GB/T 7714 完整规范
-    │   ├── academic-reference.docx            ← 🆕 论文样式模板
-    │   ├── journal-style-learning-guide.md    ← 🆕 目标体裁/文档风格学习指南
-    │   ├── section-blueprint-template.md      ← 🆕 章节蓝皮模板
-    │   ├── citation-audit-guide.md            ← 🆕 引用审计指南
-    │   ├── nature-figure-style-guide.md       ← 🆕 Nature 图表风格
-    │   ├── nature-color-schemes.md            ← 🆕 Nature 配色方案
-    │   ├── outline-optimization-with-engineering-docs.md ← 大纲优化
-    │   └── outline-review-report-template.py  ← 评审报告生成器
-    │
-    └── poster-generation.md           ← 海报生成工作流
+├── README.md                       ← GitHub 展示与快速开始
+├── SKILL.md                        ← Skill 入口、触发词、Agent 路由
+├── agents/                         ← Step 1-8 权威执行规则
+├── scripts/                        ← 可直接运行的 Python/浏览器自动化脚本
+├── references/                     ← 模板、规范、rubric 与写作参考
+├── docs/                           ← 详细安装与集成文档
+├── config/                         ← 出版商、下载策略等配置
+├── posters/                        ← 版本海报与展示素材
+└── scripts/packages/               ← Zotero MCP 离线依赖
 ```
+
+| 目录/文件 | 什么时候看 |
+|-----------|-------------|
+| `SKILL.md` | 想了解触发词、Agent 路由和运行时总览 |
+| `agents/step_*.md` | 想看某一步的权威执行规则、输入输出和质量门 |
+| `scripts/unified_download_router.py` | 需要统一下载 PDF 时 |
+| `scripts/setup_zotero.py` | 第一次配置或诊断 Zotero MCP 时 |
+| `references/` | 需要模板、引用格式、rubric、图表与写作参考时 |
+| `docs/ZOTERO_MCP_SETUP.md` | Zotero MCP 安装或跨平台配置遇到问题时 |
+
+> README 只展示仓库导航；完整脚本索引和 Step 细则以 `SKILL.md`、`agents/step_*.md` 和实际目录为准。
 
 ---
 
@@ -1037,6 +895,8 @@ python3 scripts/auto_sd_downloader.py --browser-path "/custom/path/chrome"
 
 ## 📖 Usage Guide
 
+> README shows only the recommended path. Fallback scripts, failure recovery, platform differences, and execution boundaries are defined in [`SKILL.md`](SKILL.md) and [`agents/step_*.md`](agents/).
+
 ### Step 1: Define Research Topic
 
 Interact with AI to clarify research direction:
@@ -1086,35 +946,19 @@ Generate chapter structure and keyword lists based on the research topic.
 
 > 💬 Execute the multi-source literature search with citation validation, scoring, grading, saturation analysis, and search report generation.
 
-**8 sub-step workflow:**
+**Core workflow:**
 ```
 4a Citation validation → 4b DOI dedup → 4c 5-dimension scoring → 4d T1-T4 grading(T4 removed)
 → 4e Citation expansion(scoring loop) → 4f Saturation analysis → 4g Search report(4 formats) → 4h Complete
 ```
 
-**4a** DOI format validation + metadata integrity check
-**4b** Multi-source merge, DOI primary key + title+author+year fallback
-**4c** 5-dimension scoring (topic/method/quality/timeliness/citations, 0-5 each)
-**4d** ⭐T1≥20 / 📘T2 15-19 / 📄T3 10-14 / ⬜T4<10 explicit removal
-**4e** Citation expansion from T1 references, auto-score new papers
-**4f** `discovery_curve.py` exponential fit coverage estimation
-**4g** Export as .md + .xlsx + .pdf + .bib
-**4h** Verify T1 count (review≥30, research≥15)
-
 ```bash
 # Recommended: T1→T2→T3 tiered routing
 python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
   --t1 crossref --t2 openalex --t3 semantic_scholar --min-results 30 --score
-
-# Pre-flight all API endpoints
-python3 scripts/search_by_topic.py --preflight
-
-# Saturation analysis
-python3 scripts/discovery_curve.py literature-table.md
-
-# arXiv assisted search
-python3 scripts/arxiv_helper.py "liquid cooling" --categories cs.CE,cs.AR
 ```
+
+Complete preflight, saturation analysis, grading thresholds, and expansion-search rules live in [`agents/step_4_search_score.md`](agents/step_4_search_score.md).
 
 **Output:** `literature-table.md` + `search-report.md/.xlsx/.pdf/.bib`
 
@@ -1127,87 +971,9 @@ python3 scripts/arxiv_helper.py "liquid cooling" --categories cs.CE,cs.AR
 ```bash
 # Single entry, 3-round sequential execution, auto-route to corresponding strategy
 python3 scripts/unified_download_router.py literature-table.md -o paper-temp/
-
-# Output: download_log.md (detailed download status log)
 ```
 
-> **Design principle: All papers are assumed accessible; download failures are strategy issues, not permission issues.**
-
-**Generic Publisher Download Engine** (`generic_publisher_downloader.py`): Strategy A direct PDF URL → Strategy B article page CSS selector extraction, supports `--include-si` supplementary material.
-
-**Publisher Config** (`config/publishers.toml`): 24 publishers' DOI prefixes, URL templates, CSS selectors, and barrier detection rules centrally managed.
-
-**Fallback Individual Downloads:**
-
-| Round | Target | Command |
-|------|------|------|
-| **Sci-Hub** | Pre-2021 papers (free) | `python3 scripts/download_via_scihub.py literature-table.md -o paper-temp/` |
-| **ScienceDirect** | Elsevier papers (institution) | `python3 scripts/auto_sd_downloader.py -o paper-temp/` |
-| **Generic CDP** | Other 23 publishers | `python3 scripts/generic_publisher_downloader.py remaining-DOIs.txt -o paper-temp/` |
-| **IEEE** | IEEE papers (via Generic CDP) | `python3 scripts/generic_publisher_downloader.py ieee_dois.txt -o paper-temp/` |
-
-> **About Cloudflare "Verify you are human":**
->
-> | Scenario | Manual Click? | Notes |
-> |------|:--:|------|
-> | IP Auth (campus/VPN) | Almost never | CDP real browser + `--disable-blink-features` flag, Turnstile usually auto-passes |
-> | SSO Institutional Login | First time only | Must manually login + click verification on first browser start; session cookie persists afterwards |
-> | Session Expiry Auto-Restart | Never | Uses fixed profile directory, cookies persist, auto-reuse after restart |
-> | Sci-Hub Download | Never | Pre-filtered available mirrors (9/13); auto-skips Turnstile-blocked sites |
->
-> When a Cloudflare verification page is detected, the script auto-waits 60s for self-resolution. If it times out, the user is prompted to manually click in the browser window.
-
-**Method A — IP Auth (Fully Automatic):**
-
-```bash
-# Default: auto-detect Chrome, fallback to Edge
-python3 scripts/auto_sd_downloader.py -o download/paper-temp
-
-# Specify Edge
-python3 scripts/auto_sd_downloader.py --browser edge -o download/paper-temp
-
-# Script auto: starts browser → checks SD access → downloads → auto-restarts on session expiry
-# Auto-detects whether IP auth is valid at startup; prompts manual login if not
-```
-
-**Method B — SSO Institutional Login (Manual Browser Start):**
-
-```bash
-# 1. Manually start Chrome (or Edge) and login to ScienceDirect
-# Chrome:
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --remote-debugging-port=9223 --remote-allow-origins=http://127.0.0.1:9223 \
-  --no-first-run --no-default-browser-check --disable-blink-features=AutomationControlled \
-  --user-data-dir=/tmp/chrome_sd_profile \
-  https://www.sciencedirect.com
-
-# 2. Complete institutional login + Cloudflare verification in the browser
-
-# 3. Run download (auto-detects available browsers, single-browser compatible)
-python3 scripts/parallel_sd_download.py -o download/paper-temp
-```
-
-> **Note:** `parallel_sd_download.py` auto-detects whether Chrome and Edge are running. Works fine with only Chrome (single-browser mode), runs parallel when both are available.
-
-#### Round 3: IEEE — Two-Step Strategy (Institution Access Required)
-
-```bash
-# Usage: pass DOI list file
-python3 scripts/download_via_ieee.py dois.txt --port 9223 --output paper-temp/
-
-# Or pass DOIs directly (comma-separated)
-python3 scripts/download_via_ieee.py --papers 10.1109/tvt.2022.3183866
-
-# Check IEEE session status
-python3 scripts/download_via_ieee.py --check-session --port 9223
-```
-
-**Two-Step Flow:**
-- **Step A (preferred)**: Navigate to article page → layered selectors locate PDF button → click → detect new tab or same-tab redirect → Fetch capture
-- **Step B (fallback)**: Direct navigation to stamp/getPDF.jsp URL → Fetch capture
-- Verified 5/5 papers downloaded successfully
-
-See `references/publisher-access-matrix.md` for CDP approach details and publisher-specific guidance.
+**Output:** `download_log.md` and the PDF attachment pool. Publisher routing, CDP login gates, fallback behavior, and Cloudflare handling are covered by [`agents/step_5_download.md`](agents/step_5_download.md) and [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md).
 
 ### Step 6: Zotero Library Management
 
@@ -1215,9 +981,7 @@ See `references/publisher-access-matrix.md` for CDP approach details and publish
 
 #### 6a: Generate Zotero Architecture
 
-```bash
-python3 scripts/organize_zotero.py outline-keywords.md --output zotero-architecture.md --json zotero-architecture.json
-```
+Generate `zotero-architecture.md/json` from the Step 2 outline, then use it as the source for collection creation and consistency checks.
 
 #### 6b: Generate Literature-Zotero Mapping
 
@@ -1225,28 +989,7 @@ Combine `文献库.bib`, `zotero-architecture.md/json`, and the PDF attachment p
 
 #### 6c: Create Collections Through Zotero MCP
 
-Create the Zotero collection tree recursively from `zotero-architecture.json`, then verify that the actual Zotero tree matches the architecture. First-time setup:
-
-```bash
-# One-click install + configure (auto-detect Claude Code / Hermes / Cursor)
-python3 scripts/setup_zotero.py --install --target auto
-
-# Verify
-python3 scripts/setup_zotero.py --smoke-test
-```
-
-| Environment | `--target` | Config Method |
-|-------------|-----------|---------------|
-| **Claude Code** | `claude-code` | `claude mcp add` CLI (recommended) |
-| Hermes/OpenClaw | `hermes` | `~/.hermes/config.yaml` |
-| Cursor | `cursor` | `~/.cursor/mcp.json` |
-| Auto-detect | `auto` | Auto-select |
-
-**Connection Modes:** Web API (remote read-write, requires [API Key](https://www.zotero.org/settings/keys)) or Local API (desktop direct, read-only).
-
-> ⚠️ **VS Code Extension Users**: Fully quit and restart VS Code (`Cmd+Q`, not `reload-window`) after configuration.
->
-> 📖 Detailed Guide: [`docs/ZOTERO_MCP_SETUP.md`](docs/ZOTERO_MCP_SETUP.md) | Offline Install: [`scripts/packages/README.md`](scripts/packages/README.md)
+Create the Zotero collection tree recursively from `zotero-architecture.json`, then verify that the actual Zotero tree matches the architecture. For first-time Zotero MCP setup and diagnostics, see [`docs/ZOTERO_MCP_SETUP.md`](docs/ZOTERO_MCP_SETUP.md).
 
 #### 6d: Import Items and Attach PDFs
 
@@ -1293,110 +1036,27 @@ Sentence-by-sentence refinement, layered progression. Core enhancement — **Sen
 
 ```
 More-paper-workflow-pro-skill/
-├── README.md                           ← This file
-├── SKILL.md                            ← Lightweight router (~380 lines)
-├── CHANGELOG.md                        ← 🆕 Full version history
-├── config/                             ← 🆕 Configuration files
-│   └── publishers.toml                 ← 24-publisher knowledge base
-├── agents/                             ← 🆕 9 independent Agent files
-│   ├── step_1_topic.md                 ← Step 1: Interactive topic definition
-│   ├── step_2_outline.md               ← Step 2: Outline + terminology mapping
-│   ├── step_3_search_plan.md           ← Step 3: L1→L2→L3 tiered routing
-│   ├── step_4_search_score.md          ← Step 4: Multi-source search + scoring
-│   ├── step_5_download.md              ← Step 5: Unified download routing
-│   ├── step_6_zotero.md                ← Step 6: Zotero architecture + BibTeX items + PDF attachments
-│   ├── step_7_writing.md               ← Step 7: Literature evidence matrix + target genre/document style + writing + audit
-│   ├── step_8_polishing.md             ← Step 8: 4-in-1 polishing engine
-│   └── known_pitfalls.md               ← Cross-step troubleshooting
-├── docs/                               ← Detailed documentation
-│   └── ZOTERO_MCP_SETUP.md             ← Zotero MCP multi-platform setup
-├── scripts/                            ← Python executable scripts
-│   ├── cdp_utils.py                    ← Shared CDP module
-│   ├── sd_download.py                  ← Download core (dual strategy)
-│   │
-│   ├── Step 3-4: Search & Scoring
-│   │   ├── search_by_topic.py          ← 3-source search + T1→T2→T3 routing
-│   │   ├── arxiv_helper.py             ← arXiv L2 conditional search
-│   │   ├── discovery_curve.py          ← Saturation curve analysis
-│   │   ├── generate_search_report.py   ← Search report generation
-│   │   └── generate_retrieval_report.py← Retrieval evaluation
-│   │
-│   ├── Step 5: Unified Download
-│   │   ├── unified_download_router.py  ← Unified download entry 🔧
-│   │   ├── generic_publisher_downloader.py ← Generic publisher engine 🔧
-│   │   ├── download_via_scihub.py      ← Sci-Hub CDP download
-│   │   ├── auto_sd_downloader.py       ← SD fully automatic
-│   │   ├── parallel_sd_download.py     ← Chrome+Edge parallel
-│   │   ├── hybrid_sd_download.py       ← SD hybrid strategy
-│   │   ├── download_via_ieee.py        ← IEEE backup (SSO)
-│   │   ├── batch_resolve_pii.py        ← DOI→PII batch resolution
-│   │   ├── resolve_remaining_pii.py    ← PII resume
-│   │   ├── start_cdp_chrome.sh         ← CDP Chrome launcher
-│   │   └── extract_docs.py             ← Metadata extraction
-│   │
-│   ├── Step 6: Zotero
-│   │   ├── organize_zotero.py          ← Library architecture
-│   │   └── setup_zotero.py             ← Zotero MCP setup
-│   │
-│   ├── Step 7: Writing
-│   │   ├── learn_journal_style.py      ← Target genre/document style learning 🔧
-│   │   ├── generate_section_blueprints.py ← Section blueprints 🔧
-│   │   ├── generate_writing_rationale.py  ← Writing rationale 🔧
-│   │   ├── latex_guard.py              ← LaTeX compliance 🔧
-│   │   ├── generate_figures.py         ← Figure generation 🔧
-│   │   ├── figure_utils.py             ← Figure utilities 🔧
-│   │   ├── citation_audit.py           ← Citation audit 🔧
-│   │   ├── generate_academic_reference_docx.py ← Style template
-│   │   └── batch_read_pdfs.py          ← PDF batch extraction
-│   │
-│   ├── Step 8: Polishing & Export
-│   │   ├── md_to_docx.py               ← Markdown→DOCX
-│   │   ├── md_to_pdf.py                ← Markdown→PDF
-│   │   ├── generate_outline_docx.py    ← Outline DOCX
-│   │   ├── generate_outline_pdf.py     ← Outline PDF
-│   │   ├── generate_report_pdf.py      ← Report PDF
-│   │   └── generate_posters.py         ← Poster generation
-│   │
-│   └── packages/                       ← Zotero MCP offline deps
-│       └── README.md
-├── posters/                            ← 🆕 Version update posters
-│   ├── generate_update_poster.py       ← Generic poster generator
-│   └── v105-update-poster.png          ← v1.0.5 poster
-└── references/                         ← Templates & references
-    ├── Error & Decision Logs
-    │   ├── error_log.md                ← AI error accumulation
-    │   ├── decision_log.md             ← Structural decisions
-    │   └── term_aliases.md             ← Terminology aliases
-    │
-    ├── Search & Download
-    │   ├── literature-table-template.md← Scoring table template
-    │   ├── rcs-rubric.md               ← RCS rubric
-    │   ├── publisher-access-matrix.md  ← Download strategy matrix
-    │   ├── sd-cdp-architecture.md      ← SD download architecture
-    │   ├── cdp-pdf-capture-limitations.md ← CDP limitations
-    │   ├── direct-api-search-fallback.md ← API fallback
-    │   └── search-query-frameworks.md  ← Search frameworks
-    │
-    ├── Zotero
-    │   ├── zotero-structure-template.md← Collection template
-    │   ├── zotero-missing-attachments.md← Missing PDF guide
-    │   └── zotero-outline-mapping.md   ← Outline mapping
-    │
-    ├── Writing & Review
-    │   ├── literature-review-matrix-schema.md ← Review matrix schema
-    │   ├── literature-review-docx-guide.md    ← Review DOCX guide
-    │   ├── gbt7714-2015-citation-format.md    ← GB/T 7714 standard
-    │   ├── academic-reference.docx            ← Paper style template
-    │   ├── journal-style-learning-guide.md    ← Target genre/document style guide
-    │   ├── section-blueprint-template.md      ← Blueprint template
-    │   ├── citation-audit-guide.md            ← Citation audit guide
-    │   ├── nature-figure-style-guide.md       ← Nature figure style
-    │   ├── nature-color-schemes.md            ← Nature color schemes
-    │   ├── outline-optimization-with-engineering-docs.md ← Outline optimization
-    │   └── outline-review-report-template.py  ← Review report generator
-    │
-    └── poster-generation.md           ← Poster workflow
+├── README.md                       ← GitHub overview and quick start
+├── SKILL.md                        ← Skill entrypoint, triggers, agent routing
+├── agents/                         ← Authoritative Step 1-8 execution rules
+├── scripts/                        ← Runnable Python/browser automation scripts
+├── references/                     ← Templates, standards, rubrics, writing references
+├── docs/                           ← Installation and integration guides
+├── config/                         ← Publisher and download strategy config
+├── posters/                        ← Release posters and visual assets
+└── scripts/packages/               ← Offline Zotero MCP dependencies
 ```
+
+| Path | When to read it |
+|------|-----------------|
+| `SKILL.md` | Triggers, agent routing, and runtime overview |
+| `agents/step_*.md` | Authoritative rules, inputs/outputs, and quality gates for each Step |
+| `scripts/unified_download_router.py` | Unified PDF download entrypoint |
+| `scripts/setup_zotero.py` | Zotero MCP setup and diagnostics |
+| `references/` | Templates, citation formats, rubrics, figure and writing references |
+| `docs/ZOTERO_MCP_SETUP.md` | Zotero MCP installation or cross-platform configuration |
+
+> README only provides repository navigation. Full script inventories and Step details live in `SKILL.md`, `agents/step_*.md`, and the actual directories.
 
 ---
 

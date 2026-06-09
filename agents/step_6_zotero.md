@@ -1,6 +1,6 @@
 # Step 6: Zotero 文库管理
 
-> Step 6 负责把 Step 4 的 BibTeX 条目、Step 2 的论文大纲、Step 5 的 PDF 附件组织成一个一致的 Zotero 文库。
+> Step 6 负责把 Step 4 的 BibTeX 条目、Step 2 的论文大纲、Step 5/其他来源的 PDF 附件池整理成一个可审阅、可恢复、可追溯的 Zotero 文库整理计划，并尽可能完成低风险 Zotero 写入。
 
 ---
 
@@ -23,7 +23,7 @@
 - 依据 Step 2 论文大纲生成 Zotero 集合架构（6a）
 - 依据 Step 4 `文献库.bib` 和 6a 架构生成文献-集合对照表（6b）
 - 通过 Zotero MCP 创建 Zotero 集合并检查架构一致性（6c）
-- 将 PDF 附件池中的文件导入 Zotero，关联到对应条目并检查附件一致性（6d）
+- 将 PDF 附件池中的文件纳入附件状态判断，生成安全的附件处理策略（6d）
 
 ---
 
@@ -59,7 +59,7 @@
 | `文献-Zotero架构对照.json` | JSON | 机器执行源，所有字段完整，禁止截断 |
 | `pdf-附件池索引.json` | JSON | 多来源 PDF 的完整路径、来源、匹配状态 |
 | Zotero 集合 | Zotero | 与 `zotero-架构.json` 一致的集合树 |
-| Zotero 条目 + PDF 附件 | Zotero | 每条文献条目关联对应 PDF 附件 |
+| Zotero 条目 + PDF 附件状态 | Zotero / JSON | 元数据可低风险导入；PDF 附件默认只判断状态，不直接挂载 |
 
 ---
 
@@ -79,9 +79,10 @@ python3 scripts/setup_zotero.py --smoke-test
 2. `zotero_create_collection`、`zotero_add_by_bibtex`、`zotero_add_from_file`、`zotero_manage_collections` 等写入工具可用。
 3. 如果当前本地 API 配置只读，必须切换到可写 MCP 配置（Web API / hybrid / 上游支持的本地写入模式），否则不能执行 6c/6d。
 
-**如果用户选择跳过 Zotero 写入：**
+**如果用户选择跳过 Zotero 写入，或当前 MCP 不可写：**
 1. 只执行 6a 和 6b。
 2. 在 `文献-Zotero架构对照.md/json` 中把集合创建、条目导入、PDF 附件标记为「后续手动处理」。
+3. 缺文件不是致命错误；应在 JSON 顶层写入 readiness、blocking_missing、nonblocking_missing、warnings 和 recommended_next_step。
 
 ---
 
@@ -91,6 +92,11 @@ python3 scripts/setup_zotero.py --smoke-test
 
 ```bash
 python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md --json zotero-架构.json
+
+# 可选：显式覆盖根集合名
+python3 scripts/organize_zotero.py 大纲关键词.md \
+  --root-name "自定义根集合名" \
+  --output zotero-架构.md --json zotero-架构.json
 ```
 
 输出：
@@ -98,7 +104,14 @@ python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md 
 - `zotero-架构.json`：给 6c MCP 自动创建集合使用的树结构
 
 **质量要求：**
-- 根集合必须明确，如 `论文文献库` 或以论文主题命名的根集合。
+- 根集合必须明确，默认从 `大纲关键词.md` 中解析论文标题。
+- 根集合解析优先级：
+  1. `## 论文标题` 下方第一段非空文本。
+  2. `论文题目：xxx`、`题目：xxx`、`标题：xxx`、`研究主题：xxx`。
+  3. YAML/frontmatter 中的 `title`。
+  4. 一级标题，但必须排除 `论文大纲与关键词`、`论文大纲`、`大纲关键词` 等模板标题。
+  5. 全部失败时回退为 `论文文献库`。
+- 用户显式传入 `--root-name` 时，以用户指定为准。
 - 一级集合应对应论文主要章节或研究方向。
 - 二级/三级集合应对应子问题、方法路线、证据类型或关键主题。
 - 不为单篇论文创建集合；单篇论文归属通过条目、标签和附件体现。
@@ -114,6 +127,19 @@ python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md 
 - `zotero-架构.md`
 - `zotero-架构.json`
 - PDF 附件池目录：Step 5 下载目录（通常为 `paper-temp/`）、项目原有 PDF 目录、用户后续补下载目录
+
+推荐命令：
+
+```bash
+python3 scripts/build_zotero_plan.py \
+  --bib 文献库.bib \
+  --structure zotero-架构.json \
+  --pdf-dir paper-temp/ \
+  --chinese chinese_papers.json \
+  --output 文献-Zotero架构对照.json \
+  --review 文献-Zotero架构对照.md \
+  --pdf-index pdf-附件池索引.json
+```
 
 输出：
 - `文献-Zotero架构对照.md`：人类审阅版，可为排版截断标题/摘要/URL/PDF 文件名等长字段
@@ -151,7 +177,14 @@ python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md 
 **JSON 执行源最低字段：**
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
+  "root_collection": "从大纲解析出的论文标题",
+  "readiness": "complete|partial|blocked",
+  "can_continue": true,
+  "blocking_missing": [],
+  "nonblocking_missing": [],
+  "warnings": [],
+  "recommended_next_step": "",
   "records": [
     {
       "record_id": "stable-001",
@@ -176,9 +209,12 @@ python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md 
       "pdf_path": "/完整/path/to/file.pdf",
       "pdf_source": "existing|step5|supplemental|manual",
       "pdf_match_confidence": "high|medium|low|none",
+      "matched_pdf_candidates": [],
       "zotero_item_key": "",
-      "import_status": "pending",
-      "attachment_status": "pending",
+      "import_status": "pending|ready|metadata_incomplete|manual_required",
+      "attachment_status": "missing|found|already_attached|duplicate_candidate|conflict|unknown",
+      "attachment_action": "skip|manual_drag|add_from_file_then_merge|wait_for_attach_tool|none",
+      "existing_attachment_keys": [],
       "notes": ""
     }
   ]
@@ -208,6 +244,8 @@ python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md 
 - 缺真实 DOI、缺 PDF、重复条目、无法判定集合的文献必须单独列出。
 - `文献-Zotero架构对照.json` 中所有用于机器执行的字段禁止截断；Markdown 中的截断不得反向污染 JSON。
 - 6c/6d 所有 Zotero 写入操作都以 `文献-Zotero架构对照.json` 为准。
+- `scripts/build_zotero_plan.py` 只生成中间产物，不调用 Zotero MCP、不修改 Zotero 文库。
+- 缺 `文献库.bib` 时输出 `readiness=blocked`；缺 `zotero-架构.json` 时允许进入 `待确认集合`；缺 PDF 目录时写 warning，不中断。
 
 ---
 
@@ -219,11 +257,11 @@ python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md 
 
 ```
 # Step 1 — 幂等性检查
-zotero_search_collections(query="论文文献库")
+zotero_search_collections(query="{zotero-架构.json 中的根集合名}")
   → 如果已存在，询问用户：跳过 / 补充缺失 / 新建带日期后缀的根集合
 
 # Step 2 — 创建或复用根集合
-zotero_create_collection(name="论文文献库")
+zotero_create_collection(name="{zotero-架构.json 中的根集合名}")
   → root_key
 
 # Step 3 — 按 zotero-架构.json 递归创建子集合
@@ -239,6 +277,7 @@ zotero_get_collections()
 ```
 
 **关键规则：**
+- 创建集合时只以 `zotero-架构.json` 中的根集合名为准，不再硬编码 `论文文献库`。
 - `parent_collection` 始终传直接父级的 8 位 key，不能偷懒传根 key。
 - 每创建或复用一个集合，立即记录 `collection_path → collection_key` 映射。
 - 集合已存在时复用 key；不得创建同名重复集合。
@@ -259,7 +298,7 @@ zotero_get_collections()
 
 ---
 
-### 6d：导入 PDF 文献并关联到对应 Zotero 条目
+### 6d：导入条目并生成/执行附件处理策略
 
 输入：
 - `文献库.bib`
@@ -270,7 +309,7 @@ zotero_get_collections()
 - PDF 附件池目录（Step 5 / 原有 / 后续补下载 / 手动整理）
 
 **目标：**
-将 Step 4 的英文 BibTeX 条目和中文增强元数据导入 Zotero，再从 PDF 附件池中把匹配的 PDF 作为附件关联到对应条目，并把条目放入 6b 推荐的集合。
+将 Step 4 的英文 BibTeX 条目和中文增强元数据低风险导入 Zotero，并把条目放入 6b 推荐的集合；PDF 附件默认只判断状态和处理策略，不自动挂载到已有条目。
 
 **推荐执行顺序：**
 1. 分流条目：按 `source` / `source_id` / 标题语言把英文国际文献与 CNKI/万方中文文献分开。
@@ -278,9 +317,16 @@ zotero_get_collections()
 3. 中文元数据导入：优先用 `chinese_papers.json` / `chinese_metadata.json` 构造 CSL JSON，通过 `zotero_add_by_csl_json` 创建条目；必要时再用 `zotero_update_item` 补全作者、年份、刊名、摘要、URL、language、Extra。
 4. 查重：英文用 DOI/title；中文用 `source_id` / `article_url` / title+first_author+year，不用合成 ID 当 DOI 查重。
 5. 移入集合：按 `文献-Zotero架构对照.json` 的推荐集合路径调用 `zotero_manage_collections`。
-6. 关联 PDF：从 `pdf-附件池索引.json` 选择匹配文件；英文按 DOI 优先；中文按 `source_id` / `article_url` / 标题优先；用 `zotero_add_from_file` 或可用的附件工具把 PDF 关联到对应父条目。
+6. 附件状态判断：从 `pdf-附件池索引.json` 选择候选文件；英文按 DOI 优先；中文按 `source_id` / `article_url` / 标题优先；先判断 `missing` / `found` / `already_attached` / `duplicate_candidate` / `conflict`。
 7. 附件验证：用 `zotero_get_item_children` / `zotero_get_items_children` 检查每个条目是否有 PDF 附件。
-8. 回写状态：更新 `文献-Zotero架构对照.json` 和 `pdf-附件池索引.json` 中的导入状态、附件状态、匹配置信度，并同步生成/刷新 `文献-Zotero架构对照.md` 审阅版。
+8. 附件动作建议：默认写入 `attachment_action`，不直接执行高风险动作。
+9. 回写状态：更新 `文献-Zotero架构对照.json` 和 `pdf-附件池索引.json` 中的导入状态、附件状态、匹配置信度，并同步生成/刷新 `文献-Zotero架构对照.md` 审阅版。
+
+**当前 Zotero MCP 附件限制：**
+- 当前 MCP 没有直接“向已有 item 添加本地 PDF 附件”的工具。
+- `zotero_add_from_file` 是“从本地 PDF/EPUB 创建 Zotero 条目并附带文件”的入口，不是 attach-to-existing 工具。
+- 少量附件推荐在 Zotero 桌面端手动拖拽到对应条目。
+- 批量回退可以先用 `zotero_add_from_file` 创建临时/重复条目，再用 `zotero_merge_duplicates` 将该条目合并到 keeper；执行前必须 dry-run 并确认。
 
 **中文条目 CSL JSON 最低字段：**
 ```json
@@ -303,9 +349,19 @@ zotero_get_collections()
 - `文献库.bib` 中每个条目：Zotero 中都有唯一条目或明确标记为重复/失败。
 - CNKI/万方中文条目：Zotero 中的 title、author、year、publicationTitle/来源、URL、language、Extra/source_id 必须完整。
 - T1/T2/T3 条目：必须有集合归属；缺 PDF 时必须列入「缺附件清单」。
-- PDF 文件：不得孤立存在；每个成功匹配的 PDF 必须能追溯到 Zotero 条目。
+- PDF 文件：不得静默忽略；每个候选 PDF 必须能追溯到匹配状态和建议动作。
 - 附件池中未匹配 PDF 必须列入「未关联 PDF 清单」，不得静默忽略。
 - Zotero 条目：不得只导入元数据却未移动到推荐集合，除非 JSON 记录标记为「待人工确认」。
+- 已有同 DOI / 同 hash / 同名同大小附件时，必须标记 `already_attached` 或 `duplicate_candidate`，不得重复挂载。
+
+**附件动作规则：**
+| 情况 | attachment_status | attachment_action |
+|------|-------------------|-------------------|
+| 已有同 DOI / 同 hash 附件 | `already_attached` | `skip` |
+| 同名同大小候选 | `duplicate_candidate` | `skip` |
+| 多个候选 PDF | `conflict` | `none` |
+| 无附件且唯一高置信 PDF | `found` | `manual_drag` 或 `add_from_file_then_merge` |
+| 当前 MCP 无直接挂载工具 | `found` | 不生成直接挂载动作 |
 
 **失败与回退：**
 | 情况 | 处理 |
@@ -318,7 +374,7 @@ zotero_get_collections()
 | 一个条目匹配多个 PDF | 标记 duplicate_candidate，优先选 DOI/source_id 命中的文件，低置信度需人工确认 |
 | 一个 PDF 匹配多个条目 | 不自动关联，标记 conflict，等待人工确认 |
 | 条目重复 | 保留最完整条目，必要时提示用户合并 |
-| 附件工具不可写 | 保留元数据导入结果，提示切换可写 MCP 配置或手动拖拽附件 |
+| 附件工具不可写 / 无 attach-to-existing | 保留元数据导入结果，提示手动拖拽或 `add_from_file_then_merge` 回退 |
 | 集合 key 丢失 | 回到 6c 重新生成 `collection_path → collection_key` 映射 |
 
 ---
@@ -332,7 +388,7 @@ zotero_get_collections()
 - [ ] `pdf-附件池索引.json` 已扫描所有 PDF 来源目录。
 - [ ] Zotero 集合树与 `zotero-架构.json` 一致。
 - [ ] T1/T2/T3 条目已导入 Zotero 并进入对应集合。
-- [ ] T1/T2/T3 条目 PDF 附件已关联；缺失项已列入缺附件清单。
+- [ ] T1/T2/T3 条目 PDF 附件状态已判断；缺失、重复、冲突、已存在项已分别列入清单。
 - [ ] 重复条目、缺 DOI、缺 PDF、待人工确认项已单独报告。
 
 ---
@@ -346,7 +402,7 @@ zotero_get_collections()
 - [ ] `文献-Zotero架构对照.json` 已生成并更新状态
 - [ ] `pdf-附件池索引.json` 已生成并更新匹配状态
 - [ ] Zotero 集合创建完成并通过一致性检查
-- [ ] PDF 已作为附件关联到对应 Zotero 条目
+- [ ] PDF 附件状态与建议动作已写回；高风险挂载动作已等待人工确认
 
 ### 错误日志更新
 - [ ] 文献无法匹配集合 → 追加到 `.skill-state/error_log.md`
