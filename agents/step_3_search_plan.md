@@ -8,8 +8,8 @@
 
 执行本步骤前，必须确认以下文件已加载：
 
-- [ ] `agents/step_2_outline.md` — 大纲关键词（章节结构 + 关键词清单）
-- [ ] `agents/step_1_topic.md` — 🆕 Tier 元数据（检索深度：quick/standard/deep）
+- [ ] `大纲关键词.md` — Step 2 产出（章节大纲 + 关键词清单 + 章节证据需求表）
+- [ ] `研究主题.md` — Step 1 产出（tier/search_tier + 聚焦主题 + 预审结论）
 - [ ] `references/search-query-frameworks.md` — 检索查询框架参考（概念块布尔模型 + PICO + 反模式清单）
 - [ ] `.skill-state/term_aliases.md` — 🆕 术语标准化映射（确保查询用词与大纲一致）
 - [ ] `.skill-state/error_log.md` — 已知错误及修复规则
@@ -41,8 +41,27 @@
 
 | 输入 | 来源 | 格式 | 必选 |
 |------|------|------|:--:|
-| 大纲关键词 | Step 2 | .md | ✅ |
+| 章节大纲 | Step 2 `大纲关键词.md` | .md | ✅ |
+| 关键词清单 | Step 2 `大纲关键词.md` | .md | ✅ |
+| 章节证据需求表 | Step 2 `大纲关键词.md` | .md | ✅ |
 | 术语映射表 | Step 2 → .skill-state/term_aliases.md | .md | ✅ |
+
+**Step 2 字段读取规则：**
+
+| 字段 | 用途 |
+|------|------|
+| 章节大纲 | 决定检索子课题编号、章节归属和检索顺序 |
+| 关键词清单 | 提供核心词、同义词/缩写、上位词、下位词、方法词、场景词、指标词、排除词 |
+| 章节证据需求表 | 决定每个子课题需要找综述、方法、实验、数据、标准、案例中的哪类证据 |
+| 检索语言 | 决定中文/英文/中英文混合路由 |
+| search_tier 或 tier | 决定 limit、策略数量和补充源 |
+
+**Tier 读取优先级：**
+
+1. 优先读取 `研究主题.md` 顶层 `tier`
+2. 若无顶层字段，读取 `研究主题.md` 的 `search_tier.tier`
+3. 若仍缺失，读取 `大纲关键词.md` 的 `search_tier`
+4. 全部缺失时默认 `standard`
 
 ---
 
@@ -50,7 +69,7 @@
 
 | 输出 | 格式 | 说明 |
 |------|------|------|
-| 检索方案.md | .md | v3.0：含分层路由 + 概念块拆解 + 反模式检查 |
+| 检索方案.md | .md | v3.1：含 search_tasks + 分层路由 + 概念块拆解 + 反模式检查 |
 | 检索方案.pdf | .pdf | 自动由 md_to_pdf.py 生成 |
 
 ---
@@ -62,13 +81,51 @@
 ```
 Step 2 产出（大纲关键词.md）
   → ① 领域识别：判断工科子领域（机械/电气/土木/材料/控制/信号/AI...）
-  → ② 框架选择：Concept Block（工科默认）/ PICO / Methods-focused
-  → ③ 概念块拆解：每个概念块 ≥2 同义词 + 可选排除词
-  → ④ 组装布尔查询：(syn1 OR syn2) AND (syn3 OR syn4) NOT (excl)
-  → ⑤ 反模式检查（8 项）
-  → ⑥ 读 Step 2 产出中的「检索语言」字段 → 中文→L1 CNKI→L2 Wanfang；英文→L1 OpenAlex→L2 Crossref→L2 Semantic Scholar→L3 PubMed
+  → ② 读取章节证据需求表：按章节ID + 证据类型生成 search_tasks
+  → ③ 框架选择：Concept Block（工科默认）/ PICO / Methods-focused
+  → ④ 概念块拆解：每个概念块 ≥2 同义词 + 可选排除词
+  → ⑤ 组装布尔查询：(syn1 OR syn2) AND (syn3 OR syn4) NOT (excl)
+  → ⑥ 反模式检查（8 项）
+  → ⑦ 读 Step 2 产出中的「检索语言」字段 → 中文→L1 CNKI→L2 Wanfang；英文→L1 OpenAlex→L2 Crossref→L2 Semantic Scholar→L3 PubMed
   → 产出：检索方案.md → 检索方案.pdf
 ```
+
+### 3a-0. Search Tasks 结构化模板
+
+`检索方案.md` 必须包含机器可读的 `search_tasks`，供 Step 4 执行：
+
+```yaml
+search_language: 中文|英文|中英文混合
+tier: quick|standard|deep
+search_tasks:
+  - id: S1
+    chapter_id: ch1
+    chapter_title: "绪论"
+    evidence_type: "review|method|experiment|data|standard|case"
+    question_to_answer: ""
+    framework: "concept_block|pico|methods_focused"
+    query_blocks:
+      - name: "研究对象"
+        terms: ["term1", "term2"]
+      - name: "方法"
+        terms: ["term3", "term4"]
+    exclusion_terms: []
+    route:
+      language: "zh|en|mixed"
+      l1: ["cnki|openalex"]
+      l2: ["wanfang|crossref|semantic_scholar|arxiv"]
+      l3: ["pubmed"]
+    recommended_commands: []
+    anti_patterns_checked: true
+```
+
+**生成规则：**
+
+- 每个 `search_task` 必须绑定 `chapter_id` 和 `evidence_type`
+- 一个章节可生成多个任务，例如 `ch2-method`、`ch2-experiment`
+- `question_to_answer` 必须来自章节证据需求表，不得凭空新增
+- `query_blocks` 优先使用关键词清单中的核心词、同义词/缩写、方法词、场景词、指标词
+- `exclusion_terms` 优先来自关键词清单的排除词
 
 ### 3a. 查询构建框架
 
@@ -201,7 +258,7 @@ Step 2 产出（大纲关键词.md）
 
 ### 3e. Tier-driven 检索参数配置 🆕
 
-> 从 Step 1e 的 `研究主题.md` YAML 元数据中读取 tier，自动配置检索深度。
+> 按“顶层 tier → search_tier.tier → 大纲 search_tier → standard 默认值”的顺序读取检索深度，自动配置检索参数。
 
 | Tier | limit/策略 | strategies | 补充策略 | 适用场景 |
 |------|:--------:|-----------|---------|---------|
@@ -209,7 +266,7 @@ Step 2 产出（大纲关键词.md）
 | Standard（默认） | 50 | relevance + cited + recent | 无 | 一般文献检索、开题 |
 | Deep | 100 | relevance + cited + recent | + seminal cutoff + review type | 综述写作、深度研究 |
 
-**配置写入**：在检索方案的每个子课题中标注 `tier: quick|standard|deep`，Step 4 根据 tier 选择 `--limit` 值。
+**配置写入**：在检索方案顶层和每个 `search_task` 中标注 `tier: quick|standard|deep`，Step 4 根据 tier 选择 `--limit` 值。
 
 ### Pre-flight 检查
 
@@ -222,12 +279,13 @@ python3 scripts/search_by_topic.py --preflight
 ## 7. 质量门槛 (Quality Gates)
 
 - [ ] 领域识别和框架选择正确
+- [ ] `search_tasks` 已生成，且每个任务绑定章节ID、证据类型和检索问题
 - [ ] 每个概念块 ≥ 2 个同义词
 - [ ] AND 块数 ≤ 4
 - [ ] 反模式检查 8 项全部通过（含 🔴 `--language zh` 检查）
 - [ ] L1→L2→L3 分层路由分配合理
 - [ ] 🆕 arXiv 触发条件已检测（arxiv_enabled: true/false）
-- [ ] 🆕 Tier 检索参数已配置（tier: quick/standard/deep）
+- [ ] 🆕 Tier 检索参数已配置（顶层 tier + 每个 search_task 的 tier）
 - [ ] 🆕 核心术语与 `.skill-state/term_aliases.md` 中 Main Term 一致
 - [ ] 🆕 CNKI 触发条件已检测（cnki_enabled: true/false + 访问模式：IP/CDP）
 - [ ] 🆕 Wanfang 触发条件已检测（wanfang_enabled: true/false + 凭证存在性）
@@ -238,7 +296,7 @@ python3 scripts/search_by_topic.py --preflight
 ## 8. 收尾检查 (Closing Checks)
 
 ### 产出完整性
-- [ ] `检索方案.md` 已生成（含完整概念块拆解 + 分层路由 + 反模式检查）
+- [ ] `检索方案.md` 已生成（含 search_tasks + 完整概念块拆解 + 分层路由 + 反模式检查）
 - [ ] `检索方案.pdf` 已自动生成
 
 ### 术语一致性检查 🆕
@@ -261,3 +319,4 @@ python3 scripts/search_by_topic.py --preflight
 - **Pre-flight 检查失败**：检查网络连接，确认各 API 端点可达
 - **检索结果预期过少**：减少 AND 块数（4→3→2），放宽同义词范围
 - **术语不一致**：回查 `.skill-state/term_aliases.md`，确保概念块核心词与 Main Term 对齐
+- **search_tasks 与大纲脱节**：回查 Step 2 的章节证据需求表，确保每个任务都有章节ID和 evidence_type

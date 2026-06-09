@@ -52,7 +52,10 @@ HEADER_TAGS = {
     "关键词", "关键字", "标签", "术语", "说明", "章节",
     "keyword", "keywords", "tag", "tags", "term", "terms", "section",
 }
-META_SECTION_TITLES = {"论文标题", "检索语言", "关键词清单"}
+META_SECTION_TITLES = {
+    "论文标题", "检索语言", "关键词清单", "章节证据需求表",
+    "Step 3/6/7 交接", "Step 3/6/7 Handoff",
+}
 OUTLINE_SECTION_TITLES = {"章节大纲", "论文大纲", "大纲"}
 
 
@@ -173,6 +176,17 @@ def generate_structure(keywords_text):
                     "number": number,
                 })
                 continue
+            if stripped.startswith("|") and stripped.endswith("|"):
+                continue
+
+        # ── Step 2 扩展元信息表：供 Step 3/7 使用，不进入 Zotero 架构 ──
+        if (
+            section in META_SECTION_TITLES
+            and section != "关键词清单"
+            and stripped.startswith("|")
+            and stripped.endswith("|")
+        ):
+            continue
 
         # ── Step 2 标准格式：## 关键词清单 表格 ──
         if section == "关键词清单" and stripped.startswith("|") and stripped.endswith("|"):

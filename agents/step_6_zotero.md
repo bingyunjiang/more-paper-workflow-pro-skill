@@ -123,7 +123,7 @@ python3 scripts/organize_zotero.py 大纲关键词.md \
 
 输入：
 - `文献库.bib`（Step 4 筛选后的 BibTeX 文献库）
-- `chinese_papers.json` / `chinese_metadata.json`（如存在中文文献）
+- `中文论文元数据.json`（如存在中文文献；兼容旧名 `chinese_papers.json` / `chinese_metadata.json`）
 - `zotero-架构.md`
 - `zotero-架构.json`
 - PDF 附件池目录：Step 5 下载目录（通常为 `paper-temp/`）、项目原有 PDF 目录、用户后续补下载目录
@@ -135,7 +135,7 @@ python3 scripts/build_zotero_plan.py \
   --bib 文献库.bib \
   --structure zotero-架构.json \
   --pdf-dir paper-temp/ \
-  --chinese chinese_papers.json \
+  --chinese 中文论文元数据.json \
   --output 文献-Zotero架构对照.json \
   --review 文献-Zotero架构对照.md \
   --pdf-index pdf-附件池索引.json
@@ -235,7 +235,7 @@ python3 scripts/build_zotero_plan.py \
 - `cnki.xxx` / `wanfang.xxx` 是内部 source id，不是真实 DOI。
 - Zotero 的 DOI 字段只能填写真实 `10.xxxx/...` DOI。
 - 无真实 DOI 的中文条目必须把 `source_id`、`source`、`article_url`、Tier、Score、subtopic 写入 Zotero `Extra` 或等价字段。
-- 中文条目必须优先从 `chinese_papers.json` / `chinese_metadata.json` 读取 authors、year、publication_title、abstract、language，不能只依赖 `文献库.bib`。
+- 中文条目必须优先从 `中文论文元数据.json` 读取 authors、year、publication_title、abstract、language，不能只依赖 `文献库.bib`；旧名 `chinese_papers.json` / `chinese_metadata.json` 仅作为兼容输入。
 
 **质量要求：**
 - 每个 BibTeX 条目必须出现在对照表中。
@@ -302,7 +302,7 @@ zotero_get_collections()
 
 输入：
 - `文献库.bib`
-- `chinese_papers.json` / `chinese_metadata.json`（如存在中文文献）
+- `中文论文元数据.json`（如存在中文文献；兼容旧名 `chinese_papers.json` / `chinese_metadata.json`）
 - `文献-Zotero架构对照.json`
 - `pdf-附件池索引.json`
 - `collection_path → collection_key` 映射
@@ -314,7 +314,7 @@ zotero_get_collections()
 **推荐执行顺序：**
 1. 分流条目：按 `source` / `source_id` / 标题语言把英文国际文献与 CNKI/万方中文文献分开。
 2. 英文元数据导入：有真实 DOI 时优先 `zotero_add_by_doi`；批量场景可用 `zotero_add_by_bibtex`。
-3. 中文元数据导入：优先用 `chinese_papers.json` / `chinese_metadata.json` 构造 CSL JSON，通过 `zotero_add_by_csl_json` 创建条目；必要时再用 `zotero_update_item` 补全作者、年份、刊名、摘要、URL、language、Extra。
+3. 中文元数据导入：优先用 `中文论文元数据.json` 构造 CSL JSON，通过 `zotero_add_by_csl_json` 创建条目；必要时再用 `zotero_update_item` 补全作者、年份、刊名、摘要、URL、language、Extra。旧名 `chinese_papers.json` / `chinese_metadata.json` 仅作为兼容输入。
 4. 查重：英文用 DOI/title；中文用 `source_id` / `article_url` / title+first_author+year，不用合成 ID 当 DOI 查重。
 5. 移入集合：按 `文献-Zotero架构对照.json` 的推荐集合路径调用 `zotero_manage_collections`。
 6. 附件状态判断：从 `pdf-附件池索引.json` 选择候选文件；英文按 DOI 优先；中文按 `source_id` / `article_url` / 标题优先；先判断 `missing` / `found` / `already_attached` / `duplicate_candidate` / `conflict`。

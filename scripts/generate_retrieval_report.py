@@ -48,8 +48,10 @@ def _parse_md_table(md_path: str) -> list[dict]:
     """Parse a markdown table from 检索文献表.md into a list of dicts.
 
     Returns list of rows, each a dict with keys matching the table columns.
-    Handles tables with columns: DOI, Title/标题, Year/年份, Source/来源,
-    Score/评分, Tier, Flags/旗标, Citations/引用, influential_citations, Sub-topic/子课题.
+    Handles tables with columns: DOI/source_id, Title/标题, Year/年份,
+    Source/来源, Score/评分, Tier, Flags/旗标, Citations/引用,
+    influential_citations, Sub-topic/子课题, plus Step 3 traceability
+    columns such as search_task_id, chapter_id, chapter_title, evidence_type.
     """
     with open(md_path, "r", encoding="utf-8") as f:
         text = f.read()
@@ -105,7 +107,15 @@ def _parse_md_table(md_path: str) -> list[dict]:
     col_map = {}
     for idx, col in enumerate(columns):
         col_clean = col.strip().lower()
-        if "doi" in col_clean:
+        if "search_task" in col_clean or "检索任务" in col_clean:
+            col_map["search_task_id"] = idx
+        elif "chapter_id" in col_clean or "章节id" in col_clean:
+            col_map["chapter_id"] = idx
+        elif "chapter_title" in col_clean or "章节标题" in col_clean:
+            col_map["chapter_title"] = idx
+        elif "evidence_type" in col_clean or "证据类型" in col_clean:
+            col_map["evidence_type"] = idx
+        elif "doi" in col_clean or "source_id" in col_clean or "标识" in col_clean:
             col_map["doi"] = idx
         elif "title" in col_clean or "标题" in col_clean or "题目" in col_clean:
             col_map["title"] = idx
@@ -150,7 +160,7 @@ def _parse_md_table(md_path: str) -> list[dict]:
         if "doi" in row:
             row["doi"] = _normalize_doi(row["doi"])
 
-        if row.get("doi"):
+        if row.get("doi") or row.get("title"):
             rows.append(row)
 
     print(f"📋 Parsed {len(rows)} papers from markdown table ({len(columns)} columns)", flush=True)
@@ -208,6 +218,10 @@ def _generate_xlsx(rows: list[dict], output_path: str):
 
     # Define columns (order matters)
     columns = [
+        ("search_task_id", "search_task_id"),
+        ("chapter_id", "chapter_id"),
+        ("chapter_title", "章节标题"),
+        ("evidence_type", "证据类型"),
         ("doi", "DOI"),
         ("title", "标题"),
         ("abstract", "摘要"),
@@ -273,7 +287,9 @@ def _generate_xlsx(rows: list[dict], output_path: str):
 
     # Column widths
     col_widths = {
-        "doi": 38, "title": 60, "abstract": 80, "authors": 25, "year": 7,
+        "search_task_id": 16, "chapter_id": 12, "chapter_title": 24,
+        "evidence_type": 16, "doi": 38, "title": 60, "abstract": 80,
+        "authors": 25, "year": 7,
         "journal": 30, "source": 14, "score": 7, "tier": 7,
         "citations": 10, "influential_citations": 13, "flags": 12, "subtopic": 14,
     }
@@ -312,6 +328,10 @@ def _generate_bibtex(rows: list[dict], output_path: str):
         score = row.get("score", "")
         influential = row.get("influential_citations", "")
         subtopic = row.get("subtopic", "")
+        search_task_id = row.get("search_task_id", "")
+        chapter_id = row.get("chapter_id", "")
+        evidence_type = row.get("evidence_type", "")
+        is_internal_source_id = doi.lower().startswith(("cnki.", "wanfang."))
 
         cite_key = _bibtex_key(authors_raw, year, title)
 
@@ -327,6 +347,14 @@ def _generate_bibtex(rows: list[dict], output_path: str):
             note_parts.append(f"influential_citations: {influential}")
         if subtopic:
             note_parts.append(f"subtopic: {subtopic}")
+        if search_task_id:
+            note_parts.append(f"search_task_id: {search_task_id}")
+        if chapter_id:
+            note_parts.append(f"chapter_id: {chapter_id}")
+        if evidence_type:
+            note_parts.append(f"evidence_type: {evidence_type}")
+        if is_internal_source_id:
+            note_parts.append(f"source_id: {doi}")
         note = " | ".join(note_parts)
 
         # Author formatting: "Last, First and Last, First"
@@ -345,7 +373,7 @@ def _generate_bibtex(rows: list[dict], output_path: str):
         if journal:
             lines.append(f"  journal   = {{{_escape_bibtex(journal)}}},")
         lines.append(f"  year      = {{{year}}},")
-        if doi:
+        if doi and not is_internal_source_id:
             lines.append(f"  doi       = {{{doi}}},")
         if abstract:
             lines.append(f"  abstract  = {{{_escape_bibtex(abstract)}}},")

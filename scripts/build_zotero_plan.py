@@ -600,7 +600,7 @@ def main() -> int:
     parser.add_argument("--bib", help="Step 4 文献库.bib")
     parser.add_argument("--structure", help="zotero-架构.json")
     parser.add_argument("--pdf-dir", action="append", default=[], help="PDF 附件池目录，可重复传入")
-    parser.add_argument("--chinese", help="chinese_papers.json / chinese_metadata.json")
+    parser.add_argument("--chinese", help="中文论文元数据.json (legacy: chinese_papers.json / chinese_metadata.json)")
     parser.add_argument("--output", default="文献-Zotero架构对照.json")
     parser.add_argument("--review", default="文献-Zotero架构对照.md")
     parser.add_argument("--pdf-index", default="pdf-附件池索引.json")
@@ -616,7 +616,7 @@ def main() -> int:
 
     chinese_index = load_chinese_metadata(args.chinese, warnings) if args.chinese else {}
     if not args.chinese:
-        nonblocking.append("chinese_papers.json/chinese_metadata.json")
+        nonblocking.append("中文论文元数据.json")
 
     pdfs = scan_pdf_dirs(args.pdf_dir, warnings)
     if not args.pdf_dir:

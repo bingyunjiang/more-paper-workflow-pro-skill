@@ -162,7 +162,7 @@ def parse_chinese_papers(input_path: str) -> list[dict]:
                         "title": item.get("title", ""),
                         "source": item["source"].lower(),
                         "article_url": item.get("article_url", item.get("url", "")),
-                        "doi": item.get("doi", ""),
+                        "doi": item.get("doi") or item.get("source_id", ""),
                     })
             return papers
         except json.JSONDecodeError:
@@ -192,7 +192,7 @@ def parse_chinese_papers(input_path: str) -> list[dict]:
                     source_col = i
                 elif hl in ("标题", "title", "论文标题"):
                     title_col = i
-                elif hl in ("doi", "doi/url"):
+                elif hl in ("doi", "doi/url", "doi/source_id", "source_id"):
                     doi_col = i
                 elif hl in ("文章链接", "url", "article_url", "详情链接"):
                     url_col = i

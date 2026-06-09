@@ -110,6 +110,7 @@
 
 **📥 PDF 批量下载（Step 5）——核心突破**
 - **统一下载路由**： 单一入口自动路由，三路顺序回退（Sci-Hub → SD CDP → Generic CDP），覆盖 **23+ 家出版社**
+- **直达下载模式**：已有 DOI、标题、URL、BibTeX 或参考文献列表时，可跳过前置检索，先归一化为下载清单再路由下载
 - **通用下载引擎**：策略 A（直连 PDF URL）→ 策略 B（CSS 选择器提取），支持补充材料下载
 - **出版社配置知识库**：集中管理 24 家出版社的 DOI 前缀、URL 模板、屏障检测规则
 - 通过 Chrome/Edge **CDP 协议**操控真实浏览器，绕过 Cloudflare/Akamai 反爬
@@ -317,14 +318,37 @@ python3 scripts/auto_sd_downloader.py --browser-path "/custom/path/chrome"
 
 ### Step 1: 确定研究主题
 
-与 AI 交互对话，厘清研究方向：
+不知道怎么开始时，复制下面任一模板给 AI 即可。Step 1 会先判断你的研究阶段，再通过广度探索、预检索和选题预审，把模糊方向收敛成可检索、可写作的研究主题。
 
-> 💬 采用 more paper workflow pro skill，我们开始确定研究选题。
+**推荐启动语：**
 
-或更直接地：
-
+```text
+采用 more paper workflow pro skill，从 Step 1 开始帮我确定研究主题。
+请先诊断我的研究阶段，再引导我完成选题聚焦、预检索和选题预审。
 ```
-> 我正在研究某个方向，请帮我厘清研究方向。
+
+**如果你还没有明确方向：**
+
+```text
+我现在只有一个大概兴趣方向：[填写领域/课程/行业/技术]。
+我的身份是：[本科/硕士/博士/教师/工程师]，目标是：[毕业论文/期刊论文/综述/课题申报]。
+请帮我发散 3-5 个可研究子方向，并评估哪个更适合继续做。
+```
+
+**如果你已有大方向：**
+
+```text
+我想研究：[你的大方向]。
+已有基础/资源是：[数据、实验条件、软件、工程场景、导师要求]。
+请帮我判断这个方向是否过宽，提出可落地的研究问题、方法路线、关键词和初步创新点。
+```
+
+**如果导师已经给了题目或约束：**
+
+```text
+导师给我的题目/要求是：[粘贴题目或要求]。
+请不要直接改题目，先分析它的研究对象、核心问题、可行性风险和可检索关键词，
+再给出 2-3 个更聚焦的题目版本供我选择。
 ```
 
 **产出：** `研究主题.md`
@@ -342,26 +366,51 @@ python3 scripts/auto_sd_downloader.py --browser-path "/custom/path/chrome"
 
 ### Step 2: 生成论文大纲与关键词
 
-基于研究主题生成章节结构和关键词清单。
+基于研究主题生成章节结构、关键词清单和章节证据需求表。
 
 > 💬 基于确定的研究主题，生成论文大纲和关键词清单。
 
-**产出：** `大纲关键词.md`
+**产出：** `大纲关键词.md` + `大纲关键词.pdf` + 更新 `.skill-state/term_aliases.md`
+
+```markdown
+# 论文大纲与关键词
+
+## 论文标题
+
+## 检索语言
+中文 | 英文 | 中英文混合
+
+## 章节大纲
+| 章节ID | 章节标题 | 章节目标 | 核心论点 | 证据需求 | 预期图表 | 风险点 |
+
+## 关键词清单
+| 章节 | 核心词 | 同义词/缩写 | 上位词 | 下位词 | 方法词 | 场景词 | 指标词 | 排除词 |
+
+## 章节证据需求表
+| 章节ID | 证据类型 | 需要回答的问题 | 推荐数据库 | 推荐检索词 | 优先级 |
+```
 
 ### Step 3: 生成检索方案
 
-> 💬 根据大纲和关键词，制定结构化文献检索方案。
+> 💬 根据章节大纲、关键词清单和章节证据需求表，制定结构化文献检索方案。
 
-```markdown
-# 检索方案
-| 编号 | 子课题 | 关键词 | 来源 |
-|------|--------|--------|------|
-| S1 | 子课题一 | keyword1, keyword2 | Crossref |
-| S2 | 子课题二 | keyword3, keyword4 | Semantic |
-| S3 | 子课题三 | keyword5, keyword6 | Semantic |
+```yaml
+search_language: 中文|英文|中英文混合
+tier: quick|standard|deep
+search_tasks:
+  - id: S1
+    chapter_id: ch1
+    evidence_type: review|method|experiment|data|standard|case
+    query_blocks:
+      - name: 研究对象
+        terms: []
+    route:
+      l1: []
+      l2: []
+      l3: []
 ```
 
-**产出：** `检索方案.md`
+**产出：** `检索方案.md` + `检索方案.pdf`
 
 ### Step 4: 检索与评分（4a→4h）
 
@@ -381,20 +430,23 @@ python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
 
 完整的预检、饱和度分析、分级阈值和扩展检索规则见 [`agents/step_4_search_score.md`](agents/step_4_search_score.md)。
 
-**产出：** `检索文献表.md` + `检索报告.md/.xlsx/.pdf/.bib`
+**产出：** `检索文献表.md` + `检索文献表.xlsx` + `检索报告.md` + `检索报告.pdf` + `文献库.bib` + `saturation_snapshot.json` + `中文论文元数据.json`
 
 ### Step 5: 统一下载路由
 
-> 💬 开始批量下载论文 PDF，按出版商自动路由（Sci-Hub → SD CDP → Generic CDP），覆盖 23+ 家出版社。
+> 💬 开始批量下载论文 PDF，按出版商自动路由（Sci-Hub → SD CDP → Generic CDP），覆盖 23+ 家出版社；已有 DOI、论文标题、URL 或 BibTeX 时也可直接从 Step 5 开始。
 
 **推荐方式：统一入口自动路由**
 
 ```bash
 # 单一入口，三轮顺序执行，自动路由到对应策略
 python3 scripts/unified_download_router.py 检索文献表.md -o paper-temp/
+
+# 已有 DOI 时可直达下载
+python3 scripts/unified_download_router.py --papers "10.1021/x,10.1002/y" -o paper-temp/
 ```
 
-**产出：** `download_log.md` 和 PDF 附件池。出版商路由、CDP 登录门控、失败回退和 Cloudflare 应对详见 [`agents/step_5_download.md`](agents/step_5_download.md) 与 [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md)。
+**产出：** `download_log.md` 和 PDF 附件池；直达模式会额外生成 `direct_download_manifest.md/json`，无法唯一解析的标题进入 `unresolved_download_items.md`。出版商路由、CDP 登录门控、失败回退和 Cloudflare 应对详见 [`agents/step_5_download.md`](agents/step_5_download.md) 与 [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md)。
 
 ### Step 6: Zotero 文库管理
 
@@ -528,6 +580,8 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
 ### v1.0.9-20260609 (2026-06-08 至 2026-06-09)
+- **Step 2-5 流程接口收口**：Step 2 新增已有大纲评估优化模式和 2a/2c 路由判定；Step 3/4 用 `search_tasks`、章节字段和 `中文论文元数据.json` 打通大纲、检索、下载、Zotero 和写作
+- **Step 5 直达下载模式**：用户可直接提供 DOI、标题、URL、BibTeX 或参考文献列表；系统先生成 `direct_download_manifest`，只下载可唯一解析的条目
 - **Step 6 Zotero 文库管理升级**：新增 `scripts/build_zotero_plan.py`，先生成 `文献-Zotero架构对照.md/json` 与 `pdf-附件池索引.json`，再决定是否写入 Zotero
 - **中文文献入库补齐**：CNKI/万方条目使用 `source_id` + `article_url` + 中文元数据生成 CSL JSON，不再把合成 ID 当 DOI
 - **PDF 附件池策略**：Step 5 下载、原有 PDF、补下载和手动整理目录统一纳入附件池；默认先判断 `missing/found/already_attached/duplicate_candidate/conflict`，再给出安全动作建议
@@ -677,6 +731,7 @@ This tool deliberately does NOT do "one-click paper generation." Instead, it fol
 
 **📥 PDF Batch Download (Step 5) — Core Breakthrough**
 - **Unified download router**: single entry auto-routing, 3-round fallback (Sci-Hub → SD CDP → Generic CDP), covering **23+ publishers**
+- **Direct download mode**: if DOI, title, URL, BibTeX, or reference-list input already exists, skip earlier search steps, normalize into a download manifest, then route downloads
 - **Generic download engine**: Strategy A (direct PDF URL) → Strategy B (CSS selector extraction), supports supplementary material
 - **Publisher config knowledge base**: `config/publishers.toml` centrally manages 24 publishers' DOI prefixes, URL templates, barrier detection rules
 - Controls real browsers via Chrome/Edge **CDP protocol**, bypassing Cloudflare/Akamai anti-bot systems
@@ -915,14 +970,37 @@ python3 scripts/auto_sd_downloader.py --browser-path "/custom/path/chrome"
 
 ### Step 1: Define Research Topic
 
-Interact with AI to clarify research direction:
+If you are not sure how to start, copy one of the prompts below. Step 1 first diagnoses your research stage, then uses broad exploration, pre-search, and topic review to turn a vague direction into a searchable and writable research topic.
 
-> 💬 Using More Paper Workflow Pro Skill, let's define our research topic.
+**Recommended starter:**
 
-Or more directly:
-
+```text
+Use More Paper Workflow Pro Skill and start from Step 1 to help me define my research topic.
+First diagnose my research stage, then guide me through topic focusing, pre-search, and topic review.
 ```
-> I'm researching a certain direction. Please help me clarify the research focus.
+
+**If you only have a broad interest:**
+
+```text
+I only have a broad interest area: [field/course/industry/technology].
+My role is: [undergraduate/master's/PhD/faculty/engineer], and my goal is: [thesis/journal paper/review/grant proposal].
+Please propose 3-5 researchable sub-directions and evaluate which one is most suitable.
+```
+
+**If you already have a direction:**
+
+```text
+I want to study: [your broad direction].
+My available resources are: [data, lab conditions, software, engineering scenario, supervisor requirements].
+Please tell me whether this direction is too broad, then propose feasible research questions, methods, keywords, and possible contributions.
+```
+
+**If your supervisor already gave you a title or constraints:**
+
+```text
+My supervisor gave me this title/requirement: [paste title or requirements].
+Do not rewrite it immediately. First analyze the research object, core problem, feasibility risks, and searchable keywords,
+then provide 2-3 more focused title versions for me to choose from.
 ```
 
 **Output:** `research-topic.md`
@@ -937,26 +1015,51 @@ Or more directly:
 
 ### Step 2: Generate Paper Outline & Keywords
 
-Generate chapter structure and keyword lists based on the research topic.
+Generate chapter structure, keyword list, and chapter evidence requirements table based on the research topic.
 
 > 💬 Based on the confirmed research topic, generate a paper outline and keyword list.
 
-**Output:** `outline-keywords.md`
+**Output:** `outline-keywords.md` + `outline-keywords.pdf` + updated `.skill-state/term_aliases.md`
+
+```markdown
+# Paper Outline & Keywords
+
+## Paper Title
+
+## Search Language
+Chinese | English | Chinese-English mixed
+
+## Chapter Outline
+| Chapter ID | Chapter Title | Goal | Core Claim | Evidence Need | Expected Figures | Risks |
+
+## Keyword List
+| Chapter | Core Terms | Aliases | Broader Terms | Narrower Terms | Method Terms | Scenario Terms | Metric Terms | Exclusion Terms |
+
+## Chapter Evidence Table
+| Chapter ID | Evidence Type | Question to Answer | Recommended Databases | Search Terms | Priority |
+```
 
 ### Step 3: Design Search Strategy
 
-> 💬 Based on the outline and keywords, design a structured literature search strategy.
+> 💬 Based on the chapter outline, keyword list, and chapter evidence table, design a structured literature search strategy.
 
-```markdown
-# Search Strategy
-| ID | Sub-Topic | Keywords | Source |
-|------|--------|--------|------|
-| S1 | Sub-topic 1 | keyword1, keyword2 | Crossref |
-| S2 | Sub-topic 2 | keyword3, keyword4 | Semantic |
-| S3 | Sub-topic 3 | keyword5, keyword6 | Semantic |
+```yaml
+search_language: Chinese|English|mixed
+tier: quick|standard|deep
+search_tasks:
+  - id: S1
+    chapter_id: ch1
+    evidence_type: review|method|experiment|data|standard|case
+    query_blocks:
+      - name: object
+        terms: []
+    route:
+      l1: []
+      l2: []
+      l3: []
 ```
 
-**Output:** `search-plan.md`
+**Output:** `search-plan.md` + `search-plan.pdf`
 
 ### Step 4: Search & Score (4a→4h)
 
@@ -976,20 +1079,23 @@ python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
 
 Complete preflight, saturation analysis, grading thresholds, and expansion-search rules live in [`agents/step_4_search_score.md`](agents/step_4_search_score.md).
 
-**Output:** `literature-table.md` + `search-report.md/.xlsx/.pdf/.bib`
+**Output:** `literature-table.md` + `literature-table.xlsx` + `search-report.md` + `search-report.pdf` + `library.bib` + `saturation_snapshot.json` + `chinese-paper-metadata.json`
 
 ### Step 5: Unified Download Routing
 
-> 💬 Start batch downloading paper PDFs, auto-routing by publisher (Sci-Hub → SD CDP → Generic CDP), covering 23+ publishers.
+> 💬 Start batch downloading paper PDFs, auto-routing by publisher (Sci-Hub → SD CDP → Generic CDP), covering 23+ publishers. If DOI, paper-title, URL, or BibTeX input is already available, you can also start directly from Step 5.
 
 **Recommended: Single Entry Auto-Router**
 
 ```bash
 # Single entry, 3-round sequential execution, auto-route to corresponding strategy
 python3 scripts/unified_download_router.py literature-table.md -o paper-temp/
+
+# Direct download when DOI values are already available
+python3 scripts/unified_download_router.py --papers "10.1021/x,10.1002/y" -o paper-temp/
 ```
 
-**Output:** `download_log.md` and the PDF attachment pool. Publisher routing, CDP login gates, fallback behavior, and Cloudflare handling are covered by [`agents/step_5_download.md`](agents/step_5_download.md) and [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md).
+**Output:** `download_log.md` and the PDF attachment pool. Direct mode also produces `direct_download_manifest.md/json`, with ambiguous title-only items stored in `unresolved_download_items.md`. Publisher routing, CDP login gates, fallback behavior, and Cloudflare handling are covered by [`agents/step_5_download.md`](agents/step_5_download.md) and [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md).
 
 ### Step 6: Zotero Library Management
 
@@ -1123,6 +1229,8 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
 
 ### v1.0.9-20260609 (2026-06-08 to 2026-06-09)
+- **Step 2-5 interface cleanup**: Step 2 now supports existing-outline review/optimization and explicit 2a/2c routing; Step 3/4 use `search_tasks`, chapter fields, and `中文论文元数据.json` to connect outline, search, download, Zotero, and writing
+- **Step 5 direct download mode**: users can provide DOI, title, URL, BibTeX, or reference-list input directly; the workflow builds a `direct_download_manifest` first and downloads only uniquely resolved items
 - **Step 6 Zotero planning upgrade**: added `scripts/build_zotero_plan.py` to generate `文献-Zotero架构对照.md/json` and `pdf-附件池索引.json` before any Zotero write operation
 - **Chinese item import support**: CNKI/Wanfang records now use `source_id` + `article_url` + Chinese metadata to create CSL JSON items instead of treating synthetic IDs as DOI values
 - **PDF attachment pool strategy**: Step 5 downloads, existing PDFs, supplemental downloads, and manual folders are indexed together; the workflow first classifies `missing/found/already_attached/duplicate_candidate/conflict`, then recommends safe actions

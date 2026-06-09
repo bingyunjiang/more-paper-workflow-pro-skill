@@ -44,7 +44,14 @@ triggers:
   - "论文关键词"
   - "大纲评审"
   - "评审大纲"
+  - "评估我的大纲"
+  - "优化已有大纲"
+  - "根据这个大纲生成检索计划"
+  - "根据已有目录做文献检索方案"
+  - "导师给了一个目录"
   - "Outline review"
+  - "optimize existing outline"
+  - "generate search plan from outline"
   - "基于确定的研究主题，生成论文大纲和关键词清单"
   - "Based on the confirmed research topic, generate a paper outline and keyword list"
   # Step 3: 检索方案
@@ -86,11 +93,17 @@ triggers:
   - "批量下载论文 PDF"
   - "下论文"
   - "下载 DOI 列表"
+  - "直接下载这些 DOI"
+  - "按论文标题下载"
+  - "根据论文标题下载 PDF"
+  - "下载这些论文标题"
   - "从参考文献列表中下载 PDF"
   - "BibTeX 批量下载 PDF"
   - "Sci-Hub 下载论文"
   - "Start batch downloading paper PDFs"
   - "Download all papers"
+  - "download by paper title"
+  - "download these DOIs"
   # Step 5 单篇测试与会话检查
   - "测试下载这篇论文"
   - "检查下载会话"
@@ -247,7 +260,7 @@ triggers:
   - "工程文档分析"
   - "技术文档批量提取"
   - "分析现有技术文档报告"
-  # 工程文档→大纲优化（Step 2c）
+  # 工程文档→大纲优化（Step 2d）
   - "大纲优化"
   - "工程文档优化大纲"
   - "结合工程文档优化大纲"
@@ -293,8 +306,13 @@ Step 1: 交互式确定研究主题（v2.0 增强版） → 研究主题.md
   ├─ 1d 选题预审        五维0-25分 + 绿/黄/红灯决策
   └─ 1e 检索深度推断 🆕  auto tier: quick|standard|deep + Step2/3 handoff
 Step 2: 生成研究大纲与关键词        → 大纲关键词.md → 大纲关键词.pdf
-Step 3: 生成文献检索方案（L1→L2→L3分层路由+概念块布尔+arXiv条件触发）→ 检索方案.md → 检索方案.pdf
-Step 4: 多渠道检索+评分+报告（4a-4h） → 检索文献表.md / .xlsx / .bib + 检索报告.md / .pdf
+  ├─ 2a 标准大纲生成    类型判断 + 章节大纲生成协议
+  ├─ 2b 大纲评审        五维0-25分 + P0-P3问题 + 修订建议 + 导师视角
+  ├─ 2c 已有大纲优化    反推研究主题 + 评估修订 + 检索交接
+  ├─ 2d 工程文档优化    文档组合分析→交叉映射→逐章注入
+  └─ 2e/2f 术语与交接  term_aliases + Step3/6/7 handoff
+Step 3: 生成文献检索方案（search_tasks+L1→L2→L3分层路由+概念块布尔+arXiv条件触发）→ 检索方案.md → 检索方案.pdf
+Step 4: 多渠道检索+评分+报告（4a-4h） → 检索文献表.md/.xlsx + 检索报告.md/.pdf + 文献库.bib + saturation_snapshot.json + 中文论文元数据.json
   ├─ 4a 引文验证    DOI有效性+元数据完整性
   ├─ 4b DOI去重     多源合并去重
   ├─ 4c 相关性评分   五维度 0-25 + rcs-rubric 启发
@@ -337,9 +355,9 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 | 触发条件 | Agent 文件 | 说明 |
 |----------|-----------|------|
 | "确定研究主题" / "厘清研究方向" / Step 1 相关触发词 | `agents/step_1_topic.md` | v2.0 增强版：阶段诊断→广度探索→深度聚焦→选题预审 |
-| "生成论文大纲" / "大纲评审" / Step 2 相关触发词 | `agents/step_2_outline.md` | 大纲生成 + 五维评审 + 导师视角 + 术语映射表 |
-| "制定检索方案" / Step 3 相关触发词 | `agents/step_3_search_plan.md` | L1→L2→L3 分层路由 + 概念块布尔 |
-| "检索论文" / Step 4 相关触发词 | `agents/step_4_search_score.md` | 多渠道检索 + 5 维评分 + 引文验证 + 🆕 引文扩展/饱和度/检索报告 |
+| "生成论文大纲" / "大纲评审" / "优化已有大纲" / Step 2 相关触发词 | `agents/step_2_outline.md` | 章节大纲 + 关键词清单 + 章节证据需求表 + 2c 已有大纲评估优化 + 五维评审 + 术语映射 |
+| "制定检索方案" / Step 3 相关触发词 | `agents/step_3_search_plan.md` | search_tasks + 章节证据需求表驱动 + L1→L2→L3 分层路由 + 概念块布尔 |
+| "检索论文" / Step 4 相关触发词 | `agents/step_4_search_score.md` | search_tasks 执行 + 5 维评分 + 引文验证 + 🆕 引文扩展/饱和度/7 件套检索报告 |
 | "饱和度曲线" / "discovery curve" | `agents/step_4_search_score.md` | 🆕 子步骤 4f：文献覆盖率估算 |
 | "引文扩展" / "citation network" | `agents/step_4_search_score.md` | 🆕 子步骤 4e：单轮 1-hop 引文网络扩展 |
 | "下载论文" / Step 5 相关触发词 | `agents/step_5_download.md` | 统一下载路由（Sci-Hub→SD→IEEE→Generic） |

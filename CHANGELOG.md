@@ -10,6 +10,15 @@
 
 ## v1.0.9-20260609 (2026-06-08 至 2026-06-09)
 
+### Step 2-5 流程接口收口 🆕
+
+- **Step 2 新增已有大纲模式**：用户直接提交目录/大纲/草稿目录时，进入 `2c`，先反向抽取研究主题，再做五维评审、修订建议、关键词清单和章节证据需求表
+- **Step 2 路由判定补齐**：新增 `2-0` 入口判定，明确 `2a` 标准生成与 `2c` 已有大纲优化的边界；同时统一术语为“章节大纲 / 关键词清单 / 章节证据需求表”
+- **Step 3/4 结构化交接强化**：Step 3 以 `search_tasks` 承接 Step 2 的章节证据需求；Step 4 保留 `search_task_id`、`chapter_id`、`chapter_title`、`evidence_type`，供后续 Zotero 架构和写作回溯
+- **Step 4 交付物统一为 7 件套**：`检索文献表.md/.xlsx`、`检索报告.md/.pdf`、`文献库.bib`、`saturation_snapshot.json`、`中文论文元数据.json`
+- **Step 5 新增直达下载模式**：用户可不经过 Step 1-4，直接提供 DOI、标题、URL、BibTeX 或参考文献列表；标题先归一化为 DOI/URL/中文 `article_url`，无法唯一解析的条目写入 `unresolved_download_items.md`
+- **Step 5 编号重排**：执行流程统一为 `6a-6i`，收尾检查统一为 `8a-8d`，避免 `5a` 挂在 `## 6` 下或旧 `6.0` 编号混用
+
 ### Step 6 Zotero 文库管理升级 🆕
 
 - **新增 `scripts/build_zotero_plan.py`**：在真正写入 Zotero 前，先生成可审阅、可恢复、可追溯的 Step 6 计划产物
@@ -43,7 +52,7 @@
 
 - README 更新为 `v1.0.9-20260609`，补充 Codex badge，并把 Claude Code / Codex / Hermes / OpenClaw 作为等价智能调度层展示
 - README 大幅压缩执行细节，明确 `README.md` 只做 GitHub 概览，`agents/step_*.md` 才是运行时规则 Source of Truth
-- Step 1-8 文档同步清理触发词、输入输出、质量门和故障处理，尤其强化 Step 6 的 6a/6b/6c/6d 分工
+- Step 1-8 文档同步清理触发词、输入输出、质量门和故障处理，尤其强化 Step 2-5 的跨步骤接口和 Step 6 的 6a/6b/6c/6d 分工
 - `agents/known_pitfalls.md` 扩展常见坑，便于后续 Agent 跨会话复用修复经验。
 
 ### 修改文件
@@ -53,6 +62,13 @@
 | `scripts/build_zotero_plan.py` | 新增 Step 6 对照计划生成器；支持 BibTeX/中文元数据/PDF 附件池匹配 |
 | `scripts/organize_zotero.py` | 支持 Step 2 标准章节大纲和关键词清单解析，修正集合层级截取 |
 | `scripts/batch_chinese_search.sh` | 新增 CNKI/万方批量 CDP 检索与登录等待入口 |
+| `scripts/generate_retrieval_report.py` | 兼容 `search_tasks` 字段，保留章节和证据类型信息；中文合成 ID 写入 `source_id` 而非 DOI |
+| `scripts/generate_search_report.py` | 检索报告兼容章节字段和 `source_id`，保持 Step 4/6/7 可追溯 |
+| `scripts/unified_download_router.py` | 中文论文解析兼容 `source_id` fallback，配合 `中文论文元数据.json` 下载 |
+| `agents/step_2_outline.md` | 新增已有大纲模式、2a/2c 路由判定、章节证据需求表和 Step 3/6/7 handoff |
+| `agents/step_3_search_plan.md` | 新增 `search_tasks` 作为结构化检索任务接口 |
+| `agents/step_4_search_score.md` | 强化 7 件套交付物、中文论文元数据和 search_tasks 字段保留规则 |
+| `agents/step_5_download.md` | 新增直达下载模式，整理执行流程编号为 6a-6i |
 | `agents/step_6_zotero.md` | 重写 Step 6 为架构、对照、集合创建、入库/附件状态四段式流程 |
 | `SKILL.md` | 更新触发词、路由表、脚本索引、运行态模板复制规则和 Step 6 概览 |
 | `README.md` | 更新 v1.0.9 展示、版本历史、Step 6 能力、英文区版本号 |

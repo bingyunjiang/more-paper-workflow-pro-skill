@@ -94,7 +94,11 @@ def _parse_md_table(md_path: str) -> List[Dict]:
     col_map = {}
     for idx, col in enumerate(columns):
         c = col.strip().lower()
-        if "doi" in c:                      col_map["doi"] = idx
+        if "search_task" in c or "检索任务" in c: col_map["search_task_id"] = idx
+        elif "chapter_id" in c or "章节id" in c: col_map["chapter_id"] = idx
+        elif "chapter_title" in c or "章节标题" in c: col_map["chapter_title"] = idx
+        elif "evidence_type" in c or "证据类型" in c: col_map["evidence_type"] = idx
+        elif "doi" in c or "source_id" in c or "标识" in c: col_map["doi"] = idx
         elif "title" in c or "标题" in c:    col_map["title"] = idx
         elif "year" in c or "年份" in c:     col_map["year"] = idx
         elif "source" in c or "来源" in c:   col_map["source"] = idx
@@ -109,6 +113,8 @@ def _parse_md_table(md_path: str) -> List[Dict]:
         elif "sub" in c or "子课题" in c or "topic" in c: col_map["subtopic"] = idx
         elif "author" in c or "作者" in c:   col_map["authors"] = idx
         elif "journal" in c or "期刊" in c or "venue" in c: col_map["journal"] = idx
+        elif "abstract" in c or "摘要" in c: col_map["abstract"] = idx
+        elif "url" in c or "文章链接" in c:   col_map["article_url"] = idx
 
     rows = []
     for row_line in best_data:
@@ -118,7 +124,7 @@ def _parse_md_table(md_path: str) -> List[Dict]:
             row[key] = cells[idx] if idx < len(cells) else ""
         if "doi" in row:
             row["doi"] = _normalize_doi(row["doi"])
-        if row.get("doi"):
+        if row.get("doi") or row.get("title"):
             rows.append(row)
 
     return rows
