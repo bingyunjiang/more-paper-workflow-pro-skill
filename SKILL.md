@@ -288,10 +288,10 @@ triggers:
 ```
 Step 1: 交互式确定研究主题（v2.0 增强版） → 研究主题.md
   ├─ 1a 研究阶段诊断    确认用户画像 + 推荐入口
-  ├─ 1b 广度探索+预检索  发散子方向 → 文献量/趋势/gap初判
-  ├─ 1c 深度聚焦        方法论深化 + 创新点预判
-  ├─ 1d 选题预审        originality/importance/feasibility 三问
-  └─ 1e 检索深度推断 🆕  auto tier: quick|standard|deep
+  ├─ 1b 广度探索+预检索  3-5子方向 → 文献量/趋势/代表文献/gap初判
+  ├─ 1c 深度聚焦        方法论深化 + 三视角检查 + 创新点预判
+  ├─ 1d 选题预审        五维0-25分 + 绿/黄/红灯决策
+  └─ 1e 检索深度推断 🆕  auto tier: quick|standard|deep + Step2/3 handoff
 Step 2: 生成研究大纲与关键词        → 大纲关键词.md → 大纲关键词.pdf
 Step 3: 生成文献检索方案（L1→L2→L3分层路由+概念块布尔+arXiv条件触发）→ 检索方案.md → 检索方案.pdf
 Step 4: 多渠道检索+评分+报告（4a-4h） → 检索文献表.md / .xlsx / .bib + 检索报告.md / .pdf
