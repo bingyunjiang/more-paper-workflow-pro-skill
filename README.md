@@ -497,7 +497,7 @@ python3 scripts/generate_writing_rationale.py research_dossier/section_blueprint
 | `abstract-only` | 仅写中英文摘要 | 先产出摘要供审阅或投稿预审 |
 | 🆕 `review` | 文献综述写作 | 8 节骨架 + 7 条写作纪律（观点分组/合并引用/对比表达） |
 
-按大纲逐章写作。优先从 `文献-Zotero架构对照.json` 找到归属文献和 Zotero item key；如果没有该 JSON 或 `pdf-附件池索引.json`，但 Zotero 文库已经整理好，则直接通过 Zotero 集合/条目读取笔记、标注、附件和全文，交互确认引用并标注索引。
+按大纲逐章写作。优先从 `文献-Zotero架构对照.json` 找到归属文献和 Zotero item key；如果没有该 JSON 或 `pdf-附件池索引.json`，但 Zotero 文库已经整理好，则直接通过 Zotero 集合/条目读取笔记、标注、附件和全文，交互确认引用并标注索引。只有完整元数据和摘要、没有 PDF 的条目可作为摘要级证据，用于背景、归类和待精读判断；不能支撑具体数据、参数、机制或强结论。
 
 **论文结构模板（双边摘要）：**
 - **中文摘要** 300-500 字
@@ -1010,7 +1010,7 @@ Qualitative       Quantitative      Quantitative     Qualitative       Quant+Nar
 | **2b Advisor Check** | After outline review | Qualitative | Workload / Risks / Plan B / Timeline / Publish Strategy | Graduation go/no-go |
 | **4 Lit Scoring** | After search | Quantitative | 5-dimension (0-25) | ⭐T1 must / 📘T2 / 📄T3 / ⬜T4 skip |
 | **7d.1 Paragraph Check** | After each section | Qualitative | One-job-per-¶ / Evidence-first / Verb Calibration / No False Novelty / Flow | Self-check & fix |
-| **7e Citation Eval** | After each paragraph | Qualitative | Strong / Moderate / Weak | Only cite abstract-verified sources |
+| **7e Citation Eval** | After each paragraph | Qualitative | Strong / Moderate / Weak | Cite Zotero/PDF-verified sources; abstract-only evidence is downgraded |
 | **7f Final Review** | After full draft | Quant+Narrative | 5-dim + 3-Reviewer + Rebuttal | Max 2 revision rounds; <5→return to source step |
 
 ---
@@ -1346,7 +1346,7 @@ Target-journal samples are style-learning corpora from a user-specified PDF fold
 | `abstract-only` | Abstract only | Produce Chinese/English abstract first for review or pre-submission |
 | 🆕 `review` | Literature review | 8-section skeleton + 7 writing disciplines (claim grouping/merged citations/contrast expressions) |
 
-Write chapter by chapter following the outline. First locate assigned papers and Zotero item keys from `文献-Zotero架构对照.json`, then read evidence progressively from notes, annotations, metadata, and PDF full text before confirming citations.
+Write chapter by chapter following the outline. Prefer `文献-Zotero架构对照.json` for assigned papers and Zotero item keys; if that JSON or `pdf-附件池索引.json` is absent but Zotero is already organized, read notes, annotations, attachments, and full text directly from the Zotero collection/items before confirming citations. Items with complete metadata and abstract but no PDF can be used as abstract-level evidence for background, classification, and prioritization, but not for specific data, parameters, mechanisms, or strong conclusions.
 
 **Paper Structure Template (Dual-Language Abstract):**
 - **Chinese Abstract** 300-500 characters
@@ -1359,6 +1359,8 @@ Write chapter by chapter following the outline. First locate assigned papers and
 ```bash
 # Plan B: Pre-extract T1/T2/T3 attachments from Step 6 mapping
 python3 scripts/batch_read_pdfs.py --mapping 文献-Zotero架构对照.json --pdf-index pdf-附件池索引.json --tiers T1,T2,T3 --output literature-full-text.md
+# If no PDF index exists but Zotero is already organized
+python3 scripts/batch_read_pdfs.py --zotero-collection "paper-literature-library" --tiers T1,T2,T3 --output literature-full-text.md
 ```
 
 #### Quality Gate: Peer Review Simulation

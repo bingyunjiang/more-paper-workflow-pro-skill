@@ -95,7 +95,7 @@
 2. 先用 Zotero MCP 读取目标集合或用户指定条目的 children/attachments。
 3. 能获取本地路径时，动态写入或刷新 `pdf-附件池索引.json`。
 4. 不能获取本地路径但能通过 `zotero_get_item_fulltext` 读到全文时，仍可生成综述矩阵和写作证据，但审计报告中标记 `pdf_path_unavailable`。
-5. 如果条目既无附件、又无笔记/标注/全文，则该条目只能作为“元数据候选”，不得支撑具体 claim。
+5. 如果条目既无附件、又无笔记/标注/全文，但有完整摘要和可靠元数据，则可作为“摘要级证据”；如果连摘要也缺失，则只能作为“元数据候选”。
 
 **Step 7 的功能边界：**
 
@@ -120,7 +120,7 @@
 2. PDF 标注/高亮 (zotero_get_annotations)       ← 精读标注
 3. Zotero 元数据 (zotero_get_item_metadata)     ← 标题/作者/DOI/摘要/URL/Extra/source_id
 4. PDF 全文 (zotero_get_item_fulltext)          ← 完整原文
-5. BibTeX/中文元数据 JSON/摘要                  ← 回退证据，不单独支撑具体 claim
+5. BibTeX/中文元数据 JSON/摘要                  ← 摘要级证据，只能支撑低风险概括
 ```
 
 > 不要一上来就读 PDF 全文。优先用 `文献-Zotero架构对照.json` 确定 T1/T2/T3、集合归属、Zotero item key 和 PDF 状态；如果该 JSON 不存在，则先从 Zotero 集合/标签/条目动态生成最小映射，再逐级读取笔记、标注、元数据和全文；`.md` 只用于人工审阅。
@@ -129,6 +129,16 @@
 - T1/T2/T3 均进入综述矩阵。T1/T2 是写作主证据，T3 作为背景、补充、反例或方法参照。
 - T4 已在 Step 4 剔除，默认不进入 Step 7；如用户要求补充，只能作为“候选补查文献”，不得直接引用。
 - 中文文献必须保留中文标题、作者、来源、年份、source/source_id、article_url；无真实 DOI 时不得用 `cnki.xxx` / `wanfang.xxx` 冒充 DOI。
+
+**仅有元数据/完整摘要的条目用途：**
+
+| 证据状态 | 可用于 | 不可用于 | 引用强度 |
+|----------|--------|----------|----------|
+| 完整元数据 + 完整摘要，无 PDF | 综述矩阵的研究问题/方法概述/主题归类/背景句/待精读优先级 | 具体数据、实验参数、模型细节、强结论、页码级原文摘录 | Weak/Background |
+| 完整元数据，无摘要、无 PDF | 去重、集合归类、检索补全、参考文献候选 | 正文 claim 支撑 | Candidate only |
+| 元数据 + Zotero 笔记/标注，无 PDF | 若笔记/标注明确记录原文依据，可支撑对应 claim；同时标记需补 PDF | 超出笔记/标注范围的细节 | Moderate，需补全文 |
+
+> 摘要可以派上用场，但不能被当作全文。它适合判断“这篇文献研究什么、用了什么大类方法、与主题是否相关”，不适合支撑“作者具体发现了多少、参数如何设置、机制如何证明”这类强断言。
 
 **缺失值约定：** `未提及`（论文确实未讨论）/ `待补充`（计划后续补全）/ `推断：{内容}`（基于已有信息合理推断）
 
@@ -252,6 +262,12 @@ python3 scripts/generate_writing_rationale.py research_dossier/section_blueprint
 
 **引用密度指南：** 引言每 2-3 句 1 条 | 相关工作每段 3-8 条 | 方法每段 1-2 条 | 实验每段 1-3 条 | 讨论每段 2-4 条 | 结论 0-1 条
 
+**摘要级引用规则：**
+- 只有完整摘要、无 PDF 的条目，可以用于背景性、领域概况性、研究主题归类性引用。
+- 引用标记必须记录为 `evidence_level=abstract_only`，7h 审计时单独列出。
+- 不得用摘要级证据支撑具体实验数据、参数、机制解释、效果提升百分比或“证明/证实”类强动词。
+- 写作主证据不足时，应回到 Step 5/6 补 PDF 或补全文，而不是提高摘要级证据的强度。
+
 **新增引用回流规则：**
 - 如果现有 Zotero 文库无法支撑某个 claim，不允许现场编造或只凭网页摘要引用。
 - 新引用必须走 Step 4/6 小闭环：检索/评分 → 加入 `文献库.bib` 或增量 bib → 补充中文元数据 → PDF 下载/附件池匹配 → Zotero 入库 → 更新 `文献-Zotero架构对照.json` → 再进入 7e。
@@ -268,6 +284,7 @@ python3 scripts/generate_writing_rationale.py research_dossier/section_blueprint
 | **原文比对** | 引用具体数据时注明 PDF 来源 |
 | **JSON 追溯** | 每条引用能追溯到 `文献-Zotero架构对照.json` 的 citekey/zotero_item_key/pdf_path |
 | **中文元数据完整** | 中文引用必须核对 title/authors/year/publication/source_id/article_url，不依赖 DOI |
+| **摘要级降权** | 只有摘要无全文的条目必须标记为 abstract_only，不能支撑强 claim |
 
 ### 7f: 同行评审仿真（质量门）
 
