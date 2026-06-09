@@ -230,7 +230,7 @@ Step 1d          Step 2b          Step 4          Step 7d.1        Step 7f
 | **Step 2b 导师视角** | 五维评审后 | 定性 | 工作量够吗？有 Plan B 吗？能按时毕业吗？够发几篇？ | 要不要换个题的级别判断 |
 | **Step 4 文献评分** | 检索执行后 | 量化 (0-25) | 主题匹配 / 方法一致 / 来源质量 / 时效性 / 引用量 | ⭐T1 必下 / 📘T2 尽量 / 📄T3 可选 / ⬜T4 剔除 |
 | **Step 7d.1 段落自查** | 每节写完后 | 定性 | 一段一工作 / 证据向外 / 动词校准 / 清除虚假新颖性 / 段落流 | 写完后逐项自查，不合格即改 |
-| **Step 7e 引文评估** | 每段写完后 | 定性 | Strong 直接支撑 / Moderate 谨慎引用 / Weak 不推荐 | 只引用经摘要验证的文献 |
+| **Step 7e 引文评估** | 每段写完后 | 定性 | Strong 直接支撑 / Moderate 谨慎引用 / Weak 不推荐 | 只引用经 Zotero 条目和 PDF 证据验证的文献 |
 | **Step 7f 成稿评审** | 初稿完成后 | 量化+叙事 | 五维评分 (0-50) + 三审稿人报告 + Rebuttal 预演 | 限 2 轮修改；<5 分回退到对应步骤 |
 
 ---
@@ -475,15 +475,17 @@ python3 scripts/setup_zotero.py --smoke-test
 
 **矩阵包含：** 作者年份 | 标题 | 研究问题 | 理论/概念 | 数据/样本 | 方法 | 核心发现 | 贡献 | 局限 | 与我的主题关系 | 可引用摘录 | 我的笔记 | DOI/URL
 
-**证据优先级：** Zotero 笔记 → 标注/高亮 → 元数据/摘要 → PDF 全文（逐级回退，不一开始就读全文）
+**证据优先级：** `文献-Zotero架构对照.json` → Zotero 笔记 → 标注/高亮 → 元数据/摘要 → PDF 全文（逐级回退，不一开始就读全文）
 
 #### 7.1: 期刊风格学习与章节蓝图 🆕
 
 ```bash
-python3 scripts/learn_journal_style.py --target-journal "Applied Thermal Engineering" --pdf-dir paper-temp/ --mode flash
+python3 scripts/learn_journal_style.py --target-journal "Applied Thermal Engineering" --sample-source zotero --collection "目标期刊样本" --mode flash
 python3 scripts/generate_section_blueprints.py research_dossier/style_profile.md 大纲关键词.md --evidence 综述矩阵.csv --output research_dossier/
 python3 scripts/generate_writing_rationale.py research_dossier/section_blueprints.md --style-profile research_dossier/style_profile.md --output research_dossier/writing_rationale_matrix.md
 ```
+
+目标期刊样本文献是风格学习语料，可来自用户指定 PDF 目录或 Zotero 样本集合；不要默认把 `paper-temp/` 全部研究文献当成目标期刊风格样本。
 
 **写作模式选择（5 种）：** 进入写作前选择模式：
 
@@ -495,7 +497,7 @@ python3 scripts/generate_writing_rationale.py research_dossier/section_blueprint
 | `abstract-only` | 仅写中英文摘要 | 先产出摘要供审阅或投稿预审 |
 | 🆕 `review` | 文献综述写作 | 8 节骨架 + 7 条写作纪律（观点分组/合并引用/对比表达） |
 
-按大纲逐章写作，每章读取归属的全部 PDF 原文作为知识库，交互确认引用，标注索引。
+按大纲逐章写作。优先从 `文献-Zotero架构对照.json` 找到归属文献和 Zotero item key；如果没有该 JSON 或 `pdf-附件池索引.json`，但 Zotero 文库已经整理好，则直接通过 Zotero 集合/条目读取笔记、标注、附件和全文，交互确认引用并标注索引。
 
 **论文结构模板（双边摘要）：**
 - **中文摘要** 300-500 字
@@ -506,8 +508,10 @@ python3 scripts/generate_writing_rationale.py research_dossier/section_blueprint
 **方案 B（≥20 篇）：批量预提取**
 
 ```bash
-# 方案 B: 全库预提取（自动 6 进程）
-python3 scripts/batch_read_pdfs.py paper-temp/ --output 文献库全文.md
+# 方案 B: 按 Step 6 映射预提取 T1/T2/T3 附件
+python3 scripts/batch_read_pdfs.py --mapping 文献-Zotero架构对照.json --pdf-index pdf-附件池索引.json --tiers T1,T2,T3 --output 文献库全文.md
+# 如果没有附件池索引，但 Zotero 文库已整理好
+python3 scripts/batch_read_pdfs.py --zotero-collection "论文文献库" --tiers T1,T2,T3 --output 文献库全文.md
 ```
 
 #### 质量门：同行评审仿真
@@ -541,7 +545,9 @@ python3 scripts/generate_figures.py 论文初稿.md --style nature --output figu
 > 论文写完后，逐条验证引用准确性，确保每条引用都能在 Zotero 文库中找到对应文献。
 
 ```bash
-python3 scripts/citation_audit.py 论文初稿.md --zotero-library my-library --output 引用审计报告.md
+python3 scripts/citation_audit.py 论文初稿.md --mapping 文献-Zotero架构对照.json --pdf-index pdf-附件池索引.json --output 引用审计报告.md
+# 如果没有附件池索引，但引用均能定位到 Zotero 条目
+python3 scripts/citation_audit.py 论文初稿.md --zotero-collection "论文文献库" --output 引用审计报告.md
 ```
 
 **产出：** `引用审计报告.md` — 每条引用的验证状态（通过/警告/失败）
@@ -740,7 +746,7 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 - 统一下载路由：单一入口自动路由，覆盖 23+ 家出版社，通用 CDP 下载引擎 + 出版社配置知识库
 - Agent 模块化：3284 行 SKILL.md 拆分为 9 个独立 Agent 文件（377 行）
 - 检索融合：Step 4 重构为 4a→4h 八道工序，T1→T2→T3 路由，发现曲线，arXiv 辅助检索
-- 新增 3 个步骤：Step 6f 期刊风格学习、Step 7g 科研图表生成、Step 7h 写后引用审计
+- 新增 3 个步骤：Step 7.1 期刊风格学习、Step 7g 科研图表生成、Step 7h 写后引用审计
 - 术语标准化 + 错误/决策日志贯穿全流程
 
 ### v1.0.4 (2026-06-04)
@@ -1318,15 +1324,17 @@ Before writing, conduct a structured review of core literature, producing a 13-c
 
 **Matrix Columns:** Author-Year | Title | Research Question | Theory/Concepts | Data/Sample | Method | Key Findings | Contributions | Limitations | Relevance to My Topic | Citable Excerpts | My Notes | DOI/URL
 
-**Evidence Priority:** Zotero notes → annotations/highlights → metadata/abstract → PDF full-text (progressive fallback, don't read full-text from the start)
+**Evidence Priority:** `文献-Zotero架构对照.json` → Zotero notes → annotations/highlights → metadata/abstract → PDF full-text (progressive fallback, don't read full-text from the start)
 
 #### 7.1: Journal Style Learning and Section Blueprint 🆕
 
 ```bash
-python3 scripts/learn_journal_style.py --target-journal "Applied Thermal Engineering" --pdf-dir paper-temp/ --mode flash
+python3 scripts/learn_journal_style.py --target-journal "Applied Thermal Engineering" --sample-source zotero --collection "target-journal-samples" --mode flash
 python3 scripts/generate_section_blueprints.py research_dossier/style_profile.md outline-keywords.md --evidence review-matrix.csv --output research_dossier/
 python3 scripts/generate_writing_rationale.py research_dossier/section_blueprints.md --style-profile research_dossier/style_profile.md --output research_dossier/writing_rationale_matrix.md
 ```
+
+Target-journal samples are style-learning corpora from a user-specified PDF folder or Zotero sample collection; do not treat all research PDFs in `paper-temp/` as target-journal style samples by default.
 
 **Writing Mode Selection (5 modes):** Choose a mode before writing:
 
@@ -1338,7 +1346,7 @@ python3 scripts/generate_writing_rationale.py research_dossier/section_blueprint
 | `abstract-only` | Abstract only | Produce Chinese/English abstract first for review or pre-submission |
 | 🆕 `review` | Literature review | 8-section skeleton + 7 writing disciplines (claim grouping/merged citations/contrast expressions) |
 
-Write chapter by chapter following the outline. Read all PDF originals assigned to each chapter as the knowledge base, interactively confirm citations, and annotate reference indices.
+Write chapter by chapter following the outline. First locate assigned papers and Zotero item keys from `文献-Zotero架构对照.json`, then read evidence progressively from notes, annotations, metadata, and PDF full text before confirming citations.
 
 **Paper Structure Template (Dual-Language Abstract):**
 - **Chinese Abstract** 300-500 characters
@@ -1349,8 +1357,8 @@ Write chapter by chapter following the outline. Read all PDF originals assigned 
 **Plan B (≥20 papers): Batch pre-extraction**
 
 ```bash
-# Plan B: Full library pre-extraction (auto 6 processes)
-python3 scripts/batch_read_pdfs.py paper-temp/ --output literature-full-text.md
+# Plan B: Pre-extract T1/T2/T3 attachments from Step 6 mapping
+python3 scripts/batch_read_pdfs.py --mapping 文献-Zotero架构对照.json --pdf-index pdf-附件池索引.json --tiers T1,T2,T3 --output literature-full-text.md
 ```
 
 #### Quality Gate: Peer Review Simulation
@@ -1561,7 +1569,7 @@ Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are hig
 - Unified download router: single-entry auto-routing across 23+ publishers, Generic CDP engine + publisher config knowledge base
 - Agent modularization: 3284-line SKILL.md split into 9 independent Agent files (377 lines)
 - Search fusion: Step 4 restructured as 4a→4h, T1→T2→T3 routing, discovery curve, arXiv assisted search
-- 3 new steps: Step 6f journal style learning, Step 7g figure generation, Step 7h citation audit
+- 3 new steps: Step 7.1 journal style learning, Step 7g figure generation, Step 7h citation audit
 - Terminology standardization + error/decision logs across all 8 steps
 
 ### v1.0.4 (2026-06-04)

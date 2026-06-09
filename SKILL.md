@@ -303,8 +303,7 @@ Step 7: 论文写作（paper_type×language双轴）  → 论文初稿.md / .doc
   ├─ 7b 写作模式       full/outline-only/plan/abstract-only/argument-first
   ├─ 7c 语言差异化     zh/en/zh-to-en 写作规范+章节命名
   ├─ 7d 章节写作规则   摘要/引言/相关工作/方法/实验/结论
-  ├─ 7e 实时引文支撑   分段→搜索→评估→导出
-  └─ 7f 中英文双边摘要
+  └─ 7e 实时引文支撑   Zotero优先匹配→证据读取→评估→引用确认；新文献回流 Step 4/6
 Step 7f: 同行评审仿真（质量门）      → 评审报告.md + rebuttal-预演.md → 评审报告.pdf + rebuttal-预演.pdf
 Step 7g: 科研图表生成 🆕 v1.1.0       → figures/ + 图表清单.md
 Step 7h: 写后引用审计 🆕 v1.1.0       → 引用审计报告.md
