@@ -12,11 +12,12 @@
 - [ ] `研究主题.md` — Step 1 产出（研究方向 + 预审结论）
 - [ ] `大纲关键词.md` — Step 2 产出（章节结构） + `.skill-state/term_aliases.md` 🆕
 - [ ] `检索文献表.md` — Step 4 产出（参考文献 + 评分）
-- [ ] `zotero-架构.md` — Step 6 产出（PDF 按章节分类）
-- [ ] `综述矩阵.csv` — Step 6e 产出（证据矩阵）
-- [ ] `research_dossier/style_profile.md` — Step 6f 产出 🆕（目标期刊风格约束）
-- [ ] `research_dossier/section_blueprints.md` — Step 6f 产出 🆕（逐节写作蓝图）
+- [ ] `文献库.bib` — Step 4 产出（筛选后 BibTeX 文献库）
+- [ ] `zotero-架构.md` — Step 6 产出（Zotero 集合结构）
+- [ ] `文献-Zotero架构对照.md/json` — Step 6 产出（文献到集合、PDF 附件的映射；JSON 为完整机器源）
 - [ ] `.skill-state/term_aliases.md` — 🆕 术语标准化映射（确保写作用词与检索一致）
+- [ ] `references/literature-review-matrix-schema.md` — 综述矩阵 schema
+- [ ] `references/journal-style-learning-guide.md` — 期刊风格学习方法论
 - [ ] `references/gbt7714-2015-citation-format.md` — 引用格式规范
 - [ ] `.skill-state/error_log.md` — 已知错误及修复规则
 
@@ -49,11 +50,13 @@
 | 研究主题 | Step 1 | .md | ✅ |
 | 大纲关键词 | Step 2 | .md | ✅ |
 | 检索文献表 | Step 4 | .md | ✅ |
+| BibTeX 文献库 | Step 4 | .bib | ✅ |
 | PDF 知识库 | Step 5 | paper-temp/*.pdf | ✅ |
 | Zotero 架构 | Step 6 | .md | ✅ |
-| 综述矩阵 | Step 6e | .csv | ✅ |
-| 期刊风格画像 | Step 6f | .md | 🆕 |
-| 章节蓝图 | Step 6f | .md | 🆕 |
+| 文献-Zotero架构对照 | Step 6 | .md/.json | ✅ |
+| 综述矩阵 | Step 7.0 | .csv/.md | 写作前生成 |
+| 期刊风格画像 | Step 7.1 | .md | 🆕 |
+| 章节蓝图 | Step 7.1 | .md | 🆕 |
 
 ---
 
@@ -61,6 +64,8 @@
 
 | 输出 | 格式 | 说明 |
 |------|------|------|
+| 综述矩阵 | CSV/Markdown | 13 列证据矩阵 |
+| research_dossier/ | 目录 | 期刊风格画像 + 章节蓝图 + 写作逻辑矩阵 |
 | 论文初稿 | .md / .docx | 含完整结构和参考文献 |
 | 中→英术语对照表 | .md | zh-to-en 模式额外产出 |
 | 评审报告 + rebuttal-预演 | .md → .pdf | 7f 质量门产出 |
@@ -74,6 +79,48 @@
 ### 前置输入
 
 写作开始前，确认以上所有前置输入文件可访问。
+
+### 7.0: 生成文献综述矩阵（写作前证据组织）
+
+**13 列矩阵：** 作者年份 | 标题 | 研究问题 | 理论/概念 | 数据/样本 | 方法 | 核心发现 | 贡献 | 局限 | 与我的主题关系 | 可引用摘录 | 我的笔记 | DOI/URL
+
+**输入优先级：**
+```
+1. Zotero 笔记 (zotero_get_notes)              ← 最高优先级
+2. PDF 标注/高亮 (zotero_get_annotations)       ← 精读标注
+3. Zotero 元数据 (zotero_get_item_metadata)     ← 标题/作者/DOI/摘要
+4. PDF 全文 (zotero_get_item_fulltext)          ← 完整原文
+5. BibTeX/摘要 (文献库.bib / abstractNote)       ← 最低优先级
+```
+
+> 不要一上来就读 PDF 全文。先用笔记、标注、元数据和 `文献-Zotero架构对照.json` 判断优先级；`.md` 只用于人工审阅。
+
+**缺失值约定：** `未提及`（论文确实未讨论）/ `待补充`（计划后续补全）/ `推断：{内容}`（基于已有信息合理推断）
+
+### 7.1: 目标期刊风格学习与写作蓝图
+
+**核心理念：** paper_type 轴告诉你"写什么类型的论文"，目标期刊风格学习告诉你"怎么写才能让这个期刊的读者和审稿人觉得'这是自己人写的'"。
+
+**工作流：**
+```
+Step 7.1-1: 风格剖析      → style_profile.md        (四维度量化：格式化/结构/引用/语言)
+Step 7.1-2: 章节蓝图      → section_blueprints.md    (逐节写作计划：论证链+证据映射+图表位置)
+Step 7.1-3: 写作逻辑矩阵  → writing_rationale_matrix.md (逐单元理由)
+Step 7.1-4: LaTeX 校验    → latex_check.md（可选）
+```
+
+**两种分析深度：**
+
+| 模式 | 范文数 | 时长 | 产出 | 适用场景 |
+|------|:---:|------|------|------|
+| **Flash** | 3 篇 | ~3 min | `style_profile.md` | 初次投稿该期刊 |
+| **Pro** | 6 篇 | ~8 min | `style_profile.md` + `research_dossier.md` | 核心目标期刊 |
+
+```bash
+python3 scripts/learn_journal_style.py --target-journal "Applied Thermal Engineering" --pdf-dir paper-temp/ --mode flash
+python3 scripts/generate_section_blueprints.py research_dossier/style_profile.md 大纲关键词.md --evidence 综述矩阵.csv --output research_dossier/
+python3 scripts/generate_writing_rationale.py research_dossier/section_blueprints.md --style-profile research_dossier/style_profile.md --output research_dossier/writing_rationale_matrix.md
+```
 
 ### 7a: 论文类型与语言双轴识别
 
@@ -216,6 +263,8 @@ python3 scripts/citation_audit.py 论文初稿.md --output 引用审计报告.md
 ## 7. 质量门槛 (Quality Gates)
 
 - [ ] paper_type 和 language 已识别
+- [ ] 7.0 综述矩阵：13 列完整，证据优先级规则已遵循
+- [ ] 7.1 期刊风格：Flash 或 Pro 模式已完成，style_profile.md 已生成
 - [ ] 防幻觉机制：每处引用均来自实际 PDF 内容
 - [ ] 7d.1 段落自查：每段一个工作 / 从证据向外写 / 动词校准 / 无虚假新颖性 / 段落流
 - [ ] 🆕 术语对齐：核心术语与 `.skill-state/term_aliases.md` 一致
@@ -229,6 +278,8 @@ python3 scripts/citation_audit.py 论文初稿.md --output 引用审计报告.md
 ### 产出完整性
 - [ ] `论文初稿.md` 已生成
 - [ ] `论文初稿.docx` 已自动生成
+- [ ] `综述矩阵.csv` + `综述矩阵.md` 已生成
+- [ ] 期刊风格产出：`research_dossier/` 目录完整
 - [ ] `评审报告.md` + `rebuttal-预演.md` 已生成
 - [ ] `引用审计报告.md` 已生成
 - [ ] figures/ 目录图表完整
@@ -240,6 +291,8 @@ python3 scripts/citation_audit.py 论文初稿.md --output 引用审计报告.md
 ### 错误日志更新 🆕
 - [ ] 本轮是否出现新的 AI 操作错误？
   - 引用编造 → 追加到 `.skill-state/error_log.md`
+  - 综述矩阵证据填充错误 → 追加到 `.skill-state/error_log.md`
+  - 期刊风格分析偏差 → 追加到 `.skill-state/error_log.md`
   - 术语混用 → 追加到 `.skill-state/error_log.md`
   - 7h 审计发现系统性误引 → 追加到 `.skill-state/error_log.md`
 

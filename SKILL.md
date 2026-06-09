@@ -8,7 +8,7 @@ category: research
 license: CC BY-NC-SA 4.0
 related_skills:
   - science-direct-cdp-pipeline: "Overlaps on CDP ScienceDirect download; this skill adds the full 8-step workflow from topic definition to paper polishing."
-  - zotero-review-matrix-skill: "Source of literature-review-matrix-schema, literature-review-docx-guide, and gbt7714-2015-citation-format references. Integrated into Steps 6e and 7."
+  - zotero-review-matrix-skill: "Source of literature-review-matrix-schema, literature-review-docx-guide, and gbt7714-2015-citation-format references. Integrated into Step 7 writing preparation and writing."
 triggers:
   # Step 1: 确定研究主题（v2.0 增强版）
   - "确定研究主题"
@@ -117,7 +117,11 @@ triggers:
   - "Zotero 大纲对齐"
   - "文库关联性"
   - "文献缺口"
-  # Step 6d: 文库-大纲对照表 PDF
+  # Step 6b/6c/6d: BibTeX-Zotero 架构对照 + 集合/PDF 一致性
+  - "文献-Zotero架构对照"
+  - "生成文献-Zotero架构对照"
+  - "BibTeX 导入 Zotero"
+  - "Zotero 条目附件关联"
   - "文库大纲对照表"
   - "生成文库对照表"
   - "文献覆盖热力图"
@@ -129,7 +133,7 @@ triggers:
   - "collection coverage heatmap"
   - "outline mapping report"
   - "Zotero coverage PDF"
-  # Step 6e: 综述矩阵
+  # Step 7.0: 综述矩阵
   - "综述矩阵"
   - "文献综述矩阵"
   - "生成综述矩阵"
@@ -137,7 +141,7 @@ triggers:
   - "文献矩阵"
   - "文献审阅矩阵"
   - "论文审阅表"
-  # Step 6f: 目标期刊风格学习+蓝图 🆕
+  # Step 7.1: 目标期刊风格学习+蓝图 🆕
   - "学习目标期刊风格"
   - "期刊风格分析"
   - "目标期刊蓝图"
@@ -287,14 +291,14 @@ Step 4: 多渠道检索+评分+报告（4a-4h） → 检索文献表.md / .xlsx 
   ├─ 4g 检索报告 🆕  统一交付物 .md+.xlsx+.bib +检索报告(.md+.pdf)+饱和度+PRISMA
   └─ 4h 完成 🆕      汇报 + 决策记录 + 转交 Step 5
 Step 5: 统一路由下载               → paper-temp/ PDFs
-Step 6: Zotero 文库管理              → zotero-架构.md + Zotero 桌面端 + 综述矩阵.csv
-  ├─ 6a 生成架构    首次按大纲生成
-  ├─ 6b 导入 PDF    将 PDF 拖入对应集合
-  ├─ 6c 一致性调整  大纲修订后重对齐文库 🌟
-  ├─ 6d 对照表 PDF  文库-大纲对照表 + 覆盖热力图 🆕
-  └─ 6e 综述矩阵    13 列证据矩阵，按证据优先级填充 🆕
+Step 6: Zotero 文库管理              → zotero-架构.md + 文献-Zotero架构对照.md/json + pdf-附件池索引.json + Zotero 条目/PDF 附件
+  ├─ 6a 生成架构    根据 Step 2 大纲生成 zotero-架构.md/json
+  ├─ 6b 生成对照    结合 Step 4 文献库.bib/中文元数据 与 zotero-架构生成文献-Zotero架构对照.md/json
+  ├─ 6c 创建集合    通过 Zotero MCP 创建集合并检查架构一致性
+  └─ 6d 导入附件    英文按 DOI/BibTeX，中文按 source_id+CSL JSON 入库，并从 PDF 附件池关联文件
 Step 7: 论文写作（paper_type×language双轴）  → 论文初稿.md / .docx
-  └─ 6f 风格学习+蓝图 目标期刊风格画像+章节蓝图+写作逻辑矩阵 🆕 v1.1.0
+  ├─ 7.0 综述矩阵      13 列证据矩阵，按证据优先级填充 🆕
+  ├─ 7.1 风格学习+蓝图 目标期刊风格画像+章节蓝图+写作逻辑矩阵 🆕 v1.1.0
   ├─ 7a 类型+语言识别  research/en/zh/zh-to-en
   ├─ 7b 写作模式       full/outline-only/plan/abstract-only/argument-first
   ├─ 7c 语言差异化     zh/en/zh-to-en 写作规范+章节命名
@@ -325,9 +329,10 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 | "饱和度曲线" / "discovery curve" | `agents/step_4_search_score.md` | 🆕 子步骤 4f：文献覆盖率估算 |
 | "引文扩展" / "citation network" | `agents/step_4_search_score.md` | 🆕 子步骤 4e：单轮 1-hop 引文网络扩展 |
 | "下载论文" / Step 5 相关触发词 | `agents/step_5_download.md` | 统一下载路由（Sci-Hub→SD→IEEE→Generic） |
-| "Zotero 文库整理" / Step 6 相关触发词 | `agents/step_6_zotero.md` | 架构生成 + PDF 导入 + 一致性调整 + 综述矩阵 + 期刊风格 |
-| "文库大纲对照表" / "覆盖热力图" | `agents/step_6_zotero.md` | 🆕 子步骤 6d：文库-大纲对照表 PDF + 覆盖热力图 |
-| "写论文" / Step 7 相关触发词 | `agents/step_7_writing.md` | 5 种写作模式 + 引用审计 + 图表生成 |
+| "Zotero 文库整理" / Step 6 相关触发词 | `agents/step_6_zotero.md` | 架构生成 + BibTeX/中文元数据-集合对照 + Zotero 集合创建 + PDF 附件一致性 |
+| "文献-Zotero架构对照" / "PDF 导入 Zotero" | `agents/step_6_zotero.md` | 子步骤 6b/6d：`.json` 为完整执行源，`.md` 为审阅版；英文 DOI/BibTeX，中文 source_id/CSL JSON，多来源 PDF 附件池关联 |
+| "综述矩阵" / "期刊风格学习" | `agents/step_7_writing.md` | Step 7.0/7.1：写作前证据组织 + 目标期刊风格蓝图 |
+| "写论文" / Step 7 相关触发词 | `agents/step_7_writing.md` | 综述矩阵 + 期刊风格 + 5 种写作模式 + 引用审计 + 图表生成 |
 | "论文润色" / Step 8 相关触发词 | `agents/step_8_polishing.md` | 四合一精修引擎 + 术语标准化 |
 | 技术问题 / 报错排查 | `agents/known_pitfalls.md` | Python/CDP/Zotero 已知陷阱 |
 
@@ -410,8 +415,8 @@ fi
 | `scripts/auto_sd_downloader.py` | 5 | SD 全自动下载（断点续跑） |
 | `scripts/organize_zotero.py` | 6 | 生成 Zotero 文库架构 |
 | `scripts/setup_zotero.py` | 6 | Zotero MCP 一键安装+配置 |
-| `scripts/learn_journal_style.py` | 6f | 目标期刊风格学习 🆕 |
-| `scripts/generate_section_blueprints.py` | 6f | 章节蓝图生成 🆕 |
+| `scripts/learn_journal_style.py` | 7.1 | 目标期刊风格学习 🆕 |
+| `scripts/generate_section_blueprints.py` | 7.1 | 章节蓝图生成 🆕 |
 | `scripts/batch_read_pdfs.py` | 7 | 批量提取 PDF 全文文本 |
 | `scripts/citation_audit.py` | 7h | 写后引用审计 🆕 |
 | `scripts/generate_figures.py` | 7g | 科研图表生成 🆕 |
@@ -451,7 +456,7 @@ fi
 
 | `references/search-query-frameworks.md` | Step 3 — 检索查询框架参考 |
 | `references/rcs-rubric.md` 🆕 | Step 4 — 主题匹配度评鉴启发指南（RCS 启发） |
-| `references/literature-review-matrix-schema.md` | Step 6e — 13 列综述矩阵定义 |
+| `references/literature-review-matrix-schema.md` | Step 7.0 — 13 列综述矩阵定义 |
 | `references/literature-review-docx-guide.md` | Step 7 — 综述 DOCX 写作结构 |
 | `references/gbt7714-2015-citation-format.md` | Step 7 — GB/T 7714 引用格式 |
 | `references/citation-audit-guide.md` | Step 7h — 引用审计方法论 |
