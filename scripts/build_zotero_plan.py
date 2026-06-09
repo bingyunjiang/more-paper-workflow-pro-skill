@@ -523,6 +523,22 @@ def compute_readiness(records: list[dict[str, Any]], blocking: list[str], nonblo
     return "complete", True, "可进入 6c 创建/复用 Zotero 集合，并按 JSON 分步写入。"
 
 
+def update_pdf_index_matches(pdfs: list[dict[str, Any]], records: list[dict[str, Any]]) -> None:
+    by_path = {pdf["path"]: pdf for pdf in pdfs}
+    for rec in records:
+        for cand in rec.get("matched_pdf_candidates") or []:
+            pdf = by_path.get(cand.get("path", ""))
+            if not pdf:
+                continue
+            current = pdf.get("match_status", "unmatched")
+            if current == "duplicate_candidate":
+                continue
+            pdf["match_status"] = rec.get("attachment_status", "matched")
+            pdf["matched_record_id"] = rec.get("record_id", "")
+            pdf["matched_citekey"] = rec.get("citekey", "")
+            pdf["match_confidence"] = cand.get("match_confidence", "")
+
+
 def write_json(path: str, data: Any) -> None:
     p = Path(path)
     if p.parent and str(p.parent) != ".":
@@ -614,6 +630,7 @@ def main() -> int:
             warnings.append(f"Could not parse BibTeX: {exc}")
 
     records = [] if blocking else build_records(bib_records, chinese_index, root, structure_rows, has_structure, pdfs)
+    update_pdf_index_matches(pdfs, records)
     readiness, can_continue, next_step = compute_readiness(records, blocking, nonblocking, warnings)
 
     plan = {
