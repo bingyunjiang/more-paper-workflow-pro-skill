@@ -296,6 +296,18 @@ pip install websocket-client
 | Python 依赖（可选） | `pip install pymupdf` | Step 8 批量 PDF 文本提取 |
 | 机构权限 | ScienceDirect 访问 | IP 或 SSO/CARSI/Shibboleth（仅 SD 下载需要） |
 
+### 自动升级提醒
+
+Skill 启动时会通过 `scripts/check_skill_update.py` 做一次轻量更新检查：比较 `SKILL.md` / `README.md` / `CHANGELOG.md` 的本地版本，并在 git 仓库可用时比较远程 `HEAD`。默认 24 小时最多提醒一次，只打印建议命令，不会自动更新。
+
+```bash
+python3 scripts/check_skill_update.py --force
+```
+
+- 关闭提醒：`MORE_PAPER_SKILL_UPDATE_CHECK=0`
+- 调整频率：`MORE_PAPER_SKILL_UPDATE_INTERVAL_HOURS=6`
+- 只做本地元数据检查：`python3 scripts/check_skill_update.py --no-network --force`
+
 ### 跨平台浏览器检测
 
 脚本自动查找 Chrome/Edge，无需手动配置路径。检测顺序：
@@ -947,6 +959,18 @@ pip install websocket-client
 | Python Deps | `pip install websocket-client` | CDP protocol communication (auto-checked at startup) |
 | Python Deps (optional) | `pip install pymupdf` | Step 8 batch PDF text extraction |
 | Institution Access | ScienceDirect access | IP or SSO/CARSI/Shibboleth (SD download only) |
+
+### Automatic Update Reminder
+
+On skill startup, `scripts/check_skill_update.py` performs a lightweight update check: it compares local `SKILL.md` / `README.md` / `CHANGELOG.md` versions and, when this is a git checkout, compares the remote `HEAD`. It is throttled to once every 24 hours by default, only prints a suggested command, and never updates files automatically.
+
+```bash
+python3 scripts/check_skill_update.py --force
+```
+
+- Disable reminder: `MORE_PAPER_SKILL_UPDATE_CHECK=0`
+- Change frequency: `MORE_PAPER_SKILL_UPDATE_INTERVAL_HOURS=6`
+- Local metadata only: `python3 scripts/check_skill_update.py --no-network --force`
 
 ### Cross-Platform Browser Detection
 

@@ -55,6 +55,13 @@
 - Step 1-8 文档同步清理触发词、输入输出、质量门和故障处理，尤其强化 Step 2-5 的跨步骤接口和 Step 6 的 6a/6b/6c/6d 分工
 - `agents/known_pitfalls.md` 扩展常见坑，便于后续 Agent 跨会话复用修复经验。
 
+### 自动升级提醒
+
+- 新增 `scripts/check_skill_update.py`：每个 agent 启动时可做 best-effort 更新检查，比较本地版本元数据和远程 git `HEAD`
+- 默认 24 小时最多提醒一次，状态写入用户缓存目录；只输出更新建议，不自动执行 `git pull`
+- 支持 `--force`、`--no-network`、`--quiet` 和 `MORE_PAPER_SKILL_UPDATE_CHECK=0` 关闭开关
+- 同步 `SKILL.md` frontmatter 版本到 `v1.0.9-20260609`，避免 README/CHANGELOG 与运行时元数据不一致
+
 ### 修改文件
 
 | 文件 | 改动 |
@@ -70,8 +77,9 @@
 | `agents/step_4_search_score.md` | 强化 7 件套交付物、中文论文元数据和 search_tasks 字段保留规则 |
 | `agents/step_5_download.md` | 新增直达下载模式，整理执行流程编号为 6a-6i |
 | `agents/step_6_zotero.md` | 重写 Step 6 为架构、对照、集合创建、入库/附件状态四段式流程 |
-| `SKILL.md` | 更新触发词、路由表、脚本索引、运行态模板复制规则和 Step 6 概览 |
-| `README.md` | 更新 v1.0.9 展示、版本历史、Step 6 能力、英文区版本号 |
+| `scripts/check_skill_update.py` | 新增自动升级提醒脚本 |
+| `SKILL.md` | 更新触发词、路由表、脚本索引、运行态模板复制规则、自动升级提醒和 Step 6 概览 |
+| `README.md` | 更新 v1.0.9 展示、版本历史、Step 6 能力、自动升级提醒、英文区版本号 |
 | `references/templates/*.md` | 将错误日志、决策日志、术语别名改为运行时模板 |
 | `.gitignore` | 忽略 `.claude/` 和运行时状态目录 |
 

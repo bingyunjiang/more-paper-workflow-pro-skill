@@ -1,6 +1,6 @@
 ---
 name: more-paper-workflow-pro-skill
-version: v1.0.7-20260607
+version: v1.0.9-20260609
 description: Use when the user asks for the more-paper academic workflow: research topic clarification, outline and keyword generation, structured literature search plans, multi-source literature search and scoring, paper PDF download routing (Sci-Hub/IEEE/ScienceDirect), Zotero library organization, review matrices, paper writing, citation audit, or polishing. Especially useful for Chinese or English thesis, dissertation, literature review, PRISMA-style search logs, and GB/T 7714 references. 学术论文全流程：确定研究主题，生成大纲，文献检索，下载，Zotero，综述矩阵，论文写作，润色。
 author: Dr. Jiang Bingyun（江博士）
 wechat: Bingyunjiang
@@ -385,6 +385,21 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 | `.skill-state/decision_log.md` | 结构性决策记录 | 所有 agent | 所有 agent |
 | `.skill-state/term_aliases.md` | 术语标准化映射 | Step 2, Step 8 | Step 3, Step 7, Step 8 |
 
+### 自动升级提醒
+
+每个 agent 启动时，在 Pre-read Checklist 阶段先执行一次轻量更新检查：
+
+```
+python3 "$SKILL_DIR/scripts/check_skill_update.py" --quiet
+```
+
+- 该检查为 **best-effort**：网络不可用、远程仓库不可访问或 git 不可用时不得阻塞主流程
+- 默认 24 小时最多提醒一次，状态写入用户缓存目录，不写入项目 `.skill-state/`
+- 只打印提醒和更新命令，不自动执行 `git pull`
+- 手动强制检查：`python3 "$SKILL_DIR/scripts/check_skill_update.py" --force`
+- 关闭自动检查：设置环境变量 `MORE_PAPER_SKILL_UPDATE_CHECK=0`
+- 调整检查间隔：设置 `MORE_PAPER_SKILL_UPDATE_INTERVAL_HOURS=6`
+
 ### 🆕 .skill-state/ 初始化规则
 
 运行态的状态文件存放在项目工作目录下的 `.skill-state/` 中（与 skill 目录隔离）。
@@ -447,6 +462,7 @@ fi
 | `scripts/auto_sd_downloader.py` | 5 | SD 全自动下载（断点续跑） |
 | `scripts/organize_zotero.py` | 6 | 生成 Zotero 文库架构 |
 | `scripts/setup_zotero.py` | 6 | Zotero MCP 一键安装+配置 |
+| `scripts/check_skill_update.py` | 全部 | 自动升级提醒：检查本地版本元数据和远程 git HEAD，默认每日最多提醒一次 |
 | `scripts/learn_journal_style.py` | 7.2 | 目标体裁/文档风格学习 🆕 |
 | `scripts/generate_section_blueprints.py` | 7.2 | 章节蓝图生成 🆕 |
 | `scripts/batch_read_pdfs.py` | 7 | 批量提取 PDF 全文文本 |
