@@ -467,7 +467,7 @@
 - 新增**「适合谁 / 不适合谁」**章节
 - 强化「为什么需要这个工具」—— AI 编造参考文献问题
 - 项目结构扩展（docs/、全部 9 个 references、packages/）
-- 脚本速查新增 3 个条目（hybrid_sd_download、generate_posters、start_cdp_chrome）
+- 脚本速查新增 3 个条目（sd_download CLI 模式、generate_posters、start_cdp_chrome）
 
 ### 对话触发短语
 

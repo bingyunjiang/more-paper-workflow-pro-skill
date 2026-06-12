@@ -29,7 +29,7 @@ from cdp_utils import (
     find_chrome_path, find_edge_path, check_required_deps,
     check_sd_access, CHROME_INSTALL_GUIDE,
 )
-from sd_download import download_one
+from sd_download import download_sd_pii
 
 # Each browser gets its own persistent profile dir — retains SD login across runs
 DEFAULT_PROFILES = {
@@ -77,7 +77,7 @@ def _worker(name, port, papers, output_dir, results, log_lock):
             break
 
         t0 = time.time()
-        data = download_one(port, pii)
+        data = download_sd_pii(port, pii)
         et = time.time() - t0
 
         if data and len(data) > 20000:

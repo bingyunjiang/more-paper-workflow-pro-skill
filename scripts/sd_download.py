@@ -4,31 +4,58 @@
 # https://creativecommons.org/licenses/by-nc-sa/4.0/
 #
 """
-Hybrid SD download core — shared by parallel_sd_download.py and auto_sd_downloader.py.
+SD PDF downloader — two-strategy hybrid with library API + CLI batch mode.
 
 Two strategies, tried in order:
-  A (fast): Navigate /pdfft → wait for PDF tab → capture via Fetch (10s)
-  B (fallback): Navigate article page → extract ?md5= URL → navigate → wait for PDF tab → capture (25s)
+  A (fast): Navigate /pdfft → wait for PDF tab → capture via Fetch (~10s)
+  B (fallback): Article page → extract ?md5= URL → navigate → wait for PDF tab → capture (~25s)
 
 Design principle: all papers are accessible; failure means need a better strategy.
+
+Library mode (imported by parallel_sd_downloader.py, auto_sd_downloader.py):
+    from sd_download import download_sd_pii
+    pdf_bytes = download_sd_pii(port, pii)
+
+CLI mode:
+    # Batch download from PII map JSON
+    python3 scripts/sd_download.py --pii-map sd_pii_map.json
+    python3 scripts/sd_download.py --port 9225 --pii-map sd_pii_map.json --start-offset 5
+
+    # Single paper download
+    python3 scripts/sd_download.py --port 9223 --pii S0022519326000012
 """
-import json, time, base64, os, urllib.request, websocket
+import argparse
+import base64
+import json
+import os
+import sys
+import time
+import urllib.request
+import websocket
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-if _SCRIPT_DIR not in __import__("sys").path:
-    __import__("sys").path.insert(0, _SCRIPT_DIR)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
 
-from cdp_utils import get_cdp_ws_url, list_tabs, close_tab, send_cmd_and_wait, check_cdp
+from cdp_utils import check_cdp, close_tab, get_cdp_ws_url, list_tabs, send_cmd_and_wait
 
 SD_PDF_HOST = "https://pdf.sciencedirectassets.com"
 FETCH_PATTERN = "*pdf.sciencedirectassets.com*main.pdf*"
 
-# ── Helpers ───────────────────────────────────────────
+
+def _log(msg: str) -> None:
+    """Flushed print for CLI progress output."""
+    print(msg, flush=True)
 
 
-def _create_tab(port, url):
-    """Create a tab, return tab ID."""
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+
+def _create_tab(port: int, url: str) -> str | None:
+    """Create a new CDP tab navigating to *url*. Returns tab ID or None."""
     wu = get_cdp_ws_url(port)
+    if not wu:
+        return None
     ws = websocket.create_connection(wu, timeout=10)
     ws.send(json.dumps({"id": 1, "method": "Target.createTarget",
                         "params": {"url": url}}))
@@ -37,8 +64,8 @@ def _create_tab(port, url):
     return tid
 
 
-def _wait_for_pdf_tab(port, timeout=10):
-    """Wait for any tab with PDF host URL. Returns the tab dict or None."""
+def _wait_for_pdf_tab(port: int, timeout: int = 10) -> dict | None:
+    """Wait for any tab whose URL contains the SD PDF host. Returns tab dict or None."""
     for _ in range(timeout):
         time.sleep(1)
         try:
@@ -50,8 +77,8 @@ def _wait_for_pdf_tab(port, timeout=10):
     return None
 
 
-def _capture_from_tab(tab_ws_url, port, timeout=20):
-    """Connect to a PDF tab, reload with Fetch, capture PDF bytes."""
+def _capture_from_tab(tab_ws_url: str, port: int, timeout: int = 20) -> bytes | None:
+    """Connect to a PDF tab, reload with Fetch interception, capture PDF bytes."""
     pdf_data = None
     try:
         pws = websocket.create_connection(tab_ws_url, timeout=10)
@@ -100,17 +127,18 @@ def _capture_from_tab(tab_ws_url, port, timeout=20):
     return pdf_data
 
 
-def _navigate_and_capture(port, url, redirect_timeout=10, capture_timeout=20):
-    """Create a tab, navigate to URL, wait for PDF tab, capture.
+def _navigate_and_capture(port: int, url: str, redirect_timeout: int = 10,
+                          capture_timeout: int = 20) -> bytes | None:
+    """Create tab → navigate to URL → wait for PDF redirect tab → capture.
 
-    Returns PDF bytes or None.
+    Returns PDF bytes, or None on failure.
     """
     tid = _create_tab(port, url)
     if not tid:
         return None
 
     pdf = None
-    pdf_tid = None  # track the PDF tab to close it after capture
+    pdf_tid = None
     try:
         pdf_tab = _wait_for_pdf_tab(port, timeout=redirect_timeout)
         if pdf_tab:
@@ -119,16 +147,16 @@ def _navigate_and_capture(port, url, redirect_timeout=10, capture_timeout=20):
     except Exception:
         pass
 
-    close_tab(port, tid)       # close the navigation tab
+    close_tab(port, tid)        # navigation tab
     if pdf_tid:
-        close_tab(port, pdf_tid)  # close the PDF tab (prevents re-capture on next paper)
+        close_tab(port, pdf_tid)  # PDF tab (prevents cross-paper interference)
     return pdf
 
 
-# ── Strategy A: direct /pdfft ─────────────────────────
+# ── Strategy A: direct /pdfft ────────────────────────────────────────────────
 
 
-def _strategy_a(port, pii, timeout=10):
+def _strategy_a(port: int, pii: str, timeout: int = 10) -> bytes | None:
     """Navigate to /pdfft, wait for PDF redirect tab, capture.
 
     Works for ~30% of SD papers that redirect to pdf.sciencedirectassets.com.
@@ -137,10 +165,10 @@ def _strategy_a(port, pii, timeout=10):
     return _navigate_and_capture(port, pdfft, redirect_timeout=timeout, capture_timeout=15)
 
 
-# ── Strategy B: article page → ?md5= URL ─────────────
+# ── Strategy B: article page → ?md5= URL ────────────────────────────────────
 
 
-def _extract_pdfft_url(port, pii, render_timeout=12):
+def _extract_pdfft_url(port: int, pii: str, render_timeout: int = 12) -> str | None:
     """Navigate to article page, wait for JS render, extract View PDF link with ?md5=.
 
     Returns the full pdfft URL with ?md5= and &pid= parameters, or None.
@@ -152,10 +180,8 @@ def _extract_pdfft_url(port, pii, render_timeout=12):
 
     full_url = None
     try:
-        # Wait for JS rendering
         time.sleep(render_timeout)
 
-        # Find tab WS URL
         tws = None
         for t in list_tabs(port):
             if t.get("id") == tid:
@@ -189,29 +215,28 @@ def _extract_pdfft_url(port, pii, render_timeout=12):
     return full_url
 
 
-def _strategy_b(port, pii, timeout=25):
+def _strategy_b(port: int, pii: str, timeout: int = 25) -> bytes | None:
     """Open article page, extract ?md5= URL, navigate, wait for PDF tab, capture.
 
     Works for ~70% of SD papers served via the online PDF viewer.
     """
-    # Extract the full pdfft URL from the article page
     full_url = _extract_pdfft_url(port, pii, render_timeout=25)
     if not full_url:
         return None
 
-    # Navigate to the full URL and capture
     return _navigate_and_capture(port, full_url, redirect_timeout=timeout, capture_timeout=20)
 
 
-# ── Public API ────────────────────────────────────────
+# ── Public API ───────────────────────────────────────────────────────────────
 
 
-def download_one(port, pii, timeout_a=8, timeout_b=20):
-    """Try both strategies to download a single SD paper.
+def download_sd_pii(port: int, pii: str, timeout_a: int = 8,
+                    timeout_b: int = 20) -> bytes | None:
+    """Try both strategies to download a single SD paper by PII.
 
     Args:
         port: CDP debugging port.
-        pii: ScienceDirect PII identifier.
+        pii: ScienceDirect PII identifier (e.g. "S0022519326000012").
         timeout_a: Seconds for Strategy A — direct /pdfft (default 8).
         timeout_b: Seconds for Strategy B — article page extraction (default 20,
                    not counting the 12s JS render wait).
@@ -238,3 +263,83 @@ def download_one(port, pii, timeout_a=8, timeout_b=20):
     # Strategy B — article page → ?md5= URL
     pdf = _strategy_b(port, pii, timeout=timeout_b)
     return pdf
+
+
+# ── CLI batch mode ───────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="SD PDF downloader — two-strategy hybrid (library + CLI)")
+    parser.add_argument("--output-dir", "-o", default="download/paper-temp")
+    parser.add_argument("--pii-map", "-p",
+                        help="JSON file mapping paper keys → {{doi, pii}} (batch mode)")
+    parser.add_argument("--pii",
+                        help="Single PII to download (quick mode)")
+    parser.add_argument("--port", type=int, default=9223)
+    parser.add_argument("--start-offset", type=int, default=0,
+                        help="Skip first N remaining papers (for dual-browser split)")
+    args = parser.parse_args()
+
+    if not check_cdp(args.port):
+        _log(f"❌ CDP not running on port {args.port}")
+        sys.exit(1)
+
+    # ── Single PII mode ──
+    if args.pii:
+        _log(f"Downloading PII: {args.pii}")
+        t0 = time.time()
+        pdf = download_sd_pii(args.port, args.pii)
+        et = time.time() - t0
+        if pdf:
+            out_path = os.path.join(args.output_dir, f"{args.pii}.pdf")
+            os.makedirs(args.output_dir, exist_ok=True)
+            with open(out_path, "wb") as f:
+                f.write(pdf)
+            _log(f"✅ {args.pii}: {len(pdf)//1024}KB ({et:.0f}s) → {out_path}")
+        else:
+            _log(f"❌ {args.pii} ({et:.0f}s)")
+        sys.exit(0)
+
+    # ── Batch mode (PII map) ──
+    if not args.pii_map:
+        parser.error("Either --pii or --pii-map is required")
+
+    if not os.path.exists(args.pii_map):
+        _log(f"❌ PII map not found: {args.pii_map}")
+        sys.exit(1)
+
+    with open(args.pii_map) as f:
+        data = json.load(f)
+
+    # Determine already-downloaded papers
+    os.makedirs(args.output_dir, exist_ok=True)
+    done = set(
+        f[:-4] for f in os.listdir(args.output_dir)
+        if f.endswith(".pdf")
+    )
+
+    # Build remaining list: (key, doi, pii)
+    remaining = [
+        (k, v["doi"], v["pii"])
+        for k, v in data.get("resolved", {}).items()
+        if k not in done
+    ]
+    remaining = remaining[args.start_offset:]
+
+    _log(f"Remaining: {len(remaining)} (offset {args.start_offset})")
+
+    ok = 0
+    for i, (key, doi, pii) in enumerate(remaining, 1):
+        t0 = time.time()
+        pdf = download_sd_pii(args.port, pii)
+        et = time.time() - t0
+        if pdf:
+            out_path = os.path.join(args.output_dir, f"{key}.pdf")
+            with open(out_path, "wb") as f:
+                f.write(pdf)
+            ok += 1
+            _log(f"[{i}/{len(remaining)}] ✅ {key}: {len(pdf)//1024}KB ({et:.0f}s)")
+        else:
+            _log(f"[{i}/{len(remaining)}] ❌ {key} ({et:.0f}s)")
+
+    _log(f"\nDone: {ok} / {len(remaining)}")

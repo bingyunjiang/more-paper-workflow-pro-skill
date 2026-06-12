@@ -25,7 +25,7 @@ import json, time, os, sys, threading, argparse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cdp_utils import check_cdp, check_sd_access, check_required_deps
-from sd_download import download_one
+from sd_download import download_sd_pii
 
 log_lock = threading.Lock()
 
@@ -35,7 +35,7 @@ def worker(name, port, papers, output_dir):
     ok, fail = 0, 0
     for i, (key, doi, pii) in enumerate(papers, 1):
         t0 = time.time()
-        data = download_one(port, pii)
+        data = download_sd_pii(port, pii)
         et = time.time() - t0
 
         if data and len(data) > 20000:
