@@ -1,6 +1,6 @@
 # Step 5: 统一批量下载 (Unified Download Router)
 
-> **中英文双管道并行：** 登录门控后分叉启动。英文三轮顺序（Sci-Hub → SD CDP → Generic CDP），中文独立 CDP（CNKI/万方）。覆盖 24 家英文出版社 + 2 个中文数据库。IEEE 已归入 Generic CDP，`download_via_ieee.py` 保留作为手动 fallback。
+> **默认串行可靠：** 英文三轮顺序（Sci-Hub → SD CDP → Generic CDP），中文 CDP（CNKI/万方）与英文 CDP 默认串行执行，避免共享浏览器状态互相干扰。需要加速时可显式使用 `--parallel-phase1`，但不作为默认策略。IEEE 已归入 Generic CDP，`download_via_ieee.py` 保留作为手动 fallback。
 
 ---
 
@@ -40,8 +40,9 @@
 | 输入 | 来源 | 格式 | 必选 |
 |------|------|------|:--:|
 | 检索文献表 | Step 4 | .md | 批量模式必选 |
+| workflow search results | Step 4 / 用户提供 | workflow JSON | 可直接作为下载入口 |
 | DOI/标题/URL/参考文献列表 | 用户直接提供 | pasted text / .txt / .md / .bib | 直达下载模式必选其一 |
-| direct_download_manifest | Step 5 生成 | .md/.json | 标题/混合输入时必选 |
+| direct_download_manifest | Step 5 生成 / 用户提供 | .md/.json | 标题/混合输入时必选 |
 | 中文论文元数据 | Step 4 或 Step 5 生成 | 中文论文元数据.json | 中文下载必选 |
 | CDP Chrome 浏览器 | 用户启动 | 端口 9223 | ✅ |
 
@@ -80,6 +81,17 @@
 4. 中文论文多数没有真实 DOI，必须以 `source=cnki|wanfang` + `article_url` 或 `source_id` 路由，不把 `cnki.xxx` / `wanfang.xxx` 当作英文 DOI。
 5. 直达模式只做“用户指定文献下载”，不生成 Step 4 的评分、Tier、饱和度或 PRISMA 报告。
 6. 直达模式只需要确认下载清单和登录状态；不得要求用户补跑 Step 1-4。
+7. 所有入口先归一化为 `DownloadManifestItem` 语义：`item_id`、`title`、`doi`、`source`、`source_id`、`article_url`、`route_key`、`status`、`confidence`。旧 `direct_download_manifest.md/json` 可继续使用，但内部语义以 workflow contract 为准。
+
+**Direct-entry input contract：**
+
+| 可接受输入 | 推荐命令/处理 | 降级规则 |
+|------------|---------------|----------|
+| DOI 列表或 `--papers` | `unified_download_router.py --papers "...“ --dry-run` | DOI 异常进入 unresolved |
+| `workflow-contracts.v1` search results JSON | `unified_download_router.py --workflow-results results.json --dry-run` | 缺 DOI 但有中文 article_url 仍可下载 |
+| direct download manifest JSON | `unified_download_router.py --download-manifest manifest.json --dry-run` | 只下载 `status=ready` |
+| CNKI/Wanfang URL | 转为 `source=cnki|wanfang` + `article_url` | 缺 URL 不猜测，进入 unresolved |
+| 标题或参考文献文本 | 先解析 DOI/article_url/source_id | 多候选或低置信度时等待用户确认 |
 
 **direct_download_manifest 推荐格式：**
 
@@ -96,7 +108,8 @@
 **执行分流：**
 
 - DOI-only：直接运行 `python3 scripts/unified_download_router.py --papers "10.x,10.y" --dry-run` 预览路由。
-- DOI + 中文 URL：英文 DOI 用 `--papers`；中文条目写入 `中文论文元数据.json` 后用 `--chinese-input`。
+- workflow JSON：直接运行 `python3 scripts/unified_download_router.py --workflow-results workflow_search_results.json --dry-run` 预览 DOI + 中文 URL 混合路由。
+- DOI + 中文 URL：优先生成 manifest JSON 后用 `--download-manifest`；兼容路径是英文 DOI 用 `--papers`，中文条目写入 `中文论文元数据.json` 后用 `--chinese-input`。
 - 标题-only：先完成解析和 manifest，再只对 `status=ready` 的条目启动下载。
 
 ### 6b. CHECKPOINT W — CP-DOWNLOAD-LOGIN 🚧 精准触发规则
@@ -334,12 +347,13 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 ### 6i. 核心设计原则
 
 1. **默认所有论文都有访问权限** — 下不到是策略问题，不是权限问题
-2. **中英文双管道并行** — 登录门控后 `ThreadPoolExecutor` 同时启动英文和中文管道，共享 CDP 端口
+2. **默认串行，显式并行** — CNKI/万方和英文 CDP 默认串行，只有用户明确接受共享 CDP 风险时才使用 `--parallel-phase1`
 3. **英文按 DOI 前缀路由，中文按 source 字段路由** — 两条线泾渭分明，互不污染
 4. **`Fetch.enable` 必须在 `Page.navigate` 之前调用**（IEEE v1.0.1 验证）— 否则 Chrome PDF 查看器消费响应体
 5. **出版商知识库集中维护** — `config/publishers.toml`，新增出版商只需加一个 `[publishers.xxx]` 段落
 6. **IEEE 已归入 Generic CDP**，`download_via_ieee.py` 保留作为手动 fallback
 7. **直达下载先归一化、再下载** — DOI 可直接路由，标题必须先解析为 DOI/URL/中文 article_url
+8. **checkpoint 不是入口锁** — `CP-DOWNLOAD-LOGIN` 只阻塞需要登录态的下载执行，不阻塞 manifest 生成、dry-run、OA/Sci-Hub/direct_http 路径
 
 ---
 

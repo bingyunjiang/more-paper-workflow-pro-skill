@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "journal": "Test Journal",
+  "target_genre": "journal",
+  "target_name": "Test Journal",
+  "sample_source": "",
+  "sample_count": 1,
+  "confidence": "medium",
+  "structure_rules": {
+    "abstract_word_count": {
+      "min": 12,
+      "max": 12,
+      "avg": 12
+    },
+    "section_heading_style": "numbered (e.g., '1. Introduction')",
+    "typical_section_count": {
+      "min": 6,
+      "max": 6,
+      "avg": 6.0
+    },
+    "paragraph_length": {},
+    "section_order": [
+      "Abstract",
+      "Introduction",
+      "Method",
+      "Experiments",
+      "References"
+    ],
+    "typical_subsections": {
+      "per_paper_avg": 0.0
+    }
+  },
+  "language_rules": {
+    "avg_sentence_length": 6.3,
+    "passive_voice_ratio": 0.0,
+    "hedging_frequency": {},
+    "transition_phrases": []
+  },
+  "citation_rules": {
+    "reference_format": "",
+    "avg_citations_per_section": {},
+    "total_references_range": {
+      "min": 1,
+      "max": 1,
+      "avg": 1
+    }
+  },
+  "figure_rules": {
+    "figure_caption_style": ""
+  },
+  "constraints": [],
+  "warnings": []
+}

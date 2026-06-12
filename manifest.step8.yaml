@@ -1,0 +1,31 @@
+version: 0.1.0
+name: step8-polishing
+description: Router manifest for Step 8 polishing and revision-scope selection.
+
+axes:
+  revision_scope:
+    allowed:
+      - local-polish
+      - section-revision
+      - full-manuscript-pass
+    default: local-polish
+  language:
+    allowed:
+      - zh
+      - en
+      - bilingual
+    default: zh
+  target_genre:
+    allowed:
+      - thesis
+      - journal
+      - review
+      - report
+      - proposal
+      - conference
+    default: thesis
+
+always_load:
+  - static/core/output-contract.md
+  - references/polish-modes.md
+  - references/ai-trace-taxonomy.md

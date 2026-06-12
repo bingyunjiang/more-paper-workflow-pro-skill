@@ -44,6 +44,8 @@ class StyleProfile:
     journal: str
     mode: str                     # "flash" or "pro"
     num_exemplars: int
+    target_genre: str = "journal"
+    target_name: str = ""
     # Formatting
     abstract_word_count: dict = field(default_factory=dict)   # {min, max, avg}
     section_heading_style: str = ""  # numbered, unnumbered, mixed
@@ -63,10 +65,50 @@ class StyleProfile:
     passive_voice_ratio: float = 0.0   # 0-1, higher = more passive
     hedging_frequency: dict = field(default_factory=dict)      # hedging terms per 1000 words
     transition_phrases: list[str] = field(default_factory=list)  # common transitions
+    sample_source: str = ""
+    sample_count: int = 0
+    confidence: str = "medium"
+    constraints: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     def to_markdown(self) -> str:
         """Render as style_profile.md."""
         return _render_style_profile_md(self)
+
+    def to_schema_dict(self) -> dict:
+        return {
+            "schema_version": "1.0",
+            "journal": self.journal,
+            "target_genre": self.target_genre,
+            "target_name": self.target_name or self.journal,
+            "sample_source": self.sample_source,
+            "sample_count": self.sample_count or self.num_exemplars,
+            "confidence": self.confidence,
+            "structure_rules": {
+                "abstract_word_count": self.abstract_word_count,
+                "section_heading_style": self.section_heading_style,
+                "typical_section_count": self.typical_section_count,
+                "paragraph_length": self.paragraph_length,
+                "section_order": self.section_order,
+                "typical_subsections": self.typical_subsections,
+            },
+            "language_rules": {
+                "avg_sentence_length": self.avg_sentence_length,
+                "passive_voice_ratio": self.passive_voice_ratio,
+                "hedging_frequency": self.hedging_frequency,
+                "transition_phrases": self.transition_phrases,
+            },
+            "citation_rules": {
+                "reference_format": self.reference_format,
+                "avg_citations_per_section": self.avg_citations_per_section,
+                "total_references_range": self.total_references_range,
+            },
+            "figure_rules": {
+                "figure_caption_style": self.figure_caption_style,
+            },
+            "constraints": self.constraints,
+            "warnings": self.warnings,
+        }
 
 
 @dataclass
@@ -529,6 +571,8 @@ def main():
 
     # Combine into style profile
     profile = combine_analyses(args.target_journal, args.mode, analyses)
+    profile.target_name = args.target_journal
+    profile.sample_count = len(analyses)
 
     # Write outputs
     os.makedirs(args.output, exist_ok=True)
@@ -538,6 +582,11 @@ def main():
     with open(style_path, 'w', encoding='utf-8') as f:
         f.write(profile.to_markdown())
     print(f"✅ 风格画像: {style_path}")
+
+    style_json_path = os.path.join(args.output, "style_profile.json")
+    with open(style_json_path, 'w', encoding='utf-8') as f:
+        json.dump(profile.to_schema_dict(), f, ensure_ascii=False, indent=2)
+    print(f"✅ 风格画像JSON: {style_json_path}")
 
     # Research dossier (full analysis)
     dossier_path = os.path.join(args.output, "research_dossier.md")

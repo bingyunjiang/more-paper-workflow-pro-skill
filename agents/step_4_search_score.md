@@ -6,9 +6,9 @@
 
 ## 1. 启动前读取 (Pre-read Checklist)
 
-执行本步骤前，必须确认以下文件已加载：
+执行本步骤前，优先确认以下工件是否可用；若同时存在 JSON 和 Markdown，优先读取 JSON 机器源：
 
-- [ ] `检索方案.md` — Step 3 产出（search_tasks + L1→L2→L3 路由 + 概念块布尔查询）
+- [ ] `检索方案.json` / `检索方案.md` — Step 3 产出（`检索方案.json` 为机器执行源，`检索方案.md` 为人工审阅版）
 - [ ] `研究主题.md` — Step 1 产出（tier/search_tier + 聚焦主题 + 预审结论）
 - [ ] `references/search-query-frameworks.md` — 检索查询框架参考
 - [ ] `references/rcs-rubric.md` — 🆕 主题匹配度评鉴启发指南
@@ -54,6 +54,17 @@
 2. 输出 `CHECKPOINT 3 — CP-SEARCH`，设置 `entry_mode: direct_entry` 或 `partial_artifact`，`status: satisfied_by_user_artifact` 或 `satisfied_by_agent_reconstruction`。
 3. 用户明确“确认 CP-SEARCH”后，才执行真实多源检索命令；生成 dry-run 摘要、评分用户已有文献表、格式转换或报告生成不需要补跑完整 Step 3。
 
+**Direct-entry input contract：**
+
+| 可接受输入 | 最小处理 | 是否触发 CP-SEARCH |
+|------------|----------|--------------------|
+| `search_tasks` / `检索方案.md` | 直接执行或 dry-run 检索计划 | 真实检索前触发 |
+| 用户给定检索式/数据库清单 | 包装为最小 `search_tasks` | 真实检索前触发 |
+| 已有 `检索文献表.md` / `.xlsx` | 只做评分、报告、格式补齐 | 不触发，除非继续联网检索 |
+| 已有 `文献库.bib` / workflow search results JSON | 导入为标准结果集，补报告或交给 Step 5/6 | 不触发，除非继续联网检索 |
+
+Step 4 的直接入口不强制生成完整 7 件套。只有用户要求“完成标准 Step 4 交付”时，才按 7 件套质量门执行；如果用户只要求评分已有文献、生成报告或转入下载/Zotero，应输出当前可用产物和缺失项清单，不要求回跑 Step 3。
+
 **Step 3 字段读取规则：**
 
 | 字段 | 用途 |
@@ -82,6 +93,7 @@
 | 5 | 饱和度曲线快照 🆕 | .json | `discovery_curve.py`（4f 步骤） | 文献覆盖率估算，含置信区间；< 30 篇时标注跳过 |
 | 6 | **检索报告** 🆕 | .md | `generate_search_report.py`（4g 步骤） | **完整检索方法论报告**：检索范围→流水线→评分→分布→饱和度→行动建议 |
 | 🆕 7 | **中文论文元数据 JSON** 🆕 | .json | Agent 直接写入（4g.1b 步骤） | 仅 source=cnki/wanfang 的行，供 Step 5 下载与 Step 6 Zotero 中文条目入库使用 |
+| 🆕 8 | **workflow search results JSON** 🆕 | .json | `search_by_topic.py --export_workflow_json` | Step 4 机器主输出，供 Step 5/6/7 继续消费 |
 
 **统一文件命名规范：**
 
@@ -94,6 +106,7 @@
 | 文献库 BibTeX | `文献库.bib` |
 | 饱和度快照 | `saturation_snapshot.json` |
 | 中文论文元数据 | `中文论文元数据.json` |
+| workflow search results JSON | `workflow_search_results.json` |
 
 ---
 
@@ -102,6 +115,8 @@
 ### 检索执行
 
 按 Step 3 的 `search_tasks` 逐任务执行。每个任务都必须保留 `id`、`chapter_id`、`evidence_type`、`tier`、`source`，并写入后续检索文献表。
+
+> 从本版开始，Step 4 的机器主输出是 `workflow_search_results.json`。`检索文献表.md/.xlsx`、`检索报告.md/.pdf`、`文献库.bib` 和 `中文论文元数据.json` 都应视为围绕该 JSON 生成的展示层、审阅层和交接层。
 
 ### 4a-4h 阶段输入输出表
 

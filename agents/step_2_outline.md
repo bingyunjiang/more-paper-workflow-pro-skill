@@ -6,12 +6,15 @@
 
 ## 1. 启动前读取 (Pre-read Checklist)
 
-执行本步骤前，必须确认以下文件已加载：
+执行本步骤前，优先确认以下输入是否可用；若缺失，则按 direct-entry 规则在当前 Step 内补足最小依据，而不是强制要求回到前序步骤：
 
 - [ ] `研究主题.md` — Step 1 产出（结构化 YAML + 用户画像 + 聚焦方向 + 预审结论 + Step 2/3 handoff；已有大纲模式下可缺失）
 - [ ] `.skill-state/term_aliases.md` — 🆕 术语标准化映射（Step 2 负责填充此表）
 - [ ] `.skill-state/error_log.md` — 已知错误及修复规则
 - [ ] `.skill-state/decision_log.md` — 影响本 Step 的结构性决策
+- [ ] `references/outline-story-shapes.md` — 🆕 大纲 story shape 库
+- [ ] `references/section-function-matrix.md` — 🆕 章节-功能-证据需求矩阵
+- [ ] `references/outline-antipatterns.md` — 🆕 大纲反模式库
 
 ---
 
@@ -40,11 +43,11 @@
 
 | 输入 | 来源 | 格式 | 必选 |
 |------|------|------|:--:|
-| 研究主题 | Step 1 | .md | 标准生成模式必选；已有大纲模式可缺失 |
+| 研究主题 | Step 1 / 当前 Step 反推 | .md / 结构化摘要 | 标准生成模式推荐；已有大纲模式可缺失 |
 | 用户已有大纲 | 用户提供 | pasted text / .md / .docx / .doc | 2c 已有大纲模式必选 |
 | 工程文档（可选） | 用户提供 | .docx/.doc | 用于 2d 优化 |
 
-**必须读取的 Step 1 字段：**
+**标准链路下优先读取的 Step 1 字段：**
 
 | 字段 | 用途 |
 |------|------|
@@ -58,6 +61,18 @@
 | search_tier | 决定关键词颗粒度和 Step 3 检索规模 |
 | Step 2/3 handoff | 作为标题、关键词、排除词和推荐数据库的初始输入 |
 
+**Direct-entry 最小依据：**
+
+如果没有正式 `研究主题.md`，允许从已有大纲、草稿目录、开题报告或工程文档中反推以下最小字段：
+
+- 临时主题表述
+- 研究对象
+- 核心问题
+- 方法路线
+- 目标体裁
+
+只要这 5 项足以支撑大纲评审、优化或标准化输出，就不阻塞 Step 2。
+
 ---
 
 ## 5. 标准输出 (Standard Outputs)
@@ -67,6 +82,7 @@
 | 大纲关键词.md | .md | 结构化元数据 + 论文标题 + 章节大纲 + 关键词清单 + 章节证据需求表 |
 | 大纲关键词.pdf | .pdf | 自动由 md_to_pdf.py 生成 |
 | term_aliases.md（更新） | .md | 🆕 术语标准化映射表（Step 2 填充） |
+| `section_blueprints` | `.md` / `.json` | 🆕 Step 2 交给 Step 7 的最小版章节蓝图；内含章节功能矩阵字段 |
 
 可选产出（2b/2c 评审后）：大纲评审报告.md、优化版大纲.docx/.pdf、changes.json、outline_review.md、研究主题-反推.md
 
@@ -168,6 +184,30 @@ main_innovation_claim: ""
 | 章节ID | 证据类型 | 需要回答的问题 | 推荐数据库 | 推荐检索词 | 优先级 |
 |--------|----------|----------------|------------|------------|--------|
 | ch2 | method/review/experiment | ... | OpenAlex/CNKI | ... | T1/T2/T3 |
+
+## section_blueprints（机器执行源）
+> `section_blueprints.json` 是 Step 2 交给 Step 7 的机器执行源；`section_blueprints.md` 是人工审阅版。
+
+```json
+[
+  {
+    "schema_version": "1.0",
+    "section_id": "1",
+    "section_title": "绪论",
+    "section_function": "建立研究背景与问题差距",
+    "key_claims": ["..."],
+    "evidence_needed": ["review", "context", "gap"],
+    "evidence_basis": [],
+    "do_not_write": ["与本章功能无关的大段内容"],
+    "expected_length": "~800-1200 词（3-5 段）",
+    "figure_needs": ["研究框架图"],
+    "transition_from": "",
+    "transition_to": "引出下一章",
+    "style_notes": [],
+    "risk_flags": []
+  }
+]
+```
 ```
 
 ### 2b. 大纲评审
@@ -204,7 +244,7 @@ main_innovation_claim: ""
 | 📅 时间线与里程碑 | 各章节预估完成时间是否合理？ | 阶段里程碑节点 |
 | 📰 发表拆分策略 | 大纲内容能否拆成 1-2 篇小论文投稿？ | 拆分建议 |
 
-> ⚠️ 导师视角检查是五维评审后的**强制步骤**，必须逐项完成后方可进入下一阶段。不可跳过。
+> ⚠️ 导师视角检查是五维评审后的高价值增强项。标准链路下建议逐项完成；如果用户是 direct-entry，且当前目标只是把已有目录转成可检索、可写作的大纲，则可先产出主结果，并把导师视角检查标记为建议补做，而不是入口门。
 
 ### 2c. 已有大纲评估与优化模式（Existing Outline Mode）🆕
 

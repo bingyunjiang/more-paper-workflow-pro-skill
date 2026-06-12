@@ -1,0 +1,44 @@
+version: 0.1.0
+name: more-paper-workflow-pro-skill
+description: Top-level routing manifest for the more-paper workflow skeleton.
+
+axes:
+  step:
+    allowed:
+      - step1-topic
+      - step2-outline
+      - step3-search-plan
+      - step4-search-execute
+      - step5-download
+      - step6-zotero
+      - step7-writing
+      - step8-polishing
+    default: step1-topic
+  entry_mode:
+    allowed:
+      - conversational
+      - direct-topic
+      - direct-outline
+      - direct-bib
+      - direct-zotero
+      - direct-draft
+      - direct-review-comments
+    default: conversational
+  language:
+    allowed:
+      - zh
+      - en
+      - bilingual
+    default: zh
+
+always_load:
+  - static/core/entry-routing.md
+  - static/core/state-contract.md
+  - static/core/output-contract.md
+
+step_routes:
+  step1-topic: agents/step_1_entry.md
+  step3-search-plan: agents/step_3_entry.md
+  step6-zotero: agents/step_6_entry.md
+  step7-writing: agents/step_7_entry.md
+  step8-polishing: agents/step_8_entry.md

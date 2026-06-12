@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = "1.2"
+WORKFLOW_CONTRACT_SCHEMA = "workflow-contracts.v1"
 DEFAULT_ROOT = "论文文献库"
 CONFIRM_COLLECTION = "待确认集合"
 PDF_EXTS = {".pdf"}
@@ -662,6 +663,9 @@ def main() -> int:
 
     plan = {
         "schema_version": SCHEMA_VERSION,
+        "artifact_type": "zotero_plan",
+        "workflow_contract_schema": WORKFLOW_CONTRACT_SCHEMA,
+        "plan_only": True,
         "root_collection": root,
         "readiness": readiness,
         "can_continue": can_continue,

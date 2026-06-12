@@ -1,6 +1,6 @@
 ---
 name: more-paper-workflow-pro-skill
-version: v1.0.9-20260609
+version: v1.0.11-20260613-1
 description: Use when the user asks for the more-paper academic workflow: research topic clarification, outline and keyword generation, structured literature search plans, multi-source literature search and scoring, paper PDF download routing (Sci-Hub/IEEE/ScienceDirect), Zotero library organization, review matrices, paper writing, citation audit, or polishing. Especially useful for Chinese or English thesis, dissertation, literature review, PRISMA-style search logs, and GB/T 7714 references. 学术论文全流程：确定研究主题，生成大纲，文献检索，下载，Zotero，综述矩阵，论文写作，润色。
 author: Dr. Jiang Bingyun（江博士）
 wechat: Bingyunjiang
@@ -327,18 +327,21 @@ Step 6: Zotero 文库管理              → zotero-架构.md + 文献-Zotero架
   ├─ 6b 生成对照    结合 Step 4 文献库.bib/中文元数据 与 zotero-架构生成文献-Zotero架构对照.md/json
   ├─ 6c 创建集合    通过 Zotero MCP 创建集合并检查架构一致性
   └─ 6d 导入附件    英文按 DOI/BibTeX，中文按 source_id+CSL JSON 入库，并从 PDF 附件池关联文件
-Step 7: 论文写作（paper_type×language×target_type） → 论文初稿.md / 指定章节.md / .docx
+Step 7: 论文写作（paper_type×language×target_genre） → style_profile.md/json → section_blueprints.md/json → writing_rationale_matrix.md/json → argument_plan.md/json → 论文初稿.md / 指定章节.md / .docx
   ├─ 7.1 文献证据矩阵   13 列证据矩阵，按证据优先级填充 🆕
   ├─ 7.2 风格学习+蓝图 目标体裁/文档风格画像+章节蓝图+写作逻辑矩阵 🆕 v1.1.0
   ├─ 7.3 类型+语言+体裁识别 research/en/zh/zh-to-en + journal/thesis/conference/existing-draft
-  ├─ 7.4 写作模式       full/outline-only/plan/abstract-only/argument-first/chapter-only/continue-existing
+  ├─ 7.4 写作模式       full-document/review-only/abstract-only/chapter-only/continue-existing/revision-only
   ├─ 7.5 语言差异化     zh/en/zh-to-en 写作规范+章节命名
+  ├─ 7.5b 章节级论证计划 先锁定 claim/证据/图表/弱点边界
   ├─ 7.6 章节写作规则   摘要/引言/相关工作/方法/实验/结论
   ├─ 7.7 实时引文支撑   Zotero优先匹配→证据读取→评估→引用确认；新文献回流 Step 4/6
   ├─ 7.8 防幻觉机制     evidence_level + JSON追溯 + 中文元数据完整
   ├─ 7.9 同行评审仿真   评审报告.md + rebuttal-预演.md → PDF
+  ├─ 7.9b 修稿教练      revision_roadmap.md + response_letter_skeleton.md + evidence_gap_list.md
+  ├─ 7.9c 复评          rereview_report.md（验证问题是否真的解决）
   ├─ 7.10 科研图表生成  figures/ + 图表清单.md
-  └─ 7.11 写后引用审计  引用审计报告.md
+  └─ 7.11 写后引用审计  三层审计：format_status / mapping_status / evidence_status + recommended_action
 Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论文润色稿.docx
 ```
 
@@ -349,23 +352,24 @@ Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论
 > 本文件是工作流的入口路由。每个 Step 的详细执行规则在 `agents/` 目录下。
 > 架构借鉴自 ResearchWiki 的 Agent 模块化模式。
 > `README.md` 仅作为 GitHub 展示与快速开始说明；运行时规则以本文件和 `agents/step_*.md` 为准。
+> **总原则：所有 Step 都支持 direct-entry。** 前序产物是高质量输入，不是硬入口门槛；若缺失，优先在当前 Step 内重建最小依据、输出 plan-only 工件或记录风险边界，而不是默认要求用户回到上一步。
 
 ### 路由表
 
 | 触发条件 | Agent 文件 | 说明 |
 |----------|-----------|------|
-| "确定研究主题" / "厘清研究方向" / Step 1 相关触发词 | `agents/step_1_topic.md` | v2.0 增强版：阶段诊断→广度探索→深度聚焦→选题预审 |
+| "确定研究主题" / "厘清研究方向" / Step 1 相关触发词 | `agents/step_1_entry.md` | 新入口层：先判定 `user_stage / goal_type / search_depth / evidence_risk`，再加载 Step 1 主协议 |
 | "生成论文大纲" / "大纲评审" / "优化已有大纲" / Step 2 相关触发词 | `agents/step_2_outline.md` | 章节大纲 + 关键词清单 + 章节证据需求表 + 2c 已有大纲评估优化 + 五维评审 + 术语映射 |
-| "制定检索方案" / Step 3 相关触发词 | `agents/step_3_search_plan.md` | search_tasks + 章节证据需求表驱动 + L1→L2→L3 分层路由 + 概念块布尔 |
+| "制定检索方案" / Step 3 相关触发词 | `agents/step_3_entry.md` | 新入口层：先判定 `standard / citation-expansion / prisma-s / chinese-sources`，再加载 Step 3 主协议 |
 | "检索论文" / Step 4 相关触发词 | `agents/step_4_search_score.md` | search_tasks 执行 + 5 维评分 + 引文验证 + 🆕 引文扩展/饱和度/7 件套检索报告 |
 | "饱和度曲线" / "discovery curve" | `agents/step_4_search_score.md` | 🆕 子步骤 4f：文献覆盖率估算 |
 | "引文扩展" / "citation network" | `agents/step_4_search_score.md` | 🆕 子步骤 4e：单轮 1-hop 引文网络扩展 |
 | "下载论文" / Step 5 相关触发词 | `agents/step_5_download.md` | 统一下载路由（Sci-Hub→SD→IEEE→Generic） |
-| "Zotero 文库整理" / Step 6 相关触发词 | `agents/step_6_zotero.md` | 架构生成 + BibTeX/中文元数据-集合对照 + Zotero 集合创建 + PDF 附件一致性 |
-| "文献-Zotero架构对照" / "PDF 导入 Zotero" | `agents/step_6_zotero.md` | 子步骤 6b/6d：`.json` 为完整执行源，`.md` 为审阅版；英文 DOI/BibTeX，中文 source_id/CSL JSON，多来源 PDF 附件池关联 |
-| "综述矩阵" / "期刊风格学习" / "学位论文风格" | `agents/step_7_writing.md` | Step 7.1/7.2：写作前证据组织 + 目标体裁/文档风格蓝图 |
-| "写论文" / "只写部分章节" / "续写已有草稿" / Step 7 相关触发词 | `agents/step_7_writing.md` | 文献证据矩阵 + 目标体裁/文档风格 + 多种写作模式 + 引用审计 + 图表生成 |
-| "论文润色" / Step 8 相关触发词 | `agents/step_8_polishing.md` | 四合一精修引擎 + 术语标准化 |
+| "Zotero 文库整理" / Step 6 相关触发词 | `agents/step_6_entry.md` | 新入口层：先判定 `plan-from-bib / plan-from-zotero / consistency-adjustment`，再加载 Step 6 主协议 |
+| "文献-Zotero架构对照" / "PDF 导入 Zotero" | `agents/step_6_entry.md` | 子步骤 6b/6d：`.json` 为完整执行源，`.md` 为审阅版；英文 DOI/BibTeX，中文 source_id/CSL JSON，多来源 PDF 附件池关联 |
+| "综述矩阵" / "期刊风格学习" / "学位论文风格" | `agents/step_7_entry.md` | Step 7 入口层：按 `mode + target_genre` 判定，按需加载风格学习、章节蓝图、审稿协议、引用审计契约 |
+| "写论文" / "只写部分章节" / "续写已有草稿" / "审稿意见解读" / "修稿路线图" / Step 7 相关触发词 | `agents/step_7_entry.md` | 风格画像 + 章节蓝图 + 写作逻辑矩阵 + 文献证据矩阵 + target_genre 驱动写作 + 反模式闸门 + 修稿教练 + 三层引用审计 + 图表生成 |
+| "论文润色" / Step 8 相关触发词 | `agents/step_8_entry.md` | 新入口层：先判定 `revision_scope + language + target_genre`，默认保守改写，不替代 Step 7 重写 |
 | 技术问题 / 报错排查 | `agents/known_pitfalls.md` | Python/CDP/Zotero 已知陷阱 |
 
 ### 路由规则
@@ -520,7 +524,9 @@ fi
 | `scripts/setup_zotero.py` | 6 | Zotero MCP 一键安装+配置 |
 | `scripts/check_skill_update.py` | 全部 | 自动升级提醒：检查本地版本元数据和远程 git HEAD，默认每日最多提醒一次 |
 | `scripts/learn_journal_style.py` | 7.2 | 目标体裁/文档风格学习 🆕 |
-| `scripts/generate_section_blueprints.py` | 7.2 | 章节蓝图生成 🆕 |
+| `scripts/learn_journal_style.py` | 7.2 | 风格画像生成（输出 `style_profile.md/json`）🆕 |
+| `scripts/generate_section_blueprints.py` | 7.2 | 章节蓝图生成（输出 `section_blueprints.md/json`）🆕 |
+| `scripts/generate_writing_rationale.py` | 7.2 | 写作逻辑矩阵生成（输出 `writing_rationale_matrix.md/json`）🆕 |
 | `scripts/batch_read_pdfs.py` | 7 | 批量提取 PDF 全文文本 |
 | `scripts/citation_audit.py` | 7.11 | 写后引用审计 🆕 |
 | `scripts/generate_figures.py` | 7.10 | 科研图表生成 🆕 |

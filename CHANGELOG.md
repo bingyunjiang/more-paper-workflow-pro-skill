@@ -8,6 +8,38 @@
 
 ---
 
+## v1.0.11-20260613-1 (2026-06-12 至 2026-06-13)
+
+### Step 7/8 写作与润色工作台收紧 🆕
+
+- **Step 7 写作模式收敛**：公开写作模式统一为 6 个稳定模式：`full-document`、`review-only`、`abstract-only`、`chapter-only`、`continue-existing`、`revision-only`，并同步 README / SKILL / Step 7 运行时契约
+- **摘要模式细分**：`abstract-only` 内部明确区分 `journal-abstract`、`thesis-abstract`、`bilingual-abstract`，分别约束紧凑度、背景展开度和中英独立撰写要求
+- **风格工件统一为三件套**：Step 7.2 的机器工件固定为 `style_profile.md/json`、`section_blueprints.md/json`、`writing_rationale_matrix.md/json`；`style_sample_status` 作为辅助元数据，不再与主风格工件并列
+- **新增章节级论证计划**：在风格蓝图与正文写作之间补入 `argument_plan.md/json`，先锁定章节 claim、所需证据、图表约束和 `rollback_if_missing`
+- **修稿闭环成形**：Step 7 新增修稿教练与 `revision-only` 契约，标准输出包括 `revision_roadmap.md`、`response_letter_skeleton.md`、`evidence_gap_list.md`、`revision_change_log.md`、`claim_delta_report.md`、`revision_execution_status.md`
+- **新增复评层**：Step 7 增加 `rereview_report.md` 作为修订验证层，固定检查“旧问题是否关闭 / 是否引入新问题 / 引用风险是否下降 / 是否仍需回退”
+- **三层引用审计动作化**：在 `format_status / mapping_status / evidence_status` 之外，增加 `recommended_action`，固定值域为 `retain`、`downgrade_claim`、`supplement_pdf_or_fulltext`、`repair_mapping`、`replace_or_remove`
+- **Step 8 绑定 Step 7 三工件**：`style_profile.json`、`section_blueprints.json`、`writing_rationale_matrix.json` 从“优先读取”升级为“默认约束源”；缺失时只能降级运行并显式记录
+- **Step 8 非阻塞规则保留**：缺评审报告继续标记“评审依据不足”，缺引用审计继续标记“引用安全提醒”，不冒充审计通过，也不要求回跑 Step 7
+
+### 用户入口、文档分发与示例层 🆕
+
+- **新增 `commands/` 层**：补入 `topic`、`search`、`download`、`zotero`、`write`、`polish`、`citation-audit`、`revision-roadmap` 八个短文档，专门回答何时使用、最小输入、主要产出、常见阻塞点
+- **新增 `examples/showcase/`**：加入 `revision_roadmap`、`citation_audit`、`polish_quality_report` 示例，帮助用户理解中间工件而不是只看流程描述
+- **README 场景入口增强**：补入“导师给了目录”“已有 DOI/BibTeX”“已有 Zotero 文库”“已有草稿”“收到审稿意见”等直达 Step 入口说明
+
+### Step 7 内部编号整理 🆕
+
+- **减少补丁式编号**：把 `7.5b` 合并进 `7.5 写作模式与章节级论证计划`
+- **把修稿与复评收回到 `7.9` 主闭环**：`7.9` 下统一组织为评审仿真、修稿教练、`revision-only`、复评四个连续环节，避免 `7.9b / 7.9c` 孤立生长
+- **明确主线顺序**：Step 7 内部现在更接近“风格蓝图 → 论证计划 → 正文生成 → 引文支撑 → 防幻觉 → 评审/修稿/复评 → 图表 → 引用审计”的稳定结构
+
+### 测试与契约回归
+
+- **新增 `tests/test_step7_step8_contracts.py`**：覆盖 Step 7 公开写作模式、修稿教练、三层引用审计、Step 8 降级规则、`commands/` 和 `examples/showcase/` 的存在性
+- **补 Step 7/8 fixtures**：新增 `step7_chapter_only`、`step7_revision_only`、`step8_degraded` 三个契约样例目录
+- **修正旧测试假设**：`test_direct_entry_contracts.py` 过去默认每个 Step 只有一个 agent 文件；现改为跳过 `*_entry.md`，适配入口层 + 主执行层的双文件结构
+
 ## v1.0.9-20260609 (2026-06-08 至 2026-06-09)
 
 ### Step 2-5 流程接口收口 🆕

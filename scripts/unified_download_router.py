@@ -40,6 +40,13 @@ from generic_publisher_downloader import (
     resolve_publisher, download_one as generic_download_one,
     check_publisher_session, _PUBLISHER_CONFIGS, extract_dois,
 )
+from workflow_contracts import (
+    as_chinese_papers,
+    dois_from_download_items,
+    download_items_from_search_records,
+    load_download_manifest,
+    load_search_records,
+)
 
 # ── Constants ───────────────────────────────────────────────────────────────
 
@@ -929,7 +936,11 @@ def main():
     parser.add_argument("--require-login-confirm", action="store_true",
                         help="Pause before CDP rounds to prompt user to complete institutional login")
     parser.add_argument("--chinese-input", help="Chinese papers input: JSON file or Markdown literature table")
+    parser.add_argument("--workflow-results", help="Step 4 workflow search results JSON (workflow-contracts.v1)")
+    parser.add_argument("--download-manifest", help="Direct download manifest JSON (workflow-contracts.v1)")
     parser.add_argument("--skip-chinese", action="store_true", help="Skip Chinese CDP round")
+    parser.add_argument("--parallel-phase1", action="store_true",
+                        help="Opt in to running Sci-Hub and Chinese CDP concurrently. Default is serial for CDP reliability.")
     parser.add_argument("--test-cnki", help="Test single CNKI paper download (provide article URL)")
     parser.add_argument("--test-wanfang", help="Test single Wanfang paper download (provide article URL)")
 
@@ -1035,31 +1046,51 @@ def main():
             print(f"❌ Failed: status={status}")
         return
 
+    workflow_items = []
+    if args.workflow_results:
+        workflow_items.extend(download_items_from_search_records(load_search_records(args.workflow_results)))
+    if args.download_manifest:
+        workflow_items.extend(load_download_manifest(args.download_manifest))
+
+    workflow_dois = dois_from_download_items(workflow_items)
+    workflow_chinese_papers = as_chinese_papers(workflow_items)
+
     # Batch mode
     if args.input:
         dois = parse_input(args.input)
     elif args.papers:
         dois = [d.strip() for d in args.papers.split(",") if d.strip()]
+    elif workflow_items:
+        dois = workflow_dois
     elif args.chinese_input:
         dois = []  # Chinese-only mode, no English DOIs to parse
     else:
         parser.print_help()
         sys.exit(1)
 
-    if not dois and not args.chinese_input:
+    if not dois and not args.chinese_input and not workflow_chinese_papers:
         print("No DOIs or Chinese papers found.")
         sys.exit(1)
 
     # ── Parse Chinese papers ───────────────────────────────────────────
-    chinese_papers: list[dict] = []
+    chinese_papers: list[dict] = list(workflow_chinese_papers)
     if args.chinese_input:
-        chinese_papers = parse_chinese_papers(args.chinese_input)
-        if chinese_papers:
-            cnki_count = sum(1 for p in chinese_papers if p["source"] == "cnki")
-            wf_count = sum(1 for p in chinese_papers if p["source"] == "wanfang")
-            print(f"Chinese papers: {len(chinese_papers)} total ({cnki_count} CNKI + {wf_count} Wanfang)")
-        else:
-            print("No Chinese papers found in input.")
+        chinese_papers.extend(parse_chinese_papers(args.chinese_input))
+    if chinese_papers:
+        seen_chinese = set()
+        deduped_chinese = []
+        for paper in chinese_papers:
+            key = (paper.get("source", ""), paper.get("article_url", ""), paper.get("doi", ""), paper.get("title", ""))
+            if key in seen_chinese:
+                continue
+            seen_chinese.add(key)
+            deduped_chinese.append(paper)
+        chinese_papers = deduped_chinese
+        cnki_count = sum(1 for p in chinese_papers if p["source"] == "cnki")
+        wf_count = sum(1 for p in chinese_papers if p["source"] == "wanfang")
+        print(f"Chinese papers: {len(chinese_papers)} total ({cnki_count} CNKI + {wf_count} Wanfang)")
+    elif args.chinese_input or args.workflow_results or args.download_manifest:
+        print("No Chinese papers found in input.")
 
     # Deduplicate
     seen = set()
@@ -1140,47 +1171,56 @@ def main():
         sys.exit(1)
 
     # ═══════════════════════════════════════════════════════════════════
-    # Phase 1: Sci-Hub (background) + Chinese gate + Chinese CDP
-    # Sci-Hub is free, no login needed. Chinese needs login but runs
-    # independently of Sci-Hub. Both start concurrently.
+    # Phase 1: Sci-Hub + Chinese gate + Chinese CDP
+    # Default is serial because CNKI/Wanfang and shared CDP browser state are
+    # more reliable when not competing with other browser automation.
     # ═══════════════════════════════════════════════════════════════════
 
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    scihub_future = None
-    ch_future = None
     scihub_dl: list[str] = []
     scihub_rem = list(dois)
+    ch_dl: list[str] = []
+    ch_rem: list[str] = []
 
-    with ThreadPoolExecutor(max_workers=2) as phase1:
-        # Sci-Hub: starts immediately in background (free, no login)
-        if dois and not args.skip_scihub:
-            scihub_future = phase1.submit(
-                run_scihub_round, list(dois), args.output, args.port
-            )
+    if args.parallel_phase1:
+        from concurrent.futures import ThreadPoolExecutor
 
-        # Chinese: gate first, then CDP
-        if chinese_papers and not args.skip_chinese:
-            if args.require_login_confirm:
-                if show_chinese_login_gate(chinese_papers):
+        scihub_future = None
+        ch_future = None
+        with ThreadPoolExecutor(max_workers=2) as phase1:
+            if dois and not args.skip_scihub:
+                scihub_future = phase1.submit(
+                    run_scihub_round, list(dois), args.output, args.port
+                )
+
+            if chinese_papers and not args.skip_chinese:
+                if args.require_login_confirm:
+                    if show_chinese_login_gate(chinese_papers):
+                        ch_future = phase1.submit(
+                            run_chinese_round, chinese_papers, args.output, args.port
+                        )
+                    else:
+                        print("Chinese download skipped by user.")
+                else:
                     ch_future = phase1.submit(
                         run_chinese_round, chinese_papers, args.output, args.port
                     )
+
+        if scihub_future:
+            scihub_dl, scihub_rem = scihub_future.result()
+        if ch_future:
+            ch_dl, ch_rem = ch_future.result()
+    else:
+        if dois and not args.skip_scihub:
+            scihub_dl, scihub_rem = run_scihub_round(list(dois), args.output, args.port)
+
+        if chinese_papers and not args.skip_chinese:
+            if args.require_login_confirm:
+                if show_chinese_login_gate(chinese_papers):
+                    ch_dl, ch_rem = run_chinese_round(chinese_papers, args.output, args.port)
                 else:
                     print("Chinese download skipped by user.")
             else:
-                ch_future = phase1.submit(
-                    run_chinese_round, chinese_papers, args.output, args.port
-                )
-
-    # Collect Phase 1 results
-    if scihub_future:
-        scihub_dl, scihub_rem = scihub_future.result()
-
-    ch_dl: list[str] = []
-    ch_rem: list[str] = []
-    if ch_future:
-        ch_dl, ch_rem = ch_future.result()
+                ch_dl, ch_rem = run_chinese_round(chinese_papers, args.output, args.port)
 
     # ═══════════════════════════════════════════════════════════════════
     # Phase 2: English login gate (after Sci-Hub) + English CDP

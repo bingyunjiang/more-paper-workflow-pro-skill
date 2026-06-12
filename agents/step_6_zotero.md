@@ -6,13 +6,15 @@
 
 ## 1. 启动前读取 (Pre-read Checklist)
 
-执行本步骤前，必须确认以下文件已加载：
+执行本步骤前，优先确认当前任务需要哪些输入；若缺少标准链路产物，则在本 Step 内生成 plan-only 映射、只读扫描结果或缺口报告，而不是要求用户回跑前序步骤：
 
-- [ ] `agents/step_2_outline.md` — 大纲关键词（章节结构 + 术语映射表）
-- [ ] `agents/step_4_search_score.md` — 检索筛选结果与 `文献库.bib` 生成规则
-- [ ] `agents/step_5_download.md` — Step 5 下载 PDF（paper-temp/）及后续补下载入口
+- [ ] `agents/step_2_outline.md` — 大纲关键词（章节结构 + 术语映射表；可缺失，缺失时允许从现有集合名/用户目录反推最小结构）
+- [ ] `agents/step_4_search_score.md` — 检索筛选结果与 `文献库.bib` 生成规则（可缺失，缺失时允许从 BibTeX/JSON/现有 Zotero 反推 plan-only）
+- [ ] `agents/step_5_download.md` — Step 5 下载 PDF（paper-temp/）及后续补下载入口（可缺失，只影响附件来源说明）
 - [ ] `references/zotero-structure-template.md` — Zotero 架构示例
 - [ ] `references/zotero-outline-mapping.md` — 文献与集合对齐思路
+- [ ] `references/zotero-output-contract.md` — 🆕 JSON + Markdown 双工件输出契约
+- [ ] `references/zotero-entry-modes.md` — 🆕 Step 6 direct-entry 模式
 - [ ] `.skill-state/error_log.md` — 已知错误及修复规则
 - [ ] `.skill-state/decision_log.md` — 影响本 Step 的结构性决策
 
@@ -40,12 +42,24 @@
 
 | 输入 | 来源 | 格式 | 必选 |
 |------|------|------|:--:|
-| 大纲关键词 | Step 2 | `大纲关键词.md` | ✅ |
-| 筛选后文献库 | Step 4 | `文献库.bib` | ✅ |
-| PDF 附件池 | Step 5 / 原有文件 / 后续补下载 | `paper-temp/`、用户指定目录、补下载目录 | ✅ |
-| Zotero MCP 可写连接 | 环境配置 | MCP 工具 | ✅ |
+| 大纲关键词 / 章节结构 | Step 2 / 用户已有目录 / 当前 Step 反推 | `大纲关键词.md`、目录、草稿、集合层级 | 规划集合时推荐其一 |
+| 筛选后文献库 | Step 4 / 用户已有文献库 | `文献库.bib`、workflow JSON、CSL JSON | 计划导入时推荐其一 |
+| PDF 附件池 | Step 5 / 原有文件 / 后续补下载 | `paper-temp/`、用户指定目录、补下载目录 | 附件规划时推荐 |
+| Zotero 模式选择 | 用户确认 | `local` / `cloud` / `skip` | ✅ |
+| Zotero MCP 可写连接 | 环境配置 | MCP 工具 | 仅真实写入时必选 |
 
-> 前提条件：Step 4 检索与筛选后的文献必须已有 BibTeX 格式交付物。标准文件名为 `文献库.bib`，由 `python3 scripts/generate_retrieval_report.py 检索文献表.md` 生成。
+> 标准链路下推荐使用 Step 4 生成的 `文献库.bib`。但 Step 6 不把它当成唯一合法入口：若用户已有 Zotero 文库、已有 BibTeX/CSL JSON、已有 workflow search results JSON、已有 PDF 目录或只想整理现有集合，也可直接进入本步骤。
+
+**工件读取优先级：**
+
+从本版开始，Step 6 对上游输入的优先顺序为：
+
+1. `workflow_search_results.json`
+2. `文献库.bib`
+3. `文献-Zotero架构对照.json`
+4. 对应 Markdown 审阅版
+
+如果 JSON 和 Markdown 同时存在，以 JSON 为准；Markdown 仅作为人工审阅和解释层。
 
 ---
 
@@ -86,6 +100,37 @@ python3 scripts/setup_zotero.py --smoke-test
 
 **独立入口规则：**
 如果用户已有 Zotero 文库、已有 PDF 目录、已有 BibTeX/CSL JSON 或只想整理某个集合，可直接从 Step 6 开始，不要求补跑 Step 1-5。Agent 可先读取 Zotero、生成对照表、检查重复、扫描 PDF、生成写入计划；只有即将实际修改 Zotero 这个外部持久状态时，才触发 `CP-ZOTERO-WRITE`。
+
+**Step 6 入口第一问：**
+
+进入 Step 6 后，必须先确认 Zotero 模式：`local` / `cloud` / `skip`。该选择决定后续读写能力和附件策略；不得静默默认 cloud。
+
+| 模式 | 允许动作 | 禁止/限制 |
+|------|----------|-----------|
+| `local` | 读取本地 Zotero、生成计划、在确认后写入集合/条目、尽可能处理附件 | 写入前仍需 `CP-ZOTERO-WRITE` |
+| `cloud` | 元数据规划、Web API 可用范围内的条目/集合操作 | 通常不能自动挂载本地 PDF，必须提示附件限制 |
+| `skip` | 只生成 `文献-Zotero架构对照.md/json` 和 `pdf-附件池索引.json` | 不调用 Zotero 写入工具 |
+
+**Direct-entry input contract：**
+
+| 可接受输入 | 最小处理 | 输出 |
+|------------|----------|------|
+| `文献库.bib` + PDF 目录 | 生成 plan-only 对照与附件索引 | `文献-Zotero架构对照.*`、`pdf-附件池索引.json` |
+| workflow search results JSON | 转为 Zotero plan 候选，中文保留 source_id/article_url | plan-only JSON |
+| 已有 Zotero 集合 key/路径 | 只读扫描集合、条目、附件状态 | 最小映射和缺口报告 |
+| CSL JSON / 中文论文元数据 | 中文条目 plan，Extra 写 source_id，不伪造 DOI | 中文入库计划 |
+| 只有 PDF 文件夹 | 扫描附件池，按文件名/元数据尝试匹配 | PDF index + 未匹配清单 |
+
+`scripts/build_zotero_plan.py` 是 plan-only 入口：可在缺少部分输入时继续生成 readiness、blocking_missing、nonblocking_missing、warnings、recommended_next_step。它不调用 Zotero MCP，不修改 Zotero 文库。
+
+**双工件契约：**
+
+无论从哪种入口进入，只要 Step 6 生成了正式整理结果，默认应同时产出：
+
+- 一个可机读 JSON
+- 一个可人工审阅 Markdown
+
+缺输入时也应优先产出 plan-only 双工件，而不是只给口头建议。
 
 ### CHECKPOINT W — CP-ZOTERO-WRITE（Zotero 外部状态写入确认）
 
@@ -134,7 +179,7 @@ python3 scripts/organize_zotero.py 大纲关键词.md \
 - `zotero-架构.json`：给 6c MCP 自动创建集合使用的树结构
 
 **质量要求：**
-- 根集合必须明确，默认从 `大纲关键词.md` 中解析论文标题。
+- 根集合应尽量明确；标准链路下优先从 `大纲关键词.md` 中解析论文标题，direct-entry 时也允许从用户目录、现有 Zotero 根集合、项目名或用户指定名称中反推。
 - 根集合解析优先级：
   1. `## 论文标题` 下方第一段非空文本。
   2. `论文题目：xxx`、`题目：xxx`、`标题：xxx`、`研究主题：xxx`。
@@ -439,7 +484,8 @@ zotero_get_collections()
 - [ ] `文献-Zotero架构对照.md` 已生成
 - [ ] `文献-Zotero架构对照.json` 已生成并更新状态
 - [ ] `pdf-附件池索引.json` 已生成并更新匹配状态
-- [ ] Zotero 集合创建完成并通过一致性检查
+- [ ] 如果 `skip` 或 plan-only：readiness、blocking_missing、nonblocking_missing、recommended_next_step 已写入
+- [ ] 如果执行 Zotero 写入：`CP-ZOTERO-WRITE` 已确认，集合创建完成并通过一致性检查
 - [ ] PDF 附件状态与建议动作已写回；高风险挂载动作已等待人工确认
 
 ### 错误日志更新

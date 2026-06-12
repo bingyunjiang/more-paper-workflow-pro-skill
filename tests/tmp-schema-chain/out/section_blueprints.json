@@ -1,0 +1,134 @@
+[
+  {
+    "schema_version": "1.0",
+    "section_id": "1",
+    "section_title": "引言",
+    "section_function": "建立研究背景，识别问题差距（gap），明确列出本文的贡献",
+    "key_claims": [
+      "领域当前面临的挑战是...",
+      "已有方法的局限性在于...",
+      "本文的贡献包括...（3-5 条）"
+    ],
+    "evidence_needed": [
+      "review",
+      "context",
+      "gap"
+    ],
+    "evidence_basis": [],
+    "do_not_write": [
+      "与本章功能无关的大段内容"
+    ],
+    "expected_length": "~800-1200 词（3-5 段）",
+    "figure_needs": [
+      "研究动机示意图（可选）"
+    ],
+    "transition_from": "",
+    "transition_to": "引出 2 方法 的论述",
+    "style_notes": [
+      "句长保持在 6 词左右，自然波动",
+      "多用主动语态（'We conducted...'），避免过度使用被动态"
+    ],
+    "risk_flags": [
+      "evidence-thin"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "section_id": "2",
+    "section_title": "方法",
+    "section_function": "按逻辑顺序详述研究/实验方法，先定义符号再给出公式，确保可复现",
+    "key_claims": [
+      "本文采用的方法框架是...",
+      "方法的关键创新在于...",
+      "方法的设计基于...理论/假设"
+    ],
+    "evidence_needed": [
+      "method",
+      "theory",
+      "validation"
+    ],
+    "evidence_basis": [],
+    "do_not_write": [
+      "重复大段背景综述",
+      "未定义符号前直接给公式"
+    ],
+    "expected_length": "~1500-2500 词（6-10 段）",
+    "figure_needs": [
+      "系统/方法框架图",
+      "算法流程图（如适用）"
+    ],
+    "transition_from": "承接 1 引言 的结论/发现",
+    "transition_to": "引出 3 实验结果 的论述",
+    "style_notes": [
+      "句长保持在 6 词左右，自然波动",
+      "多用主动语态（'We conducted...'），避免过度使用被动态"
+    ],
+    "risk_flags": [
+      "evidence-thin"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "section_id": "3",
+    "section_title": "实验结果",
+    "section_function": "以研究问题开头，展示数据并分析趋势，每个实验有明确对比基线",
+    "key_claims": [
+      "实验回答了...研究问题",
+      "与基线相比，方法在...指标上提升了...",
+      "消融实验证明了...组件的重要性"
+    ],
+    "evidence_needed": [
+      "experiment",
+      "data",
+      "comparison"
+    ],
+    "evidence_basis": [],
+    "do_not_write": [
+      "只贴数据不解释",
+      "没有基线的强结论"
+    ],
+    "expected_length": "~2000-3000 词（8-12 段）",
+    "figure_needs": [
+      "核心对比结果图（柱状图/折线图）",
+      "消融实验结果图",
+      "关键数据分布图（热力图/散点图）"
+    ],
+    "transition_from": "承接 2 方法 的结论/发现",
+    "transition_to": "引出 4 结论 的论述",
+    "style_notes": [
+      "句长保持在 6 词左右，自然波动",
+      "多用主动语态（'We conducted...'），避免过度使用被动态"
+    ],
+    "risk_flags": [
+      "evidence-thin",
+      "missing-experimental-basis"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "section_id": "4",
+    "section_title": "结论",
+    "section_function": "总结全文贡献，诚实说明局限性，提出具体的未来研究方向",
+    "key_claims": [],
+    "evidence_needed": [
+      "context",
+      "evidence"
+    ],
+    "evidence_basis": [],
+    "do_not_write": [
+      "引入新的核心证据",
+      "展开新的方法细节"
+    ],
+    "expected_length": "~500-800 词（2-3 段）",
+    "figure_needs": [],
+    "transition_from": "承接 3 实验结果 的结论/发现",
+    "transition_to": "收束全文，呼应引言中的贡献条目",
+    "style_notes": [
+      "句长保持在 6 词左右，自然波动",
+      "多用主动语态（'We conducted...'），避免过度使用被动态"
+    ],
+    "risk_flags": [
+      "evidence-thin"
+    ]
+  }
+]

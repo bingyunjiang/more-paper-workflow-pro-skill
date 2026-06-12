@@ -23,7 +23,7 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 more paper workflow pro skill `v1.0.9-20260609`
+# 📚 more paper workflow pro skill `v1.0.11-20260613-1`
 
 ## 📑 目录
 
@@ -134,11 +134,12 @@
 - 直接读 PDF 抑制大模型幻觉——引用精确性高于 RAG 分块方案
 - **文献综述矩阵**：13 列结构化证据提取，按证据优先级逐级回退
 - **目标体裁/文档风格学习**：支持期刊论文、学位论文、会议论文和已有草稿，生成章节蓝皮书 + 写作理由书
-- 7 种写作模式（full / outline-only / plan / abstract-only / review / chapter-only / continue-existing）
+- 6 种稳定写作模式（full-document / review-only / abstract-only / chapter-only / continue-existing / revision-only）
+- **修稿教练（7.9b）**：把审稿意见拆成 `revision_roadmap.md`、`response_letter_skeleton.md`、`evidence_gap_list.md`
 - 文献综述专属写作模式（8 节骨架 + 7 条写作纪律）
 - GB/T 7714-2015 完整引用格式规范（排序/作者/类型代码/缺失处理）
 - **科研图表生成**：基于 Nature 风格指南自动生成学术图表
-- **写后引用审计**：逐条验证引用准确性，生成审计报告
+- **写后引用审计**：三层审计（`format_status` / `mapping_status` / `evidence_status`），逐条验证引用准确性，生成审计报告
 - **质量防线体系**：6 道评审节点（选题预审→大纲评审→文献评分→段落自查→引文评估→成稿评审）
 - PyMuPDF 多进程批量提取（<20 篇按需精读 / ≥20 篇全量并行）
 - 论文润色：结构精炼 + 术语统一 + 去 AI 痕迹 + 引用校验
@@ -495,11 +496,22 @@ Step 7 的核心能力：
 
 - **文献证据矩阵（7.1）**：把 T1/T2/T3 文献整理为可写作、可引用、可审计的证据表。
 - **目标体裁/文档风格（7.2）**：支持期刊论文、学位论文、会议论文、课程论文和已有草稿续写。
-- **多种写作范围**：可完整写作、只写指定章节、续写已有草稿、只写摘要或先做论证计划。
+- **多种写作范围**：可完整写作、只写综述章节、只写指定章节、续写已有草稿、只写摘要或只做 revision-only 修稿。
+- **修稿入口（7.9b）**：收到审稿意见后，直接在 Step 7 生成修稿路线图、回应骨架和证据缺口清单。
+- **章节级论证计划（7.5b）**：正文生成前先锁定章节 claim、所需证据、图表要求和缺证据回退策略。
+- **复评（7.9c）**：验证修稿是否真正关闭上轮问题、是否引入新问题、引用风险是否下降。
 - **引用闭环**：逐段匹配 Zotero 条目和 PDF/笔记/标注证据，写后执行引用审计。
 - **质量门**：包含段落自查、同行评审仿真、图表生成和写后引用审计。
 
 详细执行规则以 [`agents/step_7_writing.md`](agents/step_7_writing.md) 为准。
+
+常见场景入口：
+
+- 导师给了目录，但还没检索：从 Step 2/3 开始
+- 已有 DOI / BibTeX / 标题清单：直接进入 Step 5
+- 已有 Zotero 文库和 PDF：直接进入 Step 7
+- 已有草稿，只想续写或补写章节：Step 7 `continue-existing` / `chapter-only`
+- 收到审稿意见，需要先拆任务：Step 7 `revision-only` + `revision_roadmap.md`
 
 ### Step 8: 论文润色
 
@@ -591,6 +603,14 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
+### v1.0.11-20260613-1 (2026-06-12 至 2026-06-13)
+- **Step 7/8 写作与润色工作台收紧**：写作模式收敛为 6 个稳定模式（`full-document / review-only / abstract-only / chapter-only / continue-existing / revision-only`），并把写作/润色入口、运行时契约和测试统一
+- **新增章节级论证计划**：Step 7 在风格蓝图和正文生成之间补入 `argument_plan.md/json`，先锁定章节 claim、证据、图表和回退策略，避免直接硬写正文
+- **修稿闭环成形**：新增修稿教练、`revision-only` 执行记录和复评层；`revision_roadmap.md`、`response_letter_skeleton.md`、`evidence_gap_list.md`、`rereview_report.md` 成为标准工件
+- **三层引用审计动作化**：在 `format_status / mapping_status / evidence_status` 之外新增 `recommended_action`，可直接服务 `revision-only`
+- **Step 8 绑定 Step 7 三工件**：`style_profile.json`、`section_blueprints.json`、`writing_rationale_matrix.json` 从“优先读取”升级为“默认约束源”；缺失时只能降级运行并显式记录
+- **文档与示例层增强**：新增 `commands/` 短文档层、`examples/showcase/` 样例层，以及 Step 7/8 契约测试与 fixtures
+
 ### v1.0.9-20260609 (2026-06-08 至 2026-06-09)
 - **Step 2-5 流程接口收口**：Step 2 新增已有大纲评估优化模式和 2a/2c 路由判定；Step 3/4 用 `search_tasks`、章节字段和 `中文论文元数据.json` 打通大纲、检索、下载、Zotero 和写作
 - **Step 5 直达下载模式**：用户可直接提供 DOI、标题、URL、BibTeX 或参考文献列表；系统先生成 `direct_download_manifest`，只下载可唯一解析的条目
@@ -626,7 +646,7 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 
 ### v1.0.4 (2026-06-04)
 - 质量防线体系：6 道评审节点（选题预审→大纲评审→文献评分→段落自查→引文评估→成稿评审）
-- Step 7 写作引擎（paper_type × language × target_type，支持多种写作范围），导师视角 + 三审稿人报告 + Rebuttal 预演
+- Step 7 写作引擎（paper_type × language × target_genre，支持多种写作范围），先产出 `style_profile` / `section_blueprints` / `writing_rationale_matrix`，再进入正文生成；保留导师视角 + 三审稿人报告 + Rebuttal 预演
 - `search_by_topic.py` v2.0：T1→T2→T3 路由、Pre-flight、多格式导出
 
 ### v1.0.3 (2026-06-03)
@@ -684,7 +704,7 @@ macOS 系统 `python3` 默认是 3.9。本工具所有脚本兼容 Python 3.9-3.
 ---
 
 <a id="english"></a>
-# 📚 more paper workflow pro skill `v1.0.9-20260609`
+# 📚 more paper workflow pro skill `v1.0.11-20260613-1`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
@@ -762,11 +782,12 @@ This tool deliberately does NOT do "one-click paper generation." Instead, it fol
 **✍️ Paper Writing & Polishing (Step 7-8)**
 - Chapter-by-chapter reading of PDF originals as knowledge base, interactive citation confirmation
 - Direct PDF reading suppresses LLM hallucinations — citation accuracy exceeds RAG chunking approaches
-- 7 writing modes (full / outline-only / plan / abstract-only / review / chapter-only / continue-existing)
+- 6 stable writing modes (full-document / review-only / abstract-only / chapter-only / continue-existing / revision-only)
+- **Revision coach (7.9b)**: turns reviewer comments into `revision_roadmap.md`, `response_letter_skeleton.md`, and `evidence_gap_list.md`
 - Literature review writing mode (8-section skeleton + 7 writing disciplines)
 - GB/T 7714-2015 complete citation standard
 - **Figure generation (Step 7.10)**: auto-generate academic figures from Nature style guides
-- **Post-writing citation audit (Step 7.11)**: verify every citation, generate audit report
+- **Post-writing citation audit (Step 7.11)**: 3-layer audit (`format_status` / `mapping_status` / `evidence_status`) plus `recommended_action` for every citation
 - **Quality defense system**: 6 review gates (topic→outline→search→paragraph→citation→final)
 - PyMuPDF multi-process batch extraction (<20 papers on-demand / ≥20 papers full parallel)
 - Paper polishing: structure refinement + terminology unification + AI trace removal + citation verification
@@ -1156,7 +1177,8 @@ Step 7 provides:
 
 - **Literature evidence matrix (7.1):** turns T1/T2/T3 sources into writing-ready, citation-ready, auditable evidence.
 - **Target genre/document style (7.2):** supports journal papers, theses/dissertations, conference papers, course papers, and existing-draft continuation.
-- **Flexible writing scope:** full paper, selected chapters, existing draft continuation, abstract-only, or argument-first planning.
+- **Flexible writing scope:** full document, review-only, selected chapters, existing draft continuation, abstract-only, or revision-only.
+- **Revision entry (7.9b):** reviewer comments stay inside Step 7 and produce a roadmap, response skeleton, and evidence-gap list before text edits.
 - **Citation loop:** paragraph-level claim matching against Zotero items and PDF/note/annotation evidence, followed by citation audit.
 - **Quality gates:** paragraph self-check, simulated peer review, figure generation, and post-writing citation audit.
 
@@ -1252,6 +1274,14 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
 
+### v1.0.11-20260613-1 (2026-06-12 to 2026-06-13)
+- **Step 7/8 writing and polishing tightened**: public writing modes now converge to 6 stable modes (`full-document / review-only / abstract-only / chapter-only / continue-existing / revision-only`), with aligned entry docs, runtime contracts, and tests
+- **Argument planning added before drafting**: Step 7 now inserts `argument_plan.md/json` between style blueprints and body drafting to lock section claims, evidence, figures, and rollback rules before writing
+- **Revision loop completed**: added revision coaching, `revision-only` execution artifacts, and a rereview layer; `revision_roadmap.md`, `response_letter_skeleton.md`, `evidence_gap_list.md`, and `rereview_report.md` are now standard artifacts
+- **3-layer citation audit becomes action-oriented**: `recommended_action` is added on top of `format_status / mapping_status / evidence_status`, so audit results can feed directly into `revision-only`
+- **Step 8 now binds Step 7's three core artifacts**: `style_profile.json`, `section_blueprints.json`, and `writing_rationale_matrix.json` are now treated as default constraint sources, not just optional references
+- **Docs and examples expanded**: added a `commands/` quick-doc layer, `examples/showcase/`, and dedicated Step 7/8 contract tests plus fixtures
+
 ### v1.0.9-20260609 (2026-06-08 to 2026-06-09)
 - **Step 2-5 interface cleanup**: Step 2 now supports existing-outline review/optimization and explicit 2a/2c routing; Step 3/4 use `search_tasks`, chapter fields, and `中文论文元数据.json` to connect outline, search, download, Zotero, and writing
 - **Step 5 direct download mode**: users can provide DOI, title, URL, BibTeX, or reference-list input directly; the workflow builds a `direct_download_manifest` first and downloads only uniquely resolved items
@@ -1287,7 +1317,7 @@ Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are hig
 
 ### v1.0.4 (2026-06-04)
 - Quality defense system: 6 review gates across 5 stages (topic→outline→search→paragraph→citation→final)
-- Step 7 writing engine (paper_type × language × target_type, multiple writing scopes), advisor perspective + 3-reviewer panel + Rebuttal
+- Step 7 writing engine (paper_type × language × target_genre, multiple writing scopes), producing `style_profile` / `section_blueprints` / `writing_rationale_matrix` before full drafting; advisor perspective + 3-reviewer panel + Rebuttal
 - `search_by_topic.py` v2.0: T1→T2→T3 routing, Pre-flight, multi-format export
 
 ### v1.0.3 (2026-06-03)

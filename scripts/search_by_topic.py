@@ -57,6 +57,12 @@ import sys
 import re
 import os
 
+try:
+    from workflow_contracts import SearchResultRecord, write_workflow_json
+except ImportError:  # Allow standalone execution from unusual working dirs.
+    SearchResultRecord = None
+    write_workflow_json = None
+
 # ── Semantic Cache ─────────────────────────────────────────────────────────
 
 CACHE_DIR = os.path.expanduser("~/.cache/more-paper-workflow/search_cache")
@@ -2621,6 +2627,8 @@ Examples:
 
     # Export mode
     parser.add_argument("--export-bib", help="Export full BibTeX (.bib) with title/author/year/doi/abstract/tier/score notes")
+    parser.add_argument("--export-workflow-json",
+                        help="Export standard workflow search results JSON for Step 5/6/7 handoff")
     parser.add_argument("--keywords", help="Comma-separated topic keywords for auto-scoring")
 
     # Convert mode
@@ -2728,11 +2736,27 @@ Examples:
         # Output
         if args.export_bib:
             export_bibtex(results, args.export_bib)
-        elif args.output:
+        if args.export_workflow_json:
+            if not SearchResultRecord or not write_workflow_json:
+                print("ERROR: workflow_contracts.py is unavailable", file=sys.stderr)
+                sys.exit(1)
+            records = [SearchResultRecord.from_search_result(r) for r in results]
+            write_workflow_json(
+                args.export_workflow_json,
+                records,
+                metadata={
+                    "mode": "citation_network",
+                    "seed_doi": args.citation_network,
+                    "refs_limit": args.refs_limit,
+                    "cited_by_limit": args.cited_by_limit,
+                },
+            )
+            print(f"Saved workflow JSON to {args.export_workflow_json}", flush=True)
+        if args.output:
             with open(args.output, "w") as f:
                 json.dump(results, f, indent=2, ensure_ascii=False)
             print(f"Saved {len(results)} citation network papers to {args.output}", flush=True)
-        else:
+        elif not args.export_bib and not args.export_workflow_json:
             for r in results:
                 print(json.dumps(r, ensure_ascii=False))
         print(f"\nCitation network complete: {len(results)} new papers found", flush=True)
@@ -2833,6 +2857,7 @@ Examples:
     # Deduplicate
     unique = deduplicate(all_results)
     unique.sort(key=lambda x: -(int(x.get("year", 0) or 0)))
+    workflow_unique = list(unique)
 
     # Filter no-DOI
     if not args.include_no_doi:
@@ -2867,6 +2892,30 @@ Examples:
     # Output
     if args.export_bib:
         export_bibtex(unique, args.export_bib, tier_map)
+
+    if args.export_workflow_json:
+        if not SearchResultRecord or not write_workflow_json:
+            print("ERROR: workflow_contracts.py is unavailable", file=sys.stderr)
+            sys.exit(1)
+        records = [SearchResultRecord.from_search_result(r) for r in workflow_unique]
+        write_workflow_json(
+            args.export_workflow_json,
+            records,
+            metadata={
+                "query": args.query,
+                "source": args.source,
+                "t1": args.t1,
+                "t2": args.t2,
+                "t3": args.t3,
+                "language": args.language,
+                "strategy": args.strategy,
+                "limit": args.limit,
+                "raw_hits": len(all_results),
+                "unique_hits": len(unique),
+                "workflow_records": len(workflow_unique),
+            },
+        )
+        print(f"\nSaved workflow JSON to {args.export_workflow_json}", flush=True)
 
     if args.output:
         with open(args.output, "w") as f:

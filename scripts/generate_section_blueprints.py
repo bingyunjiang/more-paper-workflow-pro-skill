@@ -24,17 +24,37 @@ from dataclasses import dataclass, field
 @dataclass
 class SectionBlueprint:
     """Detailed writing plan for one section."""
-    section_name: str
-    section_number: str         # e.g., "1", "2.3"
-    purpose: str                # What this section does
+    section_title: str
+    section_id: str             # e.g., "1", "2.3"
+    section_function: str       # What this section does
     expected_length: str        # e.g., "~1200 words", "3-5 paragraphs"
     key_claims: list[str] = field(default_factory=list)
-    evidence_mapping: list[dict] = field(default_factory=list)
-    # {claim: str, evidence_refs: [str], evidence_source: str}
-    figure_placements: list[str] = field(default_factory=list)
+    evidence_needed: list[str] = field(default_factory=list)
+    evidence_basis: list[dict] = field(default_factory=list)
+    do_not_write: list[str] = field(default_factory=list)
+    figure_needs: list[str] = field(default_factory=list)
     transition_from: str = ""   # How previous section connects
     transition_to: str = ""     # How this leads to next
     style_notes: list[str] = field(default_factory=list)
+    risk_flags: list[str] = field(default_factory=list)
+
+    def to_schema_dict(self) -> dict:
+        return {
+            "schema_version": "1.0",
+            "section_id": self.section_id,
+            "section_title": self.section_title,
+            "section_function": self.section_function,
+            "key_claims": self.key_claims,
+            "evidence_needed": self.evidence_needed,
+            "evidence_basis": self.evidence_basis,
+            "do_not_write": self.do_not_write,
+            "expected_length": self.expected_length,
+            "figure_needs": self.figure_needs,
+            "transition_from": self.transition_from,
+            "transition_to": self.transition_to,
+            "style_notes": self.style_notes,
+            "risk_flags": self.risk_flags,
+        }
 
 
 # ── Blueprint Generation ─────────────────────────────────────────────────────
@@ -58,16 +78,19 @@ def generate_blueprints(
     blueprints = []
     for i, section in enumerate(outline_sections):
         bp = SectionBlueprint(
-            section_name=section["name"],
-            section_number=section["number"],
-            purpose=_infer_purpose(section["name"], i, len(outline_sections)),
+            section_title=section["name"],
+            section_id=section["number"],
+            section_function=_infer_purpose(section["name"], i, len(outline_sections)),
             expected_length=_estimate_length(section, style_rules),
             key_claims=_infer_claims(section, evidence),
-            evidence_mapping=_map_evidence(section, evidence),
-            figure_placements=_suggest_figures(section, style_rules),
+            evidence_needed=_infer_evidence_needed(section),
+            evidence_basis=_map_evidence(section, evidence),
+            do_not_write=_infer_do_not_write(section),
+            figure_needs=_suggest_figures(section, style_rules),
             transition_from=_transition_from(i, outline_sections),
             transition_to=_transition_to(i, outline_sections),
             style_notes=_style_notes(section, style_rules),
+            risk_flags=_infer_risk_flags(section, evidence),
         )
         blueprints.append(bp)
 
@@ -88,14 +111,14 @@ def render_blueprints_md(
         md += f"> 目标期刊：**{journal}**\n\n"
 
     md += "## 蓝图总览\n\n"
-    md += "| 章节 | 用途 | 预估篇幅 | 关键声明 | 图表 |
-|------|------|:---:|------|:---:|\n"
+    md += "| 章节 | 用途 | 预估篇幅 | 关键声明 | 图表 |\n"
+    md += "|------|------|:---:|------|:---:|\n"
     for bp in blueprints:
         claims_brief = "; ".join(bp.key_claims[:2])
         if len(bp.key_claims) > 2:
             claims_brief += f"...（共{len(bp.key_claims)}条）"
-        figs_brief = str(len(bp.figure_placements)) if bp.figure_placements else "—"
-        md += f"| {bp.section_number} {bp.section_name} | {bp.purpose[:40]}... | {bp.expected_length} | {claims_brief[:60]} | {figs_brief} |\n"
+        figs_brief = str(len(bp.figure_needs)) if bp.figure_needs else "—"
+        md += f"| {bp.section_id} {bp.section_title} | {bp.section_function[:40]}... | {bp.expected_length} | {claims_brief[:60]} | {figs_brief} |\n"
 
     md += "\n---\n\n"
 
@@ -107,9 +130,9 @@ def render_blueprints_md(
 
 def _render_single_blueprint(bp: SectionBlueprint) -> str:
     """Render a single section blueprint."""
-    md = f"""### {bp.section_number} {bp.section_name}
+    md = f"""### {bp.section_id} {bp.section_title}
 
-**用途：** {bp.purpose}
+**用途：** {bp.section_function}
 
 **预估篇幅：** {bp.expected_length}
 
@@ -120,19 +143,31 @@ def _render_single_blueprint(bp: SectionBlueprint) -> str:
             md += f"- {c}\n"
         md += "\n"
 
-    if bp.evidence_mapping:
+    if bp.evidence_basis:
         md += "**证据映射：**\n"
-        md += "| 声明 | 支撑证据 | 来源 |
-|------|---------|------|\n"
-        for em in bp.evidence_mapping:
+        md += "| 声明 | 支撑证据 | 来源 |\n"
+        md += "|------|---------|------|\n"
+        for em in bp.evidence_basis:
             refs = ", ".join(em.get("evidence_refs", ["待补充"]))
             source = em.get("evidence_source", "—")
             md += f"| {em.get('claim', '')[:50]} | {refs[:50]} | {source} |\n"
         md += "\n"
 
-    if bp.figure_placements:
+    if bp.evidence_needed:
+        md += "**证据需求：**\n"
+        for item in bp.evidence_needed:
+            md += f"- {item}\n"
+        md += "\n"
+
+    if bp.do_not_write:
+        md += "**不应混入：**\n"
+        for item in bp.do_not_write:
+            md += f"- {item}\n"
+        md += "\n"
+
+    if bp.figure_needs:
         md += "**建议图表位置：**\n"
-        for fp in bp.figure_placements:
+        for fp in bp.figure_needs:
             md += f"- {fp}\n"
         md += "\n"
 
@@ -145,6 +180,12 @@ def _render_single_blueprint(bp: SectionBlueprint) -> str:
         md += "**期刊风格提示：**\n"
         for sn in bp.style_notes:
             md += f"- {sn}\n"
+        md += "\n"
+
+    if bp.risk_flags:
+        md += "**风险标签：**\n"
+        for flag in bp.risk_flags:
+            md += f"- {flag}\n"
         md += "\n"
 
     md += "---\n\n"
@@ -176,6 +217,13 @@ def _parse_outline(path: str) -> list[dict]:
 def _parse_style_profile(path: str) -> dict:
     """Parse key rules from style_profile.md."""
     rules = {}
+    if path.endswith(".json"):
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        rules["avg_sentence_length"] = data.get("language_rules", {}).get("avg_sentence_length")
+        rules["passive_ratio"] = data.get("language_rules", {}).get("passive_voice_ratio")
+        rules["section_order"] = data.get("structure_rules", {}).get("section_order", [])
+        return rules
     with open(path, 'r', encoding='utf-8') as f:
         content = f.read()
 
@@ -227,6 +275,40 @@ def _parse_evidence_csv(path: str) -> dict:
     except Exception:
         pass
     return evidence
+
+
+def _infer_evidence_needed(section: dict) -> list[str]:
+    name = section["name"].lower()
+    if any(w in name for w in ['intro', '引言', '绪论', 'related', '文献综述', '综述']):
+        return ["review", "context", "gap"]
+    if any(w in name for w in ['method', '方法', '方案']):
+        return ["method", "theory", "validation"]
+    if any(w in name for w in ['experiment', '实验', '结果']):
+        return ["experiment", "data", "comparison"]
+    if any(w in name for w in ['discussion', '讨论', 'analysis', '分析']):
+        return ["interpretation", "comparison", "limitation"]
+    return ["context", "evidence"]
+
+
+def _infer_do_not_write(section: dict) -> list[str]:
+    name = section["name"].lower()
+    if any(w in name for w in ['method', '方法', '方案']):
+        return ["重复大段背景综述", "未定义符号前直接给公式"]
+    if any(w in name for w in ['experiment', '实验', '结果']):
+        return ["只贴数据不解释", "没有基线的强结论"]
+    if any(w in name for w in ['conclusion', '结论']):
+        return ["引入新的核心证据", "展开新的方法细节"]
+    return ["与本章功能无关的大段内容"]
+
+
+def _infer_risk_flags(section: dict, evidence: dict) -> list[str]:
+    flags = []
+    if not evidence:
+        flags.append("evidence-thin")
+    name = section["name"].lower()
+    if any(w in name for w in ['experiment', '实验']) and not evidence:
+        flags.append("missing-experimental-basis")
+    return flags
 
 
 # ── Inference Helpers ────────────────────────────────────────────────────────
@@ -382,11 +464,16 @@ def main():
         f.write(md)
     print(f"✅ 章节蓝图: {bp_path}")
 
+    bp_json_path = os.path.join(args.output, "section_blueprints.json")
+    with open(bp_json_path, 'w', encoding='utf-8') as f:
+        json.dump([bp.to_schema_dict() for bp in blueprints], f, ensure_ascii=False, indent=2)
+    print(f"✅ 章节蓝图JSON: {bp_json_path}")
+
     # Print summary
     print(f"\n── 蓝图总览 ──")
     for bp in blueprints:
-        figs = f" {len(bp.figure_placements)} 图" if bp.figure_placements else ""
-        print(f"   {bp.section_number} {bp.section_name}: {bp.expected_length}{figs}")
+        figs = f" {len(bp.figure_needs)} 图" if bp.figure_needs else ""
+        print(f"   {bp.section_id} {bp.section_title}: {bp.expected_length}{figs}")
 
 
 if __name__ == "__main__":

@@ -41,6 +41,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+try:
+    from workflow_contracts import load_search_records
+except ImportError:
+    load_search_records = None
+
 
 # ── Markdown table parsing (reuses logic from generate_retrieval_report.py) ──
 
@@ -965,6 +970,29 @@ def build_report(
     return "\n".join(lines)
 
 
+def _workflow_records_to_rows(path: Path) -> List[Dict]:
+    if load_search_records is None:
+        print("❌ workflow_contracts.py is unavailable", file=sys.stderr)
+        sys.exit(1)
+    records = load_search_records(path)
+    rows: List[Dict] = []
+    for record in records:
+        rows.append({
+            "title": record.title,
+            "authors": "; ".join(record.authors),
+            "year": record.year,
+            "source": record.source,
+            "doi": record.doi or record.source_id,
+            "url": record.article_url,
+            "score": record.score,
+            "tier": record.paper_tier or record.tier,
+            "subtopic": record.chapter_id or record.search_task_id,
+            "flags": record.warn_class or record.verification_status,
+            "abstract": record.abstract,
+        })
+    return rows
+
+
 # ── PDF generation ──────────────────────────────────────────────────────────
 
 def _generate_pdf(md_path: str, output_path: str) -> bool:
@@ -1008,10 +1036,12 @@ def main():
         epilog="""Examples:
   %(prog)s --results 检索文献表.md --saturation saturation_snapshot.json -o 检索报告.md
   %(prog)s --results 检索文献表.md --metadata search_metadata.json --saturation snap.json -o report.md
+  %(prog)s --workflow-inputs workflow_search_results.json -o 检索报告.md --no-pdf
   %(prog)s --results 检索文献表.md -o 检索报告.md --no-pdf
         """,
     )
-    parser.add_argument("--results", required=True, type=Path, help="Path to 检索文献表.md")
+    parser.add_argument("--results", type=Path, help="Path to 检索文献表.md")
+    parser.add_argument("--workflow-inputs", type=Path, help="Standard workflow search results JSON")
     parser.add_argument("--metadata", type=Path, help="Optional search metadata JSON (enriches report with per-source counts etc.)")
     parser.add_argument("--saturation", type=Path, help="Optional saturation_snapshot.json from discovery_curve.py")
     parser.add_argument("--output", "-o", required=True, type=Path, help="Output path for 检索报告.md")
@@ -1019,15 +1049,29 @@ def main():
     args = parser.parse_args()
 
     # Load data
-    if not args.results.exists():
+    if not args.results and not args.workflow_inputs:
+        print("❌ Either --results or --workflow-inputs is required", file=sys.stderr)
+        sys.exit(1)
+
+    if args.results and not args.results.exists():
         print(f"❌ Results file not found: {args.results}", file=sys.stderr)
         sys.exit(1)
 
-    rows = _parse_md_table(str(args.results))
+    if args.results:
+        rows = _parse_md_table(str(args.results))
+        source_label = args.results.name
+        md_path = str(args.results)
+    else:
+        if not args.workflow_inputs.exists():
+            print(f"❌ Workflow input not found: {args.workflow_inputs}", file=sys.stderr)
+            sys.exit(1)
+        rows = _workflow_records_to_rows(args.workflow_inputs)
+        source_label = args.workflow_inputs.name
+        md_path = str(args.workflow_inputs)
     if not rows:
-        print(f"❌ No literature data found in {args.results}", file=sys.stderr)
+        print(f"❌ No literature data found in {source_label}", file=sys.stderr)
         sys.exit(1)
-    print(f"📋 Loaded {len(rows)} papers from {args.results.name}")
+    print(f"📋 Loaded {len(rows)} papers from {source_label}")
 
     metadata = None
     if args.metadata and args.metadata.exists():
@@ -1044,7 +1088,7 @@ def main():
     # Build report
     report = build_report(
         rows=rows,
-        md_path=str(args.results),
+        md_path=md_path,
         saturation=saturation,
         metadata=metadata,
     )

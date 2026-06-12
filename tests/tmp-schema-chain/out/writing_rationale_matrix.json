@@ -1,0 +1,201 @@
+[
+  {
+    "schema_version": "1.0",
+    "unit_id": "§1-¶1",
+    "parent_section_id": "1",
+    "unit_name": "背景段落",
+    "what_it_does": "建立宏观背景，说明研究领域的重要性和当前面临的核心挑战",
+    "motivation_link": "回答'为什么读者需要关心这个问题'——设置论文的 stakes",
+    "claim_binding": [
+      "领域当前面临的挑战是...",
+      "已有方法的局限性在于...",
+      "本文的贡献包括...（3-5 条）"
+    ],
+    "evidence_used": [
+      "行业报告/权威数据（如有）",
+      "高引经典论文（综述类）"
+    ],
+    "quality_check": "读完这段后，非同领域的读者能理解为什么这个问题值得研究吗？",
+    "risk_notes": [
+      "evidence-thin"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "unit_id": "§1-¶2",
+    "parent_section_id": "1",
+    "unit_name": "Gap 识别段落",
+    "what_it_does": "综述已有工作的不足，明确指出研究空白（gap）",
+    "motivation_link": "回答'已有方法为什么不够'——为本文贡献建立必要性",
+    "claim_binding": [
+      "领域当前面临的挑战是...",
+      "已有方法的局限性在于...",
+      "本文的贡献包括...（3-5 条）"
+    ],
+    "evidence_used": [
+      "已有方法的关键局限（来自综述矩阵）"
+    ],
+    "quality_check": "gap 是否具体到可验证的程度？不是'fill a gap'空话",
+    "risk_notes": [
+      "evidence-thin"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "unit_id": "§1-¶3",
+    "parent_section_id": "1",
+    "unit_name": "贡献声明段落",
+    "what_it_does": "列出本文 3-5 条具体贡献，每条标注对应章节",
+    "motivation_link": "核心——回答'本文做了什么、与已有方法有何不同'",
+    "claim_binding": [
+      "领域当前面临的挑战是...",
+      "已有方法的局限性在于...",
+      "本文的贡献包括...（3-5 条）"
+    ],
+    "evidence_used": [
+      "逐条贡献对应后文章节的证据"
+    ],
+    "quality_check": "每一条贡献是否都有对应章节可以验证？贡献之间是否独立？",
+    "risk_notes": [
+      "evidence-thin"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "unit_id": "§2-¶1",
+    "parent_section_id": "2",
+    "unit_name": "方法总览段落",
+    "what_it_does": "给出方法的顶层框架/系统架构，定义核心概念和符号",
+    "motivation_link": "读者需要先建立心智模型再理解细节",
+    "claim_binding": [
+      "本文采用的方法框架是...",
+      "方法的关键创新在于...",
+      "方法的设计基于...理论/假设"
+    ],
+    "evidence_used": [
+      "系统/方法框架图"
+    ],
+    "quality_check": "画个架构图——新手看完能理解方法的主要组件吗？",
+    "risk_notes": [
+      "evidence-thin"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "unit_id": "§2-¶2",
+    "parent_section_id": "2",
+    "unit_name": "方法细节展开",
+    "what_it_does": "按逻辑顺序展开各组件，先符号后公式，公式旁有直觉解释",
+    "motivation_link": "核心创新体现在方法的设计细节中",
+    "claim_binding": [
+      "本文采用的方法框架是...",
+      "方法的关键创新在于...",
+      "方法的设计基于...理论/假设"
+    ],
+    "evidence_used": [
+      "公式推导的数学基础",
+      "设计选择的动机/理由"
+    ],
+    "quality_check": "每个公式是否能被同领域研究者复现？参数来源是否标注？",
+    "risk_notes": [
+      "evidence-thin"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "unit_id": "§3-¶1",
+    "parent_section_id": "3",
+    "unit_name": "实验设置段落",
+    "what_it_does": "明确实验回答的研究问题、实验条件、对比基线",
+    "motivation_link": "证明实验设计的合理性——回答读者'我凭什么信你的结果'",
+    "claim_binding": [
+      "实验回答了...研究问题",
+      "与基线相比，方法在...指标上提升了...",
+      "消融实验证明了...组件的重要性"
+    ],
+    "evidence_used": [
+      "实验设备/数据集描述",
+      "基线方法来源"
+    ],
+    "quality_check": "读者能仅凭此段复现你的实验设置吗？",
+    "risk_notes": [
+      "evidence-thin",
+      "missing-experimental-basis"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "unit_id": "§3-¶2",
+    "parent_section_id": "3",
+    "unit_name": "核心结果展示",
+    "what_it_does": "展示核心对比结果，数据→分析→解释三层递进",
+    "motivation_link": "用数据证明方法有效——这是论文的'胜负手'",
+    "claim_binding": [
+      "实验回答了...研究问题",
+      "与基线相比，方法在...指标上提升了...",
+      "消融实验证明了...组件的重要性"
+    ],
+    "evidence_used": [
+      "实验结果数据（表格/图表）"
+    ],
+    "quality_check": "每个图表不看正文能看懂吗？caption写全了吗？",
+    "risk_notes": [
+      "evidence-thin",
+      "missing-experimental-basis"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "unit_id": "§3-¶3",
+    "parent_section_id": "3",
+    "unit_name": "消融与分析",
+    "what_it_does": "消融实验/深入分析验证各组件的贡献",
+    "motivation_link": "回答'为什么方法有效'而不仅是'方法有效吗'",
+    "claim_binding": [
+      "实验回答了...研究问题",
+      "与基线相比，方法在...指标上提升了...",
+      "消融实验证明了...组件的重要性"
+    ],
+    "evidence_used": [
+      "消融实验数据",
+      "参数敏感性分析"
+    ],
+    "quality_check": "消融实验是否覆盖了每个声称的创新组件？",
+    "risk_notes": [
+      "evidence-thin",
+      "missing-experimental-basis"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "unit_id": "§4-¶1",
+    "parent_section_id": "4",
+    "unit_name": "贡献总结段落",
+    "what_it_does": "与引言贡献条目一一对应，总结而非重述全文",
+    "motivation_link": "给读者留下最终印象——本文到底贡献了什么",
+    "claim_binding": [],
+    "evidence_used": [
+      "各章节核心发现的浓缩"
+    ],
+    "quality_check": "结论中出现的贡献是否都在引言中声明过？",
+    "risk_notes": [
+      "evidence-thin"
+    ]
+  },
+  {
+    "schema_version": "1.0",
+    "unit_id": "§4-¶2",
+    "parent_section_id": "4",
+    "unit_name": "局限与未来方向",
+    "what_it_does": "诚实列出 2-3 条局限性，提出具体未来方向",
+    "motivation_link": "建立可信度——承认局限比假装完美更令人信服",
+    "claim_binding": [],
+    "evidence_used": [
+      "未解决的问题清单（来自 Step 7f 评审）"
+    ],
+    "quality_check": "未来方向是否具体（有方法名/有场景）而非空话？",
+    "risk_notes": [
+      "evidence-thin"
+    ]
+  }
+]

@@ -6,11 +6,17 @@
 
 ## 1. 启动前读取 (Pre-read Checklist)
 
-执行本步骤前，必须确认以下文件已加载：
+执行本步骤前，优先确认以下输入或其等价替代物是否可用；若缺失，则在当前 Step 内做最小重建，而不是强制要求补齐前序步骤：
 
 - [ ] `大纲关键词.md` — Step 2 产出（章节大纲 + 关键词清单 + 章节证据需求表）
 - [ ] `研究主题.md` — Step 1 产出（tier/search_tier + 聚焦主题 + 预审结论）
 - [ ] `references/search-query-frameworks.md` — 检索查询框架参考（概念块布尔模型 + PICO + 反模式清单）
+- [ ] `manifest.step3.yaml` — 🆕 Step 3 workflow 入口定义
+- [ ] `references/workflows/search-plan-standard.md` — 🆕 常规检索方案
+- [ ] `references/workflows/search-plan-citation-expansion.md` — 🆕 引文扩展方案
+- [ ] `references/workflows/search-plan-prisma-s.md` — 🆕 PRISMA-S 透明度方案
+- [ ] `references/evidence-tier-policy.md` — 🆕 保守证据分级策略
+- [ ] `references/claim-evidence-readiness.md` — 🆕 章节 claim 的可写 readiness
 - [ ] `.skill-state/term_aliases.md` — 🆕 术语标准化映射（确保查询用词与大纲一致）
 - [ ] `.skill-state/error_log.md` — 已知错误及修复规则
 - [ ] `.skill-state/decision_log.md` — 影响本 Step 的结构性决策
@@ -41,10 +47,10 @@
 
 | 输入 | 来源 | 格式 | 必选 |
 |------|------|------|:--:|
-| 章节大纲 | Step 2 `大纲关键词.md` | .md | ✅ |
-| 关键词清单 | Step 2 `大纲关键词.md` | .md | ✅ |
-| 章节证据需求表 | Step 2 `大纲关键词.md` | .md | ✅ |
-| 术语映射表 | Step 2 → .skill-state/term_aliases.md | .md | ✅ |
+| 章节大纲 | Step 2 `大纲关键词.md` / 用户目录 | .md / 文本 | ✅ |
+| 关键词清单 | Step 2 `大纲关键词.md` / 当前 Step 补提取 | .md / 文本 | ✅ |
+| 章节证据需求表 | Step 2 `大纲关键词.md` / 当前 Step 补提取 | .md / 结构化摘要 | ✅ |
+| 术语映射表 | Step 2 → .skill-state/term_aliases.md | .md | 推荐 |
 
 **独立入口规则：**
 
@@ -53,6 +59,17 @@
 1. 从用户材料中抽取最小可用的章节结构、关键词和证据需求。
 2. 输出 soft `CHECKPOINT 2 — CP-OUTLINE`，设置 `entry_mode: direct_entry`，`status: satisfied_by_user_artifact` 或 `satisfied_by_agent_reconstruction`，记录“当前检索将基于哪份大纲/目录”。
 3. 大纲可用时直接生成 `search_tasks`；只有章节结构、主题对象或关键词缺失到无法安全生成检索方案时，才设为 `status: blocked` 并请用户补充。
+
+**Direct-entry input contract：**
+
+| 可接受输入 | 最小处理 | 输出 |
+|------------|----------|------|
+| 已有目录/章节列表 | 抽取 chapter_id、chapter_title、关键词候选 | `search_tasks` 草案 |
+| 开题报告/研究计划/论文草稿 | 反推研究主题、章节证据需求、术语表候选 | `search_tasks` + 术语补充建议 |
+| 用户给定关键词/数据库偏好 | 直接生成概念块和 route | `检索方案.md` |
+| 已有检索式 | 转换为 search_tasks，不要求回到 Step 2 | 可执行检索方案 |
+
+Step 3 的成功标准是生成当前任务可用的 `search_tasks`，不是补齐完整 Step 1/2 产物。缺少正式 `研究主题.md` 或 `大纲关键词.md` 时，必须在 `CP-OUTLINE` 中记录输入依据和缺失项，但不得阻止检索方案生成，除非用户材料不足以判断研究对象或章节范围。
 
 **Step 2 字段读取规则：**
 
@@ -78,7 +95,10 @@
 | 输出 | 格式 | 说明 |
 |------|------|------|
 | 检索方案.md | .md | v3.1：含 search_tasks + 分层路由 + 概念块拆解 + 反模式检查 |
+| 检索方案.json | .json | 🆕 Step 3 机器执行源，稳定承载 `search_tasks`、route、tier、query_blocks |
 | 检索方案.pdf | .pdf | 自动由 md_to_pdf.py 生成 |
+
+> 从本版开始，`检索方案.json` 是 Step 3 交给 Step 4 的机器执行源；`检索方案.md` 是人工审阅版。若两者同时存在，以 JSON 为准。
 
 ---
 
@@ -100,7 +120,7 @@ Step 2 产出（大纲关键词.md）
 
 ### 3a-0. Search Tasks 结构化模板
 
-`检索方案.md` 必须包含机器可读的 `search_tasks`，供 Step 4 执行：
+`检索方案.json` 必须包含机器可读的 `search_tasks`，供 Step 4 执行；`检索方案.md` 负责展示同一内容的可读视图：
 
 ```yaml
 search_language: 中文|英文|中英文混合
