@@ -73,15 +73,6 @@
 
 完整学术文献检索和写作工作流（8 步法）：①交互式确定研究主题 → ②生成大纲/关键词 → ③制定检索方案 → ④多渠道检索+评分并导出 BibTeX → **⑤统一路由下载（Sci-Hub→SD CDP/IEEE CDP→Generic CDP，覆盖 23+ 家出版社）** → ⑥Zotero 文库管理（架构生成+BibTeX 条目入库+PDF 附件关联+一致性检查） → ⑦论文写作（含文献证据矩阵+目标体裁/文档风格学习+GB/T 7714 完整规范+图表生成+引用审计） → ⑧论文润色。
 
-### 文档定位：Source of Truth
-
-| 文件 | 定位 | 适合阅读的内容 |
-|------|------|----------------|
-| `README.md` | GitHub 对外展示 + 快速开始 | 项目能力、安装方式、8 步流程概览、常用触发语 |
-| `SKILL.md` | Skill 入口与运行时路由 | 触发词、Agent 路由、全局依赖、运行时约定 |
-| `agents/step_*.md` | 各 Step 权威执行规则 | 输入输出、流程细节、质量门、故障处理 |
-
-> 若 README 与 `agents/step_*.md` 在执行细节上不一致，以 `agents/step_*.md` 为准；README 只保留必要概览，避免与运行时规则重复维护。
 
 ### 设计哲学：AI 辅助 ≠ AI 替代
 
@@ -213,6 +204,8 @@
 | 维护成本 | 随时按需读取，无需预处理 | PDF 更新需重建索引 |
 
 > 文献量巨大（>200 篇）时才值得做 RAG 预处理。本工具的 Step 4 检索文献表 + Step 6 Zotero 架构已完成分类，写作时按需精读即可。
+
+> 若后续引入 RAG，其定位将严格限定为**候选定位加速层**：RAG 负责“找哪里可能有证据”，Zotero note / annotation / PDF 原文直读负责“确认这里是不是真证据”。RAG 结果不会直接进入正文引用或引用审计结论。
 
 ---
 
@@ -498,7 +491,8 @@ Step 7 的核心能力：
 - **目标体裁/文档风格（7.2）**：支持期刊论文、学位论文、会议论文、课程论文和已有草稿续写。
 - **多种写作范围**：可完整写作、只写综述章节、只写指定章节、续写已有草稿、只写摘要或只做 revision-only 修稿。
 - **修稿入口（7.9b）**：收到审稿意见后，直接在 Step 7 生成修稿路线图、回应骨架和证据缺口清单。
-- **章节级论证计划（7.5b）**：正文生成前先锁定章节 claim、所需证据、图表要求和缺证据回退策略。
+- **章节级论证计划（Step 7.5）**：正文生成前先锁定章节 claim、所需证据、图表要求和缺证据回退策略。
+- **图表证据子链**：图号/表号索引、图注与正文绑定、图表 claim 审计与动作建议，和文字证据链并行，最终在 claim 层汇合。
 - **复评（7.9c）**：验证修稿是否真正关闭上轮问题、是否引入新问题、引用风险是否下降。
 - **引用闭环**：逐段匹配 Zotero 条目和 PDF/笔记/标注证据，写后执行引用审计。
 - **质量门**：包含段落自查、同行评审仿真、图表生成和写后引用审计。
@@ -516,6 +510,21 @@ Step 7 的核心能力：
 ### Step 8: 论文润色
 
 > 💬 对论文初稿进行润色，去 AI 痕迹、注入人味、优化句长波动。
+
+Step 8 现在优先做诊断，再做润色。它会先把问题分成固定几类：
+
+- `evidence_gap`
+- `structure_drift`
+- `language_mechanical`
+- `contribution_overclaim`
+- `citation_misalignment`
+
+并通过 `diagnostic_summary.md`、`润色质量报告.md` 明确告诉用户：
+
+- 哪些问题可在 Step 8 内解决
+- 哪些问题必须回退 Step 7 或 Step 4/6
+- 下一步应是继续定稿，还是回退修稿/审计/证据修复
+- `Overall Status` 应为：`ready_for_finalize / ready_with_warnings / not_ready_requires_rollback`
 
 逐句精修，分层递进。核心增强 —— **句长波动与段落节奏检测（5 项）：**
 
@@ -882,6 +891,8 @@ Citation accuracy is paramount in paper writing. This tool uses **direct PDF rea
 | Maintenance Cost | On-demand reading, no preprocessing | Requires index rebuild on PDF update |
 
 > RAG preprocessing is only worthwhile for massive literature collections (>200 papers). This tool's Step 4 literature table + Step 6 Zotero architecture already handle classification; on-demand deep reading is sufficient for writing.
+
+> If RAG is added later, it will be strictly limited to a **candidate retrieval accelerator**: RAG finds where evidence might exist, while Zotero notes / annotations / direct PDF reading confirm whether it is real evidence. RAG outputs will never directly become manuscript citations or audit conclusions.
 
 ---
 

@@ -210,6 +210,58 @@ class ReportInputs:
     writing_blueprint: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class RetrievalIndexManifest:
+    schema_version: str = "retrieval-index.v1"
+    generated_at: str = ""
+    index_levels: list[str] = field(default_factory=list)
+    sources: list[str] = field(default_factory=list)
+    item_count: int = 0
+    chunk_count: int = 0
+    notes: str = ""
+
+
+@dataclass
+class RetrievalCandidate:
+    query_text: str = ""
+    step_context: str = ""
+    candidate_item_key: str = ""
+    candidate_chunk_id: str = ""
+    page: str = ""
+    source_type: str = ""
+    retrieval_score: str = ""
+    match_reason: str = ""
+    requires_direct_verification: bool = True
+    post_verify_status: str = ""
+
+
+@dataclass
+class FigureIndexRecord:
+    schema_version: str = "figure-index.v1"
+    item_key: str = ""
+    figure_id: str = ""
+    figure_type: str = ""  # figure | table
+    page: str = ""
+    caption: str = ""
+    mentions_in_text: list[str] = field(default_factory=list)
+    source_type: str = ""  # caption_only | caption_plus_text | visual_pending
+    collection_path: list[str] = field(default_factory=list)
+    paper_tier: str = ""
+
+
+@dataclass
+class FigureEvidenceRecord:
+    schema_version: str = "figure-evidence.v1"
+    figure_id: str = ""
+    item_key: str = ""
+    claim_binding: str = ""
+    caption_support: str = ""
+    text_support: str = ""
+    visual_support: str = ""
+    evidence_status: str = ""
+    recommended_action: str = ""
+
+
 def infer_download_hint(doi: str, source: str, article_url: str) -> str:
     if source in ("cnki", "wanfang"):
         return "chinese_article_url" if article_url else "missing_article_url"
@@ -232,6 +284,62 @@ def workflow_payload(records: list[SearchResultRecord], metadata: dict[str, Any]
 def write_workflow_json(path: str | Path, records: list[SearchResultRecord], metadata: dict[str, Any] | None = None) -> None:
     Path(path).write_text(
         json.dumps(workflow_payload(records, metadata), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def retrieval_manifest_payload(manifest: RetrievalIndexManifest) -> dict[str, Any]:
+    return asdict(manifest)
+
+
+def retrieval_candidates_payload(candidates: list[RetrievalCandidate], metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "schema_version": "retrieval-candidates.v1",
+        "metadata": metadata or {},
+        "candidates": [asdict(c) for c in candidates],
+    }
+
+
+def write_retrieval_manifest(path: str | Path, manifest: RetrievalIndexManifest) -> None:
+    Path(path).write_text(
+        json.dumps(retrieval_manifest_payload(manifest), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def write_retrieval_candidates(path: str | Path, candidates: list[RetrievalCandidate], metadata: dict[str, Any] | None = None) -> None:
+    Path(path).write_text(
+        json.dumps(retrieval_candidates_payload(candidates, metadata), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def figure_index_payload(records: list[FigureIndexRecord], metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "schema_version": "figure-index.v1",
+        "metadata": metadata or {},
+        "records": [asdict(r) for r in records],
+    }
+
+
+def figure_evidence_payload(records: list[FigureEvidenceRecord], metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "schema_version": "figure-evidence.v1",
+        "metadata": metadata or {},
+        "records": [asdict(r) for r in records],
+    }
+
+
+def write_figure_index(path: str | Path, records: list[FigureIndexRecord], metadata: dict[str, Any] | None = None) -> None:
+    Path(path).write_text(
+        json.dumps(figure_index_payload(records, metadata), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def write_figure_evidence(path: str | Path, records: list[FigureEvidenceRecord], metadata: dict[str, Any] | None = None) -> None:
+    Path(path).write_text(
+        json.dumps(figure_evidence_payload(records, metadata), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 

@@ -71,6 +71,17 @@
 
 Step 3 的成功标准是生成当前任务可用的 `search_tasks`，不是补齐完整 Step 1/2 产物。缺少正式 `研究主题.md` 或 `大纲关键词.md` 时，必须在 `CP-OUTLINE` 中记录输入依据和缺失项，但不得阻止检索方案生成，除非用户材料不足以判断研究对象或章节范围。
 
+**系统综述 / 综述型分支：**
+
+若 Step 1 的 `research_intent_type` 为 `综述型` 或 `系统综述型`，或用户显式要求 PRISMA / systematic review，则 Step 3 必须在常规 `search_tasks` 之外补入：
+
+- `review_protocol`
+- `inclusion_criteria`
+- `exclusion_criteria`
+- `screening_priority`
+
+此分支不改变 `Step 1-8` 主结构，只增强检索方案的筛选透明度与可解释性。
+
 **Step 2 字段读取规则：**
 
 | 字段 | 用途 |
@@ -145,6 +156,12 @@ search_tasks:
       l3: ["pubmed"]
     recommended_commands: []
     anti_patterns_checked: true
+review_protocol:
+  mode: "narrative|systematic"
+  prisma_like: true|false
+  screening_priority: "title_first|abstract_first|mixed"
+inclusion_criteria: []
+exclusion_criteria: []
 ```
 
 **生成规则：**
@@ -154,6 +171,7 @@ search_tasks:
 - `question_to_answer` 必须来自章节证据需求表，不得凭空新增
 - `query_blocks` 优先使用关键词清单中的核心词、同义词/缩写、方法词、场景词、指标词
 - `exclusion_terms` 优先来自关键词清单的排除词
+- `review_protocol` 仅在综述 / 系统综述任务下强制填写；普通研究型任务可省略
 
 ### 3a. 查询构建框架
 

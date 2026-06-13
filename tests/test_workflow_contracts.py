@@ -9,11 +9,19 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from workflow_contracts import (  # noqa: E402
     DownloadManifestItem,
+    FigureEvidenceRecord,
+    FigureIndexRecord,
+    RetrievalCandidate,
+    RetrievalIndexManifest,
     SearchResultRecord,
     as_chinese_papers,
     dois_from_download_items,
+    figure_evidence_payload,
+    figure_index_payload,
     load_search_records,
     normalize_doi,
+    retrieval_candidates_payload,
+    retrieval_manifest_payload,
     stable_source_id,
     write_workflow_json,
 )
@@ -98,6 +106,78 @@ class WorkflowContractsTest(unittest.TestCase):
         chinese = as_chinese_papers(items)
         self.assertEqual(len(chinese), 1)
         self.assertEqual(chinese[0]["source"], "cnki")
+
+    def test_retrieval_manifest_payload(self):
+        manifest = RetrievalIndexManifest(
+            generated_at="2026-06-14T10:00:00+08:00",
+            index_levels=["lightweight", "pdf_chunk"],
+            sources=["zotero_notes", "pdf_chunks"],
+            item_count=12,
+            chunk_count=34,
+            notes="candidate retrieval only",
+        )
+        payload = retrieval_manifest_payload(manifest)
+        self.assertEqual(payload["schema_version"], "retrieval-index.v1")
+        self.assertEqual(payload["item_count"], 12)
+        self.assertEqual(payload["index_levels"], ["lightweight", "pdf_chunk"])
+
+    def test_retrieval_candidates_payload(self):
+        candidates = [
+            RetrievalCandidate(
+                query_text="claim about heat transfer",
+                step_context="7.7",
+                candidate_item_key="ABC123",
+                candidate_chunk_id="chunk-1",
+                page="12",
+                source_type="pdf_chunk",
+                retrieval_score="0.92",
+                match_reason="keyword overlap",
+                requires_direct_verification=True,
+                post_verify_status="",
+            )
+        ]
+        payload = retrieval_candidates_payload(candidates, {"chapter": "ch3"})
+        self.assertEqual(payload["schema_version"], "retrieval-candidates.v1")
+        self.assertEqual(payload["metadata"]["chapter"], "ch3")
+        self.assertEqual(payload["candidates"][0]["candidate_item_key"], "ABC123")
+        self.assertTrue(payload["candidates"][0]["requires_direct_verification"])
+
+    def test_figure_index_payload(self):
+        records = [
+            FigureIndexRecord(
+                item_key="ABC123",
+                figure_id="fig_3",
+                figure_type="figure",
+                page="12",
+                caption="Temperature distribution under condition A",
+                mentions_in_text=["As shown in Fig. 3"],
+                source_type="caption_plus_text",
+                collection_path=["ch3", "results"],
+                paper_tier="T1",
+            )
+        ]
+        payload = figure_index_payload(records, {"chapter": "ch3"})
+        self.assertEqual(payload["schema_version"], "figure-index.v1")
+        self.assertEqual(payload["records"][0]["figure_id"], "fig_3")
+        self.assertEqual(payload["records"][0]["source_type"], "caption_plus_text")
+
+    def test_figure_evidence_payload(self):
+        records = [
+            FigureEvidenceRecord(
+                figure_id="fig_3",
+                item_key="ABC123",
+                claim_binding="claim-7",
+                caption_support="partial",
+                text_support="strong",
+                visual_support="pending",
+                evidence_status="text_caption_aligned",
+                recommended_action="retain",
+            )
+        ]
+        payload = figure_evidence_payload(records, {"step": "7.11"})
+        self.assertEqual(payload["schema_version"], "figure-evidence.v1")
+        self.assertEqual(payload["records"][0]["evidence_status"], "text_caption_aligned")
+        self.assertEqual(payload["records"][0]["recommended_action"], "retain")
 
 
 if __name__ == "__main__":

@@ -331,18 +331,15 @@ Step 7: 论文写作（paper_type×language×target_genre） → style_profile.m
   ├─ 7.1 文献证据矩阵   13 列证据矩阵，按证据优先级填充 🆕
   ├─ 7.2 风格学习+蓝图 目标体裁/文档风格画像+章节蓝图+写作逻辑矩阵 🆕 v1.1.0
   ├─ 7.3 类型+语言+体裁识别 research/en/zh/zh-to-en + journal/thesis/conference/existing-draft
-  ├─ 7.4 写作模式       full-document/review-only/abstract-only/chapter-only/continue-existing/revision-only
-  ├─ 7.5 语言差异化     zh/en/zh-to-en 写作规范+章节命名
-  ├─ 7.5b 章节级论证计划 先锁定 claim/证据/图表/弱点边界
+  ├─ 7.4 写作范围识别   full-document/review-only/abstract-only/chapter-only/continue-existing/revision-only
+  ├─ 7.5 模式与论证计划 摘要子类型 + zh/en/zh-to-en 规则 + argument_plan
   ├─ 7.6 章节写作规则   摘要/引言/相关工作/方法/实验/结论
   ├─ 7.7 实时引文支撑   Zotero优先匹配→证据读取→评估→引用确认；新文献回流 Step 4/6
   ├─ 7.8 防幻觉机制     evidence_level + JSON追溯 + 中文元数据完整
-  ├─ 7.9 同行评审仿真   评审报告.md + rebuttal-预演.md → PDF
-  ├─ 7.9b 修稿教练      revision_roadmap.md + response_letter_skeleton.md + evidence_gap_list.md
-  ├─ 7.9c 复评          rereview_report.md（验证问题是否真的解决）
+  ├─ 7.9 修稿闭环       评审报告 + 修稿教练 + revision-only + rereview_report
   ├─ 7.10 科研图表生成  figures/ + 图表清单.md
   └─ 7.11 写后引用审计  三层审计：format_status / mapping_status / evidence_status + recommended_action
-Step 8: 论文润色（含句长波动检测）   → 论文润色稿.md → 论文润色稿.docx
+Step 8: 论文润色（诊断优先 + 句长波动检测）   → diagnostic_summary.md + 论文润色稿.md → 论文润色稿.docx
 ```
 
 ---

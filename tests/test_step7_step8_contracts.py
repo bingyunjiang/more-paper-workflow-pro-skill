@@ -65,6 +65,19 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("引用安全提醒", text)
         self.assertIn("不能要求用户回跑 Step 7", text)
         self.assertIn("默认以这些 JSON 为**约束源**", text)
+        self.assertIn("diagnostic_summary.md", text)
+        self.assertIn("evidence_gap", text)
+        self.assertIn("structure_drift", text)
+        self.assertIn("language_mechanical", text)
+        self.assertIn("contribution_overclaim", text)
+        self.assertIn("citation_misalignment", text)
+        self.assertIn("ready_for_finalize", text)
+        self.assertIn("ready_with_warnings", text)
+        self.assertIn("not_ready_requires_rollback", text)
+        self.assertIn("return_to_step_7_revision_only", text)
+        self.assertIn("return_to_step_7_citation_audit", text)
+        self.assertIn("return_to_step_7_argument_plan", text)
+        self.assertIn("return_to_step_4_or_6", text)
 
     def test_abstract_only_subtypes_are_documented(self):
         text = read_rel("agents/step_7_writing.md")
@@ -85,6 +98,58 @@ class Step7Step8ContractsTest(unittest.TestCase):
             "examples/showcase/README.md",
         ]:
             self.assertTrue((ROOT / rel).exists(), rel)
+
+    def test_deep_research_borrowings_are_wired_into_steps(self):
+        step1 = read_rel("agents/step_1_topic.md")
+        step3 = read_rel("agents/step_3_search_plan.md")
+        step4 = read_rel("agents/step_4_search_score.md")
+        step7 = read_rel("agents/step_7_writing.md")
+
+        self.assertIn("research_intent_type", step1)
+        self.assertIn("research_question_candidates", step1)
+        self.assertIn("primary_rq", step1)
+        self.assertIn("scope_boundaries", step1)
+        self.assertIn("methodology_blueprint", step1)
+        self.assertIn("devils_advocate_challenge", step1)
+
+        self.assertIn("review_protocol", step3)
+        self.assertIn("inclusion_criteria", step3)
+        self.assertIn("exclusion_criteria", step3)
+
+        self.assertIn("证据层级提示", step4)
+        self.assertIn("screening rationale", step4)
+        self.assertIn("exclusion buckets", step4)
+
+        self.assertIn("strongest_counterargument", step7)
+        self.assertIn("alternative_explanations", step7)
+
+    def test_rag_candidate_layer_is_documented_as_non_authoritative(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        step8 = read_rel("agents/step_8_polishing.md")
+        readme = read_rel("README.md")
+
+        self.assertIn("retrieval_index_manifest.json", step7)
+        self.assertIn("retrieval_candidates.json", step7)
+        self.assertIn("retrieved_candidate", step7)
+        self.assertIn("不得直接升级为 `VERIFIED` / `VERIFIED_LOCAL`", step7)
+        self.assertIn("Step 8 不直接读取 `retrieval_candidates.json`", step8)
+        self.assertIn("候选定位加速层", readme)
+
+    def test_figure_evidence_subchain_is_documented(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        readme = read_rel("README.md")
+
+        self.assertIn("figure_index.json", step7)
+        self.assertIn("figure_evidence_report.md/json", step7)
+        self.assertIn("figure_claim", step7)
+        self.assertIn("figure_overinterpretation", step7)
+        self.assertIn("caption_only", step7)
+        self.assertIn("text_caption_aligned", step7)
+        self.assertIn("visual_confirmed", step7)
+        self.assertIn("figure_not_supported", step7)
+        self.assertIn("need_visual_check", step7)
+        self.assertIn("supplement_text_evidence", step7)
+        self.assertIn("图表证据子链", readme)
 
 
 if __name__ == "__main__":

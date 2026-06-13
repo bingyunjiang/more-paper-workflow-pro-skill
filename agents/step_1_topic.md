@@ -30,6 +30,8 @@
 - 大纲生成 → 路由到 `agents/step_2_outline.md`
 - 文献检索 → 路由到 `agents/step_4_search_score.md`
 
+> **硬边界：** Step 1 只生成问题结构，不生成章节结构。一级/二级标题、章节顺序、章节证据需求表完整版都属于 Step 2。
+
 ---
 
 ## 4. 输入要求 (Input Requirements)
@@ -45,7 +47,7 @@
 
 | 输出 | 格式 | 说明 |
 |------|------|------|
-| 研究主题.md | .md | 增强版：含 YAML 元数据 + 用户画像 + 预检索证据 + 可行性报告 + 创新点初判 + 预审结论 + Step 2/3 交接块 |
+| 研究主题.md | .md | 增强版：含 YAML 元数据 + 用户画像 + 预检索证据 + 研究问题候选 + scope 边界 + 方法蓝图 + 预审结论 + Step 2/3 交接块 |
 
 ---
 
@@ -54,15 +56,15 @@
 ### 增强架构总览
 
 ```
-Step 1a: 研究阶段诊断      → 用户画像 + 推荐入口
-Step 1b: 广度探索 + 预检索  → 发散子方向 → 文献量/趋势/gap初判
-Step 1c: 深度聚焦          → 方法论深化 + 创新点预判
-Step 1d: 选题预审          → originality/importance/feasibility + 证据支撑评分
+Step 1a: 研究阶段诊断      → 用户画像 + 推荐入口 + research_intent_type
+Step 1b: 广度探索 + 预检索  → 发散子方向 → 文献量/趋势/gap初判 + Socratic 澄清
+Step 1c: 深度聚焦          → 研究问题候选 + 方法论深化 + 创新点预判
+Step 1d: 选题预审          → originality/importance/feasibility + 证据支撑评分 + 反方挑战
                               🟢绿灯 / 🟡黄灯 / 🔴红灯
-Step 1e: 检索深度推断      → quick|standard|deep + 参数理由
+Step 1e: 检索深度推断      → quick|standard|deep + 参数理由 + 方法蓝图交接
 
 产出: 研究主题.md（增强版）
-  含结构化元数据 + 用户画像 + 预检索证据 + 可行性报告 + 创新点初判 + 预审结论 + Step 2/3 handoff
+  含结构化元数据 + 用户画像 + 预检索证据 + 研究问题候选 + scope 边界 + 方法蓝图 + 创新点初判 + 预审结论 + Step 2/3 handoff
 ```
 
 ### Step 1a: 研究阶段诊断
@@ -92,6 +94,19 @@ Step 1e: 检索深度推断      → quick|standard|deep + 参数理由
 | 数据或实验条件 | 判断公开数据、实验平台、仿真工具或问卷访谈是否可得 |
 | 论文策略 | 给出快毕业型、稳妥开题型、高创新投稿型三类路线 |
 | 风险提示 | 说明每条路线的文献支撑、创新拥挤度和执行成本 |
+
+**Socratic 澄清输出要求：**
+
+当用户输入属于“兴趣/模糊方向”而不是明确研究问题时，Step 1 必须在 1a-1c 之间逐步逼出以下结构化结果，而不是直接跳到大纲：
+
+- `research_intent_type`：探索型 / 明确研究型 / 综述型 / 事实核查型 / 系统综述型
+- `research_question_candidates`：1-3 个候选研究问题
+- `scope_boundaries`
+  - `in_scope`
+  - `out_of_scope`
+- `sub_questions`：2-3 个子问题
+
+若用户一开始就给出清晰研究问题，可压缩该过程，直接输出结构化 RQ，不强制长对话。
 
 ### Step 1b: 广度探索 + 预检索
 
@@ -173,6 +188,7 @@ Cycle 2: 创新点预判
 **聚焦输出必须包含：**
 
 - 研究对象：研究谁/什么系统/什么材料/什么场景
+- 研究问题候选：至少 1 个主问题 + 2-3 个子问题
 - 核心问题：要解释、预测、优化或验证什么
 - 方法路线：理论/仿真/实验/算法/综述/系统实现
 - 评价指标：至少 3 个可检索、可验证或可实验测量的指标
@@ -217,6 +233,14 @@ Cycle 2: 创新点预判
 | 🟡 黄灯（1-2 红） | 有风险，需调整 | 回到 Step 1c 修正切入点 |
 | 🔴 红灯（3 红） | 选题有硬伤 | 回到 Step 1b 换方向 |
 
+**新增反方挑战区块：**
+
+在五维评分之外，必须补一个“最强反对意见”区块，至少回答：
+
+- `devils_advocate_challenge`：如果我是最苛刻的审稿人，我会如何攻击这个题目？
+- `fatal_risks`：这个题最可能失败的 1-3 个原因是什么？
+- `what_would_fail_this_topic`：如果后续检索或证据不支持，哪条核心前提会先塌？
+
 ### Step 1e: 检索深度自动推断 🆕
 
 > **目的：** 基于用户画像和选题预审结果，自动推断后续文献检索的深度层级，无需额外用户输入。
@@ -239,6 +263,11 @@ Cycle 2: 创新点预判
 ---
 tier: quick|standard|deep
 tier_reason: "博三冲刺+3个月投稿 → Quick 快速扫描"
+methodology_blueprint:
+  paradigm: "positivist|interpretivist|pragmatist|hybrid"
+  method_family: "review|experiment|simulation|survey|case|mixed"
+  data_strategy: "primary|secondary|both"
+  evidence_priority: ["review", "experiment", "data", "standard"]
 ---
 ```
 
@@ -253,10 +282,18 @@ user_profile:
   stage: "找方向|开题|投稿冲刺|综述写作|已有初稿|未知"
   time_pressure: "3个月内|6个月|无紧迫|未知"
   target: "毕业|开题|期刊投稿|会议投稿|工程调研|未知"
+research_intent_type: "探索型|明确研究型|综述型|事实核查型|系统综述型"
 topic:
   field: ""
   focused_topic: ""
   research_problem: ""
+  research_question_candidates: []
+  primary_rq: ""
+  secondary_rqs: []
+  scope_boundaries:
+    in_scope: []
+    out_of_scope: []
+  sub_questions: []
   method_route: ""
   application_scenario: ""
   evaluation_metrics: []
@@ -267,6 +304,11 @@ innovation:
 search_tier:
   tier: "quick|standard|deep"
   tier_reason: ""
+methodology_blueprint:
+  paradigm: ""
+  method_family: ""
+  data_strategy: ""
+  evidence_priority: []
 pre_review:
   originality: {score: 0, signal: "green|yellow|red", reason: ""}
   importance: {score: 0, signal: "green|yellow|red", reason: ""}
@@ -275,6 +317,9 @@ pre_review:
   method_readiness: {score: 0, signal: "green|yellow|red", reason: ""}
   total_score: 0
   decision: "green|yellow|red"
+  devils_advocate_challenge: ""
+  fatal_risks: []
+  what_would_fail_this_topic: []
 ---
 
 # 研究主题
