@@ -22,6 +22,8 @@
 doi_prefixes = ["10.1016/"]
 strategy = "sd_cdp"
 requires_auth = "ip_or_sso"
+provider_label = "ScienceDirect / Elsevier"
+route_hint = "dedicated_provider"
 notes = "ScienceDirect CDP. 96% success (180/185). Requires PII resolution first."
 
 [publishers.ieee]
@@ -36,6 +38,8 @@ selectors = [
 ]
 requires_auth = "sso"
 publisher_domain = "ieeexplore.ieee.org"
+provider_label = "IEEE Xplore"
+route_hint = "generic_cdp_with_referrer"
 notes = "Generic CDP via Strategy B (article page → stamp URL extraction → getPDF.jsp capture). Dedicated download_via_ieee.py available as fallback for interactive SSO login flow."
 
 
@@ -47,6 +51,8 @@ notes = "Generic CDP via Strategy B (article page → stamp URL extraction → g
 doi_prefixes = ["10.3390/"]
 strategy = "skip"
 requires_auth = "none"
+provider_label = "MDPI"
+manual_required = true
 notes = "MDPI: Akamai Bot Manager on CDN blocks all automation. Manual browser download only."
 
 
@@ -60,6 +66,8 @@ strategy = "direct_http"
 pdf_url_template = "https://www.frontiersin.org/articles/{doi}/pdf"
 requires_auth = "none"
 publisher_domain = "www.frontiersin.org"
+provider_label = "Frontiers"
+manual_required = false
 notes = "Open Access. Direct HTTP download works."
 
 
@@ -408,6 +416,8 @@ known_issues = "Preprints. HTTP direct may timeout. Try CDP browser."
 [publishers.cnki]
 doi_prefixes = ["10.3969/"]
 strategy = "chinese_cdp"
+provider_label = "CNKI"
+route_hint = "chinese_cdp_serial"
 selectors = [
     "a.downlink",
     "a[href*=\"download\"]",
@@ -427,6 +437,8 @@ known_issues = "大多数中文论文无真实 DOI，需通过检索结果中的
 [publishers.wanfang]
 doi_prefixes = []
 strategy = "chinese_cdp"
+provider_label = "Wanfang Data"
+route_hint = "chinese_cdp_serial"
 selectors = [
     "a.download-whole",
     "a.download.buttonItem",

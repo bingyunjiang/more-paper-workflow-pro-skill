@@ -372,9 +372,35 @@ Step 8: 论文润色（诊断优先 + 句长波动检测）   → diagnostic_sum
 ### 路由规则
 
 1. **精确匹配优先** — 根据触发词精确匹配对应的 agent 文件
-2. **上下文推断** — 如果用户只说"继续下一步"，根据上一轮的 Step 编号自动加载下一个 agent
+2. **Passport 优先辅助** — 若 `$CWD/.skill-state/artifact_passport.json` 存在，先读取其中的 `recommended_step / route_mode / allowed_modes / blocked_reason`，用它解释当前材料能直接进入哪一步
 3. **跨 Step 跳转** — 用户可以直接跳到任意 Step（如"直接下载论文"→ Step 5）
 4. **多文件加载** — 某些场景需要同时加载多个 agent（如 Step 3 执行前需加载 Step 2 的术语映射表）
+
+### 全局 route_mode 与 Artifact Passport
+
+`route_mode` 是跨 Step 的全局路由轴，不替代 Step 内部 mode：
+
+| route_mode | 含义 |
+|------------|------|
+| `full-workflow` | 当前没有可识别材料，建议从 Step 1/2 开始 |
+| `direct-step` | 当前材料足以直接进入某个 Step |
+| `plan-only` | 当前材料适合先生成计划、映射或 dry-run，不做外部写入 |
+| `repair` | 当前材料不完整或来源混乱，先修复/补齐最小契约 |
+| `audit-only` | 当前更适合做审计、风险标记或只读检查 |
+| `resume` | 已有中间产物，可从阶段边界继续 |
+
+`Artifact Passport` 是 `.skill-state/artifact_passport.json` 中的轻量机读索引，用于回答“我现在有什么材料、能直接进哪一步、缺什么、风险是什么”。
+
+- Passport 只保存材料指针、摘要、来源、缺口和风险；不保存正文内容，不替代正式产物。
+- Passport 是路由依据，不是线性流程锁；路由允许与否必须与 `agents/step_*.md` 的 direct-entry contract 一致。
+- 没有 Passport 时，agent 应从用户提供材料重建最小输入依据；不得因为缺 Passport 而要求回跑前序 Step。
+- `route_mode` 与 `entry_mode` 分离：`route_mode` 判断全局进入方式，`entry_mode` 记录当前 checkpoint 的输入来源。
+- `route_mode` 与 Step 内 mode 分离：Step 7 的 `mode`、Step 8 的 `revision_scope / target_genre` 不应被全局 `route_mode` 覆盖。
+- 生成或刷新 Passport：
+
+```bash
+python3 "$SKILL_DIR/scripts/artifact_passport.py" --project-root "$CWD" --scan --output "$CWD/.skill-state/artifact_passport.json"
+```
 
 ### 共享记忆文件 (Shared Memory)
 
@@ -385,6 +411,7 @@ Step 8: 论文润色（诊断优先 + 句长波动检测）   → diagnostic_sum
 | `.skill-state/error_log.md` | AI 错误积累 | 所有 agent | 所有 agent |
 | `.skill-state/decision_log.md` | 结构性决策记录 | 所有 agent | 所有 agent |
 | `.skill-state/term_aliases.md` | 术语标准化映射 | Step 2, Step 8 | Step 3, Step 7, Step 8 |
+| `.skill-state/artifact_passport.json` | 材料索引、可进入 Step、缺口与风险 | 用户/所有 agent/`artifact_passport.py` | 所有 agent |
 
 ### 统一 Checkpoint 协议
 
@@ -520,6 +547,7 @@ fi
 | `scripts/organize_zotero.py` | 6 | 生成 Zotero 文库架构 |
 | `scripts/setup_zotero.py` | 6 | Zotero MCP 一键安装+配置 |
 | `scripts/check_skill_update.py` | 全部 | 自动升级提醒：检查本地版本元数据和远程 git HEAD，默认每日最多提醒一次 |
+| `scripts/artifact_passport.py` | 全部 | 生成/查看 `.skill-state/artifact_passport.json`：扫描当前材料、判断 `route_mode`、列出可直接进入的 Step、缺口和风险；离线执行，不下载、不写 Zotero |
 | `scripts/learn_journal_style.py` | 7.2 | 目标体裁/文档风格学习 🆕 |
 | `scripts/learn_journal_style.py` | 7.2 | 风格画像生成（输出 `style_profile.md/json`）🆕 |
 | `scripts/generate_section_blueprints.py` | 7.2 | 章节蓝图生成（输出 `section_blueprints.md/json`）🆕 |

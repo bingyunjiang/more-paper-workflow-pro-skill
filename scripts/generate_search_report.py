@@ -46,6 +46,40 @@ try:
 except ImportError:
     load_search_records = None
 
+try:
+    from config_registry import get_output_template, source_label, source_status_note
+except ImportError:
+    get_output_template = None
+    source_label = None
+    source_status_note = None
+
+
+def _source_label(source_key: str) -> str:
+    if source_label:
+        return source_label(source_key)
+    fallback = {
+        "openalex": "OpenAlex",
+        "semantic_scholar": "Semantic Scholar",
+        "crossref": "Crossref",
+        "arxiv": "arXiv",
+        "pubmed": "PubMed",
+        "cnki": "CNKI",
+        "wanfang": "万方",
+    }
+    return fallback.get(source_key.lower().replace(" ", "_"), source_key)
+
+
+def _source_status_note(source_key: str, status: str) -> str:
+    if source_status_note:
+        return source_status_note(source_key, status)
+    return status
+
+
+def _search_report_template() -> Dict:
+    if get_output_template:
+        return get_output_template("search_report")
+    return {"title": "文献检索报告", "default_filename": "检索报告.md"}
+
 
 # ── Markdown table parsing (reuses logic from generate_retrieval_report.py) ──
 
@@ -309,16 +343,9 @@ def _build_prisma_flow(
     lines.append(f"  多渠道原始检索: {raw_total} 篇")
     lines.append("  │")
 
-    db_names = {
-        "openalex": "OpenAlex",
-        "semantic_scholar": "Semantic Scholar",
-        "crossref": "Crossref",
-        "arxiv": "arXiv",
-        "pubmed": "PubMed",
-    }
     for src, sb in sorted(source_breakdown.items(), key=lambda x: -(x[1].get("raw", 0))):
         cnt = sb.get("raw", 0)
-        db_label = sb.get("named") or db_names.get(src.lower().replace(" ", "_"), src)
+        db_label = sb.get("named") or _source_label(src)
         lines.append(f"  ├─ {db_label}: {cnt} 篇")
 
     lines.append("  │")
@@ -390,9 +417,9 @@ def _build_prisma_flow(
     source_status = meta.get("source_status", {})
     db_notes = []
     if source_status.get("semantic_scholar") == "429":
-        db_notes.append("Semantic Scholar 跳过")
+        db_notes.append(f"{_source_label('semantic_scholar')} {_source_status_note('semantic_scholar', '429')}")
     if source_status.get("wanfang") == "attempted_failed":
-        db_notes.append(f"万方已尝试({meta.get('wanfang_fail_reason', '失败')})")
+        db_notes.append(f"{_source_label('wanfang')} 已尝试({meta.get('wanfang_fail_reason', '失败')})")
     db_desc = db_list
     if db_notes:
         db_desc += "；" + "；".join(db_notes)
@@ -440,11 +467,11 @@ def _build_strategy_text(meta: Dict) -> str:
     # English sources used
     en_sources = []
     if source_status.get("openalex") == "ok":
-        en_sources.append("OpenAlex")
+        en_sources.append(_source_label("openalex"))
     if source_status.get("crossref") == "ok":
-        en_sources.append("Crossref")
+        en_sources.append(_source_label("crossref"))
     if source_status.get("semantic_scholar") == "ok":
-        en_sources.append("Semantic Scholar")
+        en_sources.append(_source_label("semantic_scholar"))
     if en_sources:
         parts.append("英文 " + " + ".join(en_sources) + " 分层检索")
 
@@ -452,11 +479,11 @@ def _build_strategy_text(meta: Dict) -> str:
     cn_sources = []
     cn_auth = ""
     if source_status.get("cnki") in ("ok", "carsi_logged_in"):
-        cn_sources.append("CNKI")
+        cn_sources.append(_source_label("cnki"))
         if source_status.get("cnki") == "carsi_logged_in":
             cn_auth = "/CARSI"
     if source_status.get("wanfang") in ("ok", "carsi_logged_in"):
-        cn_sources.append("万方")
+        cn_sources.append(_source_label("wanfang"))
         if not cn_auth and source_status.get("wanfang") == "carsi_logged_in":
             cn_auth = "/CARSI"
     if cn_sources:
@@ -469,14 +496,14 @@ def _build_strategy_text(meta: Dict) -> str:
     # Failed/skipped sources
     notes = []
     if source_status.get("semantic_scholar") == "429":
-        notes.append("Semantic Scholar 429 已跳过")
+        notes.append(f"{_source_label('semantic_scholar')} {_source_status_note('semantic_scholar', '429')}")
     if source_status.get("wanfang") == "attempted_failed":
         reason = meta.get("wanfang_fail_reason", "失败")
-        notes.append(f"万方已尝试但{reason}")
+        notes.append(f"{_source_label('wanfang')} 已尝试但{reason}")
     if source_status.get("cnki") == "skipped_no_account":
-        notes.append("CNKI 用户无机构账号已跳过")
+        notes.append(f"{_source_label('cnki')} 用户无机构账号已跳过")
     if source_status.get("crossref") == "fail":
-        notes.append("Crossref 不可达")
+        notes.append(f"{_source_label('crossref')} 不可达")
 
     result = "；".join(parts)
     if notes:
@@ -497,7 +524,7 @@ def _build_source_routing_table(meta: Dict, tier_param: str) -> List[str]:
     # L1: OpenAlex — always present
     oa_ok = source_status.get("openalex", "ok") == "ok"
     lines.append(
-        f"| L1 | OpenAlex | relevance + cited + recent | {limit} "
+        f"| L1 | {_source_label('openalex')} | relevance + cited + recent | {limit} "
         f"| {'✅ 已执行' if oa_ok else '❌ 不可达'} |")
 
     # L2: Crossref
@@ -508,21 +535,21 @@ def _build_source_routing_table(meta: Dict, tier_param: str) -> List[str]:
         "standard": "条件触发",
     }.get(tier_param, "条件触发")
     lines.append(
-        f"| L2 | Crossref | relevance | {limit} "
+        f"| L2 | {_source_label('crossref')} | relevance | {limit} "
         f"| {'✅ 已执行' if cr_ok else '⚠️ 跳过 (' + cr_status + ')'} | {cr_note} |")
 
     # L2: Semantic Scholar
     ss_status = source_status.get("semantic_scholar")
     if ss_status:
         if ss_status == "429":
-            lines.append("| L2 | Semantic Scholar | — | — | ⬜ 跳过 (HTTP 429) |")
+            lines.append(f"| L2 | {_source_label('semantic_scholar')} | — | — | ⬜ 跳过 ({_source_status_note('semantic_scholar', '429')}) |")
         elif ss_status == "ok":
             lines.append(
-                f"| L2 | Semantic Scholar | relevance | {limit} "
+                f"| L2 | {_source_label('semantic_scholar')} | relevance | {limit} "
                 f"| ✅ 已执行 (影响力/引文富集) |")
         else:
             lines.append(
-                f"| L2 | Semantic Scholar | — | — "
+                f"| L2 | {_source_label('semantic_scholar')} | — | — "
                 f"| ⚠️ 跳过 ({ss_status}) |")
 
     # Chinese: CNKI
@@ -530,42 +557,42 @@ def _build_source_routing_table(meta: Dict, tier_param: str) -> List[str]:
     if cnki_status:
         if cnki_status == "ok":
             lines.append(
-                f"| L1 (中) | CNKI | relevance + cited | {limit} "
-                f"| ✅ IP 直连 |")
+                f"| L1 (中) | {_source_label('cnki')} | relevance + cited | {limit} "
+                f"| ✅ {_source_status_note('cnki', 'ok')} |")
         elif cnki_status == "carsi_logged_in":
             lines.append(
-                f"| L1 (中) | CNKI | relevance + cited | {limit} "
-                f"| ✅ CARSI 登录 |")
+                f"| L1 (中) | {_source_label('cnki')} | relevance + cited | {limit} "
+                f"| ✅ {_source_status_note('cnki', 'carsi_logged_in')} |")
         elif cnki_status in ("skipped_no_account", "skipped"):
             lines.append(
-                f"| L1 (中) | CNKI | — | — "
-                f"| ⬜ 跳过 ({'无机构账号' if cnki_status == 'skipped_no_account' else '用户选择'}) |")
+                f"| L1 (中) | {_source_label('cnki')} | — | — "
+                f"| ⬜ 跳过 ({_source_status_note('cnki', cnki_status)}) |")
 
     # Chinese: Wanfang
     wf_status = source_status.get("wanfang")
     if wf_status:
         if wf_status == "ok":
             lines.append(
-                f"| L2 (中) | Wanfang Data | relevance | {limit} "
-                f"| ✅ IP 直连 |")
+                f"| L2 (中) | {_source_label('wanfang')} | relevance | {limit} "
+                f"| ✅ {_source_status_note('wanfang', 'ok')} |")
         elif wf_status == "carsi_logged_in":
             lines.append(
-                f"| L2 (中) | Wanfang Data | relevance | {limit} "
-                f"| ✅ CARSI 登录 |")
+                f"| L2 (中) | {_source_label('wanfang')} | relevance | {limit} "
+                f"| ✅ {_source_status_note('wanfang', 'carsi_logged_in')} |")
         elif wf_status == "attempted_failed":
             reason = meta.get("wanfang_fail_reason", "失败")
             lines.append(
-                f"| L2 (中) | Wanfang Data | — | — "
+                f"| L2 (中) | {_source_label('wanfang')} | — | — "
                 f"| ⚠️ 已尝试，{reason} |")
         elif wf_status in ("skipped_no_account", "skipped"):
             lines.append(
-                f"| L2 (中) | Wanfang Data | — | — "
-                f"| ⬜ 跳过 ({'无机构账号' if wf_status == 'skipped_no_account' else '用户选择'}) |")
+                f"| L2 (中) | {_source_label('wanfang')} | — | — "
+                f"| ⬜ 跳过 ({_source_status_note('wanfang', wf_status)}) |")
 
     # arXiv
     if meta.get("arxiv_enabled"):
         lines.append(
-            f"| L2* | arXiv | relevance (T-0~T-4) | 20 "
+            f"| L2* | {_source_label('arxiv')} | relevance (T-0~T-4) | 20 "
             f"| ✅ CS/AI 跨域信号 |")
 
     return lines
@@ -595,9 +622,11 @@ def build_report(
     after_dedup = meta.get("after_dedup")        # None when metadata absent
     after_verify_val = meta.get("after_verify")  # None when metadata absent
     has_flow = raw_total is not None and after_dedup is not None
+    report_template = _search_report_template()
+    report_title = report_template.get("title", "文献检索报告")
 
     lines = []
-    lines.append(f"# 文献检索报告")
+    lines.append(f"# {report_title}")
     lines.append("")
     lines.append(f"> 自动生成于 {datetime.now().strftime('%Y-%m-%d %H:%M')} | 基于 `{Path(md_path).name}`")
     lines.append("")
@@ -666,12 +695,12 @@ def build_report(
         limit_val = {"quick": 30, "standard": 50, "deep": 100}.get(tier_param, 50)
         lines.append("| 层级 | 数据库 | 策略 | 每策略上限 | 触发条件 |")
         lines.append("|:----:|--------|------|:----------:|---------|")
-        lines.append(f"| L1 | OpenAlex | relevance + cited + recent | {limit_val} | 所有子课题 |")
-        lines.append(f"| L2 | Crossref | relevance | {limit_val} | Deep tier 必跑 / Standard 条件触发 |")
-        lines.append(f"| L2 | Semantic Scholar | relevance | {limit_val} | CS/AI 交叉子领域 |")
+        lines.append(f"| L1 | {_source_label('openalex')} | relevance + cited + recent | {limit_val} | 所有子课题 |")
+        lines.append(f"| L2 | {_source_label('crossref')} | relevance | {limit_val} | Deep tier 必跑 / Standard 条件触发 |")
+        lines.append(f"| L2 | {_source_label('semantic_scholar')} | relevance | {limit_val} | CS/AI 交叉子领域 |")
         lines.append(f"| L3 | PubMed | relevance | {limit_val // 2} | 仅医工交叉 |")
         if meta.get("arxiv_enabled"):
-            lines.append("| L2* | arXiv | relevance (T-0~T-4) | 20 | CS/AI 跨域信号 |")
+            lines.append(f"| L2* | {_source_label('arxiv')} | relevance (T-0~T-4) | 20 | CS/AI 跨域信号 |")
     lines.append("")
 
     lines.append("### 2.2 检索式结构（概念块布尔）")

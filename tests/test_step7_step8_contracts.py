@@ -14,6 +14,7 @@ class Step7Step8ContractsTest(unittest.TestCase):
         step7 = read_rel("agents/step_7_writing.md")
         skill = read_rel("SKILL.md")
         readme = read_rel("README.md")
+        step7_entry = read_rel("agents/step_7_entry.md")
 
         expected_modes = [
             "full-document",
@@ -33,9 +34,41 @@ class Step7Step8ContractsTest(unittest.TestCase):
         for mode in forbidden:
             self.assertNotIn(f"写作模式（{mode}", skill)
 
+        for internal_role in ["generator", "synthesizer", "reviewer", "auditor"]:
+            self.assertNotIn(internal_role, step7_entry)
+
+    def test_step7_internal_pipeline_and_light_readability_rules_exist(self):
+        text = read_rel("agents/step_7_writing.md")
+        self.assertIn("### 7.7: 内部写作流水线（用户不可见）", text)
+        self.assertIn("生成", text)
+        self.assertIn("整合", text)
+        self.assertIn("审阅", text)
+        self.assertIn("校验", text)
+        self.assertIn("#### 7.7.1 轻润色内建规则", text)
+        self.assertIn("连贯性", text)
+        self.assertIn("术语统一", text)
+        self.assertIn("过渡句", text)
+        self.assertIn("重复句压缩", text)
+        self.assertIn("基础 AI 痕迹清理", text)
+        self.assertIn("不做全文终稿 polish", text)
+        self.assertIn("不得作为用户选项、命令、按钮或对话模式暴露", text)
+
+    def test_step8_is_final_polishing_not_writing_or_audit_owner(self):
+        step8 = read_rel("agents/step_8_polishing.md")
+        step8_entry = read_rel("agents/step_8_entry.md")
+        architecture = read_rel("docs/workflow-architecture.md")
+
+        self.assertIn("成稿级精修", step8)
+        self.assertIn("不负责正文生成、证据合成、引用审计或修稿路线图", step8)
+        self.assertIn("不接管 Step 7 的生成、整合、审阅、校验流水线", step8)
+        self.assertIn("只消费已有正文", step8_entry)
+        self.assertIn("不接管 Step 7 的正文生成、证据合成、引用审计或修稿路线图", step8_entry)
+        self.assertIn("Step 7 是写作生产层", architecture)
+        self.assertIn("Step 8 是成稿级精修层", architecture)
+
     def test_step7_revision_coach_contract_exists(self):
         text = read_rel("agents/step_7_writing.md")
-        self.assertIn("#### 7.9.1 修稿教练", text)
+        self.assertIn("#### 7.11.1 修稿教练", text)
         self.assertIn("revision_roadmap.md", text)
         self.assertIn("response_letter_skeleton.md", text)
         self.assertIn("evidence_gap_list.md", text)
@@ -43,12 +76,27 @@ class Step7Step8ContractsTest(unittest.TestCase):
 
     def test_step7_argument_plan_and_rereview_contracts_exist(self):
         text = read_rel("agents/step_7_writing.md")
-        self.assertIn("#### 7.5.3 章节级论证计划", text)
+        self.assertIn("#### 7.6.3 章节级论证计划", text)
         self.assertIn("argument_plan.md", text)
         self.assertIn("rollback_if_missing", text)
-        self.assertIn("#### 7.9.3 复评", text)
+        self.assertIn("### 7.13: 复评", text)
         self.assertIn("rereview_report.md", text)
         self.assertIn("new_issue", text)
+
+    def test_step7_heading_numbers_are_ordered_and_clean(self):
+        text = read_rel("agents/step_7_writing.md")
+        forbidden_numbering = ["7.W", "7.2b", "7.5b", "7.9b", "7.9c"]
+        for marker in forbidden_numbering:
+            self.assertNotIn(marker, text)
+
+        heading_lines = [
+            line
+            for line in text.splitlines()
+            if line.startswith("### 7.") and ":" in line
+        ]
+        expected = [f"### 7.{index}:" for index in range(17)]
+        actual = [line.split(":", 1)[0] + ":" for line in heading_lines]
+        self.assertEqual(expected, actual)
 
     def test_step7_citation_audit_exposes_three_layers(self):
         text = read_rel("agents/step_7_writing.md")

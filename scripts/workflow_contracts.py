@@ -11,6 +11,7 @@ Step 7/8 reporting without changing existing CLI defaults.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 import hashlib
 import json
 import re
@@ -18,6 +19,15 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = "workflow-contracts.v1"
+ARTIFACT_PASSPORT_SCHEMA = "artifact-passport.v1"
+ROUTE_MODES = (
+    "full-workflow",
+    "direct-step",
+    "plan-only",
+    "repair",
+    "audit-only",
+    "resume",
+)
 
 
 def _clean(value: Any) -> str:
@@ -211,6 +221,48 @@ class ReportInputs:
 
 
 @dataclass
+class ArtifactRecord:
+    artifact_id: str = ""
+    kind: str = ""
+    path: str = ""
+    source: str = "user_provided"  # user_provided | workflow_generated | agent_rebuilt
+    format: str = ""
+    step_origin: str = ""
+    summary: str = ""
+    exists: bool = True
+    confidence: str = "medium"
+    risk_level: str = "low"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class StepReadiness:
+    step: str = ""
+    ready: bool = False
+    route_mode: str = "direct-step"
+    allowed_modes: list[str] = field(default_factory=list)
+    available_artifacts: list[str] = field(default_factory=list)
+    missing_required: list[str] = field(default_factory=list)
+    missing_optional: list[str] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
+    blocked_reason: str = ""
+    recommended_next_step: str = ""
+
+
+@dataclass
+class ArtifactPassport:
+    schema_version: str = ARTIFACT_PASSPORT_SCHEMA
+    project_root: str = ""
+    generated_at: str = ""
+    route_mode: str = "direct-step"
+    current_step: str = ""
+    recommended_step: str = ""
+    artifacts: list[ArtifactRecord] = field(default_factory=list)
+    readiness: list[StepReadiness] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+
+
+@dataclass
 class RetrievalIndexManifest:
     schema_version: str = "retrieval-index.v1"
     generated_at: str = ""
@@ -346,6 +398,304 @@ def write_figure_evidence(path: str | Path, records: list[FigureEvidenceRecord],
 
 def load_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _artifact_id(path: str | Path, kind: str) -> str:
+    seed = f"{kind}:{Path(path).as_posix()}"
+    return hashlib.md5(seed.encode("utf-8")).hexdigest()[:12]
+
+
+def _relative_or_string(path: Path, root: Path) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def infer_artifact_kind(path: str | Path) -> str:
+    p = Path(path)
+    name = p.name.lower()
+    suffix = p.suffix.lower()
+    text = p.as_posix().lower()
+
+    if p.is_dir():
+        if any(part in text for part in ("paper-temp", "pdf", "附件池")):
+            return "pdf_pool"
+        return "artifact_directory"
+    if suffix == ".pdf":
+        return "pdf"
+    if name in ("研究主题.md", "topic.md") or "研究主题" in name:
+        return "topic"
+    if "大纲关键词" in name or "章节证据需求" in name or name.startswith("目录"):
+        return "outline"
+    if "检索方案" in name or "search_tasks" in name:
+        return "search_plan"
+    if "检索文献表" in name or "retrieval_report" in name:
+        return "search_table"
+    if suffix == ".bib" or "文献库" in name:
+        return "bibliography"
+    if suffix == ".json" and (
+        "workflow" in name
+        or "search" in name
+        or "检索" in name
+        or "results" in name
+    ):
+        return "workflow_search_results"
+    if "download" in name and ("manifest" in name or "下载" in name):
+        return "download_manifest"
+    if "中文论文元数据" in name or "chinese" in name:
+        return "chinese_metadata"
+    if "zotero-架构" in name or "zotero_structure" in name:
+        return "zotero_structure"
+    if "文献-zotero架构对照" in name or "zotero_mapping" in name:
+        return "zotero_mapping"
+    if "pdf-附件池索引" in name or "pdf_index" in name:
+        return "pdf_index"
+    if "引用审计" in name or "citation_audit" in name:
+        return "citation_audit"
+    if "论文初稿" in name or "指定章节" in name or "draft" in name or suffix == ".docx":
+        return "draft"
+    if "diagnostic_summary" in name or "论文润色稿" in name or "polish" in name:
+        return "polishing"
+    return "unknown"
+
+
+def artifact_record_from_path(
+    path: str | Path,
+    project_root: str | Path = ".",
+    source: str = "user_provided",
+    kind: str = "",
+) -> ArtifactRecord:
+    root = Path(project_root)
+    p = Path(path)
+    if not p.is_absolute():
+        p = root / p
+    inferred_kind = kind or infer_artifact_kind(p)
+    exists = p.exists()
+    rel_path = _relative_or_string(p, root)
+    fmt = "directory" if p.is_dir() else p.suffix.lstrip(".").lower()
+    risk_level = "low" if exists else "medium"
+    confidence = "high" if inferred_kind != "unknown" and exists else "medium"
+    return ArtifactRecord(
+        artifact_id=_artifact_id(rel_path, inferred_kind),
+        kind=inferred_kind,
+        path=rel_path,
+        source=source,
+        format=fmt,
+        step_origin=infer_step_origin(inferred_kind),
+        summary=f"{inferred_kind}: {rel_path}",
+        exists=exists,
+        confidence=confidence,
+        risk_level=risk_level,
+        metadata={"size_bytes": p.stat().st_size if exists and p.is_file() else 0},
+    )
+
+
+def infer_step_origin(kind: str) -> str:
+    mapping = {
+        "topic": "Step 1",
+        "outline": "Step 2",
+        "search_plan": "Step 3",
+        "search_table": "Step 4",
+        "bibliography": "Step 4",
+        "workflow_search_results": "Step 4",
+        "chinese_metadata": "Step 4",
+        "download_manifest": "Step 5",
+        "pdf": "Step 5",
+        "pdf_pool": "Step 5",
+        "zotero_structure": "Step 6",
+        "zotero_mapping": "Step 6",
+        "pdf_index": "Step 6",
+        "draft": "Step 7",
+        "citation_audit": "Step 7",
+        "polishing": "Step 8",
+    }
+    return mapping.get(kind, "")
+
+
+def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepReadiness]:
+    existing = [a for a in artifacts if a.exists]
+    kinds = {a.kind for a in existing}
+
+    def ids(*allowed: str) -> list[str]:
+        return [a.artifact_id for a in existing if a.kind in allowed]
+
+    readiness: list[StepReadiness] = []
+
+    step4_ready = bool(kinds & {"search_plan", "search_table", "bibliography", "workflow_search_results", "outline"})
+    readiness.append(StepReadiness(
+        step="Step 4",
+        ready=step4_ready,
+        route_mode="direct-step" if step4_ready else "plan-only",
+        allowed_modes=["execute-search", "repair-search-table", "plan-only"] if step4_ready else ["plan-only"],
+        available_artifacts=ids("search_plan", "search_table", "bibliography", "workflow_search_results", "outline"),
+        missing_required=[] if step4_ready else ["search_plan 或等价查询/文献表/文献库"],
+        missing_optional=["章节证据需求表", "term_aliases.md"] if step4_ready else [],
+        risks=[] if "search_plan" in kinds or "workflow_search_results" in kinds else ["缺少正式 search_tasks 时，Step 4 需先重建最小检索依据"],
+        blocked_reason="" if step4_ready else "没有可执行检索或等价文献输入",
+        recommended_next_step="生成或修复检索结果",
+    ))
+
+    step5_ready = bool(kinds & {"bibliography", "search_table", "workflow_search_results", "download_manifest", "chinese_metadata"})
+    readiness.append(StepReadiness(
+        step="Step 5",
+        ready=step5_ready,
+        route_mode="direct-step" if step5_ready else "plan-only",
+        allowed_modes=["manifest-from-any-input", "dry-run", "download"] if step5_ready else ["plan-only"],
+        available_artifacts=ids("bibliography", "search_table", "workflow_search_results", "download_manifest", "chinese_metadata"),
+        missing_required=[] if step5_ready else ["DOI 列表、中文 article_url、publisher URL、BibTeX 或 workflow JSON"],
+        missing_optional=["下载优先级", "登录态说明"] if step5_ready else [],
+        risks=["真实下载可能触发登录或版权访问边界，先 dry-run"] if step5_ready else [],
+        blocked_reason="" if step5_ready else "没有可归一为 DownloadManifestItem 的输入",
+        recommended_next_step="先生成下载 manifest，再决定 dry-run 或真实下载",
+    ))
+
+    step6_ready = bool(kinds & {"bibliography", "workflow_search_results", "zotero_mapping", "zotero_structure", "pdf_pool", "pdf", "pdf_index"})
+    step6_modes: list[str] = []
+    if kinds & {"bibliography", "workflow_search_results", "pdf_pool", "pdf"}:
+        step6_modes.append("plan-from-bib")
+    if kinds & {"zotero_mapping", "zotero_structure", "pdf_index"}:
+        step6_modes.append("plan-from-zotero")
+        step6_modes.append("consistency-adjustment")
+    if not step6_modes and step6_ready:
+        step6_modes.append("plan-only")
+    readiness.append(StepReadiness(
+        step="Step 6",
+        ready=step6_ready,
+        route_mode="plan-only",
+        allowed_modes=step6_modes or ["plan-only"],
+        available_artifacts=ids("bibliography", "workflow_search_results", "zotero_mapping", "zotero_structure", "pdf_pool", "pdf", "pdf_index"),
+        missing_required=[] if step6_ready else ["文献库.bib、workflow JSON、PDF 池或 Zotero 现有映射"],
+        missing_optional=["Zotero mode: local/cloud/skip", "collection/tag 策略"] if step6_ready else [],
+        risks=["CP-ZOTERO-WRITE 只阻塞真实写入，不阻塞 plan-only/只读/dry-run"] if step6_ready else [],
+        blocked_reason="" if step6_ready else "没有可规划 Zotero 的文献或文库材料",
+        recommended_next_step="先确认 local/cloud/skip，再生成 plan-only",
+    ))
+
+    step7_ready = bool(kinds & {"zotero_mapping", "bibliography", "pdf_index", "draft", "workflow_search_results", "citation_audit"})
+    step7_modes: list[str] = []
+    if "draft" in kinds:
+        step7_modes.extend(["continue-existing", "chapter-only"])
+    if kinds & {"zotero_mapping", "bibliography", "pdf_index", "workflow_search_results"}:
+        step7_modes.extend(["draft", "review-only", "pre-review"])
+    if "citation_audit" in kinds:
+        step7_modes.append("citation-audit")
+    readiness.append(StepReadiness(
+        step="Step 7",
+        ready=step7_ready,
+        route_mode="direct-step" if step7_ready else "plan-only",
+        allowed_modes=sorted(set(step7_modes)) or ["plan-only"],
+        available_artifacts=ids("zotero_mapping", "bibliography", "pdf_index", "draft", "workflow_search_results", "citation_audit"),
+        missing_required=[] if step7_ready else ["Zotero 对照、文献库、PDF 索引、workflow JSON 或初稿"],
+        missing_optional=["引用审计", "style_profile", "section_blueprints"] if step7_ready else [],
+        risks=["缺证据矩阵时只能生成风险标记或最小映射，不声明引用安全通过"] if step7_ready else [],
+        blocked_reason="" if step7_ready else "没有可支撑写作、续写或审计的材料",
+        recommended_next_step="按可用证据选择写作、续写、综述或引用审计模式",
+    ))
+
+    step8_ready = "draft" in kinds or "polishing" in kinds
+    readiness.append(StepReadiness(
+        step="Step 8",
+        ready=step8_ready,
+        route_mode="audit-only" if "citation_audit" in kinds and "draft" not in kinds else "direct-step",
+        allowed_modes=["local-polish", "section-revision", "full-manuscript-pass"] if step8_ready else ["risk-note-only"],
+        available_artifacts=ids("draft", "polishing", "citation_audit"),
+        missing_required=[] if step8_ready else ["论文初稿、指定章节或待润色文本"],
+        missing_optional=["引用审计报告", "term_aliases.md"] if step8_ready else [],
+        risks=["Step 8 不替代 Step 7 引用审计；缺审计时只能标记风险"] if step8_ready else [],
+        blocked_reason="" if step8_ready else "没有可润色的正文材料",
+        recommended_next_step="按文本范围选择局部润色、章节修订或全稿精修",
+    ))
+    return readiness
+
+
+def infer_passport_route_mode(artifacts: list[ArtifactRecord], readiness: list[StepReadiness]) -> str:
+    existing = [a for a in artifacts if a.exists]
+    if not existing:
+        return "full-workflow"
+    kinds = {a.kind for a in existing}
+    if "citation_audit" in kinds and not (kinds & {"draft", "bibliography", "zotero_mapping"}):
+        return "audit-only"
+    if kinds & {"polishing", "download_manifest", "zotero_mapping"}:
+        return "resume"
+    if kinds <= {"topic", "outline", "search_plan"}:
+        return "plan-only"
+    if any(a.risk_level in ("medium", "high") for a in existing if a.kind == "unknown"):
+        return "repair"
+    return "direct-step"
+
+
+def recommend_passport_step(artifacts: list[ArtifactRecord], readiness: list[StepReadiness]) -> str:
+    kinds = {a.kind for a in artifacts if a.exists}
+    ready_by_step = {r.step: r for r in readiness if r.ready}
+    if kinds & {"draft", "polishing"} and "Step 8" in ready_by_step:
+        return "Step 8"
+    if kinds & {"zotero_mapping", "pdf_index", "citation_audit"} and "Step 7" in ready_by_step:
+        return "Step 7"
+    if kinds & {"bibliography", "pdf_pool", "pdf", "zotero_structure"} and "Step 6" in ready_by_step:
+        return "Step 6"
+    if kinds & {"workflow_search_results", "search_table", "chinese_metadata", "download_manifest"} and "Step 5" in ready_by_step:
+        return "Step 5"
+    if kinds & {"search_plan", "outline"} and "Step 4" in ready_by_step:
+        return "Step 4"
+    return "Step 1"
+
+
+def build_artifact_passport(
+    project_root: str | Path,
+    artifact_paths: list[str | Path] | None = None,
+    source: str = "user_provided",
+) -> ArtifactPassport:
+    root = Path(project_root)
+    artifacts = [
+        artifact_record_from_path(path, root, source=source)
+        for path in (artifact_paths or [])
+    ]
+    readiness = evaluate_passport_readiness(artifacts)
+    route_mode = infer_passport_route_mode(artifacts, readiness)
+    return ArtifactPassport(
+        project_root=root.as_posix(),
+        generated_at=_now_iso(),
+        route_mode=route_mode,
+        recommended_step=recommend_passport_step(artifacts, readiness),
+        artifacts=artifacts,
+        readiness=readiness,
+        notes=["Passport 只保存材料指针、缺口和风险，不保存正文内容。"],
+    )
+
+
+def artifact_passport_payload(passport: ArtifactPassport) -> dict[str, Any]:
+    payload = asdict(passport)
+    payload["schema_version"] = ARTIFACT_PASSPORT_SCHEMA
+    return payload
+
+
+def write_artifact_passport(path: str | Path, passport: ArtifactPassport) -> None:
+    Path(path).write_text(
+        json.dumps(artifact_passport_payload(passport), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def load_artifact_passport(path: str | Path) -> ArtifactPassport:
+    data = load_json(path)
+    artifacts = [ArtifactRecord(**row) for row in data.get("artifacts", []) if isinstance(row, dict)]
+    readiness = [StepReadiness(**row) for row in data.get("readiness", []) if isinstance(row, dict)]
+    return ArtifactPassport(
+        schema_version=data.get("schema_version", ARTIFACT_PASSPORT_SCHEMA),
+        project_root=data.get("project_root", ""),
+        generated_at=data.get("generated_at", ""),
+        route_mode=data.get("route_mode", "direct-step"),
+        current_step=data.get("current_step", ""),
+        recommended_step=data.get("recommended_step", ""),
+        artifacts=artifacts,
+        readiness=readiness,
+        notes=list(data.get("notes", [])),
+    )
 
 
 def load_search_records(path: str | Path) -> list[SearchResultRecord]:

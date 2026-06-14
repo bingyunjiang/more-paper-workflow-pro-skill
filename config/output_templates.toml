@@ -1,0 +1,26 @@
+# Output Template Metadata
+# ========================
+# Labels and section order only. No template engine and no workflow decisions.
+
+[templates.search_report]
+default_filename = "检索报告.md"
+title = "文献检索报告"
+public_label = "检索报告"
+sections = [
+  "检索概览",
+  "检索范围与方法",
+  "检索结果流水线",
+  "评分维度与方法",
+  "最终文献库分析",
+  "引文扩展",
+  "饱和度分析",
+  "下一步行动",
+]
+
+[templates.retrieval_report]
+default_filename = "检索文献表.md"
+public_label = "检索文献表"
+
+[templates.zotero_plan]
+default_filename = "文献-Zotero架构对照.json"
+public_label = "Zotero plan-only 对照"

@@ -10,6 +10,7 @@
 | `SKILL.md` | 运行时路由、checkpoint 协议、`.skill-state/` 初始化、脚本速查 | 单步执行细则 |
 | `agents/step_*.md` | 每个 Step 的输入契约、执行顺序、质量门、交付物 | 底层下载/检索/转换实现 |
 | `scripts/` | 可复用工具实现与 CLI 入口 | 定义工作流语义或替代 agent 决策 |
+| `config/` | 可变 source/provider/template 元信息、展示标签、默认文件名、路由提示 | workflow 决策、评分公式、Zotero 写入边界、Step 7/8 写作逻辑 |
 
 ## 8 步产物链
 
@@ -24,6 +25,8 @@
 | Step 7 写作 | Zotero/证据矩阵、PDF 附件池、写作蓝图 | `论文初稿.md`、指定章节、引用审计报告 | `ReportInputs`、证据矩阵 |
 | Step 8 润色 | 初稿、术语表、审计结果 | `论文润色稿.md/.docx` | 风险标记、术语终验结果 |
 
+Step 7/8 的边界：Step 7 是写作生产层，可以在生成过程中做基础可读性整形；Step 8 是成稿级精修层，只消费已有正文，不接管正文生成、证据合成或引用审计。
+
 ## 正式脚本入口
 
 | 阶段 | 正式入口 | 说明 |
@@ -35,9 +38,21 @@
 
 下载 provider 脚本如 `generic_publisher_downloader.py`、`sd_download.py`、`download_via_scihub.py`、`download_via_ieee.py` 保留为 strategy/provider 能力，不应重新成为工作流主入口。
 
+## 薄配置层
+
+`config/` 只承载低风险、可变的策略元信息：
+
+- `config/sources.toml`：检索源的 display name、报告标签、默认语言、中文源标记和 CDP 需求。
+- `config/publishers.toml`：下载 provider 的 DOI prefix、strategy、auth 说明、domain、selector 和 manual/skip 提示。
+- `config/output_templates.toml`：报告标题、默认文件名、章节顺序和用户可见 label。
+
+配置层不得承载评分公式、引用审计规则、Zotero 写入边界、Step 7/8 写作逻辑或 checkpoint 语义。脚本读取配置失败时必须回退到现有默认行为。
+
 ## 不得破坏的运行规则
 
 - 任意 Step 都可以直接进入。checkpoint 记录当前输入依据和风险，不作为线性流程锁。
+- `.skill-state/artifact_passport.json` 是材料索引和路由说明，不是上游产物替代品，也不是新的流程锁。
+- 全局 `route_mode` 只描述当前进入方式；Step 7 `mode`、Step 8 `revision_scope / target_genre` 等 Step 内部轴保持独立。
 - Step 4 的 7 件套交付物必须保持兼容；新增 workflow JSON 只能作为机器接口补强。
 - CNKI/Wanfang 保留 `--language zh`、长 CDP 会话和串行可靠性优先的运行策略。
 - `build_zotero_plan.py` 必须保持 plan-only，不调用 Zotero MCP，不修改外部文库。
@@ -54,5 +69,24 @@
 - `DownloadResult`
 - `ZoteroPlanRecord`
 - `ReportInputs`
+- `ArtifactRecord`
+- `StepReadiness`
+- `ArtifactPassport`
 
 当前 schema version 为 `workflow-contracts.v1`。它的目标是固定字段语义和阶段边界，不要求一次性迁移所有旧脚本。
+
+## Artifact Passport
+
+`Artifact Passport` 是 `workflow-contracts.v1` 之上的轻量索引层，schema 为 `artifact-passport.v1`。它放在项目运行态目录 `$CWD/.skill-state/artifact_passport.json`，用于把 direct-entry 输入契约连起来：
+
+- 记录当前已有材料：如 `文献库.bib`、workflow JSON、PDF 池、Zotero 对照、PDF 索引、初稿、引用审计报告。
+- 记录材料来源：用户提供、workflow 生成、agent 重建。
+- 给出可直接进入的 Step、允许的 route mode、缺失项、风险和推荐下一步。
+- 不保存正文内容，不替代 `文献库.bib`、`pdf-附件池索引.json`、`文献-Zotero架构对照.json` 等正式产物。
+- 不新增重型 orchestrator；agent 读取 Passport 后仍按对应 `agents/step_*.md` 的执行契约工作。
+
+生成命令：
+
+```bash
+python3 scripts/artifact_passport.py --project-root "$CWD" --scan --output "$CWD/.skill-state/artifact_passport.json"
+```

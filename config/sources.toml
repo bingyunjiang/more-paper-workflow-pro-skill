@@ -1,0 +1,77 @@
+# Search Source Registry
+# ======================
+# Thin metadata layer only. Search algorithms, scoring, retries, and workflow
+# decisions stay in scripts/ and agents/.
+
+[sources.openalex]
+display_name = "OpenAlex"
+report_label = "OpenAlex"
+default_language = "en"
+is_chinese = false
+requires_cdp = false
+
+[sources.openalex.status_notes]
+ok = "已执行"
+fail = "不可达"
+
+[sources.crossref]
+display_name = "Crossref"
+report_label = "Crossref"
+default_language = "en"
+is_chinese = false
+requires_cdp = false
+
+[sources.crossref.status_notes]
+ok = "已执行"
+fail = "不可达"
+
+[sources.semantic_scholar]
+display_name = "Semantic Scholar"
+report_label = "Semantic Scholar"
+default_language = "en"
+is_chinese = false
+requires_cdp = false
+
+[sources.semantic_scholar.status_notes]
+ok = "已执行"
+429 = "HTTP 429 已跳过"
+fail = "不可达"
+
+[sources.cnki]
+display_name = "CNKI"
+report_label = "CNKI"
+default_language = "zh"
+is_chinese = true
+requires_cdp = true
+default_strategy = "relevance + cited"
+
+[sources.cnki.status_notes]
+ok = "IP 直连"
+carsi_logged_in = "CARSI 登录"
+skipped_no_account = "无机构账号已跳过"
+skipped = "用户选择跳过"
+
+[sources.wanfang]
+display_name = "Wanfang Data"
+report_label = "万方"
+default_language = "zh"
+is_chinese = true
+requires_cdp = true
+default_strategy = "relevance"
+
+[sources.wanfang.status_notes]
+ok = "IP 直连"
+carsi_logged_in = "CARSI 登录"
+attempted_failed = "已尝试但失败"
+skipped_no_account = "无机构账号已跳过"
+skipped = "用户选择跳过"
+
+[sources.arxiv]
+display_name = "arXiv"
+report_label = "arXiv"
+default_language = "en"
+is_chinese = false
+requires_cdp = false
+
+[sources.arxiv.status_notes]
+ok = "已执行"
