@@ -37,34 +37,40 @@ class Step7Step8ContractsTest(unittest.TestCase):
         for internal_role in ["generator", "synthesizer", "reviewer", "auditor"]:
             self.assertNotIn(internal_role, step7_entry)
 
-    def test_step7_internal_pipeline_and_light_readability_rules_exist(self):
+        self.assertNotIn("- `draft`", step7_entry)
+        self.assertNotIn("- `citation-audit`", step7_entry)
+        self.assertNotIn("- `figure`", step7_entry)
+        self.assertNotIn("- `pre-review`", step7_entry)
+
+    def test_step7_internal_pipeline_and_light_readability_guidance_exist(self):
         text = read_rel("agents/step_7_writing.md")
         self.assertIn("### 7.7: 内部写作流水线（用户不可见）", text)
         self.assertIn("生成", text)
         self.assertIn("整合", text)
         self.assertIn("审阅", text)
         self.assertIn("校验", text)
-        self.assertIn("#### 7.7.1 轻润色内建规则", text)
-        self.assertIn("连贯性", text)
-        self.assertIn("术语统一", text)
-        self.assertIn("过渡句", text)
-        self.assertIn("重复句压缩", text)
-        self.assertIn("基础 AI 痕迹清理", text)
-        self.assertIn("不做全文终稿 polish", text)
+        self.assertIn("#### 7.7.1 轻量可读性整理", text)
+        self.assertIn("不应预设用户的写作策略、论证风格或表达审美", text)
+        self.assertIn("最小术语统一", text)
+        self.assertIn("标记需要后续补证据", text)
+        self.assertIn("Step 7 的职责是维持 workflow 与证据边界", text)
         self.assertIn("不得作为用户选项、命令、按钮或对话模式暴露", text)
 
-    def test_step8_is_final_polishing_not_writing_or_audit_owner(self):
+    def test_step8_is_constrained_revision_not_primary_writing_or_audit_owner(self):
         step8 = read_rel("agents/step_8_polishing.md")
         step8_entry = read_rel("agents/step_8_entry.md")
         architecture = read_rel("docs/workflow-architecture.md")
 
-        self.assertIn("成稿级精修", step8)
-        self.assertIn("不负责正文生成、证据合成、引用审计或修稿路线图", step8)
-        self.assertIn("不接管 Step 7 的生成、整合、审阅、校验流水线", step8)
-        self.assertIn("只消费已有正文", step8_entry)
-        self.assertIn("不接管 Step 7 的正文生成、证据合成、引用审计或修稿路线图", step8_entry)
+        self.assertIn("受约束补写", step8)
+        self.assertIn("局部补写", step8)
+        self.assertIn("不负责主体写作", step8)
+        self.assertIn("修订后验证", step8)
+        self.assertIn("Step 7 负责主体写作与主论证展开", step8)
+        self.assertIn("Step 8 负责局部增强、风险收敛、终稿修订闭环", step8)
+        self.assertIn("不负责主体写作", step8_entry)
+        self.assertIn("执行受约束补写、直接修改与修订后验证", step8_entry)
         self.assertIn("Step 7 是写作生产层", architecture)
-        self.assertIn("Step 8 是成稿级精修层", architecture)
+        self.assertIn("Step 8 是成稿级精修与保守修订层", architecture)
 
     def test_step7_revision_coach_contract_exists(self):
         text = read_rel("agents/step_7_writing.md")
@@ -73,6 +79,7 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("response_letter_skeleton.md", text)
         self.assertIn("evidence_gap_list.md", text)
         self.assertIn("rollback_target", text)
+        self.assertIn("问题识别、修订动作、证据状态、验证结果、下一步动作", text)
 
     def test_step7_argument_plan_and_rereview_contracts_exist(self):
         text = read_rel("agents/step_7_writing.md")
@@ -127,6 +134,130 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("return_to_step_7_argument_plan", text)
         self.assertIn("return_to_step_4_or_6", text)
 
+    def test_step8_revision_ledger_and_minimum_validation_contracts_exist(self):
+        text = read_rel("agents/step_8_polishing.md")
+        command = read_rel("commands/polish.md")
+        output_contract = read_rel("static/core/output-contract.md")
+
+        self.assertIn("revision_ledger.json", text)
+        self.assertIn("revision_ledger.md", text)
+        self.assertIn("issue_id", text)
+        self.assertIn("category", text)
+        self.assertIn("issue_type", text)
+        self.assertIn("severity", text)
+        self.assertIn("location", text)
+        self.assertIn("problem", text)
+        self.assertIn("evidence_basis", text)
+        self.assertIn("allowed_action", text)
+        self.assertIn("proposed_revision", text)
+        self.assertIn("verification", text)
+        self.assertIn("final_status", text)
+        self.assertIn("next_action", text)
+
+        self.assertIn("术语一致性验证", text)
+        self.assertIn("核心含义漂移验证", text)
+        self.assertIn("论断强度验证", text)
+        self.assertIn("引用/指代/衔接验证", text)
+        self.assertIn("PASS / WARN / FAIL", text)
+        self.assertIn("含义漂移", text)
+        self.assertIn("论断意外增强", text)
+        self.assertIn("硬门槛", text)
+
+        self.assertIn("revision_ledger.json/md", command)
+        self.assertIn("revision_ledger", output_contract)
+
+    def test_step8_heading_numbers_are_ordered_and_clean(self):
+        text = read_rel("agents/step_8_polishing.md")
+
+        self.assertIn("### 8.3. 最小验证规程", text)
+        self.assertIn("### 8.4. revision_ledger 双层工件契约", text)
+        self.assertIn("#### 8.4.1. 轻量含义审计触发", text)
+        self.assertIn("### 8.9. 日志回写", text)
+        self.assertNotIn("## 7. 最小验证规程", text)
+        self.assertNotIn("## 8. revision_ledger 双层工件契约", text)
+        self.assertNotIn("### 8.2.1. 轻量含义审计触发", text)
+
+    def test_step7_step8_methodology_details_are_referenced_not_hardcoded(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        step8 = read_rel("agents/step_8_polishing.md")
+
+        self.assertIn("统一放到 `references/writing-modes.md`", step7)
+        self.assertIn("`references/citation-audit-guide.md`", step7)
+        self.assertIn("`references/reviewer-protocol.md`", step7)
+        self.assertIn("`references/ai-trace-taxonomy.md`", step8)
+        self.assertIn("`references/polish-modes.md`", step8)
+        self.assertIn("`references/writing-antipatterns.md`", step8)
+
+    def test_revision_artifacts_share_minimum_lifecycle_fields(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        step8 = read_rel("agents/step_8_polishing.md")
+        command = read_rel("commands/revision-roadmap.md")
+
+        for field in [
+            "issue_id",
+            "chapter_binding",
+            "claim_binding",
+            "problem_summary",
+            "action_type",
+            "evidence_status",
+            "verification_result",
+            "next_action",
+            "issue_state",
+            "state_reason",
+        ]:
+            self.assertIn(field, step7)
+            self.assertIn(field, step8)
+            self.assertIn(field, command)
+
+        for state in [
+            "identified",
+            "routed",
+            "in_revision",
+            "verification_pending",
+            "closed",
+            "blocked_author_decision",
+            "blocked_evidence",
+            "invalid_or_not_applied",
+        ]:
+            self.assertIn(state, step7)
+            self.assertIn(state, step8)
+            self.assertIn(state, command)
+
+        self.assertIn("只约束问题生命周期", step7)
+        self.assertIn("不规定具体写作策略", step7)
+        self.assertIn("不约束作者的写作策略", read_rel("static/core/output-contract.md"))
+
+    def test_step8_chinese_three_way_categories_and_action_boundaries_exist(self):
+        text = read_rel("agents/step_8_polishing.md")
+        readme = read_rel("README.md")
+
+        for label in ["可直接修订", "需作者决定", "当前依据不足"]:
+            self.assertIn(label, text)
+            self.assertIn(label, readme)
+
+        self.assertIn("直接修改", text)
+        self.assertIn("局部补写", text)
+        self.assertIn("桥接句", text)
+        self.assertIn("限定句", text)
+        self.assertIn("解释句", text)
+        self.assertIn("引证配套句", text)
+        self.assertIn("局部支撑句", text)
+
+        self.assertIn("新增外部证据或引用来源", text)
+        self.assertIn("重写章节主体", text)
+        self.assertIn("重定义贡献点/研究问题", text)
+        self.assertIn("新增实验", text)
+
+    def test_step7_step8_do_not_hardcode_writing_style_preferences(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        step8 = read_rel("agents/step_8_polishing.md")
+        readme = read_rel("README.md")
+
+        self.assertIn("不应限制用户的创造性组织方式", step7)
+        self.assertIn("强行统一用户风格", step8)
+        self.assertIn("用户仍保留自己的写作策略和表达风格", step8)
+        self.assertIn("用户仍保留自己的写作策略和表达风格", readme)
+
     def test_abstract_only_subtypes_are_documented(self):
         text = read_rel("agents/step_7_writing.md")
         self.assertIn("journal-abstract", text)
@@ -167,9 +298,7 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("证据层级提示", step4)
         self.assertIn("screening rationale", step4)
         self.assertIn("exclusion buckets", step4)
-
-        self.assertIn("strongest_counterargument", step7)
-        self.assertIn("alternative_explanations", step7)
+        self.assertIn("references/reviewer-protocol.md", step7)
 
     def test_rag_candidate_layer_is_documented_as_non_authoritative(self):
         step7 = read_rel("agents/step_7_writing.md")
@@ -179,9 +308,42 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("retrieval_index_manifest.json", step7)
         self.assertIn("retrieval_candidates.json", step7)
         self.assertIn("retrieved_candidate", step7)
+        self.assertIn("按章节→claim 组织", step7)
+        self.assertIn("章节级候选证据层", step7)
+        self.assertIn("claim_id", step7)
+        self.assertIn("claim_text", step7)
+        self.assertIn("evidence_question_id", step7)
+        self.assertIn("query_variant", step7)
+        self.assertIn("source_page_hint", step7)
+        self.assertIn("negative_or_conflicting_evidence", step7)
         self.assertIn("不得直接升级为 `VERIFIED` / `VERIFIED_LOCAL`", step7)
-        self.assertIn("Step 8 不直接读取 `retrieval_candidates.json`", step8)
+        self.assertIn("必要时可读取 `retrieval_candidates.json`", step8)
+        self.assertIn("不得把候选层内容直接当作正文证据", step8)
         self.assertIn("候选定位加速层", readme)
+
+    def test_argument_plan_evidence_confirmation_block_exists(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        self.assertIn("`argument_plan` 证据确认区块", step7)
+        self.assertIn("confirmed_evidence", step7)
+        self.assertIn("unresolved_evidence", step7)
+        self.assertIn("candidate_evidence_used", step7)
+        self.assertIn("confirmation_status", step7)
+        self.assertIn("rollback_if_unconfirmed", step7)
+
+    def test_step7_existing_draft_three_entry_paths_are_explicit(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        step7_entry = read_rel("agents/step_7_entry.md")
+        write_cmd = read_rel("commands/write.md")
+        readme = read_rel("README.md")
+
+        for label in ["continue-existing", "chapter-only", "revision-only"]:
+            self.assertIn(label, step7)
+            self.assertIn(label, step7_entry)
+            self.assertIn(label, write_cmd)
+            self.assertIn(label, readme)
+
+        self.assertIn("existing-draft 可以跳过前链，但不能跳过证据确认", step7)
+        self.assertIn("三者都允许 direct-entry，但都不能跳过证据确认", write_cmd)
 
     def test_figure_evidence_subchain_is_documented(self):
         step7 = read_rel("agents/step_7_writing.md")
@@ -197,7 +359,23 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("figure_not_supported", step7)
         self.assertIn("need_visual_check", step7)
         self.assertIn("supplement_text_evidence", step7)
+        self.assertIn("figure_intent", step7)
+        self.assertIn("evidence_basis", step7)
+        self.assertIn("candidate_specs", step7)
+        self.assertIn("human_selected_candidate", step7)
+        self.assertIn("figure_risk_note", step7)
+        self.assertIn("图表意图与证据约束", step7)
         self.assertIn("图表证据子链", readme)
+
+    def test_step8_light_meaning_audit_trigger_exists(self):
+        step8 = read_rel("agents/step_8_polishing.md")
+
+        self.assertIn("meaning_audit_required", step8)
+        self.assertIn("meaning_audit_reason", step8)
+        self.assertIn("轻量含义审计触发", step8)
+        self.assertIn("claim、引用、限定词、比较词", step8)
+        self.assertIn("不把普通润色升级成重审稿", step8)
+        self.assertIn("转人工复核", step8)
 
 
 if __name__ == "__main__":

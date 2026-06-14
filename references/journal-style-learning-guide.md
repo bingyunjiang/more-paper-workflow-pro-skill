@@ -1,6 +1,6 @@
 # 目标期刊风格学习方法论
 
-> 面向 `learn_journal_style.py` 和 Step 6f 的参考文档。定义如何从范文提取风格画像、两种分析深度的取舍规则、以及风格画像如何指导 Step 7 写作。
+> 面向 `learn_journal_style.py` 和 Step 7.2 的参考文档。定义如何从范文提取风格画像、两种分析深度的取舍规则、以及风格画像如何指导 Step 7 写作。
 
 ## 范文选择标准
 
@@ -66,14 +66,14 @@
 
 | style_profile 指标 | 对应的 Step 7 规则 | 示例 |
 |-------------------|-------------------|------|
-| `abstract_word_count` | 7d 摘要长度要求 | "控制在 180-250 词" |
-| `section_order` | 7a paper_type 骨架构 | "该期刊的 Methods 在 Experiments 之前" |
-| `reference_format` | 7c 引用格式选择 | "IEEE 编号引用 [1]" |
-| `avg_sentence_length` | 7d.1 句子自查 | "句长保持在 22 词左右" |
-| `passive_voice_ratio` | 7c 语态规范 | "多用主动态——范文被动仅 15%" |
-| `total_references_range` | 7e 引用密度 | "控制在 35-45 条参考文献" |
-| `paragraph_length` | 7d.1 段落自查 | "每段 3-6 句，不要全部 4 句" |
-| `transition_phrases` | 7d 章节过渡 | "该期刊常用 'In contrast,' / 'Furthermore,'" |
+| `abstract_word_count` | 7.6.1 摘要子类型与长度约束 | "控制在 180-250 词" |
+| `section_order` | 7.4 论文类型、目标体裁与语言识别 | "该期刊的 Methods 在 Experiments 之前" |
+| `reference_format` | 7.2/7.4 引用格式与目标体裁规则 | "IEEE 编号引用 [1]" |
+| `avg_sentence_length` | 7.7.1 轻量可读性整理 | "句长保持在 22 词左右" |
+| `passive_voice_ratio` | 7.2/7.4 语言规则 | "多用主动态——范文被动仅 15%" |
+| `total_references_range` | 7.9 实时引文支撑 | "控制在 35-45 条参考文献" |
+| `paragraph_length` | 7.7.1 轻量可读性整理 | "每段 3-6 句，不要全部 4 句" |
+| `transition_phrases` | 7.8 章节级写作提示 | "该期刊常用 'In contrast,' / 'Furthermore,'" |
 
 ## 限制与边界
 

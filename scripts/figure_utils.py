@@ -5,7 +5,7 @@
 #
 """
 Shared figure utilities — color palettes, rcParams presets, and export functions
-for Nature-style publication figures. Imported by generate_figures.py.
+for reviewable publication figures. Imported by generate_figures.py.
 
 Inspired by nature-figure's references/design-theory.md and references/api.md.
 """
@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from typing import Optional
 
 
-# ── Nature-Style rcParams ────────────────────────────────────────────────────
+# ── Publication rcParams ─────────────────────────────────────────────────────
 
 NATURE_RCPARAMS = {
     "font.family": "sans-serif",
@@ -65,7 +65,7 @@ CJK_FONTS = ["SimHei", "Microsoft YaHei", "Noto Sans CJK SC", "WenQuanYi Micro H
 
 @contextmanager
 def nature_style(cjk: bool = False):
-    """Context manager temporarily applying Nature-style rcParams."""
+    """Context manager temporarily applying publication-oriented rcParams."""
     original = {k: plt.rcParams.get(k) for k in NATURE_RCPARAMS}
     plt.rcParams.update(NATURE_RCPARAMS)
     if cjk:
@@ -122,7 +122,7 @@ METHOD_FAMILY_COLORS = {
 
 
 def get_palette(n_colors: int, style: str = "pastel") -> list[str]:
-    """Get a Nature-style color palette with n colors."""
+    """Get a publication-oriented color palette with n colors."""
     if style == "pastel":
         if n_colors <= 4:
             return NATURE_PASTEL_4[:n_colors]
@@ -170,7 +170,7 @@ def make_gridspec_figure(
     figsize: tuple = None,
     panel_labels: list[str] = None,
 ) -> tuple[plt.Figure, list[plt.Axes]]:
-    """Create a GridSpec multi-panel figure with Nature-style defaults.
+    """Create a GridSpec multi-panel figure with publication defaults.
 
     Args:
         nrows, ncols: grid dimensions
@@ -268,7 +268,7 @@ def grouped_bar(
     figsize: tuple = (5, 3.5),
     palette: list[str] = None,
 ) -> plt.Figure:
-    """Create a Nature-style grouped bar chart."""
+    """Create a publication-oriented grouped bar chart."""
     if palette is None:
         palette = get_palette(len(groups), "pastel")
 
@@ -305,7 +305,7 @@ def trend_line(
     figsize: tuple = (5, 3.5),
     palette: list[str] = None,
 ) -> plt.Figure:
-    """Create a Nature-style line/trend chart."""
+    """Create a publication-oriented line/trend chart."""
     if palette is None:
         palette = get_palette(len(y_series), "pastel")
 
@@ -331,7 +331,7 @@ def heatmap(
     center: Optional[float] = None,
     annotate: bool = True,
 ) -> plt.Figure:
-    """Create a Nature-style heatmap (sequential or diverging).
+    """Create a publication-oriented heatmap (sequential or diverging).
 
     Args:
         data: 2D array of values
@@ -383,7 +383,7 @@ def bubble_scatter(
     figsize: tuple = (5, 4),
     color: str = "#4C72B0",
 ) -> plt.Figure:
-    """Create a Nature-style bubble scatter plot."""
+    """Create a publication-oriented bubble scatter plot."""
     fig, ax = plt.subplots(figsize=figsize)
 
     # Scale bubble sizes
@@ -408,7 +408,7 @@ def radar_chart(
     figsize: tuple = (5, 5),
     palette: list[str] = None,
 ) -> plt.Figure:
-    """Create a Nature-style radar/polar chart."""
+    """Create a publication-oriented radar/polar chart."""
     import numpy as np
 
     if palette is None:
@@ -439,7 +439,7 @@ def gridspec_figure(
     figsize: tuple = None,
     panel_labels: list[str] = None,
 ) -> plt.Figure:
-    """Create a Nature-style multi-panel GridSpec figure.
+    """Create a publication-oriented multi-panel GridSpec figure.
 
     Args:
         panel_specs: list of dicts, each with:

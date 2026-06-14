@@ -102,4 +102,4 @@ def search_s2(query, limit=100, retries=3):
 3. 输出 T1/T2/T3 分级 + 统计报告
 4. 绕过 federated_kg_resolver / rcs_parser 等脚本
 
-适用于 Step 4e 引文扩展后的评分闭环。
+适用于 Step 4.6 引文扩展后的评分闭环。

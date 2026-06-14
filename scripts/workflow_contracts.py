@@ -266,23 +266,65 @@ class ArtifactPassport:
 class RetrievalIndexManifest:
     schema_version: str = "retrieval-index.v1"
     generated_at: str = ""
+    index_scope: str = ""
+    source_artifacts: list[str] = field(default_factory=list)
+    search_task_ids: list[str] = field(default_factory=list)
+    source_count: int = 0
+    record_count: int = 0
     index_levels: list[str] = field(default_factory=list)
     sources: list[str] = field(default_factory=list)
     item_count: int = 0
     chunk_count: int = 0
+    reusable_for: list[str] = field(default_factory=list)
+    authority: str = "non_evidence"
+    staleness: str = "unknown"
+    rebuild_triggers: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     notes: str = ""
 
 
 @dataclass
+class CapabilityRecord:
+    capability_id: str = ""
+    source_artifact: str = ""
+    status: str = ""  # available | partial | missing | blocked
+    supports_steps: list[str] = field(default_factory=list)
+    supports_actions: list[str] = field(default_factory=list)
+    evidence_boundary: str = ""
+    risk_note: str = ""
+
+
+@dataclass
+class CapabilityIndex:
+    schema_version: str = "capability-index.v1"
+    generated_at: str = ""
+    project_root: str = ""
+    asset_summary: dict[str, Any] = field(default_factory=dict)
+    capabilities: list[CapabilityRecord] = field(default_factory=list)
+    recommended_entry_points: list[str] = field(default_factory=list)
+    blocking_gaps: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    next_action: str = ""
+
+
+@dataclass
 class RetrievalCandidate:
+    chapter_id: str = ""
+    chapter_title: str = ""
+    claim_id: str = ""
+    claim_text: str = ""
+    evidence_question_id: str = ""
     query_text: str = ""
+    query_variant: str = ""
     step_context: str = ""
     candidate_item_key: str = ""
     candidate_chunk_id: str = ""
     page: str = ""
+    source_page_hint: str = ""
     source_type: str = ""
     retrieval_score: str = ""
     match_reason: str = ""
+    negative_or_conflicting_evidence: str = ""
     requires_direct_verification: bool = True
     post_verify_status: str = ""
 
@@ -307,6 +349,11 @@ class FigureEvidenceRecord:
     figure_id: str = ""
     item_key: str = ""
     claim_binding: str = ""
+    figure_intent: str = ""
+    evidence_basis: str = ""
+    candidate_specs: list[dict[str, Any]] = field(default_factory=list)
+    human_selected_candidate: str = ""
+    figure_risk_note: str = ""
     caption_support: str = ""
     text_support: str = ""
     visual_support: str = ""
@@ -344,6 +391,10 @@ def retrieval_manifest_payload(manifest: RetrievalIndexManifest) -> dict[str, An
     return asdict(manifest)
 
 
+def capability_index_payload(index: CapabilityIndex) -> dict[str, Any]:
+    return asdict(index)
+
+
 def retrieval_candidates_payload(candidates: list[RetrievalCandidate], metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "schema_version": "retrieval-candidates.v1",
@@ -355,6 +406,13 @@ def retrieval_candidates_payload(candidates: list[RetrievalCandidate], metadata:
 def write_retrieval_manifest(path: str | Path, manifest: RetrievalIndexManifest) -> None:
     Path(path).write_text(
         json.dumps(retrieval_manifest_payload(manifest), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def write_capability_index(path: str | Path, index: CapabilityIndex) -> None:
+    Path(path).write_text(
+        json.dumps(capability_index_payload(index), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -455,6 +513,8 @@ def infer_artifact_kind(path: str | Path) -> str:
         return "zotero_mapping"
     if "pdf-附件池索引" in name or "pdf_index" in name:
         return "pdf_index"
+    if "capability_index" in name or "能力索引" in name:
+        return "capability_index"
     if "引用审计" in name or "citation_audit" in name:
         return "citation_audit"
     if "论文初稿" in name or "指定章节" in name or "draft" in name or suffix == ".docx":
@@ -510,6 +570,7 @@ def infer_step_origin(kind: str) -> str:
         "zotero_structure": "Step 6",
         "zotero_mapping": "Step 6",
         "pdf_index": "Step 6",
+        "capability_index": "Step 6",
         "draft": "Step 7",
         "citation_audit": "Step 7",
         "polishing": "Step 8",
@@ -554,11 +615,11 @@ def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepRea
         recommended_next_step="先生成下载 manifest，再决定 dry-run 或真实下载",
     ))
 
-    step6_ready = bool(kinds & {"bibliography", "workflow_search_results", "zotero_mapping", "zotero_structure", "pdf_pool", "pdf", "pdf_index"})
+    step6_ready = bool(kinds & {"bibliography", "workflow_search_results", "zotero_mapping", "zotero_structure", "pdf_pool", "pdf", "pdf_index", "capability_index"})
     step6_modes: list[str] = []
     if kinds & {"bibliography", "workflow_search_results", "pdf_pool", "pdf"}:
         step6_modes.append("plan-from-bib")
-    if kinds & {"zotero_mapping", "zotero_structure", "pdf_index"}:
+    if kinds & {"zotero_mapping", "zotero_structure", "pdf_index", "capability_index"}:
         step6_modes.append("plan-from-zotero")
         step6_modes.append("consistency-adjustment")
     if not step6_modes and step6_ready:
@@ -568,7 +629,7 @@ def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepRea
         ready=step6_ready,
         route_mode="plan-only",
         allowed_modes=step6_modes or ["plan-only"],
-        available_artifacts=ids("bibliography", "workflow_search_results", "zotero_mapping", "zotero_structure", "pdf_pool", "pdf", "pdf_index"),
+        available_artifacts=ids("bibliography", "workflow_search_results", "zotero_mapping", "zotero_structure", "pdf_pool", "pdf", "pdf_index", "capability_index"),
         missing_required=[] if step6_ready else ["文献库.bib、workflow JSON、PDF 池或 Zotero 现有映射"],
         missing_optional=["Zotero mode: local/cloud/skip", "collection/tag 策略"] if step6_ready else [],
         risks=["CP-ZOTERO-WRITE 只阻塞真实写入，不阻塞 plan-only/只读/dry-run"] if step6_ready else [],
@@ -576,11 +637,11 @@ def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepRea
         recommended_next_step="先确认 local/cloud/skip，再生成 plan-only",
     ))
 
-    step7_ready = bool(kinds & {"zotero_mapping", "bibliography", "pdf_index", "draft", "workflow_search_results", "citation_audit"})
+    step7_ready = bool(kinds & {"zotero_mapping", "bibliography", "pdf_index", "draft", "workflow_search_results", "citation_audit", "capability_index"})
     step7_modes: list[str] = []
     if "draft" in kinds:
         step7_modes.extend(["continue-existing", "chapter-only"])
-    if kinds & {"zotero_mapping", "bibliography", "pdf_index", "workflow_search_results"}:
+    if kinds & {"zotero_mapping", "bibliography", "pdf_index", "workflow_search_results", "capability_index"}:
         step7_modes.extend(["draft", "review-only", "pre-review"])
     if "citation_audit" in kinds:
         step7_modes.append("citation-audit")
@@ -589,7 +650,7 @@ def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepRea
         ready=step7_ready,
         route_mode="direct-step" if step7_ready else "plan-only",
         allowed_modes=sorted(set(step7_modes)) or ["plan-only"],
-        available_artifacts=ids("zotero_mapping", "bibliography", "pdf_index", "draft", "workflow_search_results", "citation_audit"),
+        available_artifacts=ids("zotero_mapping", "bibliography", "pdf_index", "draft", "workflow_search_results", "citation_audit", "capability_index"),
         missing_required=[] if step7_ready else ["Zotero 对照、文献库、PDF 索引、workflow JSON 或初稿"],
         missing_optional=["引用审计", "style_profile", "section_blueprints"] if step7_ready else [],
         risks=["缺证据矩阵时只能生成风险标记或最小映射，不声明引用安全通过"] if step7_ready else [],
@@ -634,7 +695,7 @@ def recommend_passport_step(artifacts: list[ArtifactRecord], readiness: list[Ste
     ready_by_step = {r.step: r for r in readiness if r.ready}
     if kinds & {"draft", "polishing"} and "Step 8" in ready_by_step:
         return "Step 8"
-    if kinds & {"zotero_mapping", "pdf_index", "citation_audit"} and "Step 7" in ready_by_step:
+    if kinds & {"zotero_mapping", "pdf_index", "citation_audit", "capability_index"} and "Step 7" in ready_by_step:
         return "Step 7"
     if kinds & {"bibliography", "pdf_pool", "pdf", "zotero_structure"} and "Step 6" in ready_by_step:
         return "Step 6"

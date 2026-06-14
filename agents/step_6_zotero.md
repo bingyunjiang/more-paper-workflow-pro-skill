@@ -15,6 +15,7 @@
 - [ ] `references/zotero-outline-mapping.md` — 文献与集合对齐思路
 - [ ] `references/zotero-output-contract.md` — 🆕 JSON + Markdown 双工件输出契约
 - [ ] `references/zotero-entry-modes.md` — 🆕 Step 6 direct-entry 模式
+- [ ] `capability_index.json/md` — 🆕 文献资产能力索引（如已存在，先读；如缺失，本 Step 生成）
 - [ ] `.skill-state/error_log.md` — 已知错误及修复规则
 - [ ] `.skill-state/decision_log.md` — 影响本 Step 的结构性决策
 
@@ -22,10 +23,11 @@
 
 ## 2. 适用任务 (Applicable Tasks)
 
-- 依据 Step 2 论文大纲生成 Zotero 集合架构（6a）
-- 依据 Step 4 `文献库.bib` 和 6a 架构生成文献-集合对照表（6b）
-- 通过 Zotero MCP 创建 Zotero 集合并检查架构一致性（6c）
-- 将 PDF 附件池中的文件纳入附件状态判断，生成安全的附件处理策略（6d）
+- 依据 Step 2 论文大纲生成 Zotero 集合架构（6.1）
+- 依据 Step 4 `文献库.bib` 和 6.1 架构生成文献-集合对照表（6.2）
+- 通过 Zotero MCP 创建 Zotero 集合并检查架构一致性（6.3）
+- 将 PDF 附件池中的文件纳入附件状态判断，生成安全的附件处理策略（6.4）
+- 生成 `capability_index.json/md`，让用户和后续 Step 清楚知道当前可用的 Zotero、PDF、BibTeX、workflow JSON、附件池能力与推荐入口
 
 ---
 
@@ -72,6 +74,8 @@
 | `文献-Zotero架构对照.md` | Markdown | 人类审阅版映射表，可截断长字段 |
 | `文献-Zotero架构对照.json` | JSON | 机器执行源，所有字段完整，禁止截断 |
 | `pdf-附件池索引.json` | JSON | 多来源 PDF 的完整路径、来源、匹配状态 |
+| `capability_index.json` | JSON | Step 6 资产能力索引：记录可用文献资产、证据入口、缺口、建议 Step 和降级说明 |
+| `capability_index.md` | Markdown | `capability_index.json` 的人工审阅层，帮助用户判断“现在能从哪一步继续” |
 | Zotero 集合 | Zotero | 与 `zotero-架构.json` 一致的集合树 |
 | Zotero 条目 + PDF 附件状态 | Zotero / JSON | 元数据可低风险导入；PDF 附件默认只判断状态，不直接挂载 |
 
@@ -91,10 +95,10 @@ python3 scripts/setup_zotero.py --smoke-test
 **必须确认：**
 1. Zotero 桌面端已运行，且本地文库可访问。
 2. `zotero_create_collection`、`zotero_add_by_bibtex`、`zotero_add_from_file`、`zotero_manage_collections` 等写入工具可用。
-3. 如果当前本地 API 配置只读，必须切换到可写 MCP 配置（Web API / hybrid / 上游支持的本地写入模式），否则不能执行 6c/6d。
+3. 如果当前本地 API 配置只读，必须切换到可写 MCP 配置（Web API / hybrid / 上游支持的本地写入模式），否则不能执行 6.3/6.4。
 
 **如果用户选择跳过 Zotero 写入，或当前 MCP 不可写：**
-1. 只执行 6a 和 6b。
+1. 只执行 6.1 和 6.2。
 2. 在 `文献-Zotero架构对照.md/json` 中把集合创建、条目导入、PDF 附件标记为「后续手动处理」。
 3. 缺文件不是致命错误；应在 JSON 顶层写入 readiness、blocking_missing、nonblocking_missing、warnings 和 recommended_next_step。
 
@@ -132,6 +136,48 @@ python3 scripts/setup_zotero.py --smoke-test
 
 缺输入时也应优先产出 plan-only 双工件，而不是只给口头建议。
 
+**capability index 契约：**
+
+`capability_index.json/md` 是 Step 6 的资产状态入口，不是新的流程锁，也不替代 `文献-Zotero架构对照.json`、`pdf-附件池索引.json` 或 Zotero 实际条目。它只回答三件事：
+
+1. 当前有哪些文献资产可用。
+2. 每类资产可以支持哪些 Step 和哪些能力。
+3. 哪些缺口会影响写作、引用审计、下载或 Zotero 写入。
+
+`capability_index.json` 最小字段：
+
+| 字段 | 说明 |
+|------|------|
+| `schema_version` | 固定为 `capability-index.v1` |
+| `generated_at` | 生成时间 |
+| `project_root` | 当前项目根目录或运行目录 |
+| `asset_summary` | Zotero、BibTeX、workflow JSON、PDF、附件池、中文元数据等资产数量摘要 |
+| `capabilities` | 能力条目数组，逐项说明可用能力 |
+| `recommended_entry_points` | 推荐后续 Step：如 Step 5 / Step 6 / Step 7 / Step 8 |
+| `blocking_gaps` | 真正阻塞下一关键动作的缺口 |
+| `warnings` | 非阻塞风险与降级说明 |
+| `next_action` | 推荐下一步 |
+
+`capabilities[]` 最小字段：
+
+| 字段 | 说明 |
+|------|------|
+| `capability_id` | 稳定编号，如 `bibtex_available`、`pdf_pool_ready`、`zotero_mapping_ready` |
+| `source_artifact` | 能力依据，如 `文献库.bib`、`workflow_search_results.json`、Zotero collection、PDF 目录 |
+| `status` | `available / partial / missing / blocked` |
+| `supports_steps` | 可支持的 Step 列表 |
+| `supports_actions` | 可支持动作，如下载、入库、写作、引用审计、润色风险提示 |
+| `evidence_boundary` | 该能力能否作为证据、候选、元数据或附件线索 |
+| `risk_note` | 风险说明 |
+
+执行规则：
+
+- `capability_index.json` 应优先读取 `workflow_search_results.json`、`文献库.bib`、`文献-Zotero架构对照.json`、`pdf-附件池索引.json`、Zotero 只读扫描结果和用户指定 PDF 目录。
+- `capability_index.md` 只用于人工判断，不作为机器执行源。
+- 缺 Zotero 写入能力不阻塞生成 capability index；只能把写入能力标为 `partial` 或 `blocked`。
+- 有 `capability_index.json` 时，Step 7 direct-entry 可先读它判断是否已有可用 Zotero 映射、PDF 附件、候选证据入口和引用审计风险。
+- capability index 不允许把摘要、候选召回或 PDF 文件名匹配直接升级为正文证据。
+
 ### CHECKPOINT W — CP-ZOTERO-WRITE（Zotero 外部状态写入确认）
 
 `CP-ZOTERO-WRITE` 不是 Step 6/7 的入口门，也不是读取 Zotero 前的许可门。它只表示：执行任何会改变 Zotero 文库的写操作前，必须输出 checkpoint 块并等待用户明确确认写入范围。只读操作、计划生成、查重和 dry-run 不触发本 checkpoint。
@@ -161,7 +207,7 @@ required_confirmation:
 
 ---
 
-### 6a：根据 Step 2 大纲生成 Zotero 架构
+### 6.1. 根据 Step 2 大纲生成 Zotero 架构
 
 输入：`大纲关键词.md`
 
@@ -176,7 +222,7 @@ python3 scripts/organize_zotero.py 大纲关键词.md \
 
 输出：
 - `zotero-架构.md`：给用户审阅的集合结构和标签方案
-- `zotero-架构.json`：给 6c MCP 自动创建集合使用的树结构
+- `zotero-架构.json`：给 6.3 MCP 自动创建集合使用的树结构
 
 **质量要求：**
 - 根集合应尽量明确；标准链路下优先从 `大纲关键词.md` 中解析论文标题，direct-entry 时也允许从用户目录、现有 Zotero 根集合、项目名或用户指定名称中反推。
@@ -190,11 +236,11 @@ python3 scripts/organize_zotero.py 大纲关键词.md \
 - 一级集合应对应论文主要章节或研究方向。
 - 二级/三级集合应对应子问题、方法路线、证据类型或关键主题。
 - 不为单篇论文创建集合；单篇论文归属通过条目、标签和附件体现。
-- 架构生成后先向用户展示概要，确认后再进入 6b。
+- 架构生成后先向用户展示概要，确认后再进入 6.2。
 
 ---
 
-### 6b：生成文献-Zotero架构对照
+### 6.2. 生成文献-Zotero架构对照
 
 输入：
 - `文献库.bib`（Step 4 筛选后的 BibTeX 文献库）
@@ -227,7 +273,7 @@ python3 scripts/build_zotero_plan.py \
 **PDF 附件池规则：**
 - 不假设 PDF 只来自 Step 5。
 - 附件池可包含：Step 5 下载的 PDF、用户项目中原已有 PDF、后续补下载 PDF、手动整理目录中的 PDF。
-- 执行 6b 前先扫描附件池，生成 `pdf-附件池索引.json`。
+- 执行 6.2 前先扫描附件池，生成 `pdf-附件池索引.json`。
 - 每个 PDF 记录完整路径、文件名、来源目录、文件大小、可提取标题/DOI/source_id（如能提取）、匹配状态。
 - 同名或疑似重复 PDF 不删除，标记为 duplicate_candidate，等待人工确认或按匹配置信度选择。
 
@@ -243,7 +289,7 @@ python3 scripts/build_zotero_plan.py \
 | Tier/Score | 来自 BibTeX note 字段 |
 | 可信度状态 | 来自 Step 4 的 `verification_status` / `verification_confidence` / `warn_class` / `verified_sources` |
 | 推荐集合路径 | 如 `论文文献库 / 2-方法 / P1-D1 数值模拟` |
-| 推荐标签 | 来自 6a 标签方案，可多值 |
+| 推荐标签 | 来自 6.1 标签方案，可多值 |
 | 条目导入方式 | 英文 DOI / 英文 BibTeX / 中文 CSL JSON / 手动补全 |
 | 匹配理由 | 关键词、摘要、子课题、note 字段依据 |
 | PDF 文件 | Step 5 下载到的本地 PDF 文件名或「未找到」 |
@@ -301,7 +347,7 @@ python3 scripts/build_zotero_plan.py \
 }
 ```
 
-> `文献-Zotero架构对照.md` 只供人工审阅；6c/6d 的集合创建、条目导入、PDF 附件关联、状态回写必须以 `文献-Zotero架构对照.json` 为准。
+> `文献-Zotero架构对照.md` 只供人工审阅；6.3/6.4 的集合创建、条目导入、PDF 附件关联、状态回写必须以 `文献-Zotero架构对照.json` 为准。
 
 **匹配规则：**
 1. 英文/国际文献：优先使用真实 DOI 精确匹配 PDF 文件名、下载日志或文献表。
@@ -326,13 +372,13 @@ python3 scripts/build_zotero_plan.py \
 - 中文条目必须有 `source_id` 和 `article_url`；缺作者/年份/来源名称时必须列入「中文元数据待补全」清单。
 - 缺真实 DOI、缺 PDF、重复条目、无法判定集合的文献必须单独列出。
 - `文献-Zotero架构对照.json` 中所有用于机器执行的字段禁止截断；Markdown 中的截断不得反向污染 JSON。
-- 6c/6d 所有 Zotero 写入操作都以 `文献-Zotero架构对照.json` 为准。
+- 6.3/6.4 所有 Zotero 写入操作都以 `文献-Zotero架构对照.json` 为准。
 - `scripts/build_zotero_plan.py` 只生成中间产物，不调用 Zotero MCP、不修改 Zotero 文库。
 - 缺 `文献库.bib` 时输出 `readiness=blocked`；缺 `zotero-架构.json` 时允许进入 `待确认集合`；缺 PDF 目录时写 warning，不中断。
 
 ---
 
-### 6c：通过 Zotero MCP 创建集合并检查架构一致性
+### 6.3. 通过 Zotero MCP 创建集合并检查架构一致性
 
 输入：`zotero-架构.json`
 
@@ -381,7 +427,7 @@ zotero_get_collections()
 
 ---
 
-### 6d：导入条目并生成/执行附件处理策略
+### 6.4. 导入条目并生成/执行附件处理策略
 
 输入：
 - `文献库.bib`
@@ -392,7 +438,7 @@ zotero_get_collections()
 - PDF 附件池目录（Step 5 / 原有 / 后续补下载 / 手动整理）
 
 **目标：**
-将 Step 4 的英文 BibTeX 条目和中文增强元数据低风险导入 Zotero，并把条目放入 6b 推荐的集合；PDF 附件默认只判断状态和处理策略，不自动挂载到已有条目。
+将 Step 4 的英文 BibTeX 条目和中文增强元数据低风险导入 Zotero，并把条目放入 6.2 推荐的集合；PDF 附件默认只判断状态和处理策略，不自动挂载到已有条目。
 
 **推荐执行顺序：**
 1. 分流条目：先排除 `verification_status=REJECT`，再按 `source` / `source_id` / 标题语言把英文国际文献与 CNKI/万方中文文献分开；`WARN` 条目作为待审项展示。
@@ -458,7 +504,7 @@ zotero_get_collections()
 | 一个 PDF 匹配多个条目 | 不自动关联，标记 conflict，等待人工确认 |
 | 条目重复 | 保留最完整条目，必要时提示用户合并 |
 | 附件工具不可写 / 无 attach-to-existing | 保留元数据导入结果，提示手动拖拽或 `add_from_file_then_merge` 回退 |
-| 集合 key 丢失 | 回到 6c 重新生成 `collection_path → collection_key` 映射 |
+| 集合 key 丢失 | 回到 6.3 重新生成 `collection_path → collection_key` 映射 |
 
 ---
 
@@ -511,8 +557,8 @@ zotero_get_collections()
 - [ ] plan-only / skip 模式下必须明确说明“已生成整理计划”，不能冒充真实写入完成
 
 ### 失败分流
-- 集合不一致：归类为映射层问题，回 6b/6c
-- PDF 对不上：归类为附件路径层问题，回 6b 或 Step 5
+- 集合不一致：归类为映射层问题，回 6.2/6.3
+- PDF 对不上：归类为附件路径层问题，回 6.2 或 Step 5
 - MCP 写入失败：归类为 Zotero 写入层问题，不直接否定前面的整理计划
 
 ---
@@ -523,6 +569,6 @@ zotero_get_collections()
 
 - **Zotero MCP 连接失败**：运行 `python3 scripts/setup_zotero.py --smoke-test` 诊断。
 - **MCP 本地模式只读**：切换到可写 MCP 配置后再执行创建集合、导入条目、关联附件。
-- **文献无法归类**：回到 6b，依据 title / abstract / note 重新标注，必要时设为「待人工确认」。
+- **文献无法归类**：回到 6.2，依据 title / abstract / note 重新标注，必要时设为「待人工确认」。
 - **PDF 附件缺失**：回到 Step 5 补下载，或在 Zotero 桌面端手动添加附件。
-- **集合结构不一致**：回到 6c，以 `zotero-架构.json` 为准补建缺失集合并重跑一致性检查。
+- **集合结构不一致**：回到 6.3，以 `zotero-架构.json` 为准补建缺失集合并重跑一致性检查。

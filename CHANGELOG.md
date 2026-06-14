@@ -16,7 +16,7 @@
 - **Step 1 新增结构化输出字段**：`research_intent_type`、`research_question_candidates`、`primary_rq`、`secondary_rqs`、`scope_boundaries`、`sub_questions`、`methodology_blueprint`、`devils_advocate_challenge`、`fatal_risks`、`what_would_fail_this_topic`
 - **Step 1 边界钉死**：文档明确写入“Step 1 只生成问题结构，不生成章节结构”
 - **Step 2 强化为大纲唯一生成层**：新增 Step 1 → Step 2 字段映射，明确 `primary_rq / secondary_rqs / scope_boundaries / methodology_blueprint / research_intent_type` 如何影响大纲结构、章节任务和证据需求
-- **Step 2 的 2c 既有大纲分支增强**：当同时存在 Step 1 输出和已有大纲时，默认仍进入 `2c`；Step 1 只作为约束源，不作为重写主轴
+- **Step 2 的 2.3 既有大纲分支增强**：当同时存在 Step 1 输出和已有大纲时，默认仍进入 `2.3`；Step 1 只作为约束源，不作为重写主轴
 - **Step 2 新增对齐检查**：已有大纲是否承接 `primary_rq`、覆盖 `secondary_rqs`、违反 `scope_boundaries`、与 `methodology_blueprint` 冲突、是否需要补章节承接 `fatal_risks`
 
 ### Step 7 / Step 8：RAG 候选层与图表证据子链 🆕
@@ -26,15 +26,15 @@
 - **新增中间状态**：`retrieved_candidate`，只能表示“可能相关”，不得直接升级为 `VERIFIED / VERIFIED_LOCAL`
 - **Step 7 契约接入 RAG 候选层**：
   - `7.1` 证据矩阵允许先读候选，再回到原文确认
-  - `7.7` 引文支撑新增 `Retrieve` 候选召回步骤，但不得跳过 `Read`
-  - `7.9.2 revision-only` 中，候选召回只能帮助找潜在补证据材料；原文确认失败仍是 `blocked_requires_rollback`
-  - `7.11` 中 `recommended_action` 明确不得由相似度直接决定
+  - `7.9` 引文支撑新增 `Retrieve` 候选召回步骤，但不得跳过 `Read`
+  - `7.12 revision-only` 中，候选召回只能帮助找潜在补证据材料；原文确认失败仍是 `blocked_requires_rollback`
+  - `7.15` 中 `recommended_action` 明确不得由相似度直接决定
 - **新增图表证据链工件**：`figure_index.json`、`figure_evidence_report.md/json`
 - **图表证据链接入 Step 7**：
   - `7.1` 可选扩展 `figure_refs`、`table_refs`、`figure_evidence_level`
-  - `7.5` 可新增 `figure_role`、`figure_claim_binding`
-  - `7.7` 显式区分 `text_claim` 与 `figure_claim`
-  - `7.11` 新增图表误引风险 `figure_overinterpretation`
+  - `7.6` 可新增 `figure_role`、`figure_claim_binding`
+  - `7.9` 显式区分 `text_claim` 与 `figure_claim`
+  - `7.15` 新增图表误引风险 `figure_overinterpretation`
 - **图表证据状态与动作**：
   - 状态：`caption_only`、`text_caption_aligned`、`visual_confirmed`、`figure_not_supported`
   - 动作：`retain`、`downgrade_claim`、`need_visual_check`、`supplement_text_evidence`、`replace_or_remove`
@@ -47,15 +47,23 @@
 - **论文质量防线 / Quality Defense Line 重写**：
   - 从旧的“6 道评审节点”升级为“前中后段联动的质量防线”
   - 新总图和表格覆盖：
-    - `Step 7.5 章节论证计划`
-    - `Step 7.9 修稿与复评`
-    - `Step 7.11 写后引用审计`
+    - `Step 7.6 章节论证计划`
+    - `Step 7.11/7.13 修稿与复评`
+    - `Step 7.15 写后引用审计`
     - `Step 8 诊断优先润色`
 - **Step 7 概述同步增强**：README 中已反映图表证据子链、修稿/复评闭环、Step 8 诊断优先润色
 
+### 文档编号、公共口径与契约测试整理 🆕
+
+- **全仓 Markdown 编号统一**：将运行文档、README、SKILL、commands、docs、static、references、examples 和 CHANGELOG 中残留的旧式 `1a/2c/4a→4h/6d/7g/7h` 口径统一为当前小数编号体系。
+- **Step 4 筛选顺序收口**：对外说明和契约测试明确 `4.3 筛选依据确认 → 4.4 五维评分 → 4.5 T1-T4 分级 → 4.6 引文扩展 → 4.7 饱和度 → 4.8 完成检查`。
+- **Step 6 / Step 3-4 资产层同步**：补齐 `capability_index.json/md`、`retrieval_index_manifest.json` 的公共说明和契约测试，保持弱 RAG 与文献资产入口边界清晰。
+- **Step 8 内部编号修复**：将最小验证规程与 `revision_ledger` 工件契约收口为 `8.3/8.4` 子节，避免与 `## 7. 质量门槛`、`## 8. 收尾检查` 撞号。
+- **契约测试扩展**：新增 Step 3-6 资产契约测试与 Step 8 编号洁净度测试；全量 `python3 -m unittest discover -s tests -v` 通过 70 项。
+
 ### 测试与契约回归
 
-- **新增 `tests/test_step1_step2_contracts.py`**：钉死 Step 1 只生成问题结构、Step 2 是大纲唯一生成层、2c 以已有大纲为主体且 Step 1 只作约束源
+- **新增 `tests/test_step1_step2_contracts.py`**：钉死 Step 1 只生成问题结构、Step 2 是大纲唯一生成层、2.3 以已有大纲为主体且 Step 1 只作约束源
 - **增强 `tests/test_step7_step8_contracts.py`**：覆盖
   - Step 1/2 借鉴 `deep-research` 的字段
   - RAG 候选层是非权威中间层
@@ -85,8 +93,8 @@
 
 ### Step 7 内部编号整理 🆕
 
-- **减少补丁式编号**：把 `7.5b` 合并进 `7.5 写作模式与章节级论证计划`
-- **把修稿与复评收回到 `7.9` 主闭环**：`7.9` 下统一组织为评审仿真、修稿教练、`revision-only`、复评四个连续环节，避免 `7.9b / 7.9c` 孤立生长
+- **减少补丁式编号**：旧版补丁式写作分支已收束到 `7.6 写作模式、语言规则与章节级论证计划`
+- **把修稿与复评收回到闭环结构**：`7.11` 负责评审与修稿路线图，`7.12` 负责 `revision-only` 执行，`7.13` 负责复评，避免临时字母分支孤立生长
 - **明确主线顺序**：Step 7 内部现在更接近“风格蓝图 → 论证计划 → 正文生成 → 引文支撑 → 防幻觉 → 评审/修稿/复评 → 图表 → 引用审计”的稳定结构
 
 ### 测试与契约回归
@@ -99,12 +107,12 @@
 
 ### Step 2-5 流程接口收口 🆕
 
-- **Step 2 新增已有大纲模式**：用户直接提交目录/大纲/草稿目录时，进入 `2c`，先反向抽取研究主题，再做五维评审、修订建议、关键词清单和章节证据需求表
-- **Step 2 路由判定补齐**：新增 `2-0` 入口判定，明确 `2a` 标准生成与 `2c` 已有大纲优化的边界；同时统一术语为“章节大纲 / 关键词清单 / 章节证据需求表”
+- **Step 2 新增已有大纲模式**：用户直接提交目录/大纲/草稿目录时，进入 `2.3`，先反向抽取研究主题，再做五维评审、修订建议、关键词清单和章节证据需求表
+- **Step 2 路由判定补齐**：新增 `2.0` 入口判定，明确 `2.1` 标准生成与 `2.3` 已有大纲优化的边界；同时统一术语为“章节大纲 / 关键词清单 / 章节证据需求表”
 - **Step 3/4 结构化交接强化**：Step 3 以 `search_tasks` 承接 Step 2 的章节证据需求；Step 4 保留 `search_task_id`、`chapter_id`、`chapter_title`、`evidence_type`，供后续 Zotero 架构和写作回溯
 - **Step 4 交付物统一为 7 件套**：`检索文献表.md/.xlsx`、`检索报告.md/.pdf`、`文献库.bib`、`saturation_snapshot.json`、`中文论文元数据.json`
 - **Step 5 新增直达下载模式**：用户可不经过 Step 1-4，直接提供 DOI、标题、URL、BibTeX 或参考文献列表；标题先归一化为 DOI/URL/中文 `article_url`，无法唯一解析的条目写入 `unresolved_download_items.md`
-- **Step 5 编号重排**：执行流程统一为 `6a-6i`，收尾检查统一为 `8a-8d`，避免 `5a` 挂在 `## 6` 下或旧 `6.0` 编号混用
+- **Step 5 编号重排**：执行流程统一为 `5.0-5.8`，收尾检查统一为 `8.1-8.4`，避免 `5.0` 挂在 `## 6` 下或旧 `6.0` 编号混用
 
 ### Step 6 Zotero 文库管理升级 🆕
 
@@ -139,7 +147,7 @@
 
 - README 更新为 `v1.0.9-20260609`，补充 Codex badge，并把 Claude Code / Codex / Hermes / OpenClaw 作为等价智能调度层展示
 - README 大幅压缩执行细节，明确 `README.md` 只做 GitHub 概览，`agents/step_*.md` 才是运行时规则 Source of Truth
-- Step 1-8 文档同步清理触发词、输入输出、质量门和故障处理，尤其强化 Step 2-5 的跨步骤接口和 Step 6 的 6a/6b/6c/6d 分工
+- Step 1-8 文档同步清理触发词、输入输出、质量门和故障处理，尤其强化 Step 2-5 的跨步骤接口和 Step 6 的 6.1/6.2/6.3/6.4 分工
 - `agents/known_pitfalls.md` 扩展常见坑，便于后续 Agent 跨会话复用修复经验。
 
 ### 自动升级提醒
@@ -159,10 +167,10 @@
 | `scripts/generate_retrieval_report.py` | 兼容 `search_tasks` 字段，保留章节和证据类型信息；中文合成 ID 写入 `source_id` 而非 DOI |
 | `scripts/generate_search_report.py` | 检索报告兼容章节字段和 `source_id`，保持 Step 4/6/7 可追溯 |
 | `scripts/unified_download_router.py` | 中文论文解析兼容 `source_id` fallback，配合 `中文论文元数据.json` 下载 |
-| `agents/step_2_outline.md` | 新增已有大纲模式、2a/2c 路由判定、章节证据需求表和 Step 3/6/7 handoff |
+| `agents/step_2_outline.md` | 新增已有大纲模式、2.1/2.3 路由判定、章节证据需求表和 Step 3/6/7 handoff |
 | `agents/step_3_search_plan.md` | 新增 `search_tasks` 作为结构化检索任务接口 |
 | `agents/step_4_search_score.md` | 强化 7 件套交付物、中文论文元数据和 search_tasks 字段保留规则 |
-| `agents/step_5_download.md` | 新增直达下载模式，整理执行流程编号为 6a-6i |
+| `agents/step_5_download.md` | 新增直达下载模式，整理执行流程编号为 5.0-5.8 |
 | `agents/step_6_zotero.md` | 重写 Step 6 为架构、对照、集合创建、入库/附件状态四段式流程 |
 | `scripts/check_skill_update.py` | 新增自动升级提醒脚本 |
 | `SKILL.md` | 更新触发词、路由表、脚本索引、运行态模板复制规则、自动升级提醒和 Step 6 概览 |
@@ -225,11 +233,11 @@
 - **Step 3**：英文路由新增 L2 Crossref（必选源），Deep tier 下不得仅用 OpenAlex 完成检索
 - **Step 4**：新增 CNKI/万方 preflight + CDP/CARSI 登录流程；英文源和中文源拆分独立决策表；新增「用户无机构账号」分支
 
-### Step 6d 独立触发词 + 路由表
+### 文库大纲对照表独立触发词 + 路由表
 
 - 新增 11 条触发词（文库大纲对照表、覆盖热力图等中英文）
-- 路由表新增独立 6d 路由行，概览图新增 `├─ 6d 对照表 PDF` 节点
-- **设计意图**：此前 6d 仅作为 6c 隐式产出，现在可独立触发重新生成
+- 路由表新增独立对照表路由行，概览图新增 `├─ 对照表 PDF` 节点
+- **设计意图**：此前对照表仅作为 6.3 隐式产出，现在可独立触发重新生成
 
 ### 其他修复
 
@@ -260,7 +268,7 @@
 
 - **新增 CNKI 检索**：通过 CDP Chrome 操作旧版 `kns.cnki.net/kns/AdvSearch` 接口，含摘要提取（详情页）、请求间隔（3s）防反爬
 - **新增 Wanfang 检索**：支持校园网 IP 直连 + 校外 CARSI CDP 双模式，搜索页直接解析摘要（结果页自带）
-- **双源并行路由**：新增 `--parallel` 参数，中文查询 CNKI + Wanfang 同时跑，Step 4b DOI 去重合并
+- **双源并行路由**：新增 `--parallel` 参数，中文查询 CNKI + Wanfang 同时跑，Step 4.2 DOI 去重合并
 - **CDP 端口可配**：`_CDP_PORT` 通过 `CDP_PORT` 环境变量或 `--cdp-port` CLI 参数覆盖，默认 9222
 
 ### 英文源增强
@@ -355,11 +363,11 @@
 - **Step 3**：英文路由新增 L2 Crossref（必选源），Deep tier 下不得仅用 OpenAlex 完成检索
 - **Step 4**：新增 CNKI/万方 preflight + CDP/CARSI 登录流程；英文源和中文源拆分独立决策表；新增「用户无机构账号」分支
 
-### Step 6d 独立触发词 + 路由表
+### 文库大纲对照表独立触发词 + 路由表
 
 - 新增 11 条触发词（文库大纲对照表、覆盖热力图等中英文）
-- 路由表新增独立 6d 路由行，概览图新增 `├─ 6d 对照表 PDF` 节点
-- **设计意图**：此前 6d 仅作为 6c 隐式产出，现在可独立触发重新生成
+- 路由表新增独立对照表路由行，概览图新增 `├─ 对照表 PDF` 节点
+- **设计意图**：此前对照表仅作为 6.3 隐式产出，现在可独立触发重新生成
 
 ### 其他修复
 
@@ -387,7 +395,7 @@
 
 ### 检索融合更新
 
-借鉴 paper-search-pro，为 Step 3/4 增加 7 项检索增强能力，重构 Step 4 子步骤编号为 4a→4h。
+借鉴 paper-search-pro，为 Step 3/4 增加 7 项检索增强能力，重构 Step 4 子步骤编号为 4.1→4.8。
 
 **新增 3 文件：**
 - `references/rcs-rubric.md` — 主题匹配度评鉴指南（RCS 启发，4 级锚定 + 5 种旗标）
@@ -396,15 +404,15 @@
 
 **修改 5 文件：**
 - `scripts/search_by_topic.py` — +引文网络 `--citation-network`、+语义缓存、+influentialCitationCount
-- `agents/step_4_search_score.md` — 子步骤重编号 4a→4h；评分(4c)/筛选(4d)获正式编号；.bib 升级为检索报告(4g)输出 .md+.xlsx+.pdf+.bib；4e 引文扩展含评分闭环；T4 显式剔除
+- `agents/step_4_search_score.md` — 子步骤重编号 4.1→4.8；评分(4.4)/筛选(4.5)获正式编号；.bib 升级为检索报告(4.8)输出 .md+.xlsx+.pdf+.bib；4.6 引文扩展含评分闭环；T4 显式剔除
 - `agents/step_3_search_plan.md` — +arXiv 路由 + Tier 参数表
-- `agents/step_1_topic.md` — +Step 1e 检索深度自动推断
+- `agents/step_1_topic.md` — +Step 1.5 检索深度自动推断
 - `SKILL.md` — +触发词 + 路由/脚本/依赖表同步
 
 **核心变化：**
 ```
-4a 引文验证 → 4b 去重 → 4c 评分 → 4d 分级(T4剔除)
-→ 4e 引文扩展(评分闭环) → 4f 饱和度 → 4g 检索报告(.md+.xlsx+.pdf+.bib) → 4h 完成
+4.1 引文验证 → 4.2 去重 → 4.3 筛选依据确认 → 4.4 评分 → 4.5 分级(T4剔除)
+→ 4.6 引文扩展(评分闭环) → 4.7 饱和度 → 4.8 检索报告(.md+.xlsx+.pdf+.bib) → 4.8 完成
 ```
 
 ### 统一下载路由架构
@@ -430,9 +438,9 @@
 
 | 工序 | 做什么 | 产出 |
 |------|--------|------|
-| **4a 引文验证** | DOI 格式校验 + 元数据完整性检查（title/authors/year），剔除无效条目 | 干净 DOI 列表 |
-| **4b DOI 去重** | 多源检索合并去重（DOI 主键 + title+author+year 回退键），冲突时保留元数据最完整的条目 | 去重文献表 |
-| **4c .bib 导出** | 统一导出为 BibTeX 格式，含 Tier/Score 标签 + 子课题归属（`note` 字段），Zotero 直接导入 | `文献库.bib` |
+| **4.1 引文验证** | DOI 格式校验 + 元数据完整性检查（title/authors/year），剔除无效条目 | 干净 DOI 列表 |
+| **4.2 DOI 去重** | 多源检索合并去重（DOI 主键 + title+author+year 回退键），冲突时保留元数据最完整的条目 | 去重文献表 |
+| **4.8 .bib 导出** | 统一导出为 BibTeX 格式，含 Tier/Score 标签 + 子课题归属（`note` 字段），Zotero 直接导入 | `文献库.bib` |
 
 **脚本侧：`search_by_topic.py` v3.0**
 
@@ -445,13 +453,13 @@
 
 ### 综述矩阵 + 文献综述写作 + 写作润色
 
-- **新增 Step 6e：文献综述矩阵** — 13 列结构化证据提取（作者年份→DOI），按证据优先级逐级回退填充（Zotero 笔记→标注/高亮→元数据→PDF 全文→摘要），产出 `综述矩阵.csv` + `综述矩阵.md`
+- **新增 Step 7.1：文献综述矩阵** — 13 列结构化证据提取（作者年份→DOI），按证据优先级逐级回退填充（Zotero 笔记→标注/高亮→元数据→PDF 全文→摘要），产出 `综述矩阵.csv` + `综述矩阵.md`
 - **增强 Step 7 review 论文类型** — 8 节文献综述专属骨架（标题→引言→主题脉络→分主题综述→方法证据→不足未来→小结→参考文献）+ 7 条写作纪律（观点分组/观点-作者格式/合并引用/对比表达/保留不确定性/不编造/缺失标注）
 - **扩展 GB/T 7714-2015 规范** — 完整排序规则（中文在前/拼音序/英文字母序）+ 作者姓名处理 + 7 种文献类型代码 [J/M/C/D/R/EB/OL] + 缺失元数据处理方案
 - **新增 3 个参考文件**：`references/literature-review-matrix-schema.md`、`references/literature-review-docx-guide.md`、`references/gbt7714-2015-citation-format.md`
 - **新增 `scripts/generate_academic_reference_docx.py`** — 生成中文论文样式模板（A4/宋体+Times New Roman/黑体标题/1.5 倍行距），`md_to_docx.py` 自动检测使用
 - **新增 `references/academic-reference.docx`** — pandoc 参考样式文档（解决 md_to_docx.py 长期缺失模板的问题）
-- **新增 3 个步骤** — Step 6f 期刊风格学习+蓝图（`learn_journal_style.py`, `generate_section_blueprints.py`, `generate_writing_rationale.py`, `latex_guard.py`）、Step 7g 科研图表生成（`generate_figures.py`, `figure_utils.py`）、Step 7h 写后引用审计（`citation_audit.py`），借鉴 nature-figure、CiteCheck、PaperSpine
+- **新增 3 个步骤** — Step 7.2 目标体裁/文档风格学习+蓝图（`learn_journal_style.py`, `generate_section_blueprints.py`, `generate_writing_rationale.py`, `latex_guard.py`）、Step 7.14 科研图表生成（`generate_figures.py`, `figure_utils.py`）、Step 7.15 写后引用审计（`citation_audit.py`），借鉴 nature-figure、CiteCheck、PaperSpine
 - **新增 5 个参考文件** — `journal-style-learning-guide.md`, `section-blueprint-template.md`, `nature-figure-style-guide.md`, `nature-color-schemes.md`, `citation-audit-guide.md`
 
 ### SKILL.md Agent 模块化 + Error Log + 术语标准化
@@ -483,7 +491,7 @@
 **新增术语标准化跨步骤贯穿：**
 
 - **`references/term_aliases.md`** — 术语别名映射表（Main Term / Aliases / Recommended page / Note 四字段）
-- Step 2 新增 2d: 术语映射表生成（从大纲关键词提取术语 → 填充映射表）
+- Step 2 新增 2.5: 术语映射表生成（从大纲关键词提取术语 → 填充映射表）
 - Step 3 概念块构建时强制术语一致性（核心词与 Main Term 对齐，同义词从 Aliases 展开）
 - Step 7 章节写作前术语对齐检查（每章术语与 Recommended page 匹配）
 - Step 8 润色终验以 term_aliases 为基准校验全文术语一致性（不一致 → 修正 → 更新映射表 → 记录 decision_log）
@@ -504,18 +512,18 @@
 
 将散落在各步骤的评审能力整合为统一的 **论文质量防线**：
 - 防线上图 + 各节点把控表，选题→大纲→检索→写作→成稿 5 阶段全覆盖
-- Step 2b 新增**导师视角检查**：工作量达标 / 风险识别 / Plan B / 时间线与里程碑 / 发表拆分策略
-- Step 7d.1 新增**段落与句子级自查**（借鉴 nature-writing）：每段一个工作 / 证据向外写 / 动词校准 / 清除虚假新颖性 / 段落流
-- Step 7f 新增**三审稿人视角** + **Rebuttal Letter 预演**（借鉴 nature-reviewer + nature-response）
+- Step 2.2 新增**导师视角检查**：工作量达标 / 风险识别 / Plan B / 时间线与里程碑 / 发表拆分策略
+- Step 7.7.1 新增**段落与句子级自查**（借鉴 nature-writing）：每段一个工作 / 证据向外写 / 动词校准 / 清除虚假新颖性 / 段落流
+- Step 7.11 新增**三审稿人视角** + **Rebuttal Letter 预演**（借鉴 nature-reviewer + nature-response）
 
 ### SKILL.md 架构重整
 
-- Step 7 物理顺序修正为 7a→7b→7c→7d→7e→7f
+- Step 7 物理顺序修正为 7.0→7.16
 - Step 7 重构为 paper_type(5种) × language(en/zh/zh-to-en) 双轴写作引擎
 - 新增 zh-to-en 四步转换法 + 中文期刊特有规范（GB/T 7714）
-- 新增 7e 实时引文支撑（借鉴 nature-citation）：分段→搜索→评估→导出
-- 新增 7f.2 三审稿人视角 + 7f.4 Rebuttal 预演
-- 新增 7c 语言差异化规则（zh/en/zh-to-en 写作规范差异 + 章节命名对照）
+- 新增 7.9 实时引文支撑（借鉴 nature-citation）：分段→搜索→评估→导出
+- 新增 7.11 三审稿人视角 + Rebuttal 预演
+- 新增 7.6.2 语言差异化规则（zh/en/zh-to-en 写作规范差异 + 章节命名对照）
 - 清理 17 个 🆕 emoji + 5 条 v1.0.3 changelog 注记
 - 删除 `实测性能基线` 节（开发者 benchmark，非用户面内容）
 
@@ -548,7 +556,7 @@
 ### README 结构重整
 
 - 合并「工程品质」入「核心优势」，消除内容重复
-- Zotero MCP 配置从独立章节移入 Step 6b
+- Zotero MCP 配置从独立章节移入 Step 6.2
 - Step 5 精简 70%（细节移至 `references/`）
 - 新增**设计哲学对比表**（AI 辅助 ≠ AI 替代）
 - 新增**「适合谁 / 不适合谁」**章节
@@ -565,13 +573,13 @@
 
 | 步骤 | 借鉴来源 | 增强内容 |
 |------|---------|----------|
-| **Step 1a** 阶段诊断 | 确认用户画像（硕士/博士/青年教师），推荐最佳入口 |
-| **Step 1b** 预检索 | 发散子方向 → 文献量/趋势/gap 初判，用外部数据替代用户猜测 |
-| **Step 1c** 深度聚焦 | 方法论深化 + 创新点预判 |
-| **Step 1d** 选题预审 | originality/importance/feasibility 三问，绿灯/黄灯/红灯 |
+| **Step 1.1** 阶段诊断 | 确认用户画像（硕士/博士/青年教师），推荐最佳入口 |
+| **Step 1.2** 预检索 | 发散子方向 → 文献量/趋势/gap 初判，用外部数据替代用户猜测 |
+| **Step 1.3** 深度聚焦 | 方法论深化 + 创新点预判 |
+| **Step 1.4** 选题预审 | originality/importance/feasibility 三问，绿灯/黄灯/红灯 |
 | **Step 3-4** 检索路由 | T1→T2→T3 分级检索 + 引文验证 + DOI 去重 + `.bib` 导出 |
 | **Step 7** 写作引擎 | paper_type（5 种）× language（en/zh/zh-to-en）双轴写作 + 章节级规则 + 实时引文支撑 |
-| **Step 7f** 评审仿真 | 三审稿人视角 + Rebuttal 预演 |
+| **Step 7.11** 评审仿真 | 三审稿人视角 + Rebuttal 预演 |
 
 ### 安全审计
 
@@ -627,7 +635,7 @@
 
 ### Step 7-8 增强
 
-- **Step 7d 同行评审仿真**（质量门）：5 维度评分 + 限 2 轮修改 + Acknowledged Limitations
+- **Step 7.11 同行评审仿真**（质量门）：5 维度评分 + 限 2 轮修改 + Acknowledged Limitations
 - **Step 8 论文润色**（四合一精修引擎）：
   - Level 1 表面清理 + Level 2 结构优化 + Level 3 去 AI 痕迹（29 种模式）+ Level 4 注入人味
   - 句长波动检测（burstiness）+ 章节风格指南（不同章节不同波动度目标）

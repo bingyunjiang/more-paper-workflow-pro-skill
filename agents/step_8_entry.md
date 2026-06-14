@@ -7,7 +7,7 @@
 - 把润色任务先做 revision scope 判定
 - 默认保守改写，不将 Step 8 变成开放式重写器
 - 按 `paper_type / language / target_genre / revision_scope` 最小加载
-- Step 8 只消费已有正文并做成稿级精修；不接管 Step 7 的正文生成、证据合成、引用审计或修稿路线图。
+- Step 8 不负责主体写作；它在既有成稿基础上执行受约束补写、直接修改与修订后验证，不接管 Step 7 的完整写作、引用审计或修稿路线图。
 
 ## 2. revision_scope
 
@@ -44,5 +44,6 @@ Step 8 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 Step 8 默认必须明确：
 
 - 保留了哪些原结构
-- 哪些修改属于语言清理，哪些属于结构修订
+- 哪些修改属于直接修改，哪些属于局部补写
 - 哪些问题只是提醒，需回到 Step 7 处理
+- `revision_ledger.json/md` 是否完整记录了问题分类、验证结果和下一步动作

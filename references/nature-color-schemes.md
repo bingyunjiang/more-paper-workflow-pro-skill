@@ -1,6 +1,6 @@
 # Nature 风格科研图表配色方案
 
-> 面向 `figure_utils.py` 和 Step 7g 的参考文档。色值来自 nature-figure 的配色体系。
+> 面向 `figure_utils.py` 和 Step 7.14 的参考文档。色值来自 nature-figure 的配色体系。
 
 ## 分类色板（Categorical）
 

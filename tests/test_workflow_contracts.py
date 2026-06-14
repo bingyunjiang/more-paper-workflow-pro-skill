@@ -8,6 +8,8 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from workflow_contracts import (  # noqa: E402
+    CapabilityIndex,
+    CapabilityRecord,
     DownloadManifestItem,
     FigureEvidenceRecord,
     FigureIndexRecord,
@@ -15,6 +17,7 @@ from workflow_contracts import (  # noqa: E402
     RetrievalIndexManifest,
     SearchResultRecord,
     as_chinese_papers,
+    capability_index_payload,
     dois_from_download_items,
     figure_evidence_payload,
     figure_index_payload,
@@ -110,28 +113,85 @@ class WorkflowContractsTest(unittest.TestCase):
     def test_retrieval_manifest_payload(self):
         manifest = RetrievalIndexManifest(
             generated_at="2026-06-14T10:00:00+08:00",
+            index_scope="search_results",
+            source_artifacts=["workflow_search_results.json"],
+            search_task_ids=["S1", "S2"],
+            source_count=3,
+            record_count=120,
             index_levels=["lightweight", "pdf_chunk"],
             sources=["zotero_notes", "pdf_chunks"],
             item_count=12,
             chunk_count=34,
+            reusable_for=["step5_download_routing", "step7_candidate_locator"],
+            authority="candidate_only",
+            staleness="fresh",
+            rebuild_triggers=["search_tasks_changed"],
+            warnings=["candidate only"],
             notes="candidate retrieval only",
         )
         payload = retrieval_manifest_payload(manifest)
         self.assertEqual(payload["schema_version"], "retrieval-index.v1")
+        self.assertEqual(payload["index_scope"], "search_results")
+        self.assertEqual(payload["source_artifacts"], ["workflow_search_results.json"])
+        self.assertEqual(payload["search_task_ids"], ["S1", "S2"])
+        self.assertEqual(payload["source_count"], 3)
+        self.assertEqual(payload["record_count"], 120)
         self.assertEqual(payload["item_count"], 12)
         self.assertEqual(payload["index_levels"], ["lightweight", "pdf_chunk"])
+        self.assertEqual(payload["reusable_for"], ["step5_download_routing", "step7_candidate_locator"])
+        self.assertEqual(payload["authority"], "candidate_only")
+        self.assertEqual(payload["staleness"], "fresh")
+        self.assertEqual(payload["rebuild_triggers"], ["search_tasks_changed"])
+
+    def test_capability_index_payload(self):
+        index = CapabilityIndex(
+            generated_at="2026-06-14T10:00:00+08:00",
+            project_root="/tmp/project",
+            asset_summary={"bibtex": 20, "pdf": 18, "zotero_items": 20},
+            capabilities=[
+                CapabilityRecord(
+                    capability_id="zotero_mapping_ready",
+                    source_artifact="文献-Zotero架构对照.json",
+                    status="available",
+                    supports_steps=["Step 6", "Step 7"],
+                    supports_actions=["writing", "citation_audit"],
+                    evidence_boundary="metadata_and_attachment_index",
+                    risk_note="PDF evidence still requires direct verification",
+                )
+            ],
+            recommended_entry_points=["Step 7"],
+            blocking_gaps=[],
+            warnings=["candidate evidence is not proof"],
+            next_action="enter Step 7 with evidence confirmation",
+        )
+        payload = capability_index_payload(index)
+        self.assertEqual(payload["schema_version"], "capability-index.v1")
+        self.assertEqual(payload["asset_summary"]["pdf"], 18)
+        self.assertEqual(payload["capabilities"][0]["capability_id"], "zotero_mapping_ready")
+        self.assertEqual(payload["capabilities"][0]["status"], "available")
+        self.assertIn("Step 7", payload["capabilities"][0]["supports_steps"])
+        self.assertEqual(payload["capabilities"][0]["evidence_boundary"], "metadata_and_attachment_index")
+        self.assertEqual(payload["recommended_entry_points"], ["Step 7"])
 
     def test_retrieval_candidates_payload(self):
         candidates = [
             RetrievalCandidate(
+                chapter_id="2.3",
+                chapter_title="HFO 工质替代的研究现状",
+                claim_id="claim-1",
+                claim_text="HFO 替代路径需要同时比较热物性与环境指标",
+                evidence_question_id="eq-1",
                 query_text="claim about heat transfer",
+                query_variant="heat property + environmental indicator",
                 step_context="7.7",
                 candidate_item_key="ABC123",
                 candidate_chunk_id="chunk-1",
                 page="12",
+                source_page_hint="p.12 methods paragraph",
                 source_type="pdf_chunk",
                 retrieval_score="0.92",
                 match_reason="keyword overlap",
+                negative_or_conflicting_evidence="candidate suggests only partial environmental comparison",
                 requires_direct_verification=True,
                 post_verify_status="",
             )
@@ -139,7 +199,14 @@ class WorkflowContractsTest(unittest.TestCase):
         payload = retrieval_candidates_payload(candidates, {"chapter": "ch3"})
         self.assertEqual(payload["schema_version"], "retrieval-candidates.v1")
         self.assertEqual(payload["metadata"]["chapter"], "ch3")
+        self.assertEqual(payload["candidates"][0]["chapter_id"], "2.3")
+        self.assertEqual(payload["candidates"][0]["claim_id"], "claim-1")
+        self.assertEqual(payload["candidates"][0]["claim_text"], "HFO 替代路径需要同时比较热物性与环境指标")
+        self.assertEqual(payload["candidates"][0]["evidence_question_id"], "eq-1")
+        self.assertEqual(payload["candidates"][0]["query_variant"], "heat property + environmental indicator")
         self.assertEqual(payload["candidates"][0]["candidate_item_key"], "ABC123")
+        self.assertEqual(payload["candidates"][0]["source_page_hint"], "p.12 methods paragraph")
+        self.assertIn("partial environmental comparison", payload["candidates"][0]["negative_or_conflicting_evidence"])
         self.assertTrue(payload["candidates"][0]["requires_direct_verification"])
 
     def test_figure_index_payload(self):
@@ -167,6 +234,11 @@ class WorkflowContractsTest(unittest.TestCase):
                 figure_id="fig_3",
                 item_key="ABC123",
                 claim_binding="claim-7",
+                figure_intent="Compare temperature distribution under condition A",
+                evidence_basis="data/results.csv + PDF p.12 figure caption",
+                candidate_specs=[{"chart_type": "heatmap", "data_source": "results.csv"}],
+                human_selected_candidate="heatmap",
+                figure_risk_note="visual confirmation pending",
                 caption_support="partial",
                 text_support="strong",
                 visual_support="pending",
@@ -176,6 +248,10 @@ class WorkflowContractsTest(unittest.TestCase):
         ]
         payload = figure_evidence_payload(records, {"step": "7.11"})
         self.assertEqual(payload["schema_version"], "figure-evidence.v1")
+        self.assertEqual(payload["records"][0]["figure_intent"], "Compare temperature distribution under condition A")
+        self.assertEqual(payload["records"][0]["candidate_specs"][0]["chart_type"], "heatmap")
+        self.assertEqual(payload["records"][0]["human_selected_candidate"], "heatmap")
+        self.assertEqual(payload["records"][0]["figure_risk_note"], "visual confirmation pending")
         self.assertEqual(payload["records"][0]["evidence_status"], "text_caption_aligned")
         self.assertEqual(payload["records"][0]["recommended_action"], "retain")
 

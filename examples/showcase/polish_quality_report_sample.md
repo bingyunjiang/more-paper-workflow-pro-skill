@@ -4,7 +4,7 @@
 - entry_mode：direct_entry
 - 输入依据：用户提供初稿 + Step 7 引用审计报告
 - 证据风险：存在 2 条 `citation safety reminder`
-- 下一步推荐：回到 Step 7.11 修复高风险引用后再定稿
+- 下一步推荐：回到 Step 7.15 修复高风险引用后再定稿
 
 ## AI 痕迹修复统计
 - 过度被动语态：8 处

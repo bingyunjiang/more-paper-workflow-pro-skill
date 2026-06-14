@@ -34,8 +34,8 @@
 - **Related error:** —
 
 ### 2026-06-05 | Step 7 Agent 保持合并（暂不拆分子步骤） | 已采纳
-- **Decision:** Step 7（写作、7g 图表、7h 引用审计）暂不拆分为独立 agent 文件
-- **Reason:** 7g（~101 行）和 7h（~63 行）与写作流程紧密耦合；设定阈值为 1000 行
+- **Decision:** Step 7（写作、7.14 图表、7.15 引用审计）暂不拆分为独立 agent 文件
+- **Reason:** 7.14（图表）和 7.15（引用审计）与写作流程紧密耦合；设定阈值为 1000 行
 - **Impact:** `agents/step_7_writing.md` 约 938 行
 - **Status:** 已采纳
 - **Related error:** —

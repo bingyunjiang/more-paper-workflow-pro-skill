@@ -1,6 +1,6 @@
 # Nature 风格科研图表设计规则
 
-> 面向 `generate_figures.py` 和 Step 7g 的参考文档。规则来源于 nature-figure 的 references/design-theory.md。
+> 面向 `generate_figures.py` 和 Step 7.14 的参考文档。规则来源于 nature-figure 的 references/design-theory.md。
 
 ## 三级信息层次
 

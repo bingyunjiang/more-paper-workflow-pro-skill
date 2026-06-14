@@ -61,7 +61,7 @@
 
 ## 6. 执行流程 (Execution Flow)
 
-### 6a. 直达下载入口判定 🆕
+### 5.0. 直达下载入口判定 🆕
 
 当用户没有经过 Step 1-4，直接发送 DOI、论文标题、URL、BibTeX 或参考文献列表时，不要求用户补跑完整检索流程。Agent 必须先把输入归一化为可下载清单，再进入原有下载路由。
 
@@ -112,7 +112,7 @@
 - DOI + 中文 URL：优先生成 manifest JSON 后用 `--download-manifest`；兼容路径是英文 DOI 用 `--papers`，中文条目写入 `中文论文元数据.json` 后用 `--chinese-input`。
 - 标题-only：先完成解析和 manifest，再只对 `status=ready` 的条目启动下载。
 
-### 6b. CHECKPOINT W — CP-DOWNLOAD-LOGIN 🚧 精准触发规则
+### 5.1. CHECKPOINT W — CP-DOWNLOAD-LOGIN 🚧 精准触发规则
 
 > **两个独立门控，分阶段触发。Sci-Hub 不需要门控。中文和英文各自独立确认。门控由 access_probe 结果触发，不由 publisher strategy 一刀切触发。**
 
@@ -233,7 +233,7 @@ Phase 3 ────────────────────────
 
 > **Sci-Hub 不受任何门控。** 中文门控和英文门控各自独立，分阶段触发。共享同一 CDP 端口 9223。
 
-### 6c. 英文路由矩阵（DOI 前缀驱动）
+### 5.2. 英文路由矩阵（DOI 前缀驱动）
 
 | 轮次 | DOI 前缀 | 出版商 | 策略 | 成功率 |
 |------|----------|--------|------|--------|
@@ -260,7 +260,7 @@ Phase 3 ────────────────────────
 | | `10.3390/` | MDPI | **SKIP** | Akamai封锁 |
 | | `10.2139/` | SSRN | 文章页选择器提取 | 预印本 |
 
-### 6d. 中文路由矩阵（source 字段驱动）🆕
+### 5.3. 中文路由矩阵（source 字段驱动）🆕
 
 | 数据库 | 识别方式 | 下载入口 | 登录方式 |
 |--------|----------|----------|----------|
@@ -269,7 +269,7 @@ Phase 3 ────────────────────────
 
 > **中文论文路由说明：** CNKI/万方论文多数无真实 DOI（使用 `cnki.{hash}` / `wanfang.{hash}` 合成标识符），不进入英文 DOI 路由器。**优先使用 Step 4 产出的 `中文论文元数据.json`**（字段显式、无 Markdown 解析歧义；旧名 `chinese_papers.json` / `chinese_metadata.json` 仍可作为兼容输入），与英文管道通过 `ThreadPoolExecutor` 并行启动，共享同一 CDP 端口。若 JSON 缺失，回退到 Markdown 表格解析（`--chinese-input 检索文献表.md`）。缺少 `article_url` 的论文将被跳过。
 
-### 6e. 命令参考
+### 5.4. 命令参考
 
 ```bash
 # 前检查：验证 CDP 浏览器 + 各出版商会话状态
@@ -315,7 +315,7 @@ python3 scripts/unified_download_router.py --papers "10.1021/x,10.1002/y" --outp
 python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 ```
 
-### 6f. 下载记录
+### 5.5. 下载记录
 
 路由器自动生成 `paper-temp/download_log.md`，逐篇追踪：
 
@@ -326,14 +326,14 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 | 3 | `cnki.a1b2c3d4...` 🆕 | ✅ | Chinese CDP (CNKI) | 512KB | paper_003.pdf |
 | 4 | `10.3390/...` | ⏳ | — | - | - |
 
-### 6g. 出版社配置
+### 5.6. 出版社配置
 
 所有出版社的下载策略（URL 模板、CSS 选择器、屏障检测规则）集中维护在：
 [`config/publishers.toml`](config/publishers.toml)
 
 新增出版商时，只需在该文件中添加一个 `[publishers.xxx]` 段落即可。
 
-### 6h. 保留的专用脚本
+### 5.7. 保留的专用脚本
 
 以下脚本保持不变，路由器通过子进程调用它们（也可单独使用）：
 
@@ -344,7 +344,7 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 | `auto_sd_downloader.py` | SD 全自动下载 | 只下 Elsevier 论文时 |
 | `generic_publisher_downloader.py` | 通用CDP下载引擎 | 测试特定非SD/IEEE论文 |
 
-### 6i. 核心设计原则
+### 5.8. 核心设计原则
 
 1. **默认所有论文都有访问权限** — 下不到是策略问题，不是权限问题
 2. **默认串行，显式并行** — CNKI/万方和英文 CDP 默认串行，只有用户明确接受共享 CDP 风险时才使用 `--parallel-phase1`
@@ -373,22 +373,22 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 
 ## 8. 收尾检查 (Closing Checks)
 
-### 8a. 产出完整性
+### 8.1. 产出完整性
 - [ ] PDF 已保存到 paper-temp/
 - [ ] `paper-temp/download_log.md` 已生成
 - [ ] 如为直达下载模式：`direct_download_manifest.md/json` 已保存；未解析条目已进入 `unresolved_download_items.md`
 - [ ] 下载成功率和失败原因统计已输出
 
-### 8b. 错误日志更新 🆕
+### 8.2. 错误日志更新 🆕
 - [ ] 本轮执行中是否出现新的下载失败模式？
   - 新的出版商屏障 → 追加到 `.skill-state/error_log.md` + 更新 `config/publishers.toml`
   - 新的 CDP 陷阱 → 追加到 `.skill-state/error_log.md` + 更新 `agents/known_pitfalls.md`
   - 会话过期的新触发条件 → 追加到 `.skill-state/error_log.md`
 
-### 8c. 决策日志更新 🆕
+### 8.3. 决策日志更新 🆕
 - [ ] 是否调整了下载策略？（如新增 skip 规则）→ 记录到 `.skill-state/decision_log.md`
 
-### 8d. 下一步提示
+### 8.4. 下一步提示
 - [ ] 向用户明确说明下一步：管理 Zotero 文库（Step 6）
   > **下一步 → Step 6：** 下载完成后，管理 Zotero 文库：先生成架构，再将 PDF 导入对应集合。
 

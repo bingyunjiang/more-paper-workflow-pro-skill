@@ -24,6 +24,21 @@
 - `evidence_risk`
 - `output_artifacts`
 - `assumptions`
+- `issue_state`
+- `state_reason`
+
+`issue_state` 用于跨 `revision_roadmap / claim_delta_report / evidence_gap_list / revision_ledger` 追踪同一问题生命周期，固定值域为：
+
+- `identified`
+- `routed`
+- `in_revision`
+- `verification_pending`
+- `closed`
+- `blocked_author_decision`
+- `blocked_evidence`
+- `invalid_or_not_applied`
+
+该状态只约束问题、证据、动作、验证和回退，不约束作者的写作策略、表达风格或创造性组织方式。
 
 ## 3. 写法原则
 
@@ -49,6 +64,6 @@ input_basis:
 
 ## 5. Step 间交接要求
 
-- Step 3 -> Step 4：至少交付结构化 search plan 和 evidence tier 预期
-- Step 6 -> Step 7：至少交付 JSON 映射、集合路径、附件状态、证据风险
-- Step 7 -> Step 8：至少交付 draft scope、style target、citation risk summary
+- Step 3 -> Step 4：至少交付结构化 search plan、evidence tier 预期；如存在复用索引，同时交付 `retrieval_index_manifest.json`
+- Step 6 -> Step 7：至少交付 JSON 映射、集合路径、附件状态、证据风险；如生成资产能力索引，同时交付 `capability_index.json/md`
+- Step 7 -> Step 8：至少交付 draft scope、style target、citation risk summary、issue lifecycle summary；Step 8 产出 `diagnostic_summary` + `revision_ledger` + 终稿风险摘要

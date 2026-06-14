@@ -90,6 +90,21 @@ class ArtifactPassportTest(unittest.TestCase):
         self.assertIn("plan-from-zotero", readiness["Step 6"].allowed_modes)
         self.assertIn("pre-review", readiness["Step 7"].allowed_modes)
 
+    def test_capability_index_routes_to_step7_and_keeps_step6_available(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            capability = root / "capability_index.json"
+            capability.write_text(json.dumps({"schema_version": "capability-index.v1"}), encoding="utf-8")
+            passport = build_artifact_passport(root, [capability])
+            readiness = readiness_by_step(passport)
+
+        self.assertEqual(passport.recommended_step, "Step 7")
+        self.assertTrue(readiness["Step 6"].ready)
+        self.assertTrue(readiness["Step 7"].ready)
+        self.assertIn("plan-from-zotero", readiness["Step 6"].allowed_modes)
+        self.assertIn("pre-review", readiness["Step 7"].allowed_modes)
+        self.assertEqual(passport.artifacts[0].kind, "capability_index")
+
     def test_passport_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -3,6 +3,7 @@
 ## 何时使用
 - 已有 `文献库.bib`、PDF 或 Zotero 文库，需要进入 Step 6
 - 想生成 Zotero 架构、文献-集合对照、附件池索引
+- 想生成 `capability_index.json/md`，快速判断当前文献资产能支持哪些 Step
 - 想检查缺附件、错集合、条目与 PDF 不一致
 
 ## 最小输入
@@ -13,8 +14,10 @@
 - `zotero-架构.md/json`
 - `文献-Zotero架构对照.md/json`
 - `pdf-附件池索引.json`
+- `capability_index.json/md`
 
 ## 常见阻塞点
 - 必须先确认模式：`local / cloud / skip`
 - 写入前需要确认集合结构，不建议静默入库
 - `REJECT` 文献不能进入 Zotero 写入计划
+- capability index 只说明资产能力和推荐入口，不能把候选、摘要或文件名匹配直接当作证据

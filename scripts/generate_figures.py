@@ -5,7 +5,7 @@
 #
 """
 Publication-quality figure generator — reads data files and a manuscript or
-figure specification to produce Nature-style scientific charts.
+figure specification to produce reviewable scientific charts.
 
 Inspired by nature-figure (Yuan1z0825/nature-skills). Supports 10+ chart types,
 multi-panel GridSpec layouts, and multi-format export (SVG/PDF/TIFF).
@@ -388,7 +388,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Generate Nature-style publication figures",
+        description="Generate reviewable publication figures",
     )
     parser.add_argument(
         "manuscript", nargs="?",
