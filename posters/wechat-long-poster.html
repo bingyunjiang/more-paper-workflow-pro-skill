@@ -137,6 +137,64 @@
       background: linear-gradient(180deg, rgba(240, 246, 241, 0.94), rgba(255, 255, 255, 0.82));
     }
 
+    .screen.last-screen {
+      padding-bottom: 56px;
+      margin-bottom: 0;
+    }
+
+    .last-screen .section-intro {
+      margin-top: 12px;
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    .last-screen .split-band {
+      margin-top: 16px;
+      gap: 12px;
+    }
+
+    .last-screen .mini-panel {
+      padding: 14px 14px 16px;
+    }
+
+    .last-screen .mini-panel h3 {
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    .last-screen .mini-panel p {
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .last-screen .mode-grid {
+      margin-top: 16px;
+      gap: 10px;
+    }
+
+    .last-screen .mode-item {
+      padding: 12px 12px 14px;
+      min-height: 0;
+    }
+
+    .last-screen .mode-item span {
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .last-screen .code-tag {
+      margin-bottom: 6px;
+      font-size: 13px;
+      padding: 4px 8px;
+    }
+
+    .last-screen .quote-block {
+      margin-top: 16px;
+      padding: 16px 16px 16px 14px;
+      font-size: 17px;
+      line-height: 1.6;
+    }
+
     .hero-inner {
       padding: 42px 36px 44px;
       position: relative;
@@ -642,6 +700,24 @@
       }
     }
   </style>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const raw = (window.location.hash || "").replace(/^#/, "").trim();
+      if (!raw) return;
+      const screens = Array.from(document.querySelectorAll(".poster > .screen"));
+      const map = new Map();
+      screens.forEach((screen, index) => {
+        const key = index === 0 ? "screen-1" : `screen-${index + 1}`;
+        map.set(key, screen);
+      });
+      const target = map.get(raw.toLowerCase());
+      if (!target) return;
+      screens.forEach((screen) => {
+        screen.style.display = screen === target ? "" : "none";
+      });
+      document.body.style.padding = "16px 0 24px";
+    });
+  </script>
 </head>
 <body>
   <main class="poster">
@@ -893,13 +969,12 @@
       <div class="screen-footer">GitHub · github.com/bingyunjiang/More-paper-workflow-pro-skill</div>
     </section>
 
-    <section class="screen tone-sage" data-screen="08">
+    <section class="screen tone-sage last-screen" data-screen="08">
       <div class="section-kicker">Screen 9 · Writing & Revision</div>
       <h2 class="section-title">Step 7 和 Step 8 组成后期写作系统 一边分流写作，一边约束修订</h2>
       <p class="section-intro">
-        这两步不只是顺序中的后半段，而是这套 skill 最关键的后期能力
-        前者负责按任务类型、草稿状态和目标体裁切换写作入口
-        后者负责在既有成稿基础上做受约束的保守修订
+        前者负责写作分流
+        后者负责保守修订
       </p>
       <div class="split-band">
         <div class="mini-panel">
@@ -929,7 +1004,7 @@
           <p>强调结构保留、局部补写、问题回退和修订台账，不假装已经完成引用确认</p>
         </div>
       </div>
-      <div class="quote-block">写作不是一键展开 修订也不是无限重写 这套后期系统强调入口分流与边界控制</div>
+      <div class="quote-block">写作不是一键展开 修订也不是无限重写 关键在分流与边界</div>
       <div class="screen-footer">GitHub · github.com/bingyunjiang/More-paper-workflow-pro-skill</div>
     </section>
 
