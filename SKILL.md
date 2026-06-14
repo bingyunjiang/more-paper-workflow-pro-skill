@@ -1,6 +1,6 @@
 ---
 name: more-paper-workflow-pro-skill
-version: v1.0.11-20260613-1
+version: v1.0.12-20260614 (2026-06-14)
 description: Use when the user asks for the more-paper academic workflow: research topic clarification, outline and keyword generation, structured literature search plans, multi-source literature search and scoring, paper PDF download routing (Sci-Hub/IEEE/ScienceDirect), Zotero library organization, review matrices, paper writing, citation audit, or polishing. Especially useful for Chinese or English thesis, dissertation, literature review, PRISMA-style search logs, and GB/T 7714 references. 学术论文全流程：确定研究主题，生成大纲，文献检索，下载，Zotero，综述矩阵，论文写作，润色。
 author: Dr. Jiang Bingyun（江博士）
 wechat: Bingyunjiang
@@ -9,6 +9,13 @@ license: CC BY-NC-SA 4.0
 related_skills:
   - science-direct-cdp-pipeline: "Overlaps on CDP ScienceDirect download; this skill adds the full 8-step workflow from topic definition to paper polishing."
   - zotero-review-matrix-skill: "Source of literature-review-matrix-schema, literature-review-docx-guide, and gbt7714-2015-citation-format references. Integrated into Step 7 writing preparation and writing."
+
+# 运行时总原则
+
+- 完成声明使用 `references/completion-gates.md`
+- 关键失败先走 `references/failure-triage.md`
+- 跨 Step 交接统一遵循 `references/step-handoff-contract.md`
+
 triggers:
   # Step 1: 确定研究主题（v2.0 增强版）
   - "确定研究主题"

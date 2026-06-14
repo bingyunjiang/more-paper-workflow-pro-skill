@@ -8,6 +8,61 @@
 
 ---
 
+## v1.0.12-20260614 (2026-06-14)
+
+### Step 1 / Step 2：研究问题收敛器 + 大纲唯一生成层 🆕
+
+- **Step 1 借鉴 `deep-research` 的 Socratic 协议**：从“研究方向确认”升级为“研究问题收敛 + 方法偏好成形 + 检索意图判定 + 反方挑战暴露”
+- **Step 1 新增结构化输出字段**：`research_intent_type`、`research_question_candidates`、`primary_rq`、`secondary_rqs`、`scope_boundaries`、`sub_questions`、`methodology_blueprint`、`devils_advocate_challenge`、`fatal_risks`、`what_would_fail_this_topic`
+- **Step 1 边界钉死**：文档明确写入“Step 1 只生成问题结构，不生成章节结构”
+- **Step 2 强化为大纲唯一生成层**：新增 Step 1 → Step 2 字段映射，明确 `primary_rq / secondary_rqs / scope_boundaries / methodology_blueprint / research_intent_type` 如何影响大纲结构、章节任务和证据需求
+- **Step 2 的 2c 既有大纲分支增强**：当同时存在 Step 1 输出和已有大纲时，默认仍进入 `2c`；Step 1 只作为约束源，不作为重写主轴
+- **Step 2 新增对齐检查**：已有大纲是否承接 `primary_rq`、覆盖 `secondary_rqs`、违反 `scope_boundaries`、与 `methodology_blueprint` 冲突、是否需要补章节承接 `fatal_risks`
+
+### Step 7 / Step 8：RAG 候选层与图表证据子链 🆕
+
+- **RAG MVP 定位明确**：不是替代 PDF 直读，而是候选定位加速层。RAG 负责“找哪里可能有证据”，Zotero note / annotation / PDF 原文直读负责“确认这里是不是真证据”
+- **新增 RAG 内部工件**：`retrieval_index_manifest.json`、`retrieval_candidates.json`
+- **新增中间状态**：`retrieved_candidate`，只能表示“可能相关”，不得直接升级为 `VERIFIED / VERIFIED_LOCAL`
+- **Step 7 契约接入 RAG 候选层**：
+  - `7.1` 证据矩阵允许先读候选，再回到原文确认
+  - `7.7` 引文支撑新增 `Retrieve` 候选召回步骤，但不得跳过 `Read`
+  - `7.9.2 revision-only` 中，候选召回只能帮助找潜在补证据材料；原文确认失败仍是 `blocked_requires_rollback`
+  - `7.11` 中 `recommended_action` 明确不得由相似度直接决定
+- **新增图表证据链工件**：`figure_index.json`、`figure_evidence_report.md/json`
+- **图表证据链接入 Step 7**：
+  - `7.1` 可选扩展 `figure_refs`、`table_refs`、`figure_evidence_level`
+  - `7.5` 可新增 `figure_role`、`figure_claim_binding`
+  - `7.7` 显式区分 `text_claim` 与 `figure_claim`
+  - `7.11` 新增图表误引风险 `figure_overinterpretation`
+- **图表证据状态与动作**：
+  - 状态：`caption_only`、`text_caption_aligned`、`visual_confirmed`、`figure_not_supported`
+  - 动作：`retain`、`downgrade_claim`、`need_visual_check`、`supplement_text_evidence`、`replace_or_remove`
+- **Step 8 边界强化**：文档明确 Step 8 不直接读取 `retrieval_candidates.json`，也不直接依赖图表证据工件；只消费 Step 7 已确认后的审计结论与诊断摘要
+
+### README / 质量防线更新 🆕
+
+- **中文与英文 README 顶部版本同步到 `v1.0.12-20260614`**
+- **“直接读 PDF vs RAG 分块”段落修正**：不再写成 “RAG 直接读 PDF 原文”，而是明确“当前以直接读 PDF 原文为主链；若后续引入 RAG，也只作为候选定位加速层”
+- **论文质量防线 / Quality Defense Line 重写**：
+  - 从旧的“6 道评审节点”升级为“前中后段联动的质量防线”
+  - 新总图和表格覆盖：
+    - `Step 7.5 章节论证计划`
+    - `Step 7.9 修稿与复评`
+    - `Step 7.11 写后引用审计`
+    - `Step 8 诊断优先润色`
+- **Step 7 概述同步增强**：README 中已反映图表证据子链、修稿/复评闭环、Step 8 诊断优先润色
+
+### 测试与契约回归
+
+- **新增 `tests/test_step1_step2_contracts.py`**：钉死 Step 1 只生成问题结构、Step 2 是大纲唯一生成层、2c 以已有大纲为主体且 Step 1 只作约束源
+- **增强 `tests/test_step7_step8_contracts.py`**：覆盖
+  - Step 1/2 借鉴 `deep-research` 的字段
+  - RAG 候选层是非权威中间层
+  - 图表证据子链的工件、状态和值域
+  - Step 8 不直接读取候选层
+- **增强 `tests/test_workflow_contracts.py`**：补 `retrieval_*` 与 `figure_*` payload 的稳定 JSON 合同
+
 ## v1.0.11-20260613-1 (2026-06-12 至 2026-06-13)
 
 ### Step 7/8 写作与润色工作台收紧 🆕
