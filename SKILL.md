@@ -633,6 +633,8 @@ fi
 - 只有在关键 claim、方法细节、引用审计、图表/公式/页码核对等场景下，才升级到 `selective-fulltext`
 - `batch-fulltext` 只用于综述批读、章节预研或用户明确要求的批量全文处理
 - 提取后的 `md/txt/chunks` 是模型输入层；原 PDF 仍是保真核验源
+- `scripts/prepare_pdf_for_llm.py` 支持 `--parser auto|pymupdf|mineru-local|mineru-api`
+- 默认 `--parser auto`：检测到复杂 PDF 时主动建议使用 MinerU，但不阻塞主流程；若用户未配置 MinerU，则继续现有轻量链路
 
 ### PDF 工作流最小示例
 

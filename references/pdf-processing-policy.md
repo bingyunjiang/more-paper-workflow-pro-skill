@@ -8,6 +8,39 @@
 - 默认先读 `文献-Zotero架构对照.json`、Zotero notes、annotations、metadata，再决定是否进入 PDF 全文层。
 - PDF 是保真核验源；提取后的 `md/txt/chunks` 是模型工作输入，不得替代原 PDF 的最终真值地位。
 - 提取脚本的目标是“稳定复用 + 可回查”，不是完美恢复所有公式、表格和版面结构。
+- `prepare_pdf_for_llm.py` 默认使用轻量解析链路；MinerU 仅作为可选增强后端，不是默认依赖。
+
+## 1.1 解析后端选择
+
+`prepare_pdf_for_llm.py` 支持：
+
+- `--parser auto`
+  默认模式。先用现有 PyMuPDF 轻量链路；若检测到复杂 PDF，会主动提示“建议改用 MinerU”，但仍继续执行，不阻塞主流程。
+- `--parser pymupdf`
+  强制使用现有轻量链路，不尝试 MinerU。
+- `--parser mineru-local`
+  仅当用户本地已安装 MinerU CLI 时使用；不可用时自动回退到 PyMuPDF，并明确打印回退原因。
+- `--parser mineru-api`
+  仅当用户已提供 API endpoint 或环境变量时使用；不可用时自动回退到 PyMuPDF，并明确打印回退原因。
+
+默认不要求用户额外设置；只有在复杂 PDF 场景下，才主动建议切换到 MinerU。
+
+## 1.2 首次使用 MinerU 时的提示要求
+
+当脚本建议或尝试使用 MinerU 时，应向用户给出充分说明，至少覆盖：
+
+- **当前默认不会阻塞主流程**：即使没有 MinerU，skill 仍会继续使用现有轻量链路。
+- **为什么建议 MinerU**：明确指出检测到的风险信号，如多栏、扫描件、低文本密度、公式/表格密集。
+- **本地 CLI 路线**：说明官方支持 CLI，本地常见调用形态是 `mineru -p <input_path> -o <output_path>`；纯 CPU 场景可参考 `-b pipeline`。
+- **API 路线**：说明如果用户已有自部署或远端服务，可通过 `--parser mineru-api` + endpoint 接入。
+- **长期 API 使用说明**：补一句“如果你计划长期使用 MinerU API，可按官方文档自建或使用官方服务，并准备 endpoint / token 后再启用 `mineru-api`”，但不得把它写成默认前提。
+- **在线试用路线**：说明官方仓库提供在线体验入口，可先试用再决定是否本地部署。
+- **官方说明来源**：提示用户参考 MinerU 官方仓库的 `Quick Start`、`Online Experience`、`Local Deployment` 章节。
+
+提示语义必须避免两种误导：
+
+- 不得让用户误以为本 skill 已经内置了完整 MinerU 运行时
+- 不得让用户误以为“不安装 MinerU 就无法继续当前任务”
 
 ## 2. 三档读取模式
 
@@ -61,6 +94,23 @@
 - 用户明确要求全文预读、批量综述、章节级证据整理
 
 若只是背景性概述、主题归类或候选定位，不应默认升级到全文层。
+
+## 3.1 何时主动提示用户使用 MinerU
+
+当轻量链路检测到以下高风险信号时，应主动给出 MinerU 建议：
+
+- 文本密度异常低
+- 疑似扫描件 / OCR 风险
+- 多栏或碎片化阅读顺序
+- 公式 / 表格 / 图注密集
+- 轻量链路文本提取几乎失败
+
+提示语义应满足：
+
+- 明确说明“建议使用 MinerU”
+- 明确当前仍会继续执行轻量链路
+- 明确给出可重跑命令：`--parser mineru-local` 或 `--parser mineru-api`
+- 不得把提示写成阻塞门槛
 
 ## 4. 高风险内容规则
 

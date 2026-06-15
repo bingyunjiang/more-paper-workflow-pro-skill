@@ -6,9 +6,9 @@
   "page_count": 1,
   "chunk_count": 1,
   "evidence_level": "pdf_fulltext_supported",
-  "parser_requested": "auto",
+  "parser_requested": "mineru-local",
   "parser_used": "pymupdf",
-  "parser_fallback_reason": "",
+  "parser_fallback_reason": "MinerU CLI not found on PATH",
   "complexity_assessment": {
     "page_count": 1,
     "total_chars": 453,
@@ -23,8 +23,8 @@
   },
   "mineru_recommended": true,
   "messages": [
-    "检测到复杂 PDF，建议改用 MinerU 以获得更好的版面恢复和 OCR 结果。 当前将继续使用轻量解析链路；风险标记：multi_column_or_fragmented_layout。 如可用，请重跑：`--parser mineru-local` 或 `--parser mineru-api`。 首次使用可参考 MinerU 官方仓库与文档；本地 CLI 常用命令是 `mineru -p <input_path> -o <output_path>`， 纯 CPU 场景可加 `-b pipeline`。若暂时不安装，可先试官方在线 demo 再决定是否接入。 如果你计划长期使用 MinerU API，可按官方文档自建或使用官方服务，并准备 endpoint / token 后再启用 `mineru-api`。",
-    "当前保持默认轻量解析链路；如需更高保真版面恢复，请显式改用 MinerU。"
+    "当前文档属于高风险版面，MinerU 更适合处理。 风险标记：multi_column_or_fragmented_layout。",
+    "MinerU local 不可用，已自动回退到 PyMuPDF 轻量解析链路。 原因：MinerU CLI not found on PATH"
   ],
   "notes": [
     "raw.md is the direct extracted layer",

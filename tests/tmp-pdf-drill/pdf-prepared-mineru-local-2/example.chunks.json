@@ -1,0 +1,17 @@
+[
+  {
+    "chunk_id": "example_001",
+    "paper_title": "Example Paper",
+    "citekey": "wang2024example",
+    "zotero_item_key": "",
+    "source_pdf": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/tests/tmp-pdf-drill/example.pdf",
+    "pages": "",
+    "section": "",
+    "evidence_level": "pdf_fulltext_supported",
+    "must_check_pdf": true,
+    "risk_flags": [
+      "appendix_detail"
+    ],
+    "text": "## Page 1\n\nExample Paper Abstract This study proposes a thermal control model for battery modules. The method combines simulation and exp 1. Introduction Battery thermal control is important for safety and durability.\n2. Method We use a simulation-assisted control framework and validate it with experiments.\n3. Results The method improves cooling efficiency by 12 percent under the tested setting.\nAppendix Supplementary implementation details are included here."
+  }
+]

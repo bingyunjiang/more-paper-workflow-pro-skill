@@ -5,6 +5,14 @@
       "paper_title": "Example Paper",
       "citekey": "wang2024example",
       "zotero_item_key": "",
+      "parser_requested": "auto",
+      "parser_used": "pymupdf",
+      "parser_fallback_reason": "",
+      "mineru_recommended": true,
+      "parser_messages": [
+        "检测到复杂 PDF，建议改用 MinerU 以获得更好的版面恢复和 OCR 结果。 当前将继续使用轻量解析链路；风险标记：multi_column_or_fragmented_layout。 如可用，请重跑：`--parser mineru-local` 或 `--parser mineru-api`。 首次使用可参考 MinerU 官方仓库与文档；本地 CLI 常用命令是 `mineru -p <input_path> -o <output_path>`， 纯 CPU 场景可加 `-b pipeline`。若暂时不安装，可先试官方在线 demo 再决定是否接入。 如果你计划长期使用 MinerU API，可按官方文档自建或使用官方服务，并准备 endpoint / token 后再启用 `mineru-api`。",
+        "当前保持默认轻量解析链路；如需更高保真版面恢复，请显式改用 MinerU。"
+      ],
       "raw_md": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/tests/tmp-pdf-drill/pdf-prepared/example.raw.md",
       "clean_md": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/tests/tmp-pdf-drill/pdf-prepared/example.clean.md",
       "chunks_json": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/tests/tmp-pdf-drill/pdf-prepared/example.chunks.json",

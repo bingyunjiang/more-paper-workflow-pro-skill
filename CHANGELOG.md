@@ -22,6 +22,11 @@
   - 执行基础清洗：页码/页眉页脚/断行/连字符
   - 自动打 `must_check_pdf` 与 `risk_flags`
   - 新增 `prepared_pdf_artifacts.json` 索引，供 Step 6/7/7.15/8 共享
+- **MinerU 首次使用提示与回退语义补齐**：
+  - `prepare_pdf_for_llm.py` 现支持 `--parser auto/pymupdf/mineru-local/mineru-api`
+  - `auto` 会在检测到复杂 PDF 时主动建议 MinerU，但不阻塞主流程
+  - `mineru-local` / `mineru-api` 不可用时自动回退 PyMuPDF，并给出清晰安装/试用提示
+  - 提示语义覆盖本地 CLI、API endpoint 和官方在线试用入口，避免用户误以为 skill 内置了完整 MinerU 运行时
 - **Step 6 主 JSON 接入 PDF 工作层**：
   - `agents/step_6_zotero.md` 新增 `prepared_pdf_artifacts.json` 标准输出说明
   - `scripts/build_zotero_plan.py` 新增 `--prepared-pdf-artifacts`
