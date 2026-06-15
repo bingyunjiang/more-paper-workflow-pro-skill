@@ -27,6 +27,7 @@ Usage:
 import sys, os, json, subprocess, shutil, configparser, platform
 
 PACKAGE_NAME = "zotero-mcp-server"
+RECOMMENDED_VERSION = "0.5.0"
 HERMES_HOME = os.path.expanduser("~/.hermes")
 HERMES_CONFIG_PATH = os.path.expanduser("~/.hermes/config.yaml")
 
@@ -507,9 +508,9 @@ def _configure_via_zotero_mcp_setup(api_key="", user_id="", local_mode=False):
     except Exception as e:
         print(f"  ❌ zotero-mcp setup 失败: {e}")
         print(f"  回退：直接写入 {CLAUDE_DESKTOP_CONFIG}")
-        return _configure_json_mcp(api_key, user_id, local_mode, "claude-code")
-        # Claude Desktop 和 Claude Code 共用同样的 JSON 格式
-        # 如果 Claude Desktop 路径不可用，使用通用的 JSON 写入
+        return _configure_json_mcp(api_key, user_id, local_mode, "claude-desktop")
+        # Claude Desktop 和 Claude Code 共用同样的 JSON 结构，
+        # 但必须写入 Claude Desktop 自己的配置路径。
 
 
 def _print_config_result(target, config_path, zotero_bin, local_mode, user_id, api_key):
@@ -572,7 +573,10 @@ def prompt_and_install(target="hermes", non_interactive=False):
     # 1. 安装包
     installed, ver = check_installed()
     if installed:
-        print(f"\n✅ zotero-mcp-server (v{ver}) 已安装，跳过安装步骤。")
+        version_note = ""
+        if ver != RECOMMENDED_VERSION:
+            version_note = f" 当前推荐版本为 {RECOMMENDED_VERSION}。"
+        print(f"\n✅ zotero-mcp-server (v{ver}) 已安装，跳过安装步骤。{version_note}")
     else:
         print(f"\n⏳ {PACKAGE_NAME} 未安装，开始安装...")
         if not install_package():
@@ -700,6 +704,8 @@ def _print_manual_config_help(target):
     if target == "claude-code":
         print(f"   可稍后手动编辑 {CLAUDE_CODE_MCP_PATH} 补全。")
         print(f"   格式参考: https://docs.anthropic.com/en/docs/claude-code/mcp")
+    elif target == "claude-desktop":
+        print(f"   可稍后手动编辑 {CLAUDE_DESKTOP_CONFIG} 补全。")
     elif target == "hermes":
         print(f"   可稍后手动编辑 {HERMES_CONFIG_PATH} 补全。")
 

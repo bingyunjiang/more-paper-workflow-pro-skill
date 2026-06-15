@@ -679,7 +679,7 @@ More-paper-workflow-pro-skill/
 ├── docs/                           ← 详细安装与集成文档
 ├── config/                         ← 出版商、下载策略等配置
 ├── posters/                        ← 版本海报与展示素材
-└── scripts/packages/               ← Zotero MCP 离线依赖
+└── scripts/packages/               ← Zotero MCP 离线依赖缓存（需与推荐版本同步）
 ```
 
 | 目录/文件 | 什么时候看 |
@@ -689,7 +689,7 @@ More-paper-workflow-pro-skill/
 | `scripts/unified_download_router.py` | 需要统一下载 PDF 时 |
 | `scripts/setup_zotero.py` | 第一次配置或诊断 Zotero MCP 时 |
 | `references/` | 需要模板、引用格式、rubric、图表与写作参考时 |
-| `docs/ZOTERO_MCP_SETUP.md` | Zotero MCP 安装或跨平台配置遇到问题时 |
+| `docs/ZOTERO_MCP_SETUP.md` | Zotero MCP 安装、离线包升级或跨平台配置遇到问题时 |
 
 > README 只展示仓库导航；完整脚本索引和 Step 细则以 `SKILL.md`、`agents/step_*.md` 和实际目录为准。
 
@@ -1364,7 +1364,7 @@ More-paper-workflow-pro-skill/
 ├── docs/                           ← Installation and integration guides
 ├── config/                         ← Publisher and download strategy config
 ├── posters/                        ← Release posters and visual assets
-└── scripts/packages/               ← Offline Zotero MCP dependencies
+└── scripts/packages/               ← Offline Zotero MCP dependency cache (keep it aligned with the recommended version)
 ```
 
 | Path | When to read it |
@@ -1374,7 +1374,7 @@ More-paper-workflow-pro-skill/
 | `scripts/unified_download_router.py` | Unified PDF download entrypoint |
 | `scripts/setup_zotero.py` | Zotero MCP setup and diagnostics |
 | `references/` | Templates, citation formats, rubrics, figure and writing references |
-| `docs/ZOTERO_MCP_SETUP.md` | Zotero MCP installation or cross-platform configuration |
+| `docs/ZOTERO_MCP_SETUP.md` | Zotero MCP installation, offline cache refresh, or cross-platform configuration |
 
 > README only provides repository navigation. Full script inventories and Step details live in `SKILL.md`, `agents/step_*.md`, and the actual directories.
 

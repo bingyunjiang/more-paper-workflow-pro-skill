@@ -83,7 +83,7 @@ AI agent 应执行以下诊断步骤：
 
 如果用户不方便运行本地 Zotero，可通过修改 `~/.config/zotero-mcp/config.json` 将 `ZOTERO_LOCAL` 改为 `false` 切换到云端模式。
 
-**scripts/packages/ 目录的平台兼容性：** 约 16 个 macOS ARM64 专用二进制 wheel。跨平台使用需重新下载。
+**scripts/packages/ 目录的真实含义：** 当前应以 `scripts/packages/README.md` 为准。`0.5.0` 这套缓存可能同时包含纯 Python wheel 与平台相关 wheel；因此不要再假设“同一份缓存天然跨平台通用”。如果目标机器平台不同，或离线安装失败，应在目标平台重下 `zotero-mcp-server==0.5.0` 对应缓存。
 
 ### 其他
 

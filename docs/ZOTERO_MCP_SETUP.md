@@ -2,6 +2,9 @@
 
 本文档详细说明如何在不同平台和 Agent 环境中配置 Zotero MCP 服务器。
 
+> 当前推荐上游版本：`zotero-mcp-server 0.5.0`。
+> 当前 skill 自带的 `scripts/packages/` 已同步到 `0.5.0`，但它不再是“全纯 Python、全平台同一份缓存”；目录中包含平台相关 wheel，跨平台搬运时需要按目标平台补齐。
+
 ---
 
 ## 目录
@@ -24,6 +27,7 @@
 |------|------|
 | **Python 3.9+** | 推荐 3.11+ |
 | **pip** | Python 包管理器 |
+| **zotero-mcp-server** | 推荐 `0.5.0` |
 | **Zotero 账号**（Web API 模式） | 需 API Key |
 | **Zotero 桌面端**（本地模式） | v6.0+，需保持运行 |
 
@@ -175,7 +179,7 @@ Claude Desktop 使用 `claude_desktop_config.json`（路径因平台而异）。
 python3 scripts/setup_zotero.py --install --target claude-desktop
 ```
 
-此模式通过 `zotero-mcp setup` 命令调用上游工具完成配置。
+此模式优先通过 `zotero-mcp setup` 命令调用上游工具完成配置；若失败，`setup_zotero.py` 会回退为直接写入 Claude Desktop 的配置文件。
 
 配置路径：
 
@@ -222,12 +226,18 @@ python3 scripts/setup_zotero.py --install --target cursor
 
 ### 离线安装
 
-`scripts/packages/` 目录缓存了全部依赖的 wheel 文件（约 15 MB），支持完全离线安装。
+`scripts/packages/` 目录可缓存全部依赖的 wheel 文件（当前约 74 MB），支持同平台离线安装或半离线安装。
+当前这份缓存已同步到 `0.5.0`，但目录中同时包含纯 Python wheel 与平台相关 wheel。
+
+因此：
+
+- **当前机器同平台**：通常可直接离线安装
+- **跨平台迁移**：纯 Python wheel 可复用，但平台相关 wheel 需要按目标平台重新下载
 
 如果需要在目标平台重新下载平台特定的依赖：
 
 ```bash
-pip download zotero-mcp-server --dest scripts/packages/
+pip download zotero-mcp-server==0.5.0 --dest scripts/packages/
 ```
 
 ---
@@ -266,6 +276,19 @@ python3 -m zotero_mcp_server
 3. **完全退出并重启** Claude Code（不是重新加载窗口）
 4. 检查 Claude Code 日志中的 MCP 连接错误
 
+#### Q: 升级到 0.5.0 后，为什么安装出来还是旧版本
+
+最常见原因是 `scripts/packages/` 里仍缓存着旧版主 wheel，`setup_zotero.py --install` 会优先使用本地缓存。
+
+处理方式：
+
+```bash
+rm -f scripts/packages/zotero_mcp_server-*.whl
+pip download zotero-mcp-server==0.5.0 --dest scripts/packages/
+python3 scripts/setup_zotero.py --install
+python3 scripts/setup_zotero.py --smoke-test
+```
+
 #### Q: 本地 API 模式无法连接
 
 1. 确认 Zotero 桌面端正在运行
@@ -282,12 +305,10 @@ python3 -m zotero_mcp_server
 
 `scripts/packages/` 中的 wheel 均为纯 Python 包（`py3-none-any`），理论上跨平台通用。如果安装失败：
 
-```bash
-# 检查 pip 版本
-pip --version
+从 `0.5.0` 开始，这个前提不再总成立：缓存中可能含有平台相关 wheel。若目标机器与缓存平台不一致，请在目标平台重新执行：
 
-# 尝试联网安装
-pip install zotero-mcp-server
+```bash
+pip download zotero-mcp-server==0.5.0 --dest scripts/packages/
 ```
 
 ---

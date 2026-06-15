@@ -97,6 +97,7 @@ python3 scripts/setup_zotero.py --smoke-test
 1. Zotero 桌面端已运行，且本地文库可访问。
 2. `zotero_create_collection`、`zotero_add_by_bibtex`、`zotero_add_from_file`、`zotero_manage_collections` 等写入工具可用。
 3. 如果当前本地 API 配置只读，必须切换到可写 MCP 配置（Web API / hybrid / 上游支持的本地写入模式），否则不能执行 6.3/6.4。
+4. 若上游已升级到 `zotero-mcp-server 0.5.0`，可额外使用 `zotero_read_pdf_pages` 做按页取证，优先替代“整篇全文读取”作为局部核验手段。
 
 **如果用户选择跳过 Zotero 写入，或当前 MCP 不可写：**
 1. 只执行 6.1 和 6.2。
@@ -178,6 +179,7 @@ python3 scripts/setup_zotero.py --smoke-test
 - 缺 Zotero 写入能力不阻塞生成 capability index；只能把写入能力标为 `partial` 或 `blocked`。
 - 有 `capability_index.json` 时，Step 7 direct-entry 可先读它判断是否已有可用 Zotero 映射、PDF 附件、候选证据入口和引用审计风险。
 - capability index 不允许把摘要、候选召回或 PDF 文件名匹配直接升级为正文证据。
+- 当只需核对某一页、某一图表所在页、某一节局部内容时，优先用 `zotero_read_pdf_pages`，而不是 `zotero_get_item_fulltext` 整篇拉取。
 
 ### CHECKPOINT W — CP-ZOTERO-WRITE（Zotero 外部状态写入确认）
 
