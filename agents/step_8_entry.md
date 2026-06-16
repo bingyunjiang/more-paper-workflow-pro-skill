@@ -2,26 +2,26 @@
 
 本文件是 Step 8 的路由层，不替代 [step_8_polishing.md](./step_8_polishing.md)。
 
-## 1. 作用
+## 作用
 
 - 把润色任务先做 revision scope 判定
 - 默认保守改写，不将 Step 8 变成开放式重写器
 - 按 `paper_type / language / target_genre / revision_scope` 最小加载
 - Step 8 不负责主体写作；它在既有成稿基础上执行受约束补写、直接修改与修订后验证，不接管 Step 7 的完整写作、引用审计或修稿路线图。
 
-## 2. revision_scope
+## revision_scope
 
 - `local-polish`：局部润色
 - `section-revision`：章节级修订
 - `full-manuscript-pass`：全稿一轮保守精修
 
-## 3. 路由规则
+## 路由规则
 
 - 用户只给一段或一节 -> `local-polish`
 - 用户给一章并要求优化结构 -> `section-revision`
 - 用户给完整稿件并要求最终精修 -> `full-manuscript-pass`
 
-## 4. Artifact Passport 读取规则
+## Artifact Passport 读取规则
 
 Step 8 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 
@@ -31,7 +31,7 @@ Step 8 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 - 缺引用审计时，Step 8 只做润色与术语终验风险标记，不替代 Step 7 的引用审计结论。
 - Passport 的全局 `route_mode` 不覆盖 Step 8 的 `revision_scope / target_genre`。
 
-## 5. 加载顺序
+## 加载顺序
 
 1. `manifest.step8.yaml`
 2. `static/core/output-contract.md`
@@ -39,7 +39,7 @@ Step 8 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 4. `references/ai-trace-taxonomy.md`
 5. `agents/step_8_polishing.md`
 
-## 6. 输出要求
+## 输出要求
 
 Step 8 默认必须明确：
 

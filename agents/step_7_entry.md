@@ -2,14 +2,14 @@
 
 本文件是 Step 7 的路由层，不替代 [step_7_writing.md](./step_7_writing.md)。
 
-## 1. 作用
+## 作用
 
 - 将 Step 7 从单一超长协议拆成多个子模式
 - 默认使用 `target_genre` 驱动，而不是期刊 prestige 驱动
 - 让 style learning、citation audit、pre-review 等能力按需加载
 - Step 7 内部可完成基础可读性整形，但用户不需要感知内部写作流水线；外部入口仍只有写作、续写、综述、审稿前自检等任务。
 
-## 2. mode 轴
+## mode 轴
 
 - `full-document`
 - `chapter-only`
@@ -18,7 +18,7 @@
 - `review-only`
 - `revision-only`
 
-## 3. target_genre 轴
+## target_genre 轴
 
 - `thesis`
 - `journal`
@@ -27,7 +27,7 @@
 - `proposal`
 - `conference`
 
-## 4. 路由规则
+## 路由规则
 
 - 用户说“开始写/基于文献写全文” -> `full-document`
 - 用户说“只写某章/只补某节/按章节写” -> `chapter-only`
@@ -36,7 +36,7 @@
 - 用户说“写文献综述” -> `review-only`
 - 用户说“按审稿意见修改/修稿/逐条回应后改正文” -> `revision-only`
 
-## 5. Artifact Passport 读取规则
+## Artifact Passport 读取规则
 
 Step 7 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 
@@ -46,7 +46,7 @@ Step 7 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 - 缺 `pdf-附件池索引.json` 或证据矩阵时，生成最小映射和风险标记；不得声明引用安全通过。
 - Passport 的全局 `route_mode` 只决定 direct-entry/plan-only/repair，不覆盖本文件的 Step 7 `mode` 和 `target_genre`。
 
-## 6. 加载顺序
+## 加载顺序
 
 1. `manifest.step7.yaml`
 2. `static/core/output-contract.md`
@@ -55,7 +55,7 @@ Step 7 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 5. mode 对应 reference
 6. `agents/step_7_writing.md`
 
-## 7. 输出要求
+## 输出要求
 
 Step 7 的正式输出应显式说明：
 
@@ -65,7 +65,7 @@ Step 7 的正式输出应显式说明：
 - `citation_risk_summary`
 - `recommended_next_step`
 
-## 8. existing-draft 三类入口边界
+## existing-draft 三类入口边界
 
 ### `continue-existing`
 

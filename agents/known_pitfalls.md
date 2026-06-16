@@ -5,13 +5,13 @@
 
 ---
 
-## 1. 启动前读取 (Pre-read Checklist)
+## 启动前读取 (Pre-read Checklist)
 
 无需前置文件。本文件按需加载——当任何一个 Step 遇到技术问题时。
 
 ---
 
-## 2. 适用任务 (Applicable Tasks)
+## 适用任务 (Applicable Tasks)
 
 - 排查 Python 版本相关问题
 - 诊断 CDP/WebSocket 下载失败
@@ -21,7 +21,7 @@
 
 ---
 
-## 3. 不适用任务 (Non-applicable Tasks)
+## 不适用任务 (Non-applicable Tasks)
 
 - 不替代各 Step 的 Execution Flow——本文件是"出问题后查"，不是"执行前读"
 

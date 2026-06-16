@@ -8,6 +8,38 @@
 
 ---
 
+## v1.0.13-20260616 (2026-06-15 至 2026-06-16)
+
+### 2026-06-15：Step 7 写作证据链与多入口证据包 🆕
+
+- **Step 7 不再把 Zotero / MinerU 作为硬依赖**：默认仍推荐 `Zotero + PDF + MinerU ZIP` 的完整证据链，但没有 Zotero、没有 MinerU 或没有解析缓存时，Step 7 进入 `evidence_pack` 或 `draft_only` 降级入口，不阻塞写作任务本身。
+- **新增多入口证据 intake 设计**：Step 7 现在区分 `zotero_full`、`zotero_mineru`、`evidence_pack`、`draft_only`、`mixed` 五类入口；多来源混合时以 claim 为中心合并证据，而不是按文件来源堆材料。
+- **证据包最小映射固化**：新增并测试 `EvidenceSourceRecord` / `evidence-pack.v1`，字段包括 `source_path`、`source_type`、`evidence_level`、`claim_scope`、`risk_flags`、`verification_action`，用于本地 PDF、BibTeX/CSL JSON、实验报告、数据文件、已有草稿、审稿意见、标准文件和图片目录等材料。
+- **无 Zotero/MinerU 的默认策略明确**：用户没有 Zotero 或 MinerU 时，Agent 应要求用户指定证据包或证据目录；只有草稿或写作需求、缺少 PDF/全文/报告支撑时，只能生成低风险结构稿并标注证据缺口，不允许写强 claim。
+- **写作输出口径收口为 Markdown-first**：Step 7 默认产出 `论文初稿.md` 或 `指定章节草稿.md`；图像复制到项目 `figures/` 并用相对路径写入 Markdown；当前写作范围完成后再提示导出 DOCX。只有用户明确要求“边写边给 Word”或“每章给导师看”时，才按章节导出阶段版 DOCX。
+- **MinerU ZIP 正式接入 Zotero 附件形态**：明确 MinerU 回挂到 Zotero 的正式形态是 `LLM-for-Zotero-MinerU-cache-*.zip` 附件，不要求预先解压；ZIP 内以 `_llm_source.json`、`manifest.json`、`full.md`、`images/` 为图文增强层，PDF 原文仍保持真值地位。
+- **新增 `scripts/mineru_zip_assets.py`**：可扫描 Zotero MinerU ZIP，读取 `_llm_source.json`、`manifest.json`、图像路径和 caption，生成 `figure_index.json`，并按需复制图片到 `figures/`；配套 `tests/test_mineru_zip_assets.py` 覆盖 ZIP 识别、图像复制和索引生成。
+- **PyMuPDF fallback 质量边界补齐**：当使用 PyMuPDF 直接读 PDF 时，产物必须标记 `parser_confidence=low`、`must_check_pdf=true`，并带 `line_fragmentation / reading_order_risk / table_damage_risk / figure_caption_loss / paragraph_reconstruction_needed` 等风险标签；不得直接支撑图表解释、公式、表格、精确数值或强 claim。
+- **Zotero + llm-for-zotero 提示位置明确**：Step 6/7 推荐用户在 Zotero 中安装 `llm-for-zotero` 并尽量解析生成 MinerU ZIP，解析结果会作为同一 Zotero 条目下的 ZIP 附件；该提示是增强建议，不是 Step 7 的入口锁。
+- **防截断策略固化**：`workflow_search_results.json`、`文献库.bib`、`中文论文元数据.json`、`retrieval_index_manifest.json`、证据映射等机器主工件禁止截断；Markdown/XLSX/PDF 展示层允许截断，但必须保留稳定回查 ID，且不得从展示层反向污染 JSON/BibTeX。
+
+### 2026-06-16：文档编号体系、字段对应与契约测试收口
+
+- **Step-local 编号从 1 开始**：各 Step 的业务子步骤统一采用 `N.1 / N.2 / N.2.1` 形式，`N.0` 不再作为子步骤编号；总览类标题改为无编号标题，例如“执行流程总览”。
+- **Step 2 编号整体右移并同步引用**：`2.0 入口路由判定` 改为 `2.1`，标准大纲生成改为 `2.2`，大纲评审为 `2.3`，已有大纲模式为 `2.4`，工程文档模式为 `2.5`，术语映射为 `2.6`，Step 3/6/7 交接为 `2.7`；正文交叉引用和测试断言同步更新。
+- **Step 5 编号冲突修复**：直达下载入口为 `5.1`，登录门控为 `5.2`，英文/中文路由矩阵、命令参考、下载记录、出版社配置、专用脚本和核心原则顺延为 `5.3-5.9`，修复旧版重复 `5.2` 的问题。
+- **外层模板标题去编号**：`agents/step_*.md` 中的 `启动前读取 / 适用任务 / 输入要求 / 标准输出 / 执行流程 / 质量门槛 / 收尾检查 / 故障排除` 不再写作 `## 1.` 到 `## 9.`；入口路由文件 `step_*_entry.md` 的 `作用 / 路由规则 / 加载顺序 / 输出要求` 也去掉普通文档序号，避免和 Step-local 子步骤混淆。
+- **Step 7 / Step 8 编号洁净度保持**：Step 7 保持 `7.1-7.17` 子步骤结构，Step 8 保持 `8.1-8.9` 核心执行结构；输入契约、PDF 限制和总览类标题不再使用非本 Step 的 `4.1 / 8.0` 等编号。
+- **内部字段对应检查完成**：Step 7 证据包文档字段已与脚本层 `EvidenceSourceRecord` 对齐；图表索引文档字段已与 `FigureIndexRecord` / `figure-index.v1` 对齐；MinerU ZIP summary 字段已与 `MinerUZipSummary` 对齐。
+- **契约测试新增编号防回归规则**：`tests/test_step3_step6_asset_contracts.py` 新增全体 `agents/step_*.md` 标题扫描，禁止外层模板 `## 1.` 标题、禁止 `N.0` 子步骤、禁止非本 Step 的 `### M.x` 混入。
+- **测试回归**：完整契约测试扩展到 75 项，覆盖 Step 1/2、Step 3/6 资产层、Step 7/8、direct-entry、public docs、Artifact Passport 和 MinerU ZIP；脚本编译检查同步通过。
+
+### README / 运行时口径同步
+
+- README 顶部中英文版本号与 `SKILL.md` frontmatter 同步更新到 `v1.0.13-20260616`。
+- README 中英文版本历史新增 v1.0.13 概述，保留 README 作为对外概览，不把运行时细节重复搬入 README。
+- `CHANGELOG.md` 作为完整变更记录，承载本次 Step 7 证据链、MinerU ZIP、PyMuPDF fallback、防截断、编号体系和测试回归细节。
+
 ## v1.0.12-20260614 (2026-06-14)
 
 ### Step 6 / Step 7 / Step 8：PDF 全文工作层闭环 🆕

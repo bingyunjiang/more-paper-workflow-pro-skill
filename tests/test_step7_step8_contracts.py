@@ -44,12 +44,12 @@ class Step7Step8ContractsTest(unittest.TestCase):
 
     def test_step7_internal_pipeline_and_light_readability_guidance_exist(self):
         text = read_rel("agents/step_7_writing.md")
-        self.assertIn("### 7.7: 内部写作流水线（用户不可见）", text)
+        self.assertIn("### 7.8. 内部写作流水线（用户不可见）", text)
         self.assertIn("生成", text)
         self.assertIn("整合", text)
         self.assertIn("审阅", text)
         self.assertIn("校验", text)
-        self.assertIn("#### 7.7.1 轻量可读性整理", text)
+        self.assertIn("#### 7.8.1. 轻量可读性整理", text)
         self.assertIn("不应预设用户的写作策略、论证风格或表达审美", text)
         self.assertIn("最小术语统一", text)
         self.assertIn("标记需要后续补证据", text)
@@ -74,7 +74,7 @@ class Step7Step8ContractsTest(unittest.TestCase):
 
     def test_step7_revision_coach_contract_exists(self):
         text = read_rel("agents/step_7_writing.md")
-        self.assertIn("#### 7.11.1 修稿教练", text)
+        self.assertIn("#### 7.12.1. 修稿教练", text)
         self.assertIn("revision_roadmap.md", text)
         self.assertIn("response_letter_skeleton.md", text)
         self.assertIn("evidence_gap_list.md", text)
@@ -83,10 +83,10 @@ class Step7Step8ContractsTest(unittest.TestCase):
 
     def test_step7_argument_plan_and_rereview_contracts_exist(self):
         text = read_rel("agents/step_7_writing.md")
-        self.assertIn("#### 7.6.3 章节级论证计划", text)
+        self.assertIn("#### 7.7.3. 章节级论证计划", text)
         self.assertIn("argument_plan.md", text)
         self.assertIn("rollback_if_missing", text)
-        self.assertIn("### 7.13: 复评", text)
+        self.assertIn("### 7.14. 复评", text)
         self.assertIn("rereview_report.md", text)
         self.assertIn("new_issue", text)
 
@@ -99,11 +99,13 @@ class Step7Step8ContractsTest(unittest.TestCase):
         heading_lines = [
             line
             for line in text.splitlines()
-            if line.startswith("### 7.") and ":" in line
+            if line.startswith("### 7.")
         ]
-        expected = [f"### 7.{index}:" for index in range(17)]
-        actual = [line.split(":", 1)[0] + ":" for line in heading_lines]
+        expected = [f"7.{index}." for index in range(1, 18)]
+        actual = [line.split(maxsplit=2)[1] for line in heading_lines]
         self.assertEqual(expected, actual)
+        self.assertNotIn("### 7.0", text)
+        self.assertNotIn("### 7.1:", text)
 
     def test_step7_citation_audit_exposes_three_layers(self):
         text = read_rel("agents/step_7_writing.md")
@@ -113,6 +115,36 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("replace_or_remove", text)
         self.assertIn("recommended_action", text)
         self.assertIn("repair_mapping", text)
+
+    def test_step7_multi_entry_evidence_pack_and_docx_policy_exist(self):
+        text = read_rel("agents/step_7_writing.md")
+        skill = read_rel("SKILL.md")
+        policy = read_rel("references/pdf-processing-policy.md")
+
+        for token in [
+            "Zotero/MinerU 是推荐资产层，不是 Step 7 的硬依赖",
+            "多入口证据 intake",
+            "`zotero_full`",
+            "`zotero_mineru`",
+            "`evidence_pack`",
+            "`draft_only`",
+            "`mixed`",
+            "evidence_pack.json",
+            "场景只决定读取路径，证据等级决定能写多强",
+            "llm-for-zotero",
+            "仍可继续读取 Zotero fulltext",
+            "当前写作范围完成后，才提示用户是否导出 DOCX",
+            "不得在每个写作增量后自动导出 DOCX",
+        ]:
+            self.assertIn(token, text)
+
+        self.assertIn("LLM-for-Zotero-MinerU-cache-*.zip", text)
+        self.assertIn("manifest.json", text)
+        self.assertIn("full.md", text)
+        self.assertIn("images/", text)
+        self.assertIn("evidence_pack", skill)
+        self.assertIn("推荐 Zotero 用户安装 `llm-for-zotero` 插件", skill)
+        self.assertIn("parser_confidence: low", policy)
 
     def test_step8_degraded_entry_rules_remain_non_blocking(self):
         text = read_rel("agents/step_8_polishing.md")
@@ -173,6 +205,8 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("### 8.4. revision_ledger 双层工件契约", text)
         self.assertIn("#### 8.4.1. 轻量含义审计触发", text)
         self.assertIn("### 8.9. 日志回写", text)
+        self.assertNotIn("### 8.0", text)
+        self.assertNotIn("### 4.1 PDF 提取结果", text)
         self.assertNotIn("## 7. 最小验证规程", text)
         self.assertNotIn("## 8. revision_ledger 双层工件契约", text)
         self.assertNotIn("### 8.2.1. 轻量含义审计触发", text)
@@ -187,6 +221,11 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("`references/ai-trace-taxonomy.md`", step8)
         self.assertIn("`references/polish-modes.md`", step8)
         self.assertIn("`references/writing-antipatterns.md`", step8)
+
+    def test_step7_figure_assets_use_project_figures_dir(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        self.assertIn("只有被选入正文的图片才复制到项目 `figures/`", read_rel("references/pdf-processing-policy.md"))
+        self.assertIn("确保正文图片引用的是项目内 `figures/` 的相对路径", step7)
 
     def test_revision_artifacts_share_minimum_lifecycle_fields(self):
         step7 = read_rel("agents/step_7_writing.md")

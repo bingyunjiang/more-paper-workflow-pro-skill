@@ -9,6 +9,18 @@
 - PDF 是保真核验源；提取后的 `md/txt/chunks` 是模型工作输入，不得替代原 PDF 的最终真值地位。
 - 提取脚本的目标是“稳定复用 + 可回查”，不是完美恢复所有公式、表格和版面结构。
 - `prepare_pdf_for_llm.py` 默认使用轻量解析链路；MinerU 仅作为可选增强后端，不是默认依赖。
+- Zotero/MinerU 不是 Step 7/8 的硬依赖；没有这些工具时，用户可指定本地证据包，所有材料先归一为 `evidence_pack.json` 再进入写作。
+
+## 1.0 证据读取优先级
+
+Step 7/8 读取 PDF 与相关材料时，按应用场景选择入口：
+
+1. `zotero_full`：有 Zotero 条目时，优先读取 Zotero notes、annotations、metadata、`zotero_get_item_fulltext` 或按页读取。
+2. `zotero_mineru`：同一 Zotero item 下存在 `LLM-for-Zotero-MinerU-cache-*.zip` 时，读取 ZIP 中的 `manifest.json`、`full.md`、`images/` 作为图文增强层。
+3. `evidence_pack`：无 Zotero/MinerU 时，读取用户指定的 PDF、BibTeX/CSL JSON、实验报告、数据文件、草稿、标准文件、图片目录。
+4. `pymupdf_fallback`：无法使用 Zotero fulltext/MinerU 且需要快速预读时，使用 PyMuPDF 轻量链路。
+
+场景只决定读取路径，证据等级决定能写多强。摘要、BibTeX、检索结果、展示层 Markdown 只能作为候选或背景；PDF、用户自有实验报告、可核验数据、原始标准文件可在完成核验后支撑强 claim。
 
 ## 1.1 解析后端选择
 
@@ -24,6 +36,40 @@
   仅当用户已提供 API endpoint 或环境变量时使用；不可用时自动回退到 PyMuPDF，并明确打印回退原因。
 
 默认不要求用户额外设置；只有在复杂 PDF 场景下，才主动建议切换到 MinerU。
+
+PyMuPDF 输出必须视为低保真全文工作层。`parser_used=pymupdf` 时，脚本应写入：
+
+- `parser_confidence: low`
+- `must_check_pdf: true`
+- `risk_flags`: `line_fragmentation` / `reading_order_risk` / `table_damage_risk` / `figure_caption_loss` / `paragraph_reconstruction_needed`
+
+PyMuPDF 可用于快速预读、关键词定位和临时线索；不得直接支撑图表解释、复杂表格、公式、精确数值比较、页码级引语或强 claim。
+
+## 1.1.1 Zotero-MinerU ZIP 缓存
+
+MinerU 回挂给 Zotero 的正式形态是 ZIP 附件，通常命名为：
+
+```text
+LLM-for-Zotero-MinerU-cache-*.zip
+```
+
+ZIP 内典型文件：
+
+| 文件 | 用途 |
+|------|------|
+| `full.md` | 图文阅读层，保留 Markdown 图片引用 |
+| `manifest.json` | 图文映射首选索引：sections、page、figures、caption、path、charStart/charEnd |
+| `content_list.json` / `*_content_list_v2.json` | 版面块级索引：bbox、page_idx、text/image/table 块 |
+| `images/` | 图片素材目录 |
+| `_llm_source.json` | Zotero 回挂信息：`parentItemKey`、`attachmentKey`、`sourceFilename` |
+| `_llm_sync.json` | 同步状态元数据 |
+
+读取规则：
+
+- 优先从 ZIP 直接读取 `manifest.json` 和 `full.md`，不要求用户手动解压。
+- 只有被选入正文的图片才复制到项目 `figures/`，正文不得引用 Zotero storage 绝对路径。
+- `manifest.json` 是图表候选索引，不是 claim 支撑结论；图是否支撑 claim 由 `figure_evidence_report.md/json` 决定。
+- 若 ZIP 缺 `manifest.json`，降级读取 `full.md` 中的图片引用；再缺失时只扫描 `images/`，并标记 `visual_pending`。
 
 ## 1.2 首次使用 MinerU 时的提示要求
 
@@ -63,7 +109,7 @@
 
 ### Mode B: `selective-fulltext`
 
-按需读取单篇 PDF 或局部页段。可使用 Zotero fulltext，或先提取为带锚点的 `clean.md/chunks.json` 再喂给模型。
+按需读取单篇 PDF 或局部页段。可使用 Zotero fulltext，或先提取为带锚点的 `clean.md/chunks.json` 再喂给模型。带图综述优先复用 Zotero 条目下的 MinerU ZIP；只有没有 ZIP 或 ZIP 不可读时，再考虑重新解析或 PyMuPDF fallback。
 
 适用：
 
@@ -141,6 +187,15 @@
 - `chunk_id`
 - `evidence_level`
 - `must_check_pdf`
+- `parser_used`
+- `parser_confidence`
+
+证据包入口还应记录：
+
+- `source_path`
+- `source_type`
+- `claim_scope`
+- `verification_action`
 
 推荐证据层级：
 

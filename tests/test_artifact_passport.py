@@ -105,6 +105,32 @@ class ArtifactPassportTest(unittest.TestCase):
         self.assertIn("pre-review", readiness["Step 7"].allowed_modes)
         self.assertEqual(passport.artifacts[0].kind, "capability_index")
 
+    def test_local_evidence_pack_routes_to_step7_without_zotero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "实验报告.md"
+            data = root / "results.csv"
+            report.write_text("实验结论", encoding="utf-8")
+            data.write_text("x,y\n1,2\n", encoding="utf-8")
+            passport = build_artifact_passport(root, [report, data])
+            readiness = readiness_by_step(passport)
+
+        self.assertEqual(passport.recommended_step, "Step 7")
+        self.assertTrue(readiness["Step 7"].ready)
+        self.assertIn("evidence_pack", readiness["Step 7"].allowed_modes)
+
+    def test_mineru_zip_routes_to_step7_as_evidence_pack(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            mineru_zip = root / "LLM-for-Zotero-MinerU-cache-ABC123.zip"
+            mineru_zip.write_bytes(b"not inspected by passport")
+            passport = build_artifact_passport(root, [mineru_zip])
+            readiness = readiness_by_step(passport)
+
+        self.assertEqual(passport.artifacts[0].kind, "mineru_zip")
+        self.assertEqual(passport.recommended_step, "Step 7")
+        self.assertIn("evidence_pack", readiness["Step 7"].allowed_modes)
+
     def test_passport_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import re
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -330,6 +331,33 @@ class RetrievalCandidate:
 
 
 @dataclass
+class EvidenceSourceRecord:
+    schema_version: str = "evidence-source.v1"
+    source_path: str = ""
+    source_type: str = ""  # pdf | mineru_zip | bibliography | report | data | draft | standard | image | unknown
+    evidence_level: str = "candidate_only"
+    claim_scope: str = "background_or_candidate"
+    risk_flags: list[str] = field(default_factory=list)
+    verification_action: str = "inspect_before_use"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class MinerUZipSummary:
+    schema_version: str = "mineru-zip.v1"
+    zip_path: str = ""
+    parent_item_key: str = ""
+    attachment_key: str = ""
+    source_filename: str = ""
+    has_full_md: bool = False
+    has_manifest_json: bool = False
+    has_content_list_json: bool = False
+    image_count: int = 0
+    entries: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
 class FigureIndexRecord:
     schema_version: str = "figure-index.v1"
     item_key: str = ""
@@ -341,6 +369,12 @@ class FigureIndexRecord:
     source_type: str = ""  # caption_only | caption_plus_text | visual_pending
     collection_path: list[str] = field(default_factory=list)
     paper_tier: str = ""
+    source_item_key: str = ""
+    source_attachment_key: str = ""
+    source_image_path: str = ""
+    local_image_path: str = ""
+    section_id: str = ""
+    claim_binding: str = ""
 
 
 @dataclass
@@ -403,6 +437,21 @@ def retrieval_candidates_payload(candidates: list[RetrievalCandidate], metadata:
     }
 
 
+def evidence_pack_payload(records: list[EvidenceSourceRecord], metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "schema_version": "evidence-pack.v1",
+        "metadata": metadata or {},
+        "records": [asdict(r) for r in records],
+    }
+
+
+def write_evidence_pack(path: str | Path, records: list[EvidenceSourceRecord], metadata: dict[str, Any] | None = None) -> None:
+    Path(path).write_text(
+        json.dumps(evidence_pack_payload(records, metadata), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
 def write_retrieval_manifest(path: str | Path, manifest: RetrievalIndexManifest) -> None:
     Path(path).write_text(
         json.dumps(retrieval_manifest_payload(manifest), ensure_ascii=False, indent=2),
@@ -454,6 +503,106 @@ def write_figure_evidence(path: str | Path, records: list[FigureEvidenceRecord],
     )
 
 
+def inspect_mineru_zip(path: str | Path) -> MinerUZipSummary:
+    p = Path(path)
+    warnings: list[str] = []
+    entries: list[str] = []
+    source_meta: dict[str, Any] = {}
+    if not p.exists():
+        return MinerUZipSummary(zip_path=p.as_posix(), warnings=["zip_missing"])
+    try:
+        with zipfile.ZipFile(p) as zf:
+            entries = zf.namelist()
+            if "_llm_source.json" in entries:
+                try:
+                    source_meta = json.loads(zf.read("_llm_source.json").decode("utf-8"))
+                except Exception:
+                    warnings.append("invalid_llm_source_json")
+    except zipfile.BadZipFile:
+        return MinerUZipSummary(zip_path=p.as_posix(), warnings=["bad_zip"])
+
+    has_full_md = "full.md" in entries
+    has_manifest = "manifest.json" in entries
+    has_content_list = any(name.endswith("content_list.json") or "content_list_v2.json" in name for name in entries)
+    image_count = sum(1 for name in entries if name.startswith("images/") and not name.endswith("/"))
+    if not has_manifest:
+        warnings.append("manifest_missing")
+    if not has_full_md:
+        warnings.append("full_md_missing")
+    if image_count == 0:
+        warnings.append("images_missing")
+    return MinerUZipSummary(
+        zip_path=p.as_posix(),
+        parent_item_key=_clean(source_meta.get("parentItemKey")),
+        attachment_key=_clean(source_meta.get("attachmentKey")),
+        source_filename=_clean(source_meta.get("sourceFilename")),
+        has_full_md=has_full_md,
+        has_manifest_json=has_manifest,
+        has_content_list_json=has_content_list,
+        image_count=image_count,
+        entries=entries,
+        warnings=warnings,
+    )
+
+
+def evidence_source_from_path(path: str | Path, project_root: str | Path = ".") -> EvidenceSourceRecord:
+    root = Path(project_root)
+    p = Path(path)
+    if not p.is_absolute():
+        p = root / p
+    kind = infer_artifact_kind(p)
+    rel_path = _relative_or_string(p, root)
+    source_type = {
+        "pdf": "pdf",
+        "mineru_zip": "mineru_zip",
+        "bibliography": "bibliography",
+        "draft": "draft",
+        "evidence_data": "data",
+        "evidence_report": "report",
+        "standard_file": "standard",
+        "image": "image",
+    }.get(kind, "unknown")
+    level_by_type = {
+        "pdf": "pdf_fulltext_supported",
+        "mineru_zip": "pdf_fulltext_supported",
+        "bibliography": "metadata_only",
+        "draft": "author_provided",
+        "data": "author_provided",
+        "report": "author_provided",
+        "standard": "source_document_supported",
+        "image": "visual_candidate",
+    }
+    risk_flags: list[str] = []
+    verification_action = "inspect_before_use"
+    claim_scope = "background_or_candidate"
+    metadata: dict[str, Any] = {}
+    if source_type == "mineru_zip":
+        summary = inspect_mineru_zip(p)
+        metadata["mineru_zip"] = asdict(summary)
+        risk_flags.extend(summary.warnings)
+        risk_flags.append("must_verify_against_pdf")
+        verification_action = "confirm_against_pdf_or_manifest"
+        claim_scope = "figure_or_fulltext_candidate"
+    elif source_type == "pdf":
+        verification_action = "read_fulltext_or_pages"
+        claim_scope = "claim_support_after_page_check"
+    elif source_type in {"data", "report", "standard"}:
+        verification_action = "confirm_author_or_source_context"
+        claim_scope = "strong_claim_if_traceable"
+    elif source_type in {"bibliography", "image"}:
+        risk_flags.append("candidate_only")
+
+    return EvidenceSourceRecord(
+        source_path=rel_path,
+        source_type=source_type,
+        evidence_level=level_by_type.get(source_type, "candidate_only"),
+        claim_scope=claim_scope,
+        risk_flags=sorted(set(risk_flags)),
+        verification_action=verification_action,
+        metadata=metadata,
+    )
+
+
 def load_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -484,8 +633,14 @@ def infer_artifact_kind(path: str | Path) -> str:
         if any(part in text for part in ("paper-temp", "pdf", "附件池")):
             return "pdf_pool"
         return "artifact_directory"
+    if suffix == ".zip" and ("mineru" in name or "llm-for-zotero-mineru-cache" in name):
+        return "mineru_zip"
     if suffix == ".pdf":
         return "pdf"
+    if suffix in (".csv", ".xlsx", ".xls", ".tsv"):
+        return "evidence_data"
+    if suffix in (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".svg"):
+        return "image"
     if name in ("研究主题.md", "topic.md") or "研究主题" in name:
         return "topic"
     if "大纲关键词" in name or "章节证据需求" in name or name.startswith("目录"):
@@ -517,6 +672,10 @@ def infer_artifact_kind(path: str | Path) -> str:
         return "capability_index"
     if "引用审计" in name or "citation_audit" in name:
         return "citation_audit"
+    if any(token in name for token in ("实验报告", "试验报告", "evidence_report", "report")) and suffix in (".md", ".docx", ".txt", ".pdf"):
+        return "evidence_report"
+    if any(token in name for token in ("标准", "规范", "standard", "spec")) and suffix in (".md", ".docx", ".txt", ".pdf"):
+        return "standard_file"
     if "论文初稿" in name or "指定章节" in name or "draft" in name or suffix == ".docx":
         return "draft"
     if "diagnostic_summary" in name or "论文润色稿" in name or "polish" in name:
@@ -567,12 +726,17 @@ def infer_step_origin(kind: str) -> str:
         "download_manifest": "Step 5",
         "pdf": "Step 5",
         "pdf_pool": "Step 5",
+        "mineru_zip": "Step 6",
         "zotero_structure": "Step 6",
         "zotero_mapping": "Step 6",
         "pdf_index": "Step 6",
         "capability_index": "Step 6",
         "draft": "Step 7",
         "citation_audit": "Step 7",
+        "evidence_data": "Step 7",
+        "evidence_report": "Step 7",
+        "standard_file": "Step 7",
+        "image": "Step 7",
         "polishing": "Step 8",
     }
     return mapping.get(kind, "")
@@ -637,12 +801,21 @@ def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepRea
         recommended_next_step="先确认 local/cloud/skip，再生成 plan-only",
     ))
 
-    step7_ready = bool(kinds & {"zotero_mapping", "bibliography", "pdf_index", "draft", "workflow_search_results", "citation_audit", "capability_index"})
+    local_evidence_kinds = {"pdf", "pdf_pool", "mineru_zip", "evidence_data", "evidence_report", "standard_file", "image"}
+    step7_ready = bool(kinds & {"zotero_mapping", "bibliography", "pdf_index", "draft", "workflow_search_results", "citation_audit", "capability_index"} | local_evidence_kinds)
     step7_modes: list[str] = []
     if "draft" in kinds:
         step7_modes.extend(["continue-existing", "chapter-only"])
+    if kinds & local_evidence_kinds:
+        step7_modes.append("evidence_pack")
+    if "draft" in kinds and not (kinds - {"draft"}):
+        step7_modes.append("draft_only")
+    if (kinds & local_evidence_kinds) and (kinds & {"zotero_mapping", "bibliography", "pdf_index", "workflow_search_results", "capability_index", "draft"}):
+        step7_modes.append("mixed")
     if kinds & {"zotero_mapping", "bibliography", "pdf_index", "workflow_search_results", "capability_index"}:
-        step7_modes.extend(["draft", "review-only", "pre-review"])
+        step7_modes.extend(["draft", "review-only", "pre-review", "zotero_full"])
+    if "mineru_zip" in kinds and kinds & {"zotero_mapping", "pdf_index", "capability_index"}:
+        step7_modes.append("zotero_mineru")
     if "citation_audit" in kinds:
         step7_modes.append("citation-audit")
     readiness.append(StepReadiness(
@@ -650,10 +823,10 @@ def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepRea
         ready=step7_ready,
         route_mode="direct-step" if step7_ready else "plan-only",
         allowed_modes=sorted(set(step7_modes)) or ["plan-only"],
-        available_artifacts=ids("zotero_mapping", "bibliography", "pdf_index", "draft", "workflow_search_results", "citation_audit", "capability_index"),
-        missing_required=[] if step7_ready else ["Zotero 对照、文献库、PDF 索引、workflow JSON 或初稿"],
-        missing_optional=["引用审计", "style_profile", "section_blueprints"] if step7_ready else [],
-        risks=["缺证据矩阵时只能生成风险标记或最小映射，不声明引用安全通过"] if step7_ready else [],
+        available_artifacts=ids("zotero_mapping", "bibliography", "pdf_index", "draft", "workflow_search_results", "citation_audit", "capability_index", "pdf", "pdf_pool", "mineru_zip", "evidence_data", "evidence_report", "standard_file", "image"),
+        missing_required=[] if step7_ready else ["Zotero 对照、文献库、PDF 索引、workflow JSON、证据包或初稿"],
+        missing_optional=["引用审计", "style_profile", "section_blueprints", "evidence_pack.json"] if step7_ready else [],
+        risks=["缺证据矩阵时只能生成风险标记或最小映射，不声明引用安全通过；本地证据包需先标注 evidence_level"] if step7_ready else [],
         blocked_reason="" if step7_ready else "没有可支撑写作、续写或审计的材料",
         recommended_next_step="按可用证据选择写作、续写、综述或引用审计模式",
     ))
@@ -695,7 +868,7 @@ def recommend_passport_step(artifacts: list[ArtifactRecord], readiness: list[Ste
     ready_by_step = {r.step: r for r in readiness if r.ready}
     if kinds & {"draft", "polishing"} and "Step 8" in ready_by_step:
         return "Step 8"
-    if kinds & {"zotero_mapping", "pdf_index", "citation_audit", "capability_index"} and "Step 7" in ready_by_step:
+    if kinds & {"zotero_mapping", "pdf_index", "citation_audit", "capability_index", "mineru_zip", "evidence_data", "evidence_report", "standard_file"} and "Step 7" in ready_by_step:
         return "Step 7"
     if kinds & {"bibliography", "pdf_pool", "pdf", "zotero_structure"} and "Step 6" in ready_by_step:
         return "Step 6"

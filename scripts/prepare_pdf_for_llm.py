@@ -31,6 +31,13 @@ from typing import Any
 PARSER_CHOICES = ("auto", "pymupdf", "mineru-local", "mineru-api")
 DEFAULT_MINERU_BACKEND = "pipeline"
 DEFAULT_MINERU_API_URL = os.environ.get("MINERU_API_URL", "").strip()
+PYMUPDF_FALLBACK_RISKS = [
+    "line_fragmentation",
+    "reading_order_risk",
+    "table_damage_risk",
+    "figure_caption_loss",
+    "paragraph_reconstruction_needed",
+]
 
 
 def extract_pages_pymupdf(pdf_path: Path) -> list[str]:
@@ -476,11 +483,14 @@ def main() -> int:
 
     clean_text = merge_lines(raw_text.splitlines())
     chunks = split_chunks(clean_text, args.chunk_words)
+    parser_confidence = "low" if parser_used == "pymupdf" else "medium"
+    parser_risk_flags = list(PYMUPDF_FALLBACK_RISKS) if parser_used == "pymupdf" else []
 
     chunk_payload = []
     for item in chunks:
         chunk_id = f"{stem}_{item['chunk_seq']:03d}"
-        must_check_pdf = bool(item["risk_flags"])
+        risk_flags = sorted(set(item["risk_flags"] + parser_risk_flags))
+        must_check_pdf = bool(risk_flags) or parser_used == "pymupdf"
         chunk_payload.append(
             {
                 "chunk_id": chunk_id,
@@ -491,8 +501,10 @@ def main() -> int:
                 "pages": "",
                 "section": args.section,
                 "evidence_level": args.evidence_level,
+                "parser_used": parser_used,
+                "parser_confidence": parser_confidence,
                 "must_check_pdf": must_check_pdf,
-                "risk_flags": item["risk_flags"],
+                "risk_flags": risk_flags,
                 "text": item["text"],
             }
         )
@@ -507,7 +519,9 @@ def main() -> int:
         "evidence_level": args.evidence_level,
         "parser_requested": parser_requested,
         "parser_used": parser_used,
+        "parser_confidence": parser_confidence,
         "parser_fallback_reason": parser_fallback_reason,
+        "parser_risk_flags": parser_risk_flags,
         "complexity_assessment": complexity,
         "mineru_recommended": complexity["mineru_recommended"],
         "messages": parser_messages,
@@ -527,6 +541,7 @@ def main() -> int:
         "zotero_item_key": args.zotero_item_key,
         "parser_requested": parser_requested,
         "parser_used": parser_used,
+        "parser_confidence": parser_confidence,
         "parser_fallback_reason": parser_fallback_reason,
         "mineru_recommended": complexity["mineru_recommended"],
         "parser_messages": parser_messages,

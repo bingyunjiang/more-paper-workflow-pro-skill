@@ -43,7 +43,7 @@ class Step1Step2ContractsTest(unittest.TestCase):
     def test_step23_keeps_existing_outline_as_primary(self):
         step2 = read_rel("agents/step_2_outline.md")
         self.assertIn("Step 1 始终只是**约束源**", step2)
-        self.assertIn("不得因为存在结构化 Step 1 输出就跳过已有大纲直接改走 `2.1`", step2)
+        self.assertIn("不得因为存在结构化 Step 1 输出就跳过已有大纲直接改走 `2.2`", step2)
         self.assertIn("primary_rq", step2)
         self.assertIn("scope_boundaries", step2)
         self.assertIn("fatal_risks", step2)
@@ -64,7 +64,7 @@ class Step1Step2ContractsTest(unittest.TestCase):
     def test_step2_interaction_trigger_is_general_and_risk_based(self):
         step2 = read_rel("agents/step_2_outline.md")
         for token in [
-            "#### 2.0.1. 大纲优化交互触发判定",
+            "#### 2.1.1. 大纲优化交互触发判定",
             "Step 2 要覆盖全部已有资料入口的交互判定，但不是所有优化都需要询问用户",
             "自动处理",
             "轻量确认",
@@ -79,7 +79,7 @@ class Step1Step2ContractsTest(unittest.TestCase):
         ]:
             self.assertIn(token, step2)
 
-    def test_step24_requires_soft_engineering_context_confirmation(self):
+    def test_step25_requires_soft_engineering_context_confirmation(self):
         step2 = read_rel("agents/step_2_outline.md")
         for token in [
             "CP-ENGINEERING-CONTEXT",
@@ -95,16 +95,18 @@ class Step1Step2ContractsTest(unittest.TestCase):
     def test_step2_uses_decimal_stage_numbering(self):
         step2 = read_rel("agents/step_2_outline.md")
         for token in [
-            "### 2.0. 入口路由判定",
-            "### 2.1. 标准大纲生成",
-            "### 2.2. 大纲评审",
-            "### 2.3. 已有大纲评估与优化模式",
-            "### 2.4. 基于工程文档的大纲优化",
-            "### 2.5. 术语映射表生成",
-            "### 2.6. Step 3/6/7 交接",
+            "### 2.1. 入口路由判定",
+            "### 2.2. 标准大纲生成",
+            "### 2.3. 大纲评审",
+            "### 2.4. 已有大纲评估与优化模式",
+            "### 2.5. 基于工程文档的大纲优化",
+            "### 2.6. 术语映射表生成",
+            "### 2.7. Step 3/6/7 交接",
         ]:
             self.assertIn(token, step2)
         for old_token in [
+            "### 2.0.",
+            "#### 2.0.",
             "### 2-0.",
             "### 2a.",
             "### 2b.",

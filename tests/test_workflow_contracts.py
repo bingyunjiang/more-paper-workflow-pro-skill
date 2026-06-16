@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import zipfile
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -13,14 +14,17 @@ from workflow_contracts import (  # noqa: E402
     DownloadManifestItem,
     FigureEvidenceRecord,
     FigureIndexRecord,
+    EvidenceSourceRecord,
     RetrievalCandidate,
     RetrievalIndexManifest,
     SearchResultRecord,
     as_chinese_papers,
     capability_index_payload,
     dois_from_download_items,
+    evidence_pack_payload,
     figure_evidence_payload,
     figure_index_payload,
+    inspect_mineru_zip,
     load_search_records,
     normalize_doi,
     retrieval_candidates_payload,
@@ -227,6 +231,46 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(payload["schema_version"], "figure-index.v1")
         self.assertEqual(payload["records"][0]["figure_id"], "fig_3")
         self.assertEqual(payload["records"][0]["source_type"], "caption_plus_text")
+
+    def test_evidence_pack_payload(self):
+        records = [
+            EvidenceSourceRecord(
+                source_path="reports/experiment.md",
+                source_type="report",
+                evidence_level="author_provided",
+                claim_scope="strong_claim_if_traceable",
+                risk_flags=["author_confirmation_needed"],
+                verification_action="confirm_author_or_source_context",
+            )
+        ]
+        payload = evidence_pack_payload(records, {"entry_mode": "evidence_pack"})
+        self.assertEqual(payload["schema_version"], "evidence-pack.v1")
+        self.assertEqual(payload["metadata"]["entry_mode"], "evidence_pack")
+        self.assertEqual(payload["records"][0]["source_type"], "report")
+        self.assertEqual(payload["records"][0]["evidence_level"], "author_provided")
+
+    def test_inspect_mineru_zip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            zip_path = Path(tmp) / "LLM-for-Zotero-MinerU-cache-ABC123.zip"
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                zf.writestr("_llm_source.json", json.dumps({
+                    "parentItemKey": "ITEM123",
+                    "attachmentKey": "ABC123",
+                    "sourceFilename": "paper.pdf",
+                }))
+                zf.writestr("full.md", "# Demo\n\n![](images/fig.jpg)\n")
+                zf.writestr("manifest.json", json.dumps({"sections": []}))
+                zf.writestr("content_list.json", "[]")
+                zf.writestr("images/fig.jpg", b"fake")
+
+            summary = inspect_mineru_zip(zip_path)
+
+        self.assertEqual(summary.parent_item_key, "ITEM123")
+        self.assertEqual(summary.attachment_key, "ABC123")
+        self.assertTrue(summary.has_full_md)
+        self.assertTrue(summary.has_manifest_json)
+        self.assertEqual(summary.image_count, 1)
+        self.assertEqual(summary.warnings, [])
 
     def test_figure_evidence_payload(self):
         records = [

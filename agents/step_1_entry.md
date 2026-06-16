@@ -2,13 +2,13 @@
 
 本文件是 Step 1 的新入口层，不替代 [step_1_topic.md](./step_1_topic.md)。
 
-## 1. 作用
+## 作用
 
 - 识别当前请求是否应进入 Step 1
 - 判断入口轴：`user_stage` / `goal_type` / `search_depth` / `evidence_risk`
 - 以最小加载方式把请求路由给旧版 Step 1 主协议
 
-## 2. 入口命中条件
+## 入口命中条件
 
 优先命中以下意图：
 
@@ -19,7 +19,7 @@
 
 若用户已给完整大纲或完整初稿，则不进入本 Step。
 
-## 3. 轴定义
+## 轴定义
 
 ### `user_stage`
 
@@ -51,14 +51,14 @@
 - `medium`
 - `high`
 
-## 4. 加载顺序
+## 加载顺序
 
 1. `static/core/output-contract.md`
 2. `references/step1-topic-review-rubric.md`
 3. `references/step1-handoff-schema.md`
 4. `agents/step_1_topic.md`
 
-## 5. 输出要求
+## 输出要求
 
 除 `研究主题.md` 外，本 Router 还应显式确认：
 

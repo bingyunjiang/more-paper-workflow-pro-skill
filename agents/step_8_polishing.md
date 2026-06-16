@@ -5,7 +5,7 @@
 
 ---
 
-## 1. 启动前读取 (Pre-read Checklist)
+## 启动前读取 (Pre-read Checklist)
 
 执行本步骤前，必须确认以下文件已加载：
 
@@ -20,7 +20,7 @@
 
 ---
 
-## 2. 适用任务 (Applicable Tasks)
+## 适用任务 (Applicable Tasks)
 
 - 逐句精修学术论文
 - 检查明显机械化、重复化或空泛表达
@@ -31,7 +31,7 @@
 
 ---
 
-## 3. 不适用任务 (Non-applicable Tasks)
+## 不适用任务 (Non-applicable Tasks)
 
 - 论文写作 → 路由到 `agents/step_7_writing.md`
 - 引用审计 → 路由到 `agents/step_7_writing.md`（7.15）
@@ -40,13 +40,13 @@
 
 ---
 
-## 4. 输入要求 (Input Requirements)
+## 输入要求 (Input Requirements)
 
 | 输入 | 来源 | 格式 | 必选 |
 |------|------|------|:--:|
 | 论文初稿 | Step 7 | .md | ✅ |
 | 评审报告 | Step 7.11 | .md | 推荐 |
-| 引用审计报告 | Step 7.15 | .md | 推荐 |
+| 引用审计报告 | Step 7.16 | .md | 推荐 |
 
 ### 输入契约
 
@@ -65,7 +65,7 @@
 
 | 可接受输入 | 最小处理 | 降级规则 |
 |------------|----------|----------|
-| 用户直接提供初稿 `.md/.docx/文本` | 直接进入 8.0 输入接收 | 不要求补跑 Step 7 |
+| 用户直接提供初稿 `.md/.docx/文本` | 直接进入输入接收阶段 | 不要求补跑 Step 7 |
 | 初稿 + 评审意见 | 按评审意见标记修改任务 | 缺引用审计时不声明引用安全 |
 | 初稿 + 引用审计报告 | 保留引用风险和修复建议 | 不重新做完整审计 |
 | 只有局部章节/段落 | 只润色指定范围 | 不改全篇结构和未提供章节 |
@@ -93,7 +93,7 @@ JSON 缺失时，可降级读取 `.md`，但需在质量报告中标记“基于
 - `section_blueprints.json`：约束章节功能、信息顺序、图表位置
 - `writing_rationale_matrix.json`：约束保留的论证顺序、不可删改的证据链、保守改写边界
 
-### 4.1 PDF 提取结果的使用限制
+### PDF 提取结果的使用限制
 
 Step 8 只允许把 PDF 提取结果用于以下用途：
 
@@ -117,7 +117,7 @@ Step 8 不允许：
 
 ---
 
-## 5. 标准输出 (Standard Outputs)
+## 标准输出 (Standard Outputs)
 
 | 输出 | 格式 | 说明 |
 |------|------|------|
@@ -131,9 +131,9 @@ Step 8 不允许：
 
 ---
 
-## 6. 执行流程 (Execution Flow)
+## 执行流程 (Execution Flow)
 
-### 8.0. 执行阶段与润色层级的关系
+### 执行阶段与润色层级的关系
 
 - **Stage** 表示完整执行顺序，从输入接收到日志回写。
 - **Level** 表示 8.2 内部的四层润色深度，不单独代表完整流程。
@@ -371,7 +371,7 @@ Step 8 的问题闭环主工件为：
 
 ---
 
-## 7. 质量门槛 (Quality Gates)
+## 质量门槛 (Quality Gates)
 
 - [ ] Level 1-4 四层润色全部完成
 - [ ] `diagnostic_summary.md` 已生成，且问题已按固定 `issue_type` 分类
@@ -384,7 +384,7 @@ Step 8 的问题闭环主工件为：
 
 ---
 
-## 8. 收尾检查 (Closing Checks)
+## 收尾检查 (Closing Checks)
 
 ### 产出完整性
 - [ ] `diagnostic_summary.md` 已生成
@@ -420,7 +420,7 @@ Step 8 的问题闭环主工件为：
 
 ---
 
-## 9. 故障排除 (Troubleshooting)
+## 故障排除 (Troubleshooting)
 
 - **表达风险反复出现**：回查 `.skill-state/error_log.md` 中的可复用表达风险；Level 3 分类逐类排查
 - **术语不一致**：以 `.skill-state/term_aliases.md` 为唯一基准，不依赖直觉判断
