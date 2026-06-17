@@ -42,7 +42,7 @@
 
 **More Paper Workflow Pro Skill** 的目标不是一键替你写论文，而是把学术写作拆成 8 个可见、可中断、可回溯的步骤，让检索、下载、Zotero、写作和引用审计围绕真实文献闭环运作。
 
-![中文海报](posters/skill-overview-poster.png)
+![中文海报](posters/story/more-paper-long-scroll.png)
 
 ## 🎯 适合谁？不适合谁？
 
@@ -155,7 +155,7 @@ Step 6: Zotero 文库管理（架构+BibTeX条目+PDF附件一致性） → zote
 Step 7: 论文写作（文献证据矩阵+目标体裁/文档风格+章节级候选证据层+图表+引用审计） → 文献证据矩阵.csv + 论文初稿或指定章节.md/.docx
 Step 8: 润色与保守修订（诊断、局部修订、验证）      → 论文润色稿.md
 ```
-![中文海报](posters/screens/screen-5.png)
+![中文海报](posters/story/preview-contact-sheet.png)
 
 ## 🚀 安装参考
 
