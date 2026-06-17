@@ -15,6 +15,7 @@
 - [ ] `references/zotero-outline-mapping.md` — 文献与集合对齐思路
 - [ ] `references/zotero-output-contract.md` — 🆕 JSON + Markdown 双工件输出契约
 - [ ] `references/zotero-entry-modes.md` — 🆕 Step 6 direct-entry 模式
+- [ ] `references/paper-card-contract.md` — `paper_card`、Zotero child note 与短 tag 索引同步契约
 - [ ] `capability_index.json/md` — 🆕 文献资产能力索引（如已存在，先读；如缺失，本 Step 生成）
 - [ ] `.skill-state/error_log.md` — 已知错误及修复规则
 - [ ] `.skill-state/decision_log.md` — 影响本 Step 的结构性决策
@@ -25,6 +26,7 @@
 
 - 依据 Step 2 论文大纲生成 Zotero 集合架构（6.1）
 - 依据 Step 4 `文献库.bib` 和 6.1 架构生成文献-集合对照表（6.2）
+- 保留 Step 4 `paper_card`，并在真实 Zotero 导入时同步为每篇 T1-T3 文献的 `More-Paper Evidence Card` child note
 - 通过 Zotero MCP 创建 Zotero 集合并检查架构一致性（6.3）
 - 将 PDF 附件池中的文件纳入附件状态判断，生成安全的附件处理策略（6.4）
 - 生成 `capability_index.json/md`，让用户和后续 Step 清楚知道当前可用的 Zotero、PDF、BibTeX、workflow JSON、附件池能力与推荐入口
@@ -338,6 +340,16 @@ python3 scripts/citation_audit.py 论文初稿.md \
       "verification_confidence": "medium",
       "warn_class": "",
       "verified_sources": "cnki",
+      "paper_card": {
+        "evidence_role": "method",
+        "primary_claim": "文献的核心主张",
+        "main_methods_or_baselines": ["POD", "POD-Galerkin"],
+        "reading_depth": "abstract_only",
+        "content_fit": "adjacent",
+        "content_fit_note": "方法相近但工况不同，只适合作为方法参照",
+        "usable_for": ["方法背景", "方法对比"],
+        "not_usable_for": ["强结论", "具体数值"]
+      },
       "collection_path": ["论文文献库", "2-方法", "P1-D1 数值模拟"],
       "collection_key": "",
       "tags": ["P1-D1", "数值模拟"],
@@ -379,6 +391,7 @@ python3 scripts/citation_audit.py 论文初稿.md \
 - Zotero 的 DOI 字段只能填写真实 `10.xxxx/...` DOI。
 - 无真实 DOI 的中文条目必须把 `source_id`、`source`、`article_url`、Tier、Score、subtopic 写入 Zotero `Extra` 或等价字段。
 - 中文条目必须优先从 `中文论文元数据.json` 读取 authors、year、publication_title、abstract、language，不能只依赖 `文献库.bib`；旧名 `chinese_papers.json` / `chinese_metadata.json` 仅作为兼容输入。
+- `paper_card` 必须在 `文献-Zotero架构对照.json` 中完整保留，并在真实导入 Zotero 时同步到 `More-Paper Evidence Card` child note。Zotero note 是人类可读副本，不替代 JSON 机器主源。
 
 **质量要求：**
 - 每个 BibTeX 条目必须出现在对照表中。
@@ -469,6 +482,7 @@ zotero_get_collections()
 7. 附件验证：用 `zotero_get_item_children` / `zotero_get_items_children` 检查每个条目是否有 PDF 附件。
 8. 附件动作建议：默认写入 `attachment_action`，不直接执行高风险动作。
 9. 回写状态：更新 `文献-Zotero架构对照.json` 和 `pdf-附件池索引.json` 中的导入状态、附件状态、匹配置信度，并同步生成/刷新 `文献-Zotero架构对照.md` 审阅版。
+10. child note 同步：对每篇 T1-T3 条目写入或更新 `More-Paper Evidence Card` child note；同时写入短 tag 索引（`mp-role:*` / `mp-fit:*` / `mp-depth:*` / `mp-tier:*`），但不把长文本 claim 或 note 作为 tag。
 
 **当前 Zotero MCP 附件限制：**
 - 当前 MCP 没有直接“向已有 item 添加本地 PDF 附件”的工具。
@@ -497,6 +511,7 @@ zotero_get_collections()
 - `文献库.bib` 中每个条目：Zotero 中都有唯一条目或明确标记为重复/失败。
 - CNKI/万方中文条目：Zotero 中的 title、author、year、publicationTitle/来源、URL、language、Extra/source_id 必须完整。
 - T1/T2/T3 条目：必须有集合归属；缺 PDF 时必须列入「缺附件清单」。
+- 每个 T1-T3 条目：如果条目导入成功且存在 `paper_card`，则必须至少有一个 `More-Paper Evidence Card` child note；该 note 只是同步副本，不替代 `文献-Zotero架构对照.json`。
 - PDF 文件：不得静默忽略；每个候选 PDF 必须能追溯到匹配状态和建议动作。
 - 附件池中未匹配 PDF 必须列入「未关联 PDF 清单」，不得静默忽略。
 - Zotero 条目：不得只导入元数据却未移动到推荐集合，除非 JSON 记录标记为「待人工确认」。

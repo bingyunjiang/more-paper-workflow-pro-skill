@@ -15,6 +15,7 @@ from workflow_contracts import (  # noqa: E402
     FigureEvidenceRecord,
     FigureIndexRecord,
     EvidenceSourceRecord,
+    PaperCard,
     RetrievalCandidate,
     RetrievalIndexManifest,
     SearchResultRecord,
@@ -71,6 +72,54 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(record.verification_confidence, "low")
         self.assertEqual(record.warn_class, "metadata_mismatch")
 
+    def test_paper_card_normalization_and_outputs(self):
+        card = PaperCard.from_value({
+            "evidence_role": "method",
+            "primary_claim": "提出一种新方法",
+            "main_methods_or_baselines": ["POD", "POD-Galerkin"],
+            "reading_depth": "abstract-only",
+            "content_fit": "adjacent",
+            "content_fit_note": "方法相近但工况不同",
+            "usable_for": ["方法参照"],
+            "not_usable_for": ["强结论"],
+        })
+
+        self.assertEqual(card.evidence_role, "method")
+        self.assertEqual(card.reading_depth, "abstract_only")
+        self.assertEqual(card.content_fit, "adjacent")
+        self.assertIn("mp-role:method", card.zotero_tags("T1"))
+        self.assertIn("mp-fit:adjacent", card.zotero_tags("T1"))
+        self.assertIn("mp-depth:abstract-only", card.zotero_tags("T1"))
+        note = card.zotero_child_note(
+            record_id="rec-1",
+            citekey="demo2026",
+            paper_tier="T1",
+            trust_status="VERIFIED",
+            search_task_id="S1",
+            chapter_id="2.1",
+            updated_at="2026-06-17",
+        )
+        self.assertIn("More-Paper Evidence Card", note)
+        self.assertIn("evidence_role: method", note)
+        self.assertIn("record_id: rec-1", note)
+        self.assertIn("search_task_id: S1", note)
+
+    def test_search_result_record_carries_paper_card(self):
+        record = SearchResultRecord.from_search_result({
+            "title": "Demo",
+            "source": "openalex",
+            "paper_card": {
+                "evidence_role": "review",
+                "primary_claim": "总结领域现状",
+                "reading_depth": "metadata_only",
+                "content_fit": "background_only",
+            },
+        })
+
+        self.assertEqual(record.paper_card.evidence_role, "review")
+        self.assertEqual(record.paper_card.reading_depth, "metadata_only")
+        self.assertEqual(record.paper_card.content_fit, "background_only")
+
     def test_workflow_json_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "workflow.json"
@@ -80,6 +129,12 @@ class WorkflowContractsTest(unittest.TestCase):
                     "source": "openalex",
                     "doi": "https://doi.org/10.5555/demo",
                     "year": "2024",
+                    "paper_card": {
+                        "evidence_role": "theory",
+                        "primary_claim": "提出一个概念框架",
+                        "reading_depth": "full_text",
+                        "content_fit": "direct",
+                    },
                 }),
                 SearchResultRecord.from_search_result({
                     "title": "A CNKI paper",
@@ -96,6 +151,7 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(data["artifact_type"], "search_results")
         self.assertEqual(len(loaded), 2)
         self.assertEqual(loaded[0].doi, "10.5555/demo")
+        self.assertEqual(loaded[0].paper_card.evidence_role, "theory")
         self.assertTrue(loaded[1].source_id.startswith("cnki."))
 
     def test_download_item_views(self):

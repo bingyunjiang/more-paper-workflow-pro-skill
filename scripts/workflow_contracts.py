@@ -63,6 +63,148 @@ def stable_source_id(source: str, title: str, article_url: str = "") -> str:
     return f"{source}.{digest}"
 
 
+PAPER_CARD_EVIDENCE_ROLES = {
+    "method",
+    "background",
+    "theory",
+    "review",
+    "experiment",
+    "data",
+    "benchmark",
+    "counterpoint",
+    "standard_policy",
+    "case_specific",
+    "unknown",
+}
+
+PAPER_CARD_READING_DEPTHS = {
+    "metadata_only",
+    "abstract_only",
+    "full_text",
+    "zotero_note",
+    "pdf_verified",
+}
+
+PAPER_CARD_CONTENT_FITS = {
+    "direct",
+    "adjacent",
+    "background_only",
+    "mismatch",
+    "unknown",
+}
+
+
+def normalize_choice(value: Any, allowed: set[str], default: str = "unknown") -> str:
+    choice = _clean(value).lower().replace("-", "_").replace(" ", "_")
+    return choice if choice in allowed else default
+
+
+def _clean_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [_clean(v) for v in value if _clean(v)]
+    if isinstance(value, tuple):
+        return [_clean(v) for v in value if _clean(v)]
+    text = _clean(value)
+    if not text:
+        return []
+    return [v.strip() for v in re.split(r";|；|\n", text) if v.strip()]
+
+
+@dataclass
+class PaperCard:
+    evidence_role: str = "unknown"
+    primary_claim: str = ""
+    main_methods_or_baselines: list[str] = field(default_factory=list)
+    reading_depth: str = "metadata_only"
+    content_fit: str = "unknown"
+    content_fit_note: str = ""
+    usable_for: list[str] = field(default_factory=list)
+    not_usable_for: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_value(cls, value: Any) -> "PaperCard":
+        if isinstance(value, PaperCard):
+            return value
+        if not isinstance(value, dict):
+            return cls()
+        return cls(
+            evidence_role=normalize_choice(
+                value.get("evidence_role"), PAPER_CARD_EVIDENCE_ROLES
+            ),
+            primary_claim=_clean(value.get("primary_claim")),
+            main_methods_or_baselines=_clean_list(value.get("main_methods_or_baselines")),
+            reading_depth=normalize_choice(
+                value.get("reading_depth"), PAPER_CARD_READING_DEPTHS, "metadata_only"
+            ),
+            content_fit=normalize_choice(value.get("content_fit"), PAPER_CARD_CONTENT_FITS),
+            content_fit_note=_clean(value.get("content_fit_note")),
+            usable_for=_clean_list(value.get("usable_for")),
+            not_usable_for=_clean_list(value.get("not_usable_for")),
+        )
+
+    def zotero_tags(self, paper_tier: str = "") -> list[str]:
+        tags = [
+            f"mp-role:{self.evidence_role}",
+            f"mp-fit:{self.content_fit}",
+            f"mp-depth:{self.reading_depth.replace('_', '-')}",
+        ]
+        tier = _clean(paper_tier)
+        if tier:
+            tags.append(f"mp-tier:{tier}")
+        return tags
+
+    def zotero_child_note(
+        self,
+        *,
+        record_id: str = "",
+        citekey: str = "",
+        paper_tier: str = "",
+        trust_status: str = "",
+        search_task_id: str = "",
+        chapter_id: str = "",
+        updated_at: str = "",
+        source_artifact: str = "workflow_search_results.json",
+    ) -> str:
+        updated_at = updated_at or datetime.now(timezone.utc).date().isoformat()
+        methods = "\n".join(f"- {item}" for item in self.main_methods_or_baselines) or "- "
+        usable = "\n".join(f"- {item}" for item in self.usable_for) or "- "
+        not_usable = "\n".join(f"- {item}" for item in self.not_usable_for) or "- "
+        return "\n".join([
+            "# More-Paper Evidence Card",
+            "",
+            f"record_id: {record_id}",
+            f"citekey: {citekey}",
+            f"paper_tier: {paper_tier}",
+            f"evidence_role: {self.evidence_role}",
+            f"reading_depth: {self.reading_depth}",
+            f"content_fit: {self.content_fit}",
+            f"trust_status: {trust_status}",
+            "",
+            "## Primary Claim",
+            self.primary_claim,
+            "",
+            "## Main Methods / Baselines",
+            methods,
+            "",
+            "## Usable For",
+            usable,
+            "",
+            "## Not Usable For",
+            not_usable,
+            "",
+            "## Content Fit Note",
+            self.content_fit_note,
+            "",
+            "## Workflow Trace",
+            f"source_artifact: {source_artifact}",
+            f"search_task_id: {search_task_id}",
+            f"chapter_id: {chapter_id}",
+            f"updated_at: {updated_at}",
+        ])
+
+
 @dataclass
 class SearchTask:
     id: str = ""
@@ -99,6 +241,7 @@ class SearchResultRecord:
     evidence: str = ""
     download_hint: str = ""
     abstract: str = ""
+    paper_card: PaperCard = field(default_factory=PaperCard)
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -143,6 +286,7 @@ class SearchResultRecord:
             evidence=_clean(row.get("evidence") or row.get("match_reason")),
             download_hint=infer_download_hint(doi, source, article_url),
             abstract=_clean(row.get("abstract") or row.get("摘要")),
+            paper_card=PaperCard.from_value(row.get("paper_card")),
             raw=dict(row),
         )
 
