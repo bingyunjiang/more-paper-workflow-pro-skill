@@ -53,6 +53,8 @@ from workflow_contracts import (
 CDP_PORT = 9223
 DEFAULT_OUTPUT = "paper-temp"
 SCI_HUB_CUTOFF_YEAR = 2021  # Sci-Hub has very few papers after 2020
+CDP_PROFILE_DIR = os.path.expanduser("~/.hermes/chrome_sd_profile")
+CDP_START_URL = "https://www.sciencedirect.com/"
 
 # Strategy routing table (for display and decisions)
 STRATEGY_ORDER = ["scihub", "sd_cdp", "ieee_cdp", "generic", "chinese_cdp", "direct_http", "skip"]
@@ -63,6 +65,18 @@ CHINESE_PUBLISHERS = {"cnki", "wanfang"}
 # Chinese paper entry schema (from literature table or JSON)
 # Each entry: {"title": str, "source": "cnki"|"wanfang", "article_url": str, "doi": str}
 CHINESE_PAPER_FIELDS = frozenset({"title", "source", "article_url"})
+
+
+def ensure_cdp_running(port: int) -> bool:
+    """Reuse an existing CDP browser or start one automatically."""
+    if check_cdp(port):
+        return True
+
+    from cdp_utils import start_browser
+
+    print(f"\n⏳ CDP Chrome not detected on :{port}. Starting browser automatically...")
+    proc = start_browser(port, CDP_PROFILE_DIR, url=CDP_START_URL)
+    return proc is not None and check_cdp(port)
 
 
 # ── Year Estimation ─────────────────────────────────────────────────────────
@@ -983,7 +997,7 @@ def main():
             return
 
         # Actual download attempt
-        if not check_cdp(args.port):
+        if not ensure_cdp_running(args.port):
             print(f"\nERROR: CDP Chrome not running on port {args.port}.")
             sys.exit(1)
 
@@ -1008,7 +1022,7 @@ def main():
             sys.exit(1)
         print(f"=== Chinese Download — Test Mode (CNKI) ===")
         print(f"URL: {article_url}")
-        if not check_cdp(args.port):
+        if not ensure_cdp_running(args.port):
             print(f"\nERROR: CDP Chrome not running on port {args.port}.")
             sys.exit(1)
         print(f"\nDownloading via CNKI CDP...")
@@ -1031,7 +1045,7 @@ def main():
             sys.exit(1)
         print(f"=== Chinese Download — Test Mode (Wanfang) ===")
         print(f"URL: {article_url}")
-        if not check_cdp(args.port):
+        if not ensure_cdp_running(args.port):
             print(f"\nERROR: CDP Chrome not running on port {args.port}.")
             sys.exit(1)
         print(f"\nDownloading via Wanfang CDP...")
@@ -1158,7 +1172,7 @@ def main():
     # Check CDP (required for all rounds except Sci-Hub only)
     has_cdp_rounds = any(c["strategy"] in ("sd_cdp", "generic", "chinese_cdp")
                          for c in classified) or bool(chinese_papers)
-    if has_cdp_rounds and not check_cdp(args.port):
+    if has_cdp_rounds and not ensure_cdp_running(args.port):
         print(f"\nERROR: CDP Chrome not running on port {args.port}.")
         print("Start Chrome with:")
         print(f"  /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome \\")
