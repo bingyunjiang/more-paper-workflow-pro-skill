@@ -77,9 +77,9 @@ class Step5DownloadTest(unittest.TestCase):
 
     def test_ensure_cdp_running_auto_starts_browser(self):
         with patch.object(router, "check_cdp", side_effect=[False, True]), \
-             patch("cdp_utils.start_browser", return_value=object()) as start_browser:
+             patch("subprocess.run") as run_cmd:
             self.assertTrue(router.ensure_cdp_running(9223))
-        start_browser.assert_called_once()
+        run_cmd.assert_called_once()
 
     def test_dry_run_classification_includes_chinese_and_english_items(self):
         with tempfile.TemporaryDirectory() as tmp:

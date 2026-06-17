@@ -53,8 +53,6 @@ from workflow_contracts import (
 CDP_PORT = 9223
 DEFAULT_OUTPUT = "paper-temp"
 SCI_HUB_CUTOFF_YEAR = 2021  # Sci-Hub has very few papers after 2020
-CDP_PROFILE_DIR = os.path.expanduser("~/.hermes/chrome_sd_profile")
-CDP_START_URL = "https://www.sciencedirect.com/"
 
 # Strategy routing table (for display and decisions)
 STRATEGY_ORDER = ["scihub", "sd_cdp", "ieee_cdp", "generic", "chinese_cdp", "direct_http", "skip"]
@@ -72,11 +70,16 @@ def ensure_cdp_running(port: int) -> bool:
     if check_cdp(port):
         return True
 
-    from cdp_utils import start_browser
-
     print(f"\n⏳ CDP Chrome not detected on :{port}. Starting browser automatically...")
-    proc = start_browser(port, CDP_PROFILE_DIR, url=CDP_START_URL)
-    return proc is not None and check_cdp(port)
+    start_script = SCRIPTS_DIR / "start_cdp_chrome.sh"
+    if not start_script.exists():
+        return False
+
+    subprocess.run(
+        ["bash", str(start_script), "--port", str(port)],
+        check=False,
+    )
+    return check_cdp(port)
 
 
 # ── Year Estimation ─────────────────────────────────────────────────────────
