@@ -134,6 +134,32 @@ def _filter_by_language(results, language):
     return filtered, removed
 
 
+def _pick_cdp_page_target(targets, preferred_markers=None):
+    """Pick the most suitable CDP page target for a source-specific workflow.
+
+    preferred_markers: ordered list of substrings matched against page URL/title.
+    Falls back to the first non-extension page, then the first page target.
+    """
+    pages = [t for t in targets if t.get("type") == "page"]
+    if not pages:
+        return None
+
+    preferred_markers = preferred_markers or []
+    for marker in preferred_markers:
+        marker = (marker or "").lower()
+        for page in pages:
+            haystack = f"{page.get('url', '')} {page.get('title', '')}".lower()
+            if marker and marker in haystack:
+                return page
+
+    for page in pages:
+        url = (page.get("url") or "").lower()
+        if not url.startswith("chrome-extension://") and not url.startswith("devtools://"):
+            return page
+
+    return pages[0]
+
+
 def _cache_key(query, source, limit, strategy=""):
     raw = f"{query}|{source}|{limit}|{strategy}"
     return hashlib.sha256(raw.encode()).hexdigest()
@@ -908,12 +934,14 @@ def _try_wanfang_cdp(query, limit=20, language="any"):
                 f"http://127.0.0.1:{WANFANG_CDP_PORT}/json"
             ).read()
         )
-        # Find a page target
-        page_target = None
-        for t in targets:
-            if t.get("type") == "page":
-                page_target = t
-                break
+        page_target = _pick_cdp_page_target(
+            targets,
+            preferred_markers=[
+                "wanfangdata.com.cn",
+                "s.wanfangdata.com.cn",
+                "万方",
+            ],
+        )
         if not page_target:
             return None
 
@@ -1500,11 +1528,15 @@ def _try_cnki_cdp(query, limit=20, language="any"):
                 f"http://127.0.0.1:{CNKI_CDP_PORT}/json"
             ).read()
         )
-        page_target = None
-        for t in targets:
-            if t.get("type") == "page":
-                page_target = t
-                break
+        page_target = _pick_cdp_page_target(
+            targets,
+            preferred_markers=[
+                "kns.cnki.net",
+                "cnki.net",
+                "中国知网",
+                "cnki",
+            ],
+        )
         if not page_target:
             return None
 
@@ -1668,8 +1700,14 @@ def _try_cnki_cdp(query, limit=20, language="any"):
             ws.close()
             return []
 
-        # Step 6: Navigate to each paper's detail page to extract abstract
-        _extract_cnki_abstracts(ws, results, limit)
+        # Step 6: Navigate to each paper's detail page to extract abstract.
+        # Detail-page extraction is best-effort only: search hits are still
+        # usable for Step 4 even if individual abstract pages fail or the
+        # session gets redirected mid-run.
+        try:
+            _extract_cnki_abstracts(ws, results, limit)
+        except Exception as e:
+            print(f"  CNKI CDP: abstract enrichment skipped ({e})", flush=True)
         ws.close()
 
         # Post-search language filter (safety net — CDP mode doesn't use
@@ -1682,7 +1720,8 @@ def _try_cnki_cdp(query, limit=20, language="any"):
 
         return results
 
-    except Exception:
+    except Exception as e:
+        print(f"  CNKI CDP error: {e}", flush=True)
         try:
             ws.close()
         except Exception:
@@ -1768,7 +1807,7 @@ def search_cnki(query, limit=20, use_cache=True, strategy="", language="any"):
 
     Two modes:
       1. CDP mode (primary): SPA browser automation via kns8s.
-         Requires CDP Chrome running on port 9222.
+         Requires CDP Chrome running on port 9223 by default.
          Supports search via browser automation (no captcha issues).
       2. IP mode (legacy fallback, likely dead): Old HTTP POST/GET via
          SearchHandler.ashx. Works on-campus if old interface still available.
@@ -1812,7 +1851,7 @@ def search_cnki(query, limit=20, use_cache=True, strategy="", language="any"):
           flush=True)
     print("  ╠══════════════════════════════════════════════════════════════╣",
           flush=True)
-    print("  ║ 请确保 CDP Chrome 正在运行（端口 9222）：                   ║",
+    print(f"  ║ 请确保 CDP Chrome 正在运行（端口 {CNKI_CDP_PORT}）：                   ║",
           flush=True)
     print("  ║   scripts/start_cdp_chrome.sh                               ║",
           flush=True)

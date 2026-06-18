@@ -23,7 +23,8 @@ import sys, os, time, re, json, urllib.request, urllib.parse, websocket, base64
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cdp_utils import (check_cdp, get_cdp_ws_url, list_tabs, close_all_tabs,
-                        close_tab, send_cmd_and_wait, check_required_deps)
+                        close_tab, send_cmd_and_wait, check_required_deps,
+                        create_tab, get_tab_ws_url)
 
 # 预置镜像站列表（可用镜像站排前，经测试 2026-05-30）
 DEFAULT_MIRRORS = [
@@ -51,9 +52,30 @@ def extract_dois(input_path):
 def doi_to_filename(doi):
     return doi.replace("/", "_").replace(":", "_") + ".pdf"
 
+def navigate_tab(port, tab_id, url, timeout=10):
+    """Navigate an existing CDP tab instead of creating a new browser/page."""
+    tab_ws_url = get_tab_ws_url(port, tab_id)
+    if not tab_ws_url:
+        return False
+    ws = None
+    try:
+        ws = websocket.create_connection(tab_ws_url, timeout=timeout)
+        ws.send(json.dumps({"id": 1, "method": "Page.navigate",
+                            "params": {"url": url}}))
+        # Loading events can arrive before the command response. Later fixed
+        # sleeps/polls decide readiness, so a successful send is enough here.
+        ws.close()
+        return True
+    except Exception:
+        try:
+            ws.close()
+        except Exception:
+            pass
+        return False
+
 # ===== 镜像站可用性测试 =====
 
-def test_mirror_cdp(mirror_url):
+def test_mirror_cdp(mirror_url, probe_tab=None):
     """
     通过 CDP Chrome 测试一个镜像站是否可用。
     导航到该镜像站首页，检查是否正常加载（非错误页、非 Cloudflare 挑战页）。
@@ -64,14 +86,19 @@ def test_mirror_cdp(mirror_url):
 
     test_url = f"{mirror_url}/10.1016/j.jpowsour.2019.01.052"
 
-    try:
-        wu = get_cdp_ws_url(CDP_PORT)
-        ws = websocket.create_connection(wu, timeout=10)
-        ws.send(json.dumps({"id":1,"method":"Target.createTarget","params":{"url":test_url}}))
-        tid = json.loads(ws.recv())["result"]["targetId"]
-        ws.close()
-    except Exception:
-        return False, "创建标签页失败"
+    tid = probe_tab
+    created_here = False
+    if not tid:
+        try:
+            _, tid = create_tab(CDP_PORT, "about:blank")
+            created_here = True
+        except Exception:
+            return False, "创建标签页失败"
+
+    if not navigate_tab(CDP_PORT, tid, test_url):
+        if created_here:
+            close_tab(CDP_PORT, tid)
+        return False, "导航标签页失败"
 
     time.sleep(5)
 
@@ -97,7 +124,8 @@ def test_mirror_cdp(mirror_url):
     except Exception:
         return False, "页面检测超时"
     finally:
-        close_tab(CDP_PORT, tid)
+        if created_here:
+            close_tab(CDP_PORT, tid)
 
     return False, "无法检测"
 
@@ -125,26 +153,33 @@ def test_all_mirrors(cdp_available):
     print("-" * 68, flush=True)
 
     working = []
-    for m in DEFAULT_MIRRORS:
-        name = m.split("//")[-1]
-        # 直连测试
-        http_ok, http_msg = test_mirror_http(m)
-        # CDP 测试（如果 Chrome 在运行）
-        cdp_ok, cdp_msg = False, "未测试"
+    probe_tab = None
+    try:
         if cdp_available:
-            cdp_ok, cdp_msg = test_mirror_cdp(m)
+            _, probe_tab = create_tab(CDP_PORT, "about:blank")
+        for m in DEFAULT_MIRRORS:
+            name = m.split("//")[-1]
+            # 直连测试
+            http_ok, http_msg = test_mirror_http(m)
+            # CDP 测试（如果 Chrome 在运行）
+            cdp_ok, cdp_msg = False, "未测试"
+            if cdp_available:
+                cdp_ok, cdp_msg = test_mirror_cdp(m, probe_tab=probe_tab)
 
-        status_icon = "✅" if (cdp_ok if cdp_available else http_ok) else "❌"
-        cdp_display = cdp_msg[:22] if cdp_available else "Chrome 未运行"
-        print(f"  {status_icon} {name:<20} {http_msg:<18} {cdp_display}", flush=True)
+            status_icon = "✅" if (cdp_ok if cdp_available else http_ok) else "❌"
+            cdp_display = cdp_msg[:22] if cdp_available else "Chrome 未运行"
+            print(f"  {status_icon} {name:<20} {http_msg:<18} {cdp_display}", flush=True)
 
-        # 判断是否可用（有 Chrome 用 CDP 结果，否则用直连结果）
-        if cdp_available:
-            if cdp_ok:
-                working.append(m)
-        else:
-            if http_ok:
-                working.append(m)
+            # 判断是否可用（有 Chrome 用 CDP 结果，否则用直连结果）
+            if cdp_available:
+                if cdp_ok:
+                    working.append(m)
+            else:
+                if http_ok:
+                    working.append(m)
+    finally:
+        if probe_tab:
+            close_tab(CDP_PORT, probe_tab)
 
     return working
 
@@ -161,13 +196,19 @@ def search_working_mirrors():
     # 再次用 CDP 测试所有镜像站（可能有暂时性网络波动）
     print("  重新用 CDP 测试全部镜像站...", flush=True)
     working = []
-    for m in DEFAULT_MIRRORS:
-        ok, msg = test_mirror_cdp(m)
-        if ok:
-            working.append(m)
-            print(f"  ✅ {m.split('//')[-1]} - {msg[:30]}", flush=True)
-        else:
-            print(f"  ❌ {m.split('//')[-1]} - {msg[:30]}", flush=True)
+    probe_tab = None
+    try:
+        _, probe_tab = create_tab(CDP_PORT, "about:blank")
+        for m in DEFAULT_MIRRORS:
+            ok, msg = test_mirror_cdp(m, probe_tab=probe_tab)
+            if ok:
+                working.append(m)
+                print(f"  ✅ {m.split('//')[-1]} - {msg[:30]}", flush=True)
+            else:
+                print(f"  ❌ {m.split('//')[-1]} - {msg[:30]}", flush=True)
+    finally:
+        if probe_tab:
+            close_tab(CDP_PORT, probe_tab)
 
     return working
 
@@ -212,48 +253,56 @@ def _extract_pdf_url_from_scihub(port, tid):
     return pdf_url
 
 
-def _fetch_pdf_via_navigate(port, pdf_url):
-    """创建新标签页导航到 PDF URL，用 Fetch 域捕获响应体。
+def _fetch_pdf_via_navigate(port, pdf_url, pdf_tab=None):
+    """复用或创建标签页导航到 PDF URL，用 Fetch 域捕获响应体。
 
     返回 PDF 字节数据或 None。
     """
     if not check_cdp(port):
         return None
 
-    wu = get_cdp_ws_url(port)
-
-    # 创建空白标签页
-    tid2 = None
-    try:
-        ws = websocket.create_connection(wu, timeout=10)
-        ws.send(json.dumps({"id":1,"method":"Target.createTarget",
-                           "params":{"url":"about:blank"}}))
-        tid2 = json.loads(ws.recv())["result"]["targetId"]
-        ws.close()
-    except Exception:
-        return None
+    tid2 = pdf_tab
+    created_here = False
+    if not tid2:
+        try:
+            _, tid2 = create_tab(port, "about:blank")
+            created_here = True
+        except Exception:
+            return None
 
     time.sleep(0.5)
 
     # 获取标签页的 WebSocket URL
-    pwu2 = None
-    for t in list_tabs(port):
-        if t["id"] == tid2:
-            pwu2 = t["webSocketDebuggerUrl"]
-            break
+    pwu2 = get_tab_ws_url(port, tid2)
 
     if not pwu2:
-        close_tab(port, tid2)
+        if created_here:
+            close_tab(port, tid2)
         return None
 
     pdf_data = None
     try:
         pws2 = websocket.create_connection(pwu2, timeout=10)
 
+        # 清理上一次捕获状态后，在同一 tab 内重新启用 Fetch。
+        try:
+            pws2.send(json.dumps({"id":9,"method":"Fetch.disable"}))
+            pws2.settimeout(1)
+            pws2.recv()
+        except Exception:
+            pass
+
+        pws2.send(json.dumps({"id":8,"method":"Page.navigate","params":{"url":"about:blank"}}))
+        time.sleep(0.2)
+
         # 启用 Fetch 域捕获
         pws2.send(json.dumps({"id":10,"method":"Fetch.enable",
                               "params":{"patterns":[{"urlPattern":"*","requestStage":"Response"}]}}))
-        json.loads(pws2.recv())
+        try:
+            pws2.settimeout(2)
+            json.loads(pws2.recv())
+        except Exception:
+            pass
 
         # 导航到 PDF URL
         pws2.send(json.dumps({"id":11,"method":"Page.navigate","params":{"url":pdf_url}}))
@@ -283,15 +332,20 @@ def _fetch_pdf_via_navigate(port, pdf_url):
                 pws2.send(json.dumps({"id":21,"method":"Fetch.continueRequest",
                                      "params":{"requestId":rid}}))
                 break
+        try:
+            pws2.send(json.dumps({"id":22,"method":"Fetch.disable"}))
+        except Exception:
+            pass
         pws2.close()
     except Exception:
         pass
 
-    close_tab(port, tid2)
+    if created_here:
+        close_tab(port, tid2)
     return pdf_data
 
 
-def cdp_download(doi, output_dir, mirror):
+def cdp_download(doi, output_dir, mirror, article_tab=None, pdf_tab=None):
     """通过 CDP Chrome 从指定镜像站下载一篇论文的 PDF。
 
     Flow:
@@ -308,30 +362,34 @@ def cdp_download(doi, output_dir, mirror):
 
     url = f"{mirror}/{doi}"
 
-    # Step 1: 创建标签页并导航到 Sci-Hub
-    try:
-        wu, tid = None, None
-        wu = get_cdp_ws_url(CDP_PORT)
-        ws = websocket.create_connection(wu, timeout=10)
-        ws.send(json.dumps({"id":1,"method":"Target.createTarget","params":{"url":url}}))
-        tid = json.loads(ws.recv())["result"]["targetId"]
-        ws.close()
-    except Exception:
-        return None, "创建标签页失败"
+    # Step 1: 复用文章标签页并导航到 Sci-Hub
+    tid = article_tab
+    created_here = False
+    if not tid:
+        try:
+            _, tid = create_tab(CDP_PORT, "about:blank")
+            created_here = True
+        except Exception:
+            return None, "创建标签页失败"
+
+    if not navigate_tab(CDP_PORT, tid, url):
+        if created_here:
+            close_tab(CDP_PORT, tid)
+        return None, "导航标签页失败"
 
     time.sleep(5)
 
     # Step 2: 从 DOM 提取 PDF URL
     pdf_url = _extract_pdf_url_from_scihub(CDP_PORT, tid)
 
-    # 关闭文章标签页
-    close_tab(CDP_PORT, tid)
+    if created_here:
+        close_tab(CDP_PORT, tid)
 
     if not pdf_url:
         return None, "未找到 PDF 链接"
 
     # Step 3: 通过 Fetch 域捕获 PDF
-    pdf_data = _fetch_pdf_via_navigate(CDP_PORT, pdf_url)
+    pdf_data = _fetch_pdf_via_navigate(CDP_PORT, pdf_url, pdf_tab=pdf_tab)
 
     if pdf_data:
         with open(fpath, "wb") as f:
@@ -406,34 +464,51 @@ if __name__ == "__main__":
     print(f"待下载 DOI 数: {len(dois)}", flush=True)
     print()
 
-    # 逐篇下载
+    # 逐篇下载。批次内固定复用 2 个标签页，避免每篇创建/关闭页面。
     ok, fail = 0, 0
     failed_list = []
     mirror_idx = 0  # 轮询镜像站
+    article_tab = None
+    pdf_tab = None
+    if cdp_available:
+        try:
+            _, article_tab = create_tab(CDP_PORT, "about:blank")
+            _, pdf_tab = create_tab(CDP_PORT, "about:blank")
+            print("CDP 标签页复用: ✅ article tab + PDF fetch tab", flush=True)
+        except Exception:
+            article_tab = None
+            pdf_tab = None
 
-    for i, doi in enumerate(dois):
-        mirror = working_mirrors[mirror_idx % len(working_mirrors)]
-        mirror_idx += 1
+    try:
+        for i, doi in enumerate(dois):
+            mirror = working_mirrors[mirror_idx % len(working_mirrors)]
+            mirror_idx += 1
 
-        print(f"[{i+1}/{len(dois)}] {doi[:45]} → {mirror.split('//')[-1]}...", end=" ", flush=True)
-        t0 = time.time()
+            print(f"[{i+1}/{len(dois)}] {doi[:45]} → {mirror.split('//')[-1]}...", end=" ", flush=True)
+            t0 = time.time()
 
-        if cdp_available:
-            fpath, msg = cdp_download(doi, OUTPUT_DIR, mirror)
-        else:
-            fpath, msg = "直连方式已禁用", "（Chrome 未运行）"
+            if cdp_available:
+                fpath, msg = cdp_download(doi, OUTPUT_DIR, mirror,
+                                          article_tab=article_tab, pdf_tab=pdf_tab)
+            else:
+                fpath, msg = "直连方式已禁用", "（Chrome 未运行）"
 
-        elapsed = time.time() - t0
+            elapsed = time.time() - t0
 
-        if fpath and os.path.exists(fpath) and os.path.getsize(fpath) > 10000:
-            ok += 1
-            print(f"✅ {msg} ({elapsed:.0f}s)", flush=True)
-        else:
-            fail += 1
-            failed_list.append(doi)
-            print(f"❌ {msg} ({elapsed:.0f}s)", flush=True)
+            if fpath and os.path.exists(fpath) and os.path.getsize(fpath) > 10000:
+                ok += 1
+                print(f"✅ {msg} ({elapsed:.0f}s)", flush=True)
+            else:
+                fail += 1
+                failed_list.append(doi)
+                print(f"❌ {msg} ({elapsed:.0f}s)", flush=True)
 
-        time.sleep(0.3)
+            time.sleep(0.3)
+    finally:
+        if article_tab:
+            close_tab(CDP_PORT, article_tab)
+        if pdf_tab:
+            close_tab(CDP_PORT, pdf_tab)
 
     # 汇总
     print(f"\n{'='*50}", flush=True)

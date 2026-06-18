@@ -553,6 +553,11 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
             print(f"✅ ({size_kb}KB, {elapsed:.1f}s)")
             downloaded.append(doi)
             ok += 1
+        elif status == "manual_required":
+            print(f"⚠ manual confirmation needed ({elapsed:.1f}s)")
+            print(f"  ↳ {pub_name} 需要你现在去可见 Chrome 完成机构登录/验证；完成后可继续重跑剩余列表。")
+            remaining.append(doi)
+            fail += 1
         elif status == "si_only":
             print(f"⚠ SI only ({elapsed:.1f}s)")
             remaining.append(doi)

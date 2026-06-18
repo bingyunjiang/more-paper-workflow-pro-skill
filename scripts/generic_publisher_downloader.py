@@ -186,6 +186,8 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
 
     # Strategy B: Article page extraction
     pdf_data = _strategy_article_page(port, doi, publisher, timeout)
+    if pdf_data == "MANUAL_REQUIRED":
+        return None, "manual_required", pub_name
     if pdf_data:
         return _save_pdf(pdf_data, dest), "ok", pub_name
 
@@ -313,7 +315,7 @@ def _strategy_direct_pdf(port: int, doi: str, publisher: dict,
 
 def _strategy_article_page(port: int, doi: str, publisher: dict,
                            timeout: int = DEFAULT_TIMEOUT,
-                           article_url_override: str = "") -> Optional[bytes]:
+                           article_url_override: str = "") -> Optional[bytes] | str:
     """Navigate to article page, find PDF link via CSS selectors, capture PDF.
 
     Args:
@@ -352,11 +354,17 @@ def _strategy_article_page(port: int, doi: str, publisher: dict,
     # Extract PDF URL from DOM
     pdf_url = _extract_pdf_url_from_dom(port, tid, selectors)
 
+    if pub_key == "wiley" and (barrier or pdf_url in (None, "NO_PDF_LINK")):
+        print("  ⚠ wiley requires manual access confirmation — leaving tab open")
+        print("  ↳ Open institutional access on this Wiley page, or use: "
+              "https://onlinelibrary.wiley.com/action/ssostart")
+        return "MANUAL_REQUIRED"
+
     # Keep the tab open when the site wants human login/verification so the
     # user has time to complete it in the visible CDP browser.
     if pdf_url in ("LOGIN_REQUIRED", "ACCESS_DENIED"):
         print(f"  ⚠ {pub_key or 'publisher'} requires manual access confirmation — leaving tab open")
-        return None
+        return "MANUAL_REQUIRED"
 
     # Close article tab
     close_tab(port, tid)

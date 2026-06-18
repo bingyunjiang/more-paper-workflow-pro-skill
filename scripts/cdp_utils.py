@@ -209,6 +209,16 @@ def capture_pdf_via_fetch(port, tab_ws_url, url_pattern, request_path_hint=None)
             pws.close()
         except Exception:
             pass
+        # The response body has been captured; close the PDF tab so batch
+        # downloads do not accumulate already-finished pages.
+        try:
+            tabs = list_tabs(port)
+            for t in tabs:
+                if t.get("webSocketDebuggerUrl") == tab_ws_url or t.get("id") == tab_ws_url:
+                    close_tab(port, t.get("id"))
+                    break
+        except Exception:
+            pass
 
     return pdf_data
 

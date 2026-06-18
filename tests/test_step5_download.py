@@ -121,6 +121,16 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertIsNone(result)
         close_tab.assert_not_called()
 
+    def test_download_one_returns_manual_required_for_login_wall(self):
+        with patch.object(gpd, "resolve_publisher", return_value={"strategy": "generic", "_key": "springer"}), \
+             patch.object(gpd, "_strategy_direct_pdf", return_value=None), \
+             patch.object(gpd, "_strategy_article_page", return_value="MANUAL_REQUIRED"):
+            path, status, pub = gpd.download_one(9223, "10.1007/demo", "paper-temp")
+
+        self.assertIsNone(path)
+        self.assertEqual(status, "manual_required")
+        self.assertEqual(pub, "springer")
+
     def test_springer_institutional_login_entry_is_documented(self):
         matrix = (ROOT / "references" / "publisher-access-matrix.md").read_text(encoding="utf-8")
         step5 = (ROOT / "agents" / "step_5_download.md").read_text(encoding="utf-8")
@@ -145,6 +155,14 @@ class Step5DownloadTest(unittest.TestCase):
         with patch.object(router, "resolve_publisher", return_value={"strategy": "generic", "_key": "springer", "publisher_domain": "link.springer.com"}), \
              patch.object(router, "generic_download_one", side_effect=RuntimeError("502") ), \
              patch.object(router, "ensure_cdp_running", return_value=True):
+            downloaded, remaining = router.run_generic_round(["10.1007/demo"], "paper-temp", 9223)
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["10.1007/demo"])
+
+    def test_generic_round_keeps_manual_required_item_for_rerun(self):
+        with patch.object(router, "resolve_publisher", return_value={"strategy": "generic", "_key": "springer", "publisher_domain": "link.springer.com"}), \
+             patch.object(router, "generic_download_one", return_value=(None, "manual_required", "springer")):
             downloaded, remaining = router.run_generic_round(["10.1007/demo"], "paper-temp", 9223)
 
         self.assertEqual(downloaded, [])

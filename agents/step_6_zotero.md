@@ -115,6 +115,54 @@ python3 scripts/setup_zotero.py --smoke-test
 
 进入 Step 6 后，必须先确认 Zotero 模式：`local` / `cloud` / `skip`。该选择决定后续读写能力和附件策略；不得静默默认 cloud。
 
+**Step 6 对话入口约定（默认按任务意图触发，不让用户手动挑文件）：**
+
+- 用户在对话中默认只需要表达目标，例如：
+  - `把当前 Step 4 结果导入 Zotero`
+  - `开始 Step 6，导入 Zotero`
+  - `把英文和中文文献都入库到 Zotero`
+- Agent 默认不得先要求用户手动指定 `文献库.bib`、`中文论文元数据.json` 或 workflow JSON 路径。
+- Agent 应先读取当前工作目录/已知工件，按下方分流规则自动决定使用哪个文件。
+- 只有在以下情况，Agent 才应追问具体文件来源：
+  1. 默认工件缺失或彼此不一致；
+  2. 用户明确说要覆盖默认来源（例如“不要用 Step 4 的 bib，改用我自己的 bib”）；
+  3. 用户同时提供多份同类工件，且无法安全判断哪份是主版本。
+
+**默认回显格式（进入写入前）：**
+
+- Agent 应先回显本轮导入分流计划，例如：
+  - 英文条目：将从 `文献库.bib` 导入
+  - 中文条目：将从 `中文论文元数据.json` 导入
+  - 若某一侧缺失：明确说明将重建、跳过或等待用户确认
+- 然后再进入 `CP-ZOTERO-WRITE`，而不是让用户先手动挑文件。
+
+**下一步动作提示要求（必须给用户可执行下一步，而不只是状态说明）：**
+
+- Agent 在每个关键节点都应告诉用户“接下来你可以怎么做”，至少包含一个推荐动作。
+- 不能只说“已检测到缺失”“计划如下”“等待确认”，必须补一句面向用户的可执行提示。
+- 若宿主支持结构化交互，可把下一步动作做成按钮/选项；若不支持，则必须用纯文本明确写出推荐回复或推荐命令。
+
+推荐模板：
+
+- 模式确认后：
+  - `下一步：请回复 local / cloud / skip 之一，我将按该模式继续生成 Zotero 入库计划。`
+- 已识别到默认工件并完成分流计划后：
+  - `下一步：若按默认规则继续，请回复“继续 Step 6”；若要覆盖默认来源，请直接说明要改用哪份 bib/json。`
+- 检测到缺失工件后：
+  - `下一步：你可以选择让我先重建缺失工件，或提供你自己的文件。推荐先回复“重建缺失工件”。`
+- 即将写入 Zotero 前：
+  - `下一步：若确认执行 Zotero 写入，请回复“确认 CP-ZOTERO-WRITE”；若只想先看计划，请回复“仅生成 plan”。`
+- 写入受阻或附件能力受限时：
+  - `下一步：你可以先继续做元数据入库，附件稍后手动处理；若接受该降级，请回复“按降级方案继续”。`
+
+**用户可直接复用的标准回复词：**
+
+- `继续 Step 6`
+- `重建缺失工件`
+- `仅生成 plan`
+- `确认 CP-ZOTERO-WRITE`
+- `按降级方案继续`
+
 | 模式 | 允许动作 | 禁止/限制 |
 |------|----------|-----------|
 | `local` | 读取本地 Zotero、生成计划、在确认后写入集合/条目、尽可能处理附件 | 写入前仍需 `CP-ZOTERO-WRITE` |
@@ -474,8 +522,8 @@ zotero_get_collections()
 
 **推荐执行顺序：**
 1. 分流条目：先排除 `verification_status=REJECT`，再按 `source` / `source_id` / 标题语言把英文国际文献与 CNKI/万方中文文献分开；`WARN` 条目作为待审项展示。
-2. 英文元数据导入：有真实 DOI 时优先 `zotero_add_by_doi`；批量场景可用 `zotero_add_by_bibtex`。
-3. 中文元数据导入：优先用 `中文论文元数据.json` 构造 CSL JSON，通过 `zotero_add_by_csl_json` 创建条目；必要时再用 `zotero_update_item` 补全作者、年份、刊名、摘要、URL、language、Extra。旧名 `chinese_papers.json` / `chinese_metadata.json` 仅作为兼容输入。
+2. **英文 dispatch 规则：** 有真实 DOI 的英文国际文献，默认使用 `文献库.bib`；单条导入可优先 `zotero_add_by_doi`，批量导入可用 `zotero_add_by_bibtex`。除非用户明确覆盖默认来源，否则 Agent 不应要求用户手动指定英文导入文件。
+3. **中文 dispatch 规则：** `cnki/wanfang` 中文文献，默认使用 `中文论文元数据.json` 构造 CSL JSON，通过 `zotero_add_by_csl_json` 创建条目；必要时再用 `zotero_update_item` 补全作者、年份、刊名、摘要、URL、language、Extra。旧名 `chinese_papers.json` / `chinese_metadata.json` 仅作为兼容输入。除非默认 JSON 缺失或用户明确覆盖来源，Agent 不应让用户手动挑中文导入文件。
 4. 查重：英文用 DOI/title；中文用 `source_id` / `article_url` / title+first_author+year，不用合成 ID 当 DOI 查重。
 5. 移入集合：按 `文献-Zotero架构对照.json` 的推荐集合路径调用 `zotero_manage_collections`。
 6. 附件状态判断：从 `pdf-附件池索引.json` 选择候选文件；英文按 DOI 优先；中文按 `source_id` / `article_url` / 标题优先；先判断 `missing` / `found` / `already_attached` / `duplicate_candidate` / `conflict`。
