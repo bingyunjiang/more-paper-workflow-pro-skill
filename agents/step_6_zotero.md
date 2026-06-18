@@ -164,6 +164,21 @@ Agent 收到上述口令后，应默认执行：
   - 若某一侧缺失：明确说明将重建、跳过或等待用户确认
 - 然后再进入 `CP-ZOTERO-WRITE`，而不是让用户先手动挑文件。
 
+**默认自动后处理（无需用户额外交待）：**
+
+- 一旦用户已经触发 Step 6 并确认实际写入 Zotero，以下动作默认视为**顺序执行的一部分**，不需要用户再单独发口令：
+  1. 主条目入库；
+  2. 高确定性次 collection 自动挂接；
+  3. 生成 `Zotero 次挂执行报告.md`；
+  4. 对英文已入库条目执行 DOI/API 二次补元数据；
+  5. 回写更新后的 `文献-Zotero架构对照.json/md`。
+- Agent 不应在上述动作之间反复要求用户回复“继续下一步”“继续次挂”“开始 DOI 补元数据”。
+- 只有在以下情况才应中断自动顺序并请求用户判断：
+  - 批量命中不唯一；
+  - 目标 collection 冲突；
+  - DOI/API 返回元数据冲突或覆盖风险较高；
+  - 大规模失败需要用户决定是重试、跳过还是回滚。
+
 **下一步动作提示要求（必须给用户可执行下一步，而不只是状态说明）：**
 
 - Agent 在每个关键节点都应告诉用户“接下来你可以怎么做”，至少包含一个推荐动作。
@@ -638,13 +653,15 @@ zotero_get_collections()
 1. 分流条目：先排除 `verification_status=REJECT`，再按 `source` / `source_id` / 标题语言把英文国际文献与 CNKI/万方中文文献分开；`WARN` 条目作为待审项展示。
 2. **英文 dispatch 规则：** 有真实 DOI 的英文国际文献，默认使用 `文献库.bib` 批量写入本地 Zotero；主路径优先 `zotero_add_by_bibtex`，而不是逐条先跑 `zotero_add_by_doi`。在批量条目落库后，如仍需补齐更丰富元数据，再对缺口条目做 DOI 二次解析/更新。除非用户明确覆盖默认来源，否则 Agent 不应要求用户手动指定英文导入文件。
 3. **中文 dispatch 规则：** `cnki/wanfang` 中文文献，默认使用 `中文论文元数据.json` 构造 CSL JSON，并优先批量 `zotero_add_by_csl_json` 写入本地 Zotero；必要时再用 `zotero_update_item` 补全作者、年份、刊名、摘要、URL、language、Extra。旧名 `chinese_papers.json` / `chinese_metadata.json` 仅作为兼容输入。除非默认 JSON 缺失或用户明确覆盖来源，Agent 不应让用户手动挑中文导入文件。
-4. **二次元数据补全规则：** 条目入库成功后，英文可对高价值条目执行 DOI/API 二次补元数据；中文可对 metadata_incomplete 条目执行定向补全。该阶段是增强层，不得阻塞“先把条目全部写入库”这一主目标。
+4. **二次元数据补全规则：** 条目入库成功后，英文可对高价值条目执行 DOI/API 二次补元数据；中文可对 metadata_incomplete 条目执行定向补全。该阶段是增强层，但在用户已确认真实写入后，默认应作为顺序自动后处理执行；不得再把它变成新的用户口令门槛，也不得阻塞“先把条目全部写入库”这一主目标。
 5. 查重：英文用 DOI/title；中文用 `source_id` / `article_url` / title+first_author+year，不用合成 ID 当 DOI 查重。
 6. 移入集合：按 `文献-Zotero架构对照.json` 的推荐集合路径调用 `zotero_manage_collections`。
+6.a. 对存在 `secondary_collection_paths` 的条目，主条目入库完成后默认自动继续高确定性次挂；不得要求用户单独下达“继续次挂”的口令。
 7. 附件状态判断：从 `pdf-附件池索引.json` 选择候选文件；英文按 DOI 优先；中文按 `source_id` / `article_url` / 标题优先；先判断 `missing` / `found` / `already_attached` / `duplicate_candidate` / `conflict`。
 8. 附件验证：用 `zotero_get_item_children` / `zotero_get_items_children` 检查每个条目是否有 PDF 附件。
 9. 附件动作建议：默认写入 `attachment_action`，不直接执行高风险动作。
 10. 回写状态：更新 `文献-Zotero架构对照.json` 和 `pdf-附件池索引.json` 中的导入状态、附件状态、匹配置信度，并同步生成/刷新 `文献-Zotero架构对照.md` 审阅版。
+10.a. 次挂阶段结束后，默认生成 `Zotero 次挂执行报告.md`，列出自动补挂成功条目和待人工确认条目。
 11. child note 同步：对每篇 T1-T3 条目写入或更新 `More-Paper Evidence Card` child note；同时写入短 tag 索引（`mp-role:*` / `mp-fit:*` / `mp-depth:*` / `mp-tier:*`），但不把长文本 claim 或 note 作为 tag。
 
 **当前 Zotero MCP 附件限制：**
