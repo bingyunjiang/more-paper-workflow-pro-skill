@@ -8,6 +8,33 @@
 
 ---
 
+## v1.0.14-20260618 (2026-06-17 至 2026-06-18)
+
+### 2026-06-17 至 2026-06-18：Step 4 / Step 6 中文元数据、对照产物与 Zotero 规划强化
+
+- **Step 4 中间产物正式化**：新增 `scripts/manage_step4_intermediate.py`，把 Step 4 的中间结果管理从临时文件提升为稳定工件，便于后续汇总、复跑和跨章节追溯。
+- **多章节映射与结果合并补齐**：新增 `scripts/merge_workflow_results.py`，并在 `search_by_topic.py`、`workflow_contracts.py` 侧同步增强多章节映射和结果合并能力，支持同一轮检索结果稳定回挂到多个章节/证据需求。
+- **中文元数据导出链完善**：增强 `scripts/export_chinese_metadata.py`、`scripts/export_outline_mapping.py`、`scripts/export_step4_table.py`，让 Step 4 能稳定导出中文论文元数据、章节大纲映射与检索总表，减少后续 Step 6/7 手工补字段。
+- **Step 4 契约与文档同步增强**：`agents/step_4_search_score.md` 增补中间产物、中文元数据、映射输出和合并规则说明，运行时文档与脚本输出口径重新对齐。
+- **Zotero 规划器能力扩展**：`scripts/build_zotero_plan.py` 现在更完整地理解工作流映射关系，结合 `export_outline_mapping.py` 和检索结果，对 `文献-Zotero架构对照` 的生成更稳，更适合多章节、多来源混合场景。
+- **Step 6 本地 / 云端 / 跳过入口进一步细化**：`agents/step_6_zotero.md` 在两天内连续增强，补齐模式选择、计划生成、映射消费和人工审阅边界，继续坚持 Step 6 起始先问 `local / cloud / skip`，不静默默认 cloud。
+- **配套测试覆盖补齐**：新增 `tests/test_manage_step4_intermediate.py`、`tests/test_merge_workflow_results.py`、`tests/test_multi_chapter_mapping.py`、`tests/test_build_zotero_plan_workflow_mapping.py`、`tests/test_search_deduplicate.py`，确保中间工件、多章节映射、去重与 Zotero 规划不会回归。
+
+### 2026-06-17 至 2026-06-18：Step 5 下载路由、英文摘要补强与工作流契约补齐
+
+- **Step 5 下载矩阵继续收口**：`scripts/unified_download_router.py`、`scripts/generic_publisher_downloader.py`、`references/publisher-access-matrix.md`、`agents/step_5_download.md` 同步更新，进一步明确出版社访问矩阵、直达下载规则和路由回退行为。
+- **下载测试显著增强**：`tests/test_step5_download.py` 新增多轮覆盖，固定 Step 5 的路由选择、回退行为和规则边界，降低后续扩展出版社策略时的回归风险。
+- **英文摘要增强脚本加入主链**：新增 `scripts/enrich_english_abstracts.py`，用于补强英文摘要信息，改善跨语种检索后的后续筛选与写作输入质量。
+- **Step 4 到展示层的导出能力增强**：新增 `scripts/export_step4_table.py`，把 Step 4 检索/评分结果转成更稳定的表格展示层产物，支撑审阅、汇报和人工复核。
+- **论文卡片与工作流契约补齐**：新增 `references/paper-card-contract.md`，并增强 `scripts/workflow_contracts.py`、`agents/step_7_writing.md`、`agents/step_6_zotero.md`、`agents/step_4_search_score.md`，把检索结果、Zotero 规划和写作输入之间的字段约束写实。
+- **Step 6 入口提示前移到公共入口**：`README.md`、`SKILL.md`、`agents/step_1_entry.md`、`commands/topic.md` 补入与工作流入口相关的提醒，使 direct-entry 用户更容易进入正确 Step，而不必先阅读完整运行文档。
+
+### 文档、宣传与版本口径同步
+
+- **新增故事式宣传文案**：加入 `docs/promo-copy.md`，为对外介绍提供更完整的长文案素材。
+- **新增一组原创长卷海报素材**：`posters/story/` 下新增 6 张分镜图、联系表和长卷主图，延续“功能架构/证据闭环”而非通用落地页的宣传方向。
+- **README / CHANGELOG / SKILL 版本同步到 `v1.0.14-20260618`**：README 继续保持 GitHub 对外概览口径，CHANGELOG 保留两日内的详细变更说明，SKILL.md frontmatter 与两者同版。
+
 ## v1.0.13-20260616 (2026-06-15 至 2026-06-16)
 
 ### 2026-06-15：Step 7 写作证据链与多入口证据包 🆕

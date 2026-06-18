@@ -11,7 +11,7 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 more paper workflow pro skill `v1.0.13-20260616`
+# 📚 more paper workflow pro skill `v1.0.14-20260618`
 
 > 面向中文/双语论文写作的证据闭环学术工作流：从定题、检索、下载、Zotero 到写作与引用审计，全程基于真实文献，而不是模型记忆。
 
@@ -751,6 +751,13 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
+### v1.0.14-20260618 (2026-06-17 至 2026-06-18)
+- **Step 4 / Step 6 的中文元数据与映射产物补齐**：新增和增强 `manage_step4_intermediate.py`、`merge_workflow_results.py`、`export_chinese_metadata.py`、`export_outline_mapping.py`、`build_zotero_plan.py` 等链路，稳定生成中间工件、章节映射和 Zotero 规划输入，降低多章节场景下的手工整理成本
+- **Step 5 下载路由与出版社矩阵继续收口**：统一下载路由、通用出版社下载器、访问矩阵和 Step 5 文档同步更新，并补强下载测试，进一步固定直达下载和回退行为
+- **新增英文摘要增强与 Step 4 表格导出**：加入 `enrich_english_abstracts.py` 与 `export_step4_table.py`，改善跨语种检索后的摘要质量和人工审阅展示层
+- **工作流契约继续向 Step 7 写作输入延伸**：新增 `paper-card-contract.md`，同步增强 Step 4 / 6 / 7 的字段约束，使检索结果、Zotero 规划和写作输入更容易稳定衔接
+- **对外宣传素材更新**：新增 `docs/promo-copy.md` 与一组 `posters/story/` 原创长卷海报，README 保持对外概览，详细变更保留在 `CHANGELOG.md`
+
 ### v1.0.13-20260616 (2026-06-15 至 2026-06-16)
 - **Step 7 证据链改为多入口设计**：默认推荐 `Zotero + PDF + MinerU ZIP`，但 Zotero/MinerU 不再是硬依赖；无 Zotero、无 MinerU 或无解析缓存时，可通过本地 PDF、BibTeX/CSL JSON、实验报告、数据、草稿、审稿意见、标准文件和图片目录组成 `evidence_pack` 继续写作
 - **证据等级决定 claim 强度**：新增 `evidence-pack.v1` 最小映射，固定 `source_path / source_type / evidence_level / claim_scope / risk_flags / verification_action`；只有草稿或摘要级材料时，只能写低风险结构稿并标注证据缺口
@@ -882,7 +889,7 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 ---
 
 <a id="english"></a>
-# 📚 more paper workflow pro skill `v1.0.13-20260616`
+# 📚 more paper workflow pro skill `v1.0.14-20260618`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
@@ -1452,6 +1459,13 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 ## 📋 Version History
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
+
+### v1.0.14-20260618 (2026-06-17 to 2026-06-18)
+- **Step 4 / Step 6 metadata and mapping outputs were strengthened**: `manage_step4_intermediate.py`, `merge_workflow_results.py`, `export_chinese_metadata.py`, `export_outline_mapping.py`, and `build_zotero_plan.py` were added or expanded to stabilize intermediate artifacts, chapter mapping, and Zotero planning inputs for multi-chapter workflows
+- **Step 5 routing and publisher access rules were tightened again**: the unified download router, generic publisher downloader, publisher-access matrix, and Step 5 docs now align more closely, with stronger tests around direct-download and fallback behavior
+- **English abstract enrichment and Step 4 table export were added**: `enrich_english_abstracts.py` and `export_step4_table.py` improve cross-language search quality and produce cleaner review-facing table outputs
+- **Workflow contracts extend further into Step 7 writing inputs**: `paper-card-contract.md` and related contract updates make search outputs, Zotero planning, and writing-side intake fields more explicit and easier to connect safely
+- **Public-facing promo assets were refreshed**: added `docs/promo-copy.md` and a new `posters/story/` set of original long-scroll visuals, while keeping the README concise and the detailed release record in `CHANGELOG.md`
 
 ### v1.0.13-20260616 (2026-06-15 to 2026-06-16)
 - **Step 7 now supports multi-entry evidence intake**: `Zotero + PDF + MinerU ZIP` remains the recommended path, but Zotero and MinerU are no longer hard requirements; local PDFs, BibTeX/CSL JSON, experiment reports, data files, drafts, reviewer comments, standards, and image folders can form an `evidence_pack`
