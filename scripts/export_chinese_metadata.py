@@ -10,9 +10,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from workflow_contracts import load_search_records
+
+
+def _source_id_short(source_id: str, fallback: str = "record") -> str:
+    text = (source_id or "").strip().lower()
+    if not text:
+        return fallback
+    for prefix in ("cnki.", "wanfang."):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+            break
+    text = re.sub(r"[^a-z0-9]", "", text)
+    return text[:8] if text else fallback
+
+
+def _stable_chinese_citekey(source: str, year: str, source_id: str) -> str:
+    year_str = (year or "????").strip() or "????"
+    if source == "cnki":
+        return f"CNKI{year_str}_cnki{_source_id_short(source_id)}"
+    return f"Wanfang{year_str}_wf{_source_id_short(source_id)}"
 
 
 def export_chinese_records(workflow_path: Path) -> list[dict]:
@@ -48,7 +68,7 @@ def export_chinese_records(workflow_path: Path) -> list[dict]:
             "tier": record.paper_tier,
             "score": record.score,
             "record_id": raw.get("record_id", "") or raw_inner.get("record_id", ""),
-            "citekey": raw.get("citekey", "") or raw_inner.get("citekey", ""),
+            "citekey": raw.get("citekey", "") or raw_inner.get("citekey", "") or _stable_chinese_citekey(record.source, record.year, record.source_id or record.doi),
         }
         exported.append(entry)
     return exported

@@ -1,2 +1,6 @@
 # 不让 Ruff 触碰 Markdown 文件
 extend-exclude = ["*.md"]
+preview = true
+
+[format]
+preview = true

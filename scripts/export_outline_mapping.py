@@ -36,6 +36,9 @@ def build_mapping_records(workflow_path: Path) -> list[dict]:
             "search_task_id": record.search_task_id,
             "chapter_id": record.chapter_id,
             "chapter_title": record.chapter_title,
+            "secondary_search_task_ids": record.secondary_search_task_ids,
+            "secondary_chapter_ids": record.secondary_chapter_ids,
+            "secondary_chapter_titles": record.secondary_chapter_titles,
             "evidence_type": record.evidence_type,
             "paper_tier": tier,
             "score": record.score,
@@ -60,12 +63,15 @@ def write_md(path: Path, rows: list[dict]) -> None:
         "- 本文件表示 Step 4 已完成的文献与大纲章节初始挂接。",
         "- 机器主源仍为 `workflow_search_results.json`；本文件用于人工审阅与 Step 6/7 回查。",
         "",
-        "| 序号 | record_id | 标题 | 来源 | DOI/source_id | search_task_id | chapter_id | chapter_title | evidence_type | Tier | Score |",
-        "|------|-----------|------|------|---------------|----------------|------------|---------------|---------------|------|-------|",
+        "| 序号 | record_id | 标题 | 来源 | DOI/source_id | primary_search_task | primary_chapter_id | primary_chapter_title | secondary_chapters | evidence_type | Tier | Score |",
+        "|------|-----------|------|------|---------------|---------------------|--------------------|-----------------------|--------------------|---------------|------|-------|",
     ]
     for i, row in enumerate(rows, 1):
+        secondary = "；".join(
+            f"{cid}:{ctitle}" for cid, ctitle in zip(row.get("secondary_chapter_ids", []), row.get("secondary_chapter_titles", []))
+        )
         lines.append(
-            "| {i} | {record_id} | {title} | {source} | {doi} | {task} | {chapter_id} | {chapter_title} | {evidence_type} | {tier} | {score} |".format(
+            "| {i} | {record_id} | {title} | {source} | {doi} | {task} | {chapter_id} | {chapter_title} | {secondary} | {evidence_type} | {tier} | {score} |".format(
                 i=i,
                 record_id=row["record_id"],
                 title=row["title"].replace("|", "\\|"),
@@ -74,6 +80,7 @@ def write_md(path: Path, rows: list[dict]) -> None:
                 task=row["search_task_id"],
                 chapter_id=row["chapter_id"],
                 chapter_title=(row["chapter_title"] or "").replace("|", "\\|"),
+                secondary=secondary.replace("|", "\\|"),
                 evidence_type=row["evidence_type"],
                 tier=row["paper_tier"],
                 score=row["score"],

@@ -128,6 +128,29 @@ python3 scripts/setup_zotero.py --smoke-test
   2. 用户明确说要覆盖默认来源（例如“不要用 Step 4 的 bib，改用我自己的 bib”）；
   3. 用户同时提供多份同类工件，且无法安全判断哪份是主版本。
 
+**用户触发 PDF 绑定 / 重建 Zotero 对照的标准口令：**
+
+- 用户默认不需要提脚本名（如 `build_zotero_plan.py`）。
+- 只需要表达任务意图，Agent 应自动理解为“扫描 PDF 目录 + 更新 `pdf-附件池索引.json` + 重建 `文献-Zotero架构对照.json/md`”。
+
+推荐用户口令：
+
+- `重新扫描 PDF 并更新 Zotero 对照`
+- `把下载好的 PDF 绑定到当前文献`
+- `更新 PDF 附件池索引`
+- `继续 Step 6，并重新扫描 PDF 目录`
+- `按当前文献结果和 PDF 目录更新 Zotero 对照`
+
+Agent 收到上述口令后，应默认执行：
+1. 确认或读取当前 PDF 目录；
+2. 更新 `pdf-附件池索引.json`；
+3. 重建 `文献-Zotero架构对照.json` 和 `文献-Zotero架构对照.md`；
+4. 回显哪些文献已绑定 PDF、哪些仍缺失。
+
+若 PDF 目录不明确，Agent 才应追问：
+- `请给我 PDF 目录路径`
+- 或在支持结构化交互时，给出目录来源选项。
+
 **默认回显格式（进入写入前）：**
 
 - Agent 应先回显本轮导入分流计划，例如：
@@ -519,6 +542,26 @@ zotero_get_collections()
 
 **目标：**
 将 Step 4 的英文 BibTeX 条目和中文增强元数据低风险导入 Zotero，并把条目放入 6.2 推荐的集合；PDF 附件默认只判断状态和处理策略，不自动挂载到已有条目。
+
+**多章节 / 多 collection 原则：**
+
+- 一篇文献可以对应多个章节，也可以对应多个 Zotero collection。
+- 这**不等于多次入库**。
+- 对用户而言，默认只需要一次“入库”口令，例如：
+  - `继续 Step 6`
+  - `开始 Zotero 入库`
+  - `把当前结果导入 Zotero`
+- Agent 在内部应执行：
+  1. **条目只创建一次**；
+  2. 先写入 `primary_collection_path`；
+  3. 再把同一个 Zotero item 挂入 `secondary_collection_paths`；
+  4. 不得因为存在多个 collection 就重复创建 Zotero 条目。
+
+实现边界：
+
+- `primary_collection_path` 表示该文献的主归属集合。
+- `secondary_collection_paths` 表示同一文献的次归属集合，可为多个。
+- 若某 collection 挂接失败，应回写为集合层失败，不得退化为再创建一个重复条目。
 
 **推荐执行顺序：**
 1. 分流条目：先排除 `verification_status=REJECT`，再按 `source` / `source_id` / 标题语言把英文国际文献与 CNKI/万方中文文献分开；`WARN` 条目作为待审项展示。

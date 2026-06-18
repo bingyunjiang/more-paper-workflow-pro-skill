@@ -210,6 +210,8 @@ class SearchTask:
     id: str = ""
     chapter_id: str = ""
     chapter_title: str = ""
+    secondary_chapter_ids: list[str] = field(default_factory=list)
+    secondary_chapter_titles: list[str] = field(default_factory=list)
     evidence_type: str = ""
     question_to_answer: str = ""
     tier: str = ""
@@ -229,6 +231,9 @@ class SearchResultRecord:
     search_task_id: str = ""
     chapter_id: str = ""
     chapter_title: str = ""
+    secondary_search_task_ids: list[str] = field(default_factory=list)
+    secondary_chapter_ids: list[str] = field(default_factory=list)
+    secondary_chapter_titles: list[str] = field(default_factory=list)
     evidence_type: str = ""
     query: str = ""
     verification_status: str = ""
@@ -274,6 +279,9 @@ class SearchResultRecord:
             search_task_id=_clean(row.get("search_task_id") or row.get("_sub_query")),
             chapter_id=_clean(row.get("chapter_id")),
             chapter_title=_clean(row.get("chapter_title")),
+            secondary_search_task_ids=_clean_list(row.get("secondary_search_task_ids")),
+            secondary_chapter_ids=_clean_list(row.get("secondary_chapter_ids")),
+            secondary_chapter_titles=_clean_list(row.get("secondary_chapter_titles")),
             evidence_type=_clean(row.get("evidence_type")),
             query=_clean(row.get("query") or row.get("_query")),
             verification_status=_clean(row.get("verification_status")),
@@ -351,6 +359,7 @@ class ZoteroPlanRecord:
     doi: str = ""
     article_url: str = ""
     collection_path: list[str] = field(default_factory=list)
+    secondary_collection_paths: list[list[str]] = field(default_factory=list)
     import_method: str = ""
     import_status: str = ""
     attachment_status: str = ""

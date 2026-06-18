@@ -2292,35 +2292,98 @@ def verify_dois_from_file(filepath):
 
 # ── Deduplication ───────────────────────────────────────────────────────────
 
+def _normalize_doi_key(value):
+    return (value or "").lower().replace("https://doi.org/", "").strip()
+
+
+def _normalize_title_key(value):
+    return re.sub(r"\s+", "", (value or "").lower())
+
+
+def _normalize_author_key(authors):
+    if not authors:
+        return ""
+    cleaned = []
+    for author in authors:
+        text = str(author).strip().lower()
+        if not text:
+            continue
+        text = text.split(",")[0].strip()
+        text = re.sub(r"\s+", "", text)
+        cleaned.append(text)
+    return "|".join(cleaned)
+
+
+def _prefer_richer_record(existing, candidate):
+    existing_score = 0
+    candidate_score = 0
+    for field in ("authors", "abstract", "article_url", "year", "venue", "source_id"):
+        ex_val = existing.get(field)
+        ca_val = candidate.get(field)
+        if isinstance(ex_val, list):
+            existing_score += len(ex_val)
+        elif ex_val:
+            existing_score += 1
+        if isinstance(ca_val, list):
+            candidate_score += len(ca_val)
+        elif ca_val:
+            candidate_score += 1
+    if candidate_score > existing_score:
+        existing.update(candidate)
+
+
 def deduplicate(results):
-    """Deduplicate by DOI (primary) or title+first_author+year (fallback)."""
+    """Deduplicate English by DOI and Chinese by author+title."""
     seen_doi = set()
-    seen_title_key = set()
+    seen_fallback_key = set()
     unique = []
 
     for r in results:
-        doi = r.get("doi", "")
-        if doi:
-            doi_norm = doi.lower().replace("https://doi.org/", "").strip()
-            if doi_norm in seen_doi:
-                # Keep the entry with more metadata
+        source = (r.get("source") or "").lower().strip()
+        title_key = _normalize_title_key(r.get("title", ""))
+        author_key = _normalize_author_key(r.get("authors") or [])
+
+        if source in ("cnki", "wanfang"):
+            key = f"{author_key}|{title_key}"
+            if key in seen_fallback_key:
                 for existing in unique:
-                    if existing.get("doi", "").lower().replace("https://doi.org/", "").strip() == doi_norm:
-                        if len(r.get("authors", [])) > len(existing.get("authors", [])):
-                            existing.update(r)
+                    ex_source = (existing.get("source") or "").lower().strip()
+                    if ex_source in ("cnki", "wanfang"):
+                        ex_key = f"{_normalize_author_key(existing.get('authors') or [])}|{_normalize_title_key(existing.get('title', ''))}"
+                        if ex_key == key:
+                            _prefer_richer_record(existing, r)
+                            break
+                continue
+            seen_fallback_key.add(key)
+            unique.append(r)
+            continue
+
+        doi = r.get("doi", "")
+        doi_norm = _normalize_doi_key(doi)
+        if doi_norm:
+            if doi_norm in seen_doi:
+                for existing in unique:
+                    if _normalize_doi_key(existing.get("doi", "")) == doi_norm:
+                        _prefer_richer_record(existing, r)
                         break
                 continue
             seen_doi.add(doi_norm)
             unique.append(r)
         else:
-            # Fallback: title + first_author + year
-            title = (r.get("title") or "?").lower().strip()[:80]
+            title = _normalize_title_key(r.get("title", ""))[:120]
             first_author = (r.get("authors") or ["?"])[0].lower().split(",")[0].strip() if r.get("authors") else "?"
             year = str(r.get("year", "?"))
             key = f"{title}|{first_author}|{year}"
-            if key in seen_title_key:
+            if key in seen_fallback_key:
+                for existing in unique:
+                    ex_title = _normalize_title_key(existing.get("title", ""))[:120]
+                    ex_first = (existing.get("authors") or ["?"])[0].lower().split(",")[0].strip() if existing.get("authors") else "?"
+                    ex_year = str(existing.get("year", "?"))
+                    if f"{ex_title}|{ex_first}|{ex_year}" == key:
+                        _prefer_richer_record(existing, r)
+                        break
                 continue
-            seen_title_key.add(key)
+            seen_fallback_key.add(key)
             unique.append(r)
 
     return unique
@@ -2723,7 +2786,7 @@ Examples:
                              "'zh' keeps only Chinese-titled papers (isinEn=0 + title filter). "
                              "'en' keeps only English-titled papers. "
                              "'any' (default) disables filtering. "
-                             "Use --language zh when searching Chinese databases for Chinese literature.")
+                             "For this workflow, CNKI/Wanfang should normally use --language zh.")
 
     # CDP port
     parser.add_argument("--cdp-port", type=int, default=None,

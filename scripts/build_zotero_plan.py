@@ -23,6 +23,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+try:
+    from workflow_contracts import load_search_records
+except ImportError:
+    load_search_records = None
+
 SCHEMA_VERSION = "1.2"
 WORKFLOW_CONTRACT_SCHEMA = "workflow-contracts.v1"
 DEFAULT_ROOT = "论文文献库"
@@ -85,6 +90,46 @@ def load_prepared_pdf_artifacts(path: str | None, warnings: list[str]) -> list[d
         return [item for item in data if isinstance(item, dict)]
     warnings.append(f"Prepared PDF artifacts has unsupported format: {path}")
     return []
+
+
+def load_workflow_index(path: str | None, warnings: list[str]) -> dict[str, dict[str, Any]]:
+    if not path:
+        return {}
+    if load_search_records is None:
+        warnings.append("workflow_contracts.load_search_records unavailable")
+        return {}
+    p = Path(path)
+    if not p.exists():
+        warnings.append(f"Workflow results not found: {path}")
+        return {}
+    try:
+        records = load_search_records(p)
+    except Exception as exc:
+        warnings.append(f"Could not read workflow results {path}: {exc}")
+        return {}
+    index: dict[str, dict[str, Any]] = {}
+    for rec in records:
+        keys = []
+        if rec.doi:
+            keys.append(normalize_doi(rec.doi))
+        if rec.source_id:
+            keys.append(normalize_key(rec.source_id))
+        if rec.title:
+            keys.append(normalize_key(rec.title))
+        payload = {
+            "search_task_id": rec.search_task_id,
+            "chapter_id": rec.chapter_id,
+            "chapter_title": rec.chapter_title,
+            "secondary_search_task_ids": rec.secondary_search_task_ids,
+            "secondary_chapter_ids": rec.secondary_chapter_ids,
+            "secondary_chapter_titles": rec.secondary_chapter_titles,
+            "evidence_type": rec.evidence_type,
+            "paper_card": rec.paper_card.__dict__ if hasattr(rec.paper_card, "__dict__") else {},
+        }
+        for key in keys:
+            if key and key not in index:
+                index[key] = payload
+    return index
 
 
 def split_bib_entries(text: str) -> list[tuple[str, str, str]]:
@@ -254,6 +299,7 @@ def merge_chinese_metadata(record: dict[str, Any], index: dict[str, dict[str, An
         return record
     merged = dict(record)
     field_map = {
+        "citekey": ["citekey"],
         "title": ["title", "题名", "标题"],
         "year": ["year", "年份"],
         "publication_title": ["publication_title", "journal", "期刊", "来源"],
@@ -267,7 +313,7 @@ def merge_chinese_metadata(record: dict[str, Any], index: dict[str, dict[str, An
         "verified_sources": ["verified_sources", "验证来源", "可信来源"],
     }
     for target, aliases in field_map.items():
-        if merged.get(target):
+        if merged.get(target) and not (target == "citekey" and str(merged.get(target, "")).lower().endswith("_unknown")):
             continue
         for alias in aliases:
             if match.get(alias):
@@ -317,6 +363,19 @@ def flatten_structure(node: Any, prefix: list[str] | None = None) -> list[dict[s
 def choose_collection(record: dict[str, Any], root: str, structure_rows: list[dict[str, Any]], has_structure: bool) -> list[str]:
     if not has_structure:
         return [CONFIRM_COLLECTION]
+    chapter_title = normalize_text(record.get("chapter_title"))
+    chapter_id = normalize_text(record.get("chapter_id"))
+    if chapter_title or chapter_id:
+        for row in structure_rows:
+            path = row.get("path") or []
+            if len(path) <= 1:
+                continue
+            row_name = normalize_text(row.get("name"))
+            hay = normalize_key(" ".join(path + [row_name]))
+            if chapter_title and normalize_key(chapter_title) in hay:
+                return path
+            if chapter_id and normalize_key(chapter_id) in hay:
+                return path
     hay = " ".join([
         record.get("subtopic", ""),
         record.get("title", ""),
@@ -344,6 +403,50 @@ def choose_collection(record: dict[str, Any], root: str, structure_rows: list[di
             best_score = score
             best_path = path
     return best_path or [root, CONFIRM_COLLECTION]
+
+
+def choose_secondary_collections(record: dict[str, Any], root: str, structure_rows: list[dict[str, Any]], has_structure: bool) -> list[list[str]]:
+    if not has_structure:
+        return []
+    chapter_titles = [normalize_text(x) for x in record.get("secondary_chapter_titles", []) if normalize_text(x)]
+    chapter_ids = [normalize_text(x) for x in record.get("secondary_chapter_ids", []) if normalize_text(x)]
+    if not chapter_titles and not chapter_ids:
+        return []
+    selected: list[list[str]] = []
+    for row in structure_rows:
+        path = row.get("path") or []
+        if len(path) <= 1:
+            continue
+        hay = normalize_key(" ".join(path + [row.get("name", "")]))
+        if any(normalize_key(x) in hay for x in chapter_titles + chapter_ids if x):
+            if path not in selected:
+                selected.append(path)
+    return selected
+
+
+def merge_workflow_mapping(record: dict[str, Any], workflow_index: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    keys = []
+    if record.get("doi"):
+        keys.append(normalize_doi(record.get("doi")))
+    if record.get("source_id"):
+        keys.append(normalize_key(record.get("source_id")))
+    if record.get("title"):
+        keys.append(normalize_key(record.get("title")))
+    for key in keys:
+        payload = workflow_index.get(key)
+        if payload:
+            merged = dict(record)
+            merged.update({
+                "search_task_id": payload.get("search_task_id", merged.get("search_task_id", "")),
+                "chapter_id": payload.get("chapter_id", merged.get("chapter_id", "")),
+                "chapter_title": payload.get("chapter_title", merged.get("chapter_title", "")),
+                "secondary_search_task_ids": payload.get("secondary_search_task_ids", merged.get("secondary_search_task_ids", [])),
+                "secondary_chapter_ids": payload.get("secondary_chapter_ids", merged.get("secondary_chapter_ids", [])),
+                "secondary_chapter_titles": payload.get("secondary_chapter_titles", merged.get("secondary_chapter_titles", [])),
+                "evidence_type": payload.get("evidence_type", merged.get("evidence_type", "")),
+            })
+            return merged
+    return record
 
 
 def file_md5(path: Path) -> str:
@@ -488,6 +591,7 @@ def import_method(record: dict[str, Any], metadata_incomplete: bool) -> tuple[st
 def build_records(
     bib_records: list[dict[str, Any]],
     chinese_index: dict[str, dict[str, Any]],
+    workflow_index: dict[str, dict[str, Any]],
     root: str,
     structure_rows: list[dict[str, Any]],
     has_structure: bool,
@@ -496,7 +600,7 @@ def build_records(
 ) -> list[dict[str, Any]]:
     records = []
     for idx, raw in enumerate(bib_records, start=1):
-        record = merge_chinese_metadata(raw, chinese_index)
+        record = merge_workflow_mapping(merge_chinese_metadata(raw, chinese_index), workflow_index)
         source = (record.get("source") or "").lower()
         source_id = record.get("source_id", "")
         language = record.get("language") or ("zh-CN" if source in {"cnki", "wanfang"} or source_id.startswith(("cnki.", "wanfang.")) else "")
@@ -511,6 +615,8 @@ def build_records(
         if verification_status == "REJECT":
             attachment_status, attachment_action = "rejected", "none"
         confidence = candidates[0]["match_confidence"] if candidates else "none"
+        primary_collection_path = choose_collection(record, root, structure_rows, has_structure)
+        secondary_collection_paths = choose_secondary_collections(record, root, structure_rows, has_structure)
         records.append({
             "record_id": f"stable-{idx:03d}",
             "citekey": record.get("citekey", ""),
@@ -531,7 +637,9 @@ def build_records(
             "verification_confidence": record.get("verification_confidence", "low"),
             "warn_class": record.get("warn_class", "legacy-unverified"),
             "verified_sources": record.get("verified_sources", ""),
-            "collection_path": choose_collection(record, root, structure_rows, has_structure),
+            "collection_path": primary_collection_path,
+            "primary_collection_path": primary_collection_path,
+            "secondary_collection_paths": secondary_collection_paths,
             "collection_key": "",
             "tags": infer_tags(record, structure_rows),
             "import_method": method,
@@ -635,18 +743,20 @@ def write_review(path: str, plan: dict[str, Any]) -> None:
     lines += [
         "## 对照表",
         "",
-        "| 序号 | citekey | 标题 | 可信度 | 风险类别 | 推荐集合路径 | 导入方式 | 导入状态 | PDF状态 | 附件动作 | PDF文件 |",
-        "|------|---------|------|--------|----------|--------------|----------|----------|---------|----------|---------|",
+        "| 序号 | citekey | 标题 | 可信度 | 风险类别 | 主集合路径 | 次集合路径 | 导入方式 | 导入状态 | PDF状态 | 附件动作 | PDF文件 |",
+        "|------|---------|------|--------|----------|------------|------------|----------|----------|---------|----------|---------|",
     ]
     for i, rec in enumerate(plan["records"], start=1):
+        secondary = "；".join(" / ".join(path) for path in rec.get("secondary_collection_paths") or [])
         lines.append(
-            "| {i} | {citekey} | {title} | {verification} | {warn_class} | {collection} | {method} | {import_status} | {att_status} | {att_action} | {pdf} |".format(
+            "| {i} | {citekey} | {title} | {verification} | {warn_class} | {collection} | {secondary} | {method} | {import_status} | {att_status} | {att_action} | {pdf} |".format(
                 i=i,
                 citekey=truncate(rec.get("citekey"), 28),
                 title=truncate(rec.get("title"), 60),
                 verification=truncate(rec.get("verification_status"), 18),
                 warn_class=truncate(rec.get("warn_class"), 28),
                 collection=truncate(" / ".join(rec.get("collection_path") or []), 60),
+                secondary=truncate(secondary, 60),
                 method=rec.get("import_method", ""),
                 import_status=rec.get("import_status", ""),
                 att_status=rec.get("attachment_status", ""),
@@ -667,6 +777,7 @@ def main() -> int:
     parser.add_argument("--pdf-dir", action="append", default=[], help="PDF 附件池目录，可重复传入")
     parser.add_argument("--prepared-pdf-artifacts", help="prepared_pdf_artifacts.json from prepare_pdf_for_llm.py")
     parser.add_argument("--chinese", help="中文论文元数据.json (legacy: chinese_papers.json / chinese_metadata.json)")
+    parser.add_argument("--workflow-results", help="workflow_search_results.json for chapter/secondary-chapter mapping")
     parser.add_argument("--output", default="文献-Zotero架构对照.json")
     parser.add_argument("--review", default="文献-Zotero架构对照.md")
     parser.add_argument("--pdf-index", default="pdf-附件池索引.json")
@@ -683,6 +794,10 @@ def main() -> int:
     chinese_index = load_chinese_metadata(args.chinese, warnings) if args.chinese else {}
     if not args.chinese:
         nonblocking.append("中文论文元数据.json")
+
+    workflow_index = load_workflow_index(args.workflow_results, warnings) if args.workflow_results else {}
+    if not args.workflow_results:
+        nonblocking.append("workflow_search_results.json")
 
     pdfs = scan_pdf_dirs(args.pdf_dir, warnings)
     prepared_artifacts = load_prepared_pdf_artifacts(args.prepared_pdf_artifacts, warnings)
@@ -704,6 +819,7 @@ def main() -> int:
     records = [] if blocking else build_records(
         bib_records,
         chinese_index,
+        workflow_index,
         root,
         structure_rows,
         has_structure,
