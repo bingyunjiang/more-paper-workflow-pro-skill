@@ -568,6 +568,40 @@ zotero_get_collections()
 - `secondary_collection_paths` 表示同一文献的次归属集合，可为多个。
 - 若某 collection 挂接失败，应回写为集合层失败，不得退化为再创建一个重复条目。
 
+**折中加速方案（通用，不限当前项目）：**
+
+- 当需要把同一批文献挂入多个 collection，而逐条搜索 `item_key` 成本过高时，优先采用“折中加速方案”，而不是改成“重复入库后再合并”。
+- 核心思路：
+  1. **第一阶段：主条目入库**  
+     - 每篇文献只创建一个 Zotero 条目；  
+     - 先落到 `primary_collection_path`。
+  2. **第二阶段：批量次 collection 挂接**  
+     - 基于 `文献-Zotero架构对照.json` 中的 `secondary_collection_paths` 生成挂接清单；  
+     - 先做 `title / source / primary_collection` 级别的批量匹配；  
+     - 再按目标 collection 批量调用 `zotero_manage_collections`；  
+     - 对高确定性条目先执行，低确定性条目留给人工确认。
+
+默认原则：
+
+- 优先优化“批量匹配 item_key -> 批量挂接 collection”的路径。
+- 不把“重复入库 -> 后续查重合并”当作默认加速策略。
+- 只有在当前 MCP 工具能力明显不足、且用户显式接受库内重复条目风险时，才允许进入重复入库回退方案。
+
+高确定性条目判定建议：
+
+- 标题唯一或近似唯一；
+- `source` 明确且与计划记录一致；
+- 已在 `primary_collection_path` 中可定位；
+- 中文条目同时具有 `source_id` / `article_url` / 标题三者中的至少两项；
+- 英文条目具有真实 DOI，且标题匹配稳定。
+
+低确定性条目处理建议：
+
+- 搜索结果返回多条同题记录；
+- 同题不同版本/同题不同源且无法稳定区分；
+- 多个可能 keeper 同时存在；
+- 这类条目应进入 `待人工确认` 清单，而不是盲挂。
+
 **推荐执行顺序：**
 1. 分流条目：先排除 `verification_status=REJECT`，再按 `source` / `source_id` / 标题语言把英文国际文献与 CNKI/万方中文文献分开；`WARN` 条目作为待审项展示。
 2. **英文 dispatch 规则：** 有真实 DOI 的英文国际文献，默认使用 `文献库.bib` 批量写入本地 Zotero；主路径优先 `zotero_add_by_bibtex`，而不是逐条先跑 `zotero_add_by_doi`。在批量条目落库后，如仍需补齐更丰富元数据，再对缺口条目做 DOI 二次解析/更新。除非用户明确覆盖默认来源，否则 Agent 不应要求用户手动指定英文导入文件。
