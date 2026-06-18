@@ -58,7 +58,7 @@ python3 scripts/download_via_scihub.py dois.txt --output paper-temp/
 | **ASME** | `10.1115/` | CDP Chrome | ⚠️ 页面可加载，PDF按钮不可见 | `asmedigitalcollection.asme.org` — 无直接PDF链接/按钮在初始DOM中（可能需会话渲染），HTTP直连SSL错误 |
 | **AIP** | `10.1063/` | CDP Chrome | ⚠️ 页面可加载，无PDF按钮 | `pubs.aip.org` — 无直接PDF链接，HTTP直连SSL `UNEXPECTED_EOF`。需机构认证 |
 | **Wiley** | `10.1002/` | CDP Chrome | ⚠️ 有限成功 | `onlinelibrary.wiley.com` — **方式A:** 导航到 `doi/epdf/{doi}` + Fetch.enable + Page.reload可捕获（已验证 `ente.202301205` → 3.4MB）。**方式B:** DOM中有PDF下载按钮（`.pdf-download`）但需会话后可用。直接HTTP返回403。 |
-| **Springer** | `10.1007/` | CDP Chrome | ⚠️ 书章节需访问 | `link.springer.com` 2020s书章节，HTTP直接请求失败 |
+| **Springer** | `10.1007/` | CDP Chrome | ⚠️ 书章节需访问 | `link.springer.com` 2020s书章节，HTTP直接请求失败。**机构登录公共入口：** `https://idp.springer.com/authorize?response_type=cookie&client_id=springerlink&redirect_uri=https%3A%2F%2Flink.springer.com%2F`；**机构选择页：** `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F`。若首页不显示机构登录，优先直接打开这两个入口之一。 |
 | **Nature/Springer OA** | `10.1038/` | 直连HTTP | ✅ 已验证（OA期刊） | `nature.com/articles/XXXX.pdf` 可直连下载。测试: `10.1038/s41467-024-45578-4` → 3.1MB PDF ✓ |
 | **RSC** | `10.1039/` | CDP Chrome | ⚠️ 需会话 | `pubs.rsc.org` — HTTP直连失败，需浏览器会话 |
 | **SSRN** | `10.2139/` | 直连HTTP | ❌ 超时 | `papers.ssrn.com` — 预印本但HTTP直连超时 |
@@ -107,6 +107,23 @@ python3 scripts/download_via_scihub.py dois.txt --output paper-temp/
 │   └── 无PDF按钮/403    → 需机构会话登录
 └── 2021年前论文          → 先试 Sci-Hub CDP（9个镜像站可用）
 ```
+
+## 混合 OA / 机构登录出版商的默认顺序
+
+对 `10.1002/`（Wiley）、`10.1007/`（Springer）、`10.1038/`（Nature / Springer OA）这类既有开放获取、又有机构订阅内容的站点，默认顺序必须是：
+
+1. `OA / direct_http` 直链优先
+2. 文章页 DOM 提取 PDF 链接
+3. 命中 `LOGIN_REQUIRED` / `ACCESS_DENIED` / `wayf` / `captcha` 时，保留页面给用户手动登录
+
+不要先假设“这个站一定要登录”，也不要因为某一篇触发登录墙就关闭标签页或终止整批流程。用户如果没有机构账号，应跳过该登录门控并继续处理其余 OA / 可直连条目。
+
+推荐交互选项固定为：
+1. `已登录，继续`
+2. `没有账号，跳过并继续`
+3. `稍后重试`
+
+若宿主支持弹窗/结构化交互，优先用弹窗呈现上述三选一；若宿主不支持弹窗，则退化为文本编号输入 `1/2/3`，且三种选项的运行语义必须保持一致。
 
 ## CDP 通用方案（适用于任一家出版商）
 
@@ -211,7 +228,7 @@ else:
 | **AIP** | 导航到 `pubs.aip.org/...` | 需页面中提取 | HTTP SSL 错误（UNEXPECTED_EOF），页面中无可见 PDF 链接在初始 DOM。 |
 | **ASME** | 导航到 `asmedigitalcollection.asme.org/...` | 需页面中提取 | HTTP SSL 错误。无 PDF 按钮在初始 DOM 中（可能需会话后渲染）。 |
 | **Nature OA** | `nature.com/articles/{id}.pdf` | 直连 HTTP | 已验证。`10.1038/s41467-024-45578-4` → 3.1MB PDF。 |
-| **Springer** | 导航到 `link.springer.com/chapter/{doi}` | 需页面中提取 | 书章节可能需单独购买权限。 |
+| **Springer** | 导航到 `link.springer.com/chapter/{doi}` | 需页面中提取 | 书章节可能需单独购买权限。首页不一定显示机构登录；优先使用 `idp.springer.com/authorize?...client_id=springerlink...` 或 `wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F` 进入机构登录。 |
 | **RSC** | 导航到 `pubs.rsc.org/...` | 需机构会话 | HTTP 直连失败。 |
 | **SSRN** | 导航到 `papers.ssrn.com/sol3/papers.cfm?abstract_id=...` | 直连 | 预印本，但 HTTP 直连可能超时。 |
 

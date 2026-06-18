@@ -139,6 +139,18 @@
 
 **英文门控（Phase 2）：** Sci-Hub 完成后，仅对剩余英文论文中 `access_probe` 需要登录的 publisher 触发。
 
+**交互兼容规则：**
+
+- 若宿主支持弹窗/结构化选项（如 Codex），优先显示三选一：
+  - `已登录，继续`
+  - `没有账号，跳过并继续`
+  - `稍后重试`
+- 若宿主不支持弹窗，则退化为文本编号输入：
+  - `1` = 已登录，继续
+  - `2` = 没有账号，跳过并继续
+  - `3` = 稍后重试
+- 运行语义必须一致：`2` 不能终止整批流程，只能跳过当前登录型路径并继续 OA / direct_http / 已完成结果汇总。
+
 **执行流程：**
 
 ```
@@ -157,7 +169,7 @@ Phase 1:
       ├─ 端口 9223 已有 CDP → 复用
       └─ 无 CDP → 自动启动 Chrome → 导航到 CNKI/万方 → 等待就绪
    c) 脚本打印 === LOGIN_REQUIRED === 后阻塞等待 stdin
-   d) Agent 告知用户：「Chrome 已自动打开并导航到 CNKI/万方，请完成 CARSI 登录后回复「已登录」」
+   d) Agent 告知用户：「Chrome 已自动打开并导航到 CNKI/万方，请完成 CARSI 登录后回复「已登录」；如果没有机构账号，回复「skip」，流程继续处理其它可下载路径」
    e) 用户完成登录后回复「已登录」
    f) Agent 调用 write_stdin("go\n")，脚本继续
    g) 脚本打印 CHINESE_CDP_READY → Agent 确认 CDP 可用
@@ -173,7 +185,7 @@ Phase 2:
     [Generic CDP]  ieee (ieeexplore.ieee.org), acs (pubs.acs.org), ..."
 8. 🚀 Agent 自动启动交互式 CDP 会话（同一条命令内）：
    a) 启动 exec_command：检查/启动 CDP Chrome → 导航到出版社首页
-   b) 打印 === LOGIN_REQUIRED === → 用户登录后告知 → Agent write_stdin("go\n")
+   b) 打印 === LOGIN_REQUIRED === → 用户登录后告知；如果用户没有机构账号，明确允许 `skip`，Agent 应继续后续 OA/已完成结果汇总，不得把整批任务视为失败
    c) 脚本确认 CDP 可用后退出
 9. Agent 执行 English CDP 下载（R2 SD → R3 Generic）
 ```
@@ -243,7 +255,7 @@ Phase 3 ────────────────────────
 | | `10.1002/` | Wiley | pdfdirect URL → 文章页选择器 | 策略A优先 |
 | | `10.1021/` | ACS | 直连 PDF URL → 文章页选择器 | 策略A优先 |
 | | `10.1039/` | RSC | 文章页 articlepdf 选择器 | 策略B为主 |
-| | `10.1007/` | Springer | 直连 content/pdf URL | 策略A优先 |
+| | `10.1007/` | Springer | 直连 content/pdf URL | 策略A优先；机构登录优先用 `https://idp.springer.com/authorize?response_type=cookie&client_id=springerlink&redirect_uri=https%3A%2F%2Flink.springer.com%2F` 或 `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F` |
 | | `10.1063/` | AIP | 文章页 + 加载页等待 | 含"请稍候"检测 |
 | | `10.1038/` | Nature | 直连 article.pdf / OA HTTP | OA可直连 |
 | | `10.1126/` | Science | 直连 PDF URL | 策略A优先 |

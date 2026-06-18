@@ -352,9 +352,10 @@ def _strategy_article_page(port: int, doi: str, publisher: dict,
     # Extract PDF URL from DOM
     pdf_url = _extract_pdf_url_from_dom(port, tid, selectors)
 
-    # Check for login wall or access denied
+    # Keep the tab open when the site wants human login/verification so the
+    # user has time to complete it in the visible CDP browser.
     if pdf_url in ("LOGIN_REQUIRED", "ACCESS_DENIED"):
-        close_tab(port, tid)
+        print(f"  ⚠ {pub_key or 'publisher'} requires manual access confirmation — leaving tab open")
         return None
 
     # Close article tab

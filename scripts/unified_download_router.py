@@ -531,9 +531,21 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
         print(f"  [{i+1}/{len(generic_dois)}] {doi[:50]} → {pub_name} ({publisher_domain})", end=" ", flush=True)
 
         t0 = time.time()
-        result_path, status, _ = generic_download_one(
-            port, doi, output_dir, include_si=include_si
-        )
+        try:
+            result_path, status, _ = generic_download_one(
+                port, doi, output_dir, include_si=include_si
+            )
+        except Exception as e:
+            if ensure_cdp_running(port):
+                try:
+                    result_path, status, _ = generic_download_one(
+                        port, doi, output_dir, include_si=include_si
+                    )
+                except Exception:
+                    result_path, status = None, "failed"
+            else:
+                result_path, status = None, "failed"
+            print(f"\n  ⚠ Retry after error: {type(e).__name__}")
         elapsed = time.time() - t0
 
         if result_path and status == "ok":
@@ -824,7 +836,11 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
     print(f"🚧 Chinese Login Gate — CNKI / Wanfang")
     print(f"{'='*60}")
     print()
-    print("Please verify CNKI/Wanfang login in the CDP browser:")
+    print("Please verify CNKI/Wanfang login in the CDP browser.")
+    print("Choose one option:")
+    print("  1) 已登录，继续")
+    print("  2) 没有账号，跳过并继续")
+    print("  3) 稍后重试")
     print()
     for p in sorted(set(pubs)):
         print(p)
@@ -833,14 +849,17 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
     print("  Wanfang: https://www.wanfangdata.com.cn/")
     print()
     try:
-        resp = input("Type '已登录' to proceed, 'q' to skip Chinese: ").strip().lower()
+        resp = input("Enter 1/2/3: ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         print("\n⏹ Skipping Chinese download.")
         return False
-    if resp in ("已登录", "y", "yes", "done", "继续", "go"):
+    if resp in ("1", "已登录", "y", "yes", "done", "继续", "go"):
         print("✅ Chinese login confirmed — starting CNKI/Wanfang CDP.\n")
         return True
-    print("⏭ Skipping Chinese download.\n")
+    if resp in ("2", "skip", "q", "quit", "exit", "n", "no", "无账号", "没有账号"):
+        print("⏭ Chinese login skipped — continuing with other download paths.\n")
+        return False
+    print("⏭ Chinese login deferred — continuing with other download paths.\n")
     return False
 
 
@@ -885,7 +904,14 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
         for p in sorted(pubs):
             print(f"    • {p}")
         print()
-    print("Please complete these steps BEFORE continuing:")
+    print("Please complete these steps BEFORE continuing.")
+    print("If you do not have an institutional account for some or all of these")
+    print("publishers, type 'skip' and the workflow will continue with OA/direct paths")
+    print("plus any already-completed downloads, without treating this as a fatal stop.")
+    print("Choose one option:")
+    print("  1) 已登录，继续")
+    print("  2) 没有账号，跳过并继续")
+    print("  3) 稍后重试")
     print()
     print("  1. Open CDP Chrome at http://127.0.0.1:9223")
     print("  2. Navigate to each publisher's homepage (domains listed above)")
@@ -894,15 +920,18 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
     print()
     print(f"{'='*60}")
     try:
-        resp = input("\nType '已登录' to proceed, 'q' to skip English CDP: ").strip().lower()
+        resp = input("\nEnter 1/2/3: ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         print("\n\n⏹ English CDP skipped.")
         return False
-    if resp in ("已登录", "y", "yes", "done", "logged in", "继续", "go"):
+    if resp in ("1", "已登录", "y", "yes", "done", "logged in", "继续", "go"):
         print("✅ Login confirmed — proceeding with English CDP.\n")
         return True
-    elif resp in ("q", "quit", "exit", "n", "no"):
-        print("⏭ English CDP skipped by user.")
+    elif resp in ("2", "q", "quit", "exit", "n", "no", "skip", "无账号", "没有账号"):
+        print("⏭ English institutional login skipped — continuing without login-only publishers.")
+        return False
+    elif resp in ("3", "later", "retry", "稍后", "重试"):
+        print("⏳ English login deferred — you can rerun the remaining list later.\n")
         return False
     else:
         print(f"⚠ Unrecognized response — proceeding (Ctrl+C to abort).\n")

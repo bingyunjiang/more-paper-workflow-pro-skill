@@ -10,6 +10,7 @@ SCRIPT_DIR = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import unified_download_router as router  # noqa: E402
+import generic_publisher_downloader as gpd  # noqa: E402
 
 
 class Step5DownloadTest(unittest.TestCase):
@@ -102,6 +103,52 @@ class Step5DownloadTest(unittest.TestCase):
         strategies = {item["strategy"] for item in classified}
         self.assertIn("sd_cdp", strategies)
         self.assertIn("chinese_cdp", strategies)
+
+    def test_article_page_login_wall_keeps_tab_open_for_manual_login(self):
+        publisher = {
+            "_key": "springer",
+            "selectors": ["a.pdf-link"],
+            "article_url_template": "https://example.com/{doi}",
+        }
+
+        with patch.object(gpd, "_build_article_url", return_value="https://example.com/article"), \
+             patch.object(gpd, "create_tab", return_value=(None, "tab-1")), \
+             patch.object(gpd, "_detect_access_barrier", return_value=("login_wall", "title matched")), \
+             patch.object(gpd, "_extract_pdf_url_from_dom", return_value="LOGIN_REQUIRED"), \
+             patch.object(gpd, "close_tab") as close_tab:
+            result = gpd._strategy_article_page(9223, "10.1007/demo", publisher, timeout=1)
+
+        self.assertIsNone(result)
+        close_tab.assert_not_called()
+
+    def test_springer_institutional_login_entry_is_documented(self):
+        matrix = (ROOT / "references" / "publisher-access-matrix.md").read_text(encoding="utf-8")
+        step5 = (ROOT / "agents" / "step_5_download.md").read_text(encoding="utf-8")
+
+        self.assertIn("https://idp.springer.com/authorize?response_type=cookie&client_id=springerlink", matrix)
+        self.assertIn("https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F", matrix)
+        self.assertIn("https://idp.springer.com/authorize?response_type=cookie&client_id=springerlink", step5)
+        self.assertIn("skip", step5)
+        self.assertIn("支持弹窗/结构化交互", matrix)
+        self.assertIn("若宿主支持弹窗/结构化选项", step5)
+
+    def test_login_gates_allow_skip_without_fatal_stop(self):
+        with patch("builtins.input", return_value="2"):
+            self.assertFalse(router.show_english_login_gate(["10.1007/demo"]))
+
+    def test_login_gate_prompts_offer_three_choices(self):
+        with patch("builtins.input", return_value="3") as inp:
+            self.assertFalse(router.show_chinese_login_gate([{"source": "cnki", "article_url": "https://kns.cnki.net", "title": "x"}]))
+        self.assertTrue(inp.called)
+
+    def test_generic_round_recovers_from_single_item_exception(self):
+        with patch.object(router, "resolve_publisher", return_value={"strategy": "generic", "_key": "springer", "publisher_domain": "link.springer.com"}), \
+             patch.object(router, "generic_download_one", side_effect=RuntimeError("502") ), \
+             patch.object(router, "ensure_cdp_running", return_value=True):
+            downloaded, remaining = router.run_generic_round(["10.1007/demo"], "paper-temp", 9223)
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["10.1007/demo"])
 
 
 if __name__ == "__main__":
