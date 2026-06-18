@@ -602,6 +602,30 @@ zotero_get_collections()
 - 多个可能 keeper 同时存在；
 - 这类条目应进入 `待人工确认` 清单，而不是盲挂。
 
+**次 collection 挂接判据优先级（后续执行默认快速路径）：**
+
+- 次挂的前提不是“标题看起来像”，而是：`secondary_collection_paths` 已经在 Step 4/Step 6 规划层中被明确给出。
+- 在执行层，Agent 应优先使用以下顺序快速定位已入库条目，再调用 `zotero_manage_collections` 追加次集合。
+
+英文条目优先级：
+
+1. `DOI + primary_collection`
+2. `citekey + primary_collection`
+3. `title + primary_collection`
+
+中文条目优先级：
+
+1. `source_id + primary_collection`
+2. `article_url + primary_collection`
+3. `title + primary_collection`
+
+执行规则：
+
+- 一旦上位判据命中且唯一，直接进入批量次挂，不必继续走下位判据。
+- 若 `title` 匹配返回多条同题候选，且上位判据缺失或冲突，则该条目标记为 `待人工确认`。
+- 不得因为追求速度而跳过 `primary_collection` 这一限制条件；同题跨 collection 误挂的风险高于单条逐步补挂的收益。
+- 推荐先按目标 `secondary_collection_key` 分组，再批量调用 `zotero_manage_collections`，减少逐条操作开销。
+
 **推荐执行顺序：**
 1. 分流条目：先排除 `verification_status=REJECT`，再按 `source` / `source_id` / 标题语言把英文国际文献与 CNKI/万方中文文献分开；`WARN` 条目作为待审项展示。
 2. **英文 dispatch 规则：** 有真实 DOI 的英文国际文献，默认使用 `文献库.bib` 批量写入本地 Zotero；主路径优先 `zotero_add_by_bibtex`，而不是逐条先跑 `zotero_add_by_doi`。在批量条目落库后，如仍需补齐更丰富元数据，再对缺口条目做 DOI 二次解析/更新。除非用户明确覆盖默认来源，否则 Agent 不应要求用户手动指定英文导入文件。
