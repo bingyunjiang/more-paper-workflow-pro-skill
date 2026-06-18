@@ -113,7 +113,12 @@ python3 scripts/setup_zotero.py --smoke-test
 
 **Step 6 入口第一问：**
 
-进入 Step 6 后，必须先确认 Zotero 模式：`local` / `cloud` / `skip`。该选择决定后续读写能力和附件策略；不得静默默认 cloud。
+进入 Step 6 后，必须先确认 Zotero 模式：`local` / `cloud` / `skip`。该选择决定后续读写能力和附件策略；**默认推荐并优先使用 `local` 模式**；不得静默默认 cloud。
+
+> **写入原则（强约束）：**
+> - Step 6 默认使用 **Zotero MCP 的 `local` 模式** 完成条目入库与集合管理。
+> - **不得使用 SQLite 直写** 作为默认入库路径；SQLite 只可作为诊断/只读上下文，不作为常规写入方案。
+> - 导入优先级应为：先把条目批量写入 Zotero，再做 DOI/API 二次补元数据；不要把“单条 DOI 在线解析”放在批量入库之前，避免拖慢主流程。
 
 **Step 6 对话入口约定（默认按任务意图触发，不让用户手动挑文件）：**
 
@@ -188,7 +193,7 @@ Agent 收到上述口令后，应默认执行：
 
 | 模式 | 允许动作 | 禁止/限制 |
 |------|----------|-----------|
-| `local` | 读取本地 Zotero、生成计划、在确认后写入集合/条目、尽可能处理附件 | 写入前仍需 `CP-ZOTERO-WRITE` |
+| `local` | 读取本地 Zotero、生成计划、在确认后写入集合/条目、尽可能处理附件；默认首选模式 | 写入前仍需 `CP-ZOTERO-WRITE` |
 | `cloud` | 元数据规划、Web API 可用范围内的条目/集合操作 | 通常不能自动挂载本地 PDF，必须提示附件限制 |
 | `skip` | 只生成 `文献-Zotero架构对照.md/json` 和 `pdf-附件池索引.json` | 不调用 Zotero 写入工具 |
 
@@ -565,15 +570,16 @@ zotero_get_collections()
 
 **推荐执行顺序：**
 1. 分流条目：先排除 `verification_status=REJECT`，再按 `source` / `source_id` / 标题语言把英文国际文献与 CNKI/万方中文文献分开；`WARN` 条目作为待审项展示。
-2. **英文 dispatch 规则：** 有真实 DOI 的英文国际文献，默认使用 `文献库.bib`；单条导入可优先 `zotero_add_by_doi`，批量导入可用 `zotero_add_by_bibtex`。除非用户明确覆盖默认来源，否则 Agent 不应要求用户手动指定英文导入文件。
-3. **中文 dispatch 规则：** `cnki/wanfang` 中文文献，默认使用 `中文论文元数据.json` 构造 CSL JSON，通过 `zotero_add_by_csl_json` 创建条目；必要时再用 `zotero_update_item` 补全作者、年份、刊名、摘要、URL、language、Extra。旧名 `chinese_papers.json` / `chinese_metadata.json` 仅作为兼容输入。除非默认 JSON 缺失或用户明确覆盖来源，Agent 不应让用户手动挑中文导入文件。
-4. 查重：英文用 DOI/title；中文用 `source_id` / `article_url` / title+first_author+year，不用合成 ID 当 DOI 查重。
-5. 移入集合：按 `文献-Zotero架构对照.json` 的推荐集合路径调用 `zotero_manage_collections`。
-6. 附件状态判断：从 `pdf-附件池索引.json` 选择候选文件；英文按 DOI 优先；中文按 `source_id` / `article_url` / 标题优先；先判断 `missing` / `found` / `already_attached` / `duplicate_candidate` / `conflict`。
-7. 附件验证：用 `zotero_get_item_children` / `zotero_get_items_children` 检查每个条目是否有 PDF 附件。
-8. 附件动作建议：默认写入 `attachment_action`，不直接执行高风险动作。
-9. 回写状态：更新 `文献-Zotero架构对照.json` 和 `pdf-附件池索引.json` 中的导入状态、附件状态、匹配置信度，并同步生成/刷新 `文献-Zotero架构对照.md` 审阅版。
-10. child note 同步：对每篇 T1-T3 条目写入或更新 `More-Paper Evidence Card` child note；同时写入短 tag 索引（`mp-role:*` / `mp-fit:*` / `mp-depth:*` / `mp-tier:*`），但不把长文本 claim 或 note 作为 tag。
+2. **英文 dispatch 规则：** 有真实 DOI 的英文国际文献，默认使用 `文献库.bib` 批量写入本地 Zotero；主路径优先 `zotero_add_by_bibtex`，而不是逐条先跑 `zotero_add_by_doi`。在批量条目落库后，如仍需补齐更丰富元数据，再对缺口条目做 DOI 二次解析/更新。除非用户明确覆盖默认来源，否则 Agent 不应要求用户手动指定英文导入文件。
+3. **中文 dispatch 规则：** `cnki/wanfang` 中文文献，默认使用 `中文论文元数据.json` 构造 CSL JSON，并优先批量 `zotero_add_by_csl_json` 写入本地 Zotero；必要时再用 `zotero_update_item` 补全作者、年份、刊名、摘要、URL、language、Extra。旧名 `chinese_papers.json` / `chinese_metadata.json` 仅作为兼容输入。除非默认 JSON 缺失或用户明确覆盖来源，Agent 不应让用户手动挑中文导入文件。
+4. **二次元数据补全规则：** 条目入库成功后，英文可对高价值条目执行 DOI/API 二次补元数据；中文可对 metadata_incomplete 条目执行定向补全。该阶段是增强层，不得阻塞“先把条目全部写入库”这一主目标。
+5. 查重：英文用 DOI/title；中文用 `source_id` / `article_url` / title+first_author+year，不用合成 ID 当 DOI 查重。
+6. 移入集合：按 `文献-Zotero架构对照.json` 的推荐集合路径调用 `zotero_manage_collections`。
+7. 附件状态判断：从 `pdf-附件池索引.json` 选择候选文件；英文按 DOI 优先；中文按 `source_id` / `article_url` / 标题优先；先判断 `missing` / `found` / `already_attached` / `duplicate_candidate` / `conflict`。
+8. 附件验证：用 `zotero_get_item_children` / `zotero_get_items_children` 检查每个条目是否有 PDF 附件。
+9. 附件动作建议：默认写入 `attachment_action`，不直接执行高风险动作。
+10. 回写状态：更新 `文献-Zotero架构对照.json` 和 `pdf-附件池索引.json` 中的导入状态、附件状态、匹配置信度，并同步生成/刷新 `文献-Zotero架构对照.md` 审阅版。
+11. child note 同步：对每篇 T1-T3 条目写入或更新 `More-Paper Evidence Card` child note；同时写入短 tag 索引（`mp-role:*` / `mp-fit:*` / `mp-depth:*` / `mp-tier:*`），但不把长文本 claim 或 note 作为 tag。
 
 **当前 Zotero MCP 附件限制：**
 - 当前 MCP 没有直接“向已有 item 添加本地 PDF 附件”的工具。
