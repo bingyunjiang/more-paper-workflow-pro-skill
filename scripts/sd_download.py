@@ -38,6 +38,7 @@ if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 
 from cdp_utils import check_cdp, close_tab, get_cdp_ws_url, list_tabs, send_cmd_and_wait
+from console_compat import configure_console_output
 
 SD_PDF_HOST = "https://pdf.sciencedirectassets.com"
 FETCH_PATTERN = "*pdf.sciencedirectassets.com*main.pdf*"
@@ -268,6 +269,8 @@ def download_sd_pii(port: int, pii: str, timeout_a: int = 8,
 # ── CLI batch mode ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    configure_console_output()
+
     parser = argparse.ArgumentParser(
         description="SD PDF downloader — two-strategy hybrid (library + CLI)")
     parser.add_argument("--output-dir", "-o", default="download/paper-temp")
@@ -308,7 +311,7 @@ if __name__ == "__main__":
         _log(f"❌ PII map not found: {args.pii_map}")
         sys.exit(1)
 
-    with open(args.pii_map) as f:
+    with open(args.pii_map, encoding="utf-8") as f:
         data = json.load(f)
 
     # Determine already-downloaded papers

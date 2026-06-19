@@ -10,6 +10,13 @@ Step 7/8 reporting without changing existing CLI defaults.
 
 from __future__ import annotations
 
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import hashlib

@@ -30,6 +30,13 @@ Usage:
     --output 检索报告.md
 """
 
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import argparse
 import json
 import os

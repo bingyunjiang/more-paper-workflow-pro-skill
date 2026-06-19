@@ -38,6 +38,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cdp_utils import (check_cdp, get_cdp_ws_url, create_tab, close_tab,
                         list_tabs, send_cmd_and_wait, check_required_deps)
+from console_compat import configure_console_output
+
+configure_console_output()
 
 CDP_PORT = 9223
 OUTPUT_DIR = "paper-temp"

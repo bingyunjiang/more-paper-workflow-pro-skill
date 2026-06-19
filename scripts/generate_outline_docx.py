@@ -54,6 +54,13 @@ Usage:
     ]
   }
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys, os, json, argparse, re, time
 from pathlib import Path
 

@@ -10,9 +10,12 @@ import argparse
 import sys
 
 from cdp_utils import check_cdp, start_persistent_cdp_browser
+from console_compat import configure_console_output
 
 
 def main() -> int:
+    configure_console_output()
+
     parser = argparse.ArgumentParser(
         description="Start or reuse a persistent Chrome/Edge browser with CDP enabled."
     )

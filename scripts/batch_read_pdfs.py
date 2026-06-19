@@ -20,6 +20,13 @@ Usage:
   # 自定义进程数 + 独立 .txt 输出
   python3 scripts/batch_read_pdfs.py paper-temp/ --workers 8 --txt-dir paper-txt/
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys, os, time, re, argparse
 from multiprocessing import Pool, cpu_count
 
@@ -142,7 +149,7 @@ if __name__ == "__main__":
 
     # 收集 PDF 文件列表
     if args.file_list:
-        with open(args.file_list) as f:
+        with open(args.file_list, encoding="utf-8", errors="replace") as f:
             filenames = [l.strip() for l in f if l.strip()]
         pdf_files = [os.path.join(args.pdf_dir, f) for f in filenames
                      if os.path.exists(os.path.join(args.pdf_dir, f))]

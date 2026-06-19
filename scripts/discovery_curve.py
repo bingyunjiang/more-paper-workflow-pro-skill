@@ -32,6 +32,13 @@ Usage:
     --papers-evaluated 150 --output snap.json
 """
 
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import argparse
 import json
 import math

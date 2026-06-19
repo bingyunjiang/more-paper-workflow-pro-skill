@@ -38,6 +38,9 @@ from cdp_utils import (
     check_cdp, get_cdp_ws_url, list_tabs, close_tab, create_tab,
     get_tab_ws_url, send_cmd_and_wait, check_required_deps,
 )
+from console_compat import configure_console_output
+
+configure_console_output()
 
 # Lazy import for websocket (dependency checked at CLI entry)
 try:
@@ -1118,7 +1121,7 @@ def main():
 
     if failed_dois:
         failed_path = os.path.join(args.output, "generic_failed_dois.txt")
-        with open(failed_path, "w") as f:
+        with open(failed_path, "w", encoding="utf-8") as f:
             for d in failed_dois:
                 f.write(d + "\n")
         print(f"Failed list: {failed_path}")

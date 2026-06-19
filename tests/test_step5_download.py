@@ -11,9 +11,41 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import unified_download_router as router  # noqa: E402
 import generic_publisher_downloader as gpd  # noqa: E402
+import auto_sd_downloader as auto_sd  # noqa: E402
+import console_compat  # noqa: E402
 
 
 class Step5DownloadTest(unittest.TestCase):
+    def test_auto_sd_loader_reads_pii_map_as_utf8(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pii_map = Path(tmp) / "sd_pii_map.json"
+            out_dir = Path(tmp) / "out"
+            out_dir.mkdir()
+            pii_map.write_text(
+                """{
+                  "resolved": {
+                    "paper_001": {"doi": "10.1016/j.demo.2026.01.001", "pii": "S0000000000000001"}
+                  }
+                }""",
+                encoding="utf-8",
+            )
+
+            remaining, done = auto_sd._load_remaining_papers(str(pii_map), str(out_dir))
+
+        self.assertEqual(done, 0)
+        self.assertEqual(remaining, [("paper_001", "10.1016/j.demo.2026.01.001", "S0000000000000001")])
+
+    def test_console_compat_translates_status_symbols_for_ascii_mode(self):
+        with patch.dict("os.environ", {"MORE_PAPER_SYMBOLS": "ascii"}):
+            self.assertEqual(console_compat.symbol("ok"), "[OK]")
+            self.assertEqual(console_compat.replace_status_symbols("✅ → ❌"), "[OK] -> [FAIL]")
+
+    def test_child_python_env_sets_utf8_backslashreplace(self):
+        env = console_compat.configure_child_python_utf8_env({"EXISTING": "1"})
+
+        self.assertEqual(env["EXISTING"], "1")
+        self.assertEqual(env["PYTHONIOENCODING"], "utf-8:backslashreplace")
+
     def test_parse_chinese_papers_from_markdown_table(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "chinese.md"

@@ -15,6 +15,13 @@
 Usage:
   python3 scripts/organize_zotero.py 大纲关键词.md --output zotero-架构.md
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys, os, re, json
 from collections import defaultdict
 

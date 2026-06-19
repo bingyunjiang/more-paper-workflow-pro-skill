@@ -18,6 +18,13 @@ Usage:
   python3 scripts/generate_academic_reference_docx.py --output custom.docx
 """
 
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys
 import os
 import argparse

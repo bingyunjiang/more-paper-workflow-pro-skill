@@ -48,6 +48,13 @@ Usage:
   # T1/T2/T3 routing with CNKI primary + Wanfang supplement
   python3 search_by_topic.py "散热器优化" --t1 cnki --t2 wanfang --limit 50
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import hashlib
 import json
 import urllib.request
@@ -176,7 +183,7 @@ def _cache_get(key):
             pass
         return None
     try:
-        with open(cache_file, "r") as f:
+        with open(cache_file, "r", encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return None
@@ -198,7 +205,7 @@ def _cache_set(key, data):
     except OSError:
         pass
     tmp = os.path.join(CACHE_DIR, key + ".tmp")
-    with open(tmp, "w") as f:
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f)
     os.replace(tmp, os.path.join(CACHE_DIR, key + ".json"))
 
@@ -2124,7 +2131,7 @@ def load_query_plan(json_path):
       ]
     }
     """
-    with open(json_path, "r") as f:
+    with open(json_path, "r", encoding="utf-8") as f:
         plan = json.load(f)
 
     # Validate required fields
@@ -2242,7 +2249,7 @@ def verify_doi(doi):
 
 def verify_dois_from_file(filepath):
     """Verify all DOIs in a file, report validity and metadata completeness."""
-    with open(filepath, "r") as f:
+    with open(filepath, "r", encoding="utf-8", errors="replace") as f:
         content = f.read()
 
     # Extract DOIs from text (BibTeX, Markdown table, or plain list)
@@ -2469,14 +2476,14 @@ def export_bibtex(results, output_path, tier_map=None):
         lines.append("}")
         lines.append("")
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
     print(f"Exported {len(results)} references to {output_path} (.bib)", flush=True)
 
 
 def _read_bibtex(filepath):
     """Parse a .bib file into a list of dicts. Simple parser, handles standard BibTeX."""
-    with open(filepath, "r") as f:
+    with open(filepath, "r", encoding="utf-8", errors="replace") as f:
         text = f.read()
 
     entries = []
@@ -2553,7 +2560,7 @@ def _write_ris(entries, output_path):
         lines.append("ER  - ")
         lines.append("")
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
 
@@ -2581,7 +2588,7 @@ def _write_nbib(entries, output_path):
             lines.append(f"DP  - {e['year']}")
         lines.append("")
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
 
@@ -2828,7 +2835,7 @@ Examples:
         existing_dois = set()
         if args.existing_dois:
             try:
-                with open(args.existing_dois, "r") as f:
+                with open(args.existing_dois, "r", encoding="utf-8", errors="replace") as f:
                     for line in f:
                         doi_match = re.search(r'10\.\d{4,}/[^\s"\'},\]]+', line)
                         if doi_match:
@@ -2879,7 +2886,7 @@ Examples:
             )
             print(f"Saved workflow JSON to {args.export_workflow_json}", flush=True)
         if args.output:
-            with open(args.output, "w") as f:
+            with open(args.output, "w", encoding="utf-8") as f:
                 json.dump(results, f, indent=2, ensure_ascii=False)
             print(f"Saved {len(results)} citation network papers to {args.output}", flush=True)
         elif not args.export_bib and not args.export_workflow_json:
@@ -3044,7 +3051,7 @@ Examples:
         print(f"\nSaved workflow JSON to {args.export_workflow_json}", flush=True)
 
     if args.output:
-        with open(args.output, "w") as f:
+        with open(args.output, "w", encoding="utf-8") as f:
             for r in unique:
                 f.write(f"{r['doi']}\n")
         print(f"\nSaved {len(unique)} DOIs to {args.output}", flush=True)

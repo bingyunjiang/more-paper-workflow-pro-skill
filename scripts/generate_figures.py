@@ -26,6 +26,13 @@ Usage:
   # Single figure test
   python3 generate_figures.py --test grouped_bar --output test.svg
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import json
 import sys
 import os

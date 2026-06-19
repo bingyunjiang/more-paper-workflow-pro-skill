@@ -19,6 +19,13 @@ Usage:
   python3 latex_guard.py main.tex --markdown            # Output as Markdown
   python3 latex_guard.py main.tex --fix-broken-refs    # Attempt auto-fix
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys
 import os
 import re

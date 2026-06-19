@@ -19,6 +19,13 @@ Usage:
   python3 scripts/md_to_docx.py 论文润色稿.md -o 论文润色稿.docx
 """
 
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys
 import os
 import argparse

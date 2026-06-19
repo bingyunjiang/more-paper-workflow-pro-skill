@@ -13,6 +13,13 @@ Usage:
   python3 generate_writing_rationale.py section_blueprints.md \\
       style_profile.md --output research_dossier/writing_rationale_matrix.md
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys
 import os
 import re

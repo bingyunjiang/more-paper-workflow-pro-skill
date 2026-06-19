@@ -29,6 +29,7 @@ from cdp_utils import (
     find_chrome_path, find_edge_path, check_required_deps,
     check_sd_access, CHROME_INSTALL_GUIDE,
 )
+from console_compat import configure_console_output
 from sd_download import download_sd_pii
 
 # Each browser gets its own persistent profile dir — retains SD login across runs
@@ -36,6 +37,20 @@ DEFAULT_PROFILES = {
     "chrome": os.path.join(os.path.expanduser("~/.hermes"), "chrome_sd_profile"),
     "edge": os.path.join(os.path.expanduser("~/.hermes"), "edge_sd_profile"),
 }
+
+
+def _load_remaining_papers(pii_map_path: str, output_dir: str):
+    """Load remaining papers from a UTF-8 JSON mapping file."""
+    with open(pii_map_path, encoding="utf-8") as f:
+        data = json.load(f)
+    pii_list = [(k, v["doi"], v["pii"]) for k, v in data["resolved"].items()]
+    done = set(
+        f[:-4]
+        for f in os.listdir(output_dir)
+        if f.startswith("paper_") and f.endswith(".pdf")
+    )
+    remaining = [p for p in pii_list if p[0] not in done]
+    return remaining, len(done)
 
 
 def restart_browser(port, browser_path, profile_dir):
@@ -97,6 +112,8 @@ def _worker(name, port, papers, output_dir, results, log_lock):
 
 
 if __name__ == "__main__":
+    configure_console_output()
+
     parser = argparse.ArgumentParser(
         description="Auto-restart SD PDF downloader — hybrid strategy (direct + article page extraction)")
     parser.add_argument("--output-dir", "-o", default="download/paper-temp",
@@ -152,19 +169,11 @@ if __name__ == "__main__":
         exit(1)
 
     # ---- Load paper list ----
-    def load_remaining():
-        with open(PII_MAP) as f:
-            data = json.load(f)
-        pii_list = [(k, v["doi"], v["pii"]) for k, v in data["resolved"].items()]
-        done = set(f[:-4] for f in os.listdir(OUTPUT_DIR) if f.startswith("paper_") and f.endswith(".pdf"))
-        remaining = [p for p in pii_list if p[0] not in done]
-        return remaining, len(done)
-
     wave = 0
     zero_progress_waves = 0
 
     while True:
-        remaining, already_done = load_remaining()
+        remaining, already_done = _load_remaining_papers(PII_MAP, OUTPUT_DIR)
         if not remaining:
             print(f"\n🎉 ALL DONE! Total: {already_done}/94 papers", flush=True)
             break

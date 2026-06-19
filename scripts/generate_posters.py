@@ -8,6 +8,13 @@
 Usage: python3 scripts/generate_posters.py
 Requires: pip install Pillow
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import os
 from PIL import Image, ImageDraw, ImageFont
 

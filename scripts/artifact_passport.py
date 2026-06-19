@@ -8,6 +8,13 @@ network, downloads, or Zotero.
 
 from __future__ import annotations
 
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import argparse
 from pathlib import Path
 import sys

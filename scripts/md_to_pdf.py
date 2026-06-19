@@ -31,6 +31,13 @@ Usage:
   python3 scripts/md_to_pdf.py input.md --type generic        # 强制类型
 """
 
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys
 import os
 import re

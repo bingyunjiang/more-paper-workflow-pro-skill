@@ -13,6 +13,13 @@
 
 from __future__ import annotations
 
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import argparse
 import io
 import json

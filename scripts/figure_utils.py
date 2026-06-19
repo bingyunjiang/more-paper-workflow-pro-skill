@@ -9,6 +9,13 @@ for reviewable publication figures. Imported by generate_figures.py.
 
 Inspired by nature-figure's references/design-theory.md and references/api.md.
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import matplotlib
 matplotlib.use("Agg")  # Non-interactive backend for script use
 

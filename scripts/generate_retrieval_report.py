@@ -23,6 +23,13 @@ Usage:
 Output files are written alongside the input .md file unless --outdir is specified.
 """
 
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import argparse
 import json
 import os

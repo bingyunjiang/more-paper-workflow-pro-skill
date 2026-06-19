@@ -36,6 +36,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from cdp_utils import check_cdp, check_required_deps, start_persistent_cdp_browser
+from console_compat import configure_child_python_utf8_env, configure_console_output
 from generic_publisher_downloader import (
     resolve_publisher, download_one as generic_download_one,
     check_publisher_session, _PUBLISHER_CONFIGS, extract_dois,
@@ -296,7 +297,7 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
     # Write temp DOI list for scihub script
     scihub_input = os.path.join(output_dir, ".scihub_input.txt")
     os.makedirs(output_dir, exist_ok=True)
-    with open(scihub_input, "w") as f:
+    with open(scihub_input, "w", encoding="utf-8") as f:
         for d in old_dois:
             f.write(d + "\n")
 
@@ -309,7 +310,7 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
         subprocess.run(
             [sys.executable, str(scihub_script), scihub_input,
              "--output", output_dir, "--port", str(port)],
-            check=False, timeout=600  # 10 min max
+            check=False, timeout=600, env=configure_child_python_utf8_env()
         )
     except subprocess.TimeoutExpired:
         print("  ⚠ Sci-Hub round timed out after 10 minutes.")
@@ -362,7 +363,7 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
     sd_input = os.path.join(output_dir, ".sd_input.txt")
     pii_map_path = os.path.join(output_dir, "sd_pii_map.json")
     os.makedirs(output_dir, exist_ok=True)
-    with open(sd_input, "w") as f:
+    with open(sd_input, "w", encoding="utf-8") as f:
         for d in sd_dois:
             f.write(d + "\n")
 
@@ -372,7 +373,7 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
             subprocess.run(
                 [sys.executable, str(batch_pii_script), sd_input,
                  "--output", pii_map_path],
-                check=False, timeout=300
+                check=False, timeout=300, env=configure_child_python_utf8_env()
             )
         except subprocess.TimeoutExpired:
             print("  ⚠ PII resolution timed out.")
@@ -388,7 +389,7 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
                  "--output-dir", output_dir,
                  "--pii-map", pii_map_path,
                  "--port-chrome", str(port)],
-                check=False, timeout=1800  # 30 min max
+                check=False, timeout=1800, env=configure_child_python_utf8_env()
             )
         except subprocess.TimeoutExpired:
             print("  ⚠ SD download timed out after 30 minutes.")
@@ -450,7 +451,7 @@ def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[st
     # Write temp input
     ieee_input = os.path.join(output_dir, ".ieee_input.txt")
     os.makedirs(output_dir, exist_ok=True)
-    with open(ieee_input, "w") as f:
+    with open(ieee_input, "w", encoding="utf-8") as f:
         for d in ieee_dois:
             f.write(d + "\n")
 
@@ -459,7 +460,7 @@ def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[st
             [sys.executable, str(ieee_script), ieee_input,
              "--output", output_dir, "--port", str(port),
              "--skip-session-check"],
-            check=False, timeout=900  # 15 min max
+            check=False, timeout=900, env=configure_child_python_utf8_env()
         )
     except subprocess.TimeoutExpired:
         print("  ⚠ IEEE round timed out after 15 minutes.")
@@ -971,6 +972,8 @@ def check_all_sessions(port: int):
 # ── Main ────────────────────────────────────────────────────────────────────
 
 def main():
+    configure_console_output()
+
     parser = argparse.ArgumentParser(
         description="Unified PDF download router — auto-routes DOI to optimal strategy."
     )
@@ -1333,7 +1336,7 @@ def main():
 
     if remaining:
         failed_path = os.path.join(args.output, "failed_dois.txt")
-        with open(failed_path, "w") as f:
+        with open(failed_path, "w", encoding="utf-8") as f:
             for d in remaining:
                 pub = resolve_publisher(d)
                 pub_name = pub.get("_key", "unknown") if pub else "unknown"

@@ -25,6 +25,7 @@ import json, time, os, sys, threading, argparse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cdp_utils import check_cdp, check_sd_access, check_required_deps
+from console_compat import configure_console_output
 from sd_download import download_sd_pii
 
 log_lock = threading.Lock()
@@ -54,6 +55,8 @@ def worker(name, port, papers, output_dir):
 
 
 if __name__ == "__main__":
+    configure_console_output()
+
     parser = argparse.ArgumentParser(
         description="ScienceDirect PDF download — hybrid strategy (direct + article page extraction)")
     parser.add_argument("--output-dir", "-o", default="download/paper-temp",
@@ -99,7 +102,7 @@ if __name__ == "__main__":
         exit(1)
 
     # ---- Load paper list ----
-    with open(PII_MAP) as f:
+    with open(PII_MAP, encoding="utf-8") as f:
         data = json.load(f)
 
     pii_list = [(k, v["doi"], v["pii"]) for k, v in data["resolved"].items()]

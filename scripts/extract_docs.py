@@ -33,6 +33,13 @@ Usage:
   # 跳过重复文件、设置超时
   python3 scripts/extract_docs.py /path/to/docs/ --txt-dir out/ --timeout 60
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys, os, re, argparse, subprocess, time
 from pathlib import Path
 

@@ -25,6 +25,13 @@ Usage:
   # Dry-run: just extract citations, don't fetch abstracts
   python3 citation_audit.py 论文初稿.md --extract-only
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import json
 import urllib.request
 import urllib.parse

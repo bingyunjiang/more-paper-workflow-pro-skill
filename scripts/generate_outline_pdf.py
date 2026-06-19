@@ -27,6 +27,13 @@ Usage:
   # 输出示例 changes.json 模板
   python3 scripts/generate_outline_pdf.py --example-changes > changes.json
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys, os, json, argparse, re, time, importlib.util
 from pathlib import Path
 

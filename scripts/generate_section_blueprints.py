@@ -13,6 +13,13 @@ Usage:
   python3 generate_section_blueprints.py style_profile.md 大纲关键词.md \\
       --evidence 综述矩阵.csv --output research_dossier/
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import json
 import sys
 import os

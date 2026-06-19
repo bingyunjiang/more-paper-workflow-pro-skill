@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """Generate batch-6 knowledge graph nodes/edges from extraction results."""
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import json
 
-with open('/Users/Bing/WorkSpace/cad-cae-copilot-main/.understand-anything/tmp/ua-file-extract-results-6.json') as f:
+with open('/Users/Bing/WorkSpace/cad-cae-copilot-main/.understand-anything/tmp/ua-file-extract-results-6.json', encoding='utf-8') as f:
     extract = json.load(f)
-with open('/Users/Bing/WorkSpace/cad-cae-copilot-main/.understand-anything/tmp/ua-file-analyzer-input-6.json') as f:
+with open('/Users/Bing/WorkSpace/cad-cae-copilot-main/.understand-anything/tmp/ua-file-analyzer-input-6.json', encoding='utf-8') as f:
     analyzer_input = json.load(f)
 
 import_data = analyzer_input.get('batchImportData', {})
@@ -144,6 +151,6 @@ calls_n = len([e for e in edges if e['type']=='calls'])
 print(f'Nodes: {len(nodes)} (file={file_n}, func={func_n}, class={class_n})')
 print(f'Edges: {len(edges)} (contains={cont_n}, imports={imp_n}, calls={calls_n})')
 
-with open('/Users/Bing/WorkSpace/cad-cae-copilot-main/.understand-anything/intermediate/batch-6.json', 'w') as f:
+with open('/Users/Bing/WorkSpace/cad-cae-copilot-main/.understand-anything/intermediate/batch-6.json', 'w', encoding='utf-8') as f:
     json.dump({'nodes': nodes, 'edges': edges}, f, ensure_ascii=False, indent=2)
 print('Done.')

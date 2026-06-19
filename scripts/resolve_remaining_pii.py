@@ -9,6 +9,13 @@ Usage:
   python3 scripts/resolve_remaining_pii.py
   python3 scripts/resolve_remaining_pii.py 导出的条目.bib -o sd_pii_map.json
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import json, os, sys, argparse, re, urllib.request, time
 
 
@@ -20,13 +27,13 @@ def resolve_remaining(bib_path, map_path):
         return
 
     # Load existing
-    with open(map_path) as f:
+    with open(map_path, encoding="utf-8") as f:
         data = json.load(f)
     results = data.get('resolved', {})
     errors = data.get('errors', [])
 
     # Get remaining DOIs from bib
-    with open(bib_path) as f:
+    with open(bib_path, encoding="utf-8", errors="replace") as f:
         text = f.read()
 
     entries = re.split(r'\n@', text)
@@ -86,7 +93,7 @@ def resolve_remaining(bib_path, map_path):
 
         time.sleep(0.3)
 
-    with open(map_path, 'w') as f:
+    with open(map_path, 'w', encoding="utf-8") as f:
         json.dump({'resolved': results, 'errors': errors}, f, indent=2)
     print(f"\nDone: {len(results)} resolved total, {len(errors)} errors")
 

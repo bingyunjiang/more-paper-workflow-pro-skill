@@ -27,6 +27,13 @@ Usage:
   python3 learn_journal_style.py --target-journal "Energy" \\
       --text-dir paper-txt/ --mode flash
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import json
 import sys
 import os

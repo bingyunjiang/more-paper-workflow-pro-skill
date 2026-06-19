@@ -24,6 +24,13 @@ Usage:
   python3 scripts/setup_zotero.py --export                     输出 export 命令
   python3 scripts/setup_zotero.py --smoke-test                 功能验证
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import sys, os, json, subprocess, shutil, configparser, platform, ntpath
 
 PACKAGE_NAME = "zotero-mcp-server"
@@ -151,12 +158,12 @@ def _get_zotero_env_from_config(config_path):
 
     if ext in [".yaml", ".yml"]:
         import yaml
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
         zot = cfg.get("mcp_servers", {}).get("zotero", {})
         return zot.get("env", {})
     elif ext == ".json":
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             cfg = json.load(f) or {}
         zot = cfg.get("mcpServers", {}).get("zotero", {})
         return zot.get("env", {})
@@ -392,7 +399,7 @@ def _configure_hermes_mcp(api_key="", user_id="", local_mode=False):
     os.makedirs(HERMES_HOME, exist_ok=True)
 
     if os.path.exists(HERMES_CONFIG_PATH):
-        with open(HERMES_CONFIG_PATH) as f:
+        with open(HERMES_CONFIG_PATH, encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
     else:
         cfg = {}
@@ -422,7 +429,7 @@ def _configure_hermes_mcp(api_key="", user_id="", local_mode=False):
         "enabled": True,
     }
 
-    with open(HERMES_CONFIG_PATH, "w") as f:
+    with open(HERMES_CONFIG_PATH, "w", encoding="utf-8") as f:
         yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True)
 
     _print_config_result(target="hermes", config_path=HERMES_CONFIG_PATH,
@@ -447,7 +454,7 @@ def _configure_json_mcp(api_key="", user_id="", local_mode=False, target="claude
 
     # 读取已有配置，保留其他 MCP 服务器
     if os.path.exists(config_path):
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             try:
                 cfg = json.load(f)
             except json.JSONDecodeError:
@@ -479,7 +486,7 @@ def _configure_json_mcp(api_key="", user_id="", local_mode=False, target="claude
         "env": env,
     }
 
-    with open(config_path, "w") as f:
+    with open(config_path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
         f.write("\n")
 

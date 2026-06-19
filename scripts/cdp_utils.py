@@ -9,6 +9,13 @@ Shared CDP (Chrome DevTools Protocol) utilities for browser-based PDF downloads.
 Used by download_via_scihub.py, parallel_sd_download.py, and auto_sd_downloader.py
 to eliminate duplicated WebSocket connection and tab management logic.
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import json, os, sys, shutil, subprocess, urllib.request, time
 
 # ---- websocket-client dependency check ----

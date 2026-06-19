@@ -17,6 +17,13 @@ Usage:
   python3 scripts/batch_resolve_pii.py ScienceDirect_Elsevier_文献.txt
   python3 scripts/batch_resolve_pii.py --help
 """
+try:
+    from console_compat import configure_console_output
+
+    configure_console_output()
+except Exception:
+    pass
+
 import re
 import json
 import urllib.request

@@ -25,6 +25,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cdp_utils import (check_cdp, get_cdp_ws_url, list_tabs, close_all_tabs,
                         close_tab, send_cmd_and_wait, check_required_deps,
                         create_tab, get_tab_ws_url)
+from console_compat import configure_console_output
+
+configure_console_output()
 
 # 预置镜像站列表（可用镜像站排前，经测试 2026-05-30）
 DEFAULT_MIRRORS = [
@@ -517,7 +520,7 @@ if __name__ == "__main__":
 
     if failed_list:
         flist = os.path.join(OUTPUT_DIR, "scihub_failed_dois.txt")
-        with open(flist, "w") as f:
+        with open(flist, "w", encoding="utf-8") as f:
             for d in failed_list:
                 f.write(d + "\n")
         print(f"\n失败列表: {flist}", flush=True)
