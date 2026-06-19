@@ -8,6 +8,30 @@
 
 ---
 
+## v1.0.15-20260619 (2026-06-19)
+
+### Step 8 AI 味诊断、运行态状态源与演示链路
+
+- **Step 8 增加 AI 味确定性检查子层**：新增 `scripts/deterministic_writing_diagnostics.py` 与 `references/deterministic-writing-diagnostics.md`，用于识别机械化表达、空泛套话、悬垂洞见、句长节奏过匀和 Markdown/LaTeX/Word 载体层脏污；该层只服务润色诊断，不判断学术观点真假，不替代 Step 7 引用审计。
+- **Step 8 runtime 状态源落位**：`agents/step_8_entry.md`、`agents/step_8_polishing.md`、`commands/polish.md` 与 `scripts/workflow_contracts.py` 同步接入 `.skill-state/ai_trace_diagnostics.json`，把 AI 味诊断统计、局部分诊结论和 `status_contract` 写成可被 `artifact_passport.json` / 路由层消费的结构化状态。
+- **Step 8 演示与样例补齐**：新增 `scripts/run_step8_ai_trace.py`、`examples/demo/step8-ai-trace-demo/`、`examples/showcase/step8_ai_trace_demo.md`、`diagnostic_summary_ai_trace_sample.md`、`revision_ledger_ai_trace_sample.json` 等样例，用户可直接运行 demo 体验诊断、分诊单、修订账本和润色质量报告。
+- **Artifact Passport 与 Step 8 状态衔接**：`scripts/artifact_passport.py`、`tests/test_artifact_passport.py`、`tests/test_run_step8_ai_trace.py`、`tests/test_deterministic_writing_diagnostics.py`、`tests/test_step7_step8_contracts.py` 扩展覆盖 Step 8 AI trace 诊断产物、状态契约和公开样例，避免后续润色层状态输出回归。
+- **自动更新提醒协议加入公共运行口径**：新增 `references/update-reminder-protocol.md`、`scripts/perform_skill_upgrade.py`、`scripts/render_update_prompt.py`，并增强 `scripts/check_skill_update.py` 与相关测试，让版本检查、升级提示和用户确认边界从临时提示变为可测试协议。
+
+### Windows + macOS 双平台兼容改造
+
+- **跨平台 CDP 浏览器入口落位**：新增 `scripts/start_cdp_browser.py`，统一通过 Python CLI 启动持久化 CDP 浏览器，支持 Chrome/Edge、多个 URL、端口占用检查，以及 `CHROME_PATH` / `EDGE_PATH` 环境变量覆盖；`scripts/start_cdp_chrome.sh` 保留为 macOS/Linux 兼容 wrapper，不再作为唯一入口。
+- **中文检索批处理改为双平台主链**：新增 `scripts/batch_chinese_search.py`，替代 `.sh` 中的业务逻辑，保留 `LOGIN_REQUIRED / SEARCH_START / SEARCH_DONE / ALL_DONE` protocol markers、CARSI/机构登录等待，以及 CNKI 与万方在同一长连接 CDP session 中串行执行的行为；`scripts/batch_chinese_search.sh` 仅作为 macOS/Linux 旧入口包装。
+- **下载流程提示去 macOS-only 化**：`scripts/unified_download_router.py`、`scripts/generic_publisher_downloader.py`、`scripts/download_via_ieee.py` 等脚本不再把 `/Applications/...` 或 `open -na` 当作通用启动方式，统一提示 `python scripts/start_cdp_browser.py ...`，并仅把旧 macOS 命令作为 fallback 说明。
+- **Zotero Windows 支持补齐**：`scripts/setup_zotero.py` 的 `get_zotero_bin()` 同时识别 Unix `bin/zotero-mcp` 与 Windows `Scripts/zotero-mcp.exe`，Zotero MCP 安装文档同步说明 macOS wheel cache 不能直接假设 Windows 可复用。
+- **平台兼容扫描加入质量门**：新增 `scripts/check_platform_compat.py` 与 `tests/test_platform_compat.py`，只读扫描运行文档和脚本中的 `/Applications/...`、`open -na`、未标注 `bash`、必需 `curl`、硬编码 `/tmp`、Zotero `.exe` 缺失等风险，后续新增脚本和下载流程需要同步补规则或测试。
+- **运行时文档统一为“双平台优先”**：`README.md`、`SKILL.md`、Step 4/5 agent 文档、Zotero setup 文档、known pitfalls 和出版社访问矩阵统一改为 Python CLI 优先；如保留 `.sh`、`bash`、`curl`、macOS 应用路径或平台目录，必须标注平台范围或提供跨平台替代。
+- **兼容性验证完成**：本轮通过 `python3 scripts/check_platform_compat.py --strict`、新增/受影响脚本 `py_compile`、完整 `unittest` 回归（142 tests OK, 1 skipped），并在 macOS 上完成 Python CDP 入口与 `.sh` wrapper 的 smoke test。
+
+### 版本同步
+
+- **README / CHANGELOG / SKILL 版本同步到 `v1.0.15-20260619`**：CHANGELOG 保留本轮双平台兼容改造细节，README 仅保留对外要点，SKILL.md frontmatter 与两者同版。
+
 ## v1.0.14-20260618 (2026-06-17 至 2026-06-18)
 
 ### 2026-06-17 至 2026-06-18：Step 4 / Step 6 中文元数据、对照产物与 Zotero 规划强化

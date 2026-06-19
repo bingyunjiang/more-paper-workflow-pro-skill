@@ -11,7 +11,7 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 more paper workflow pro skill `v1.0.14-20260618`
+# 📚 more paper workflow pro skill `v1.0.15-20260619`
 
 > 面向中文/双语论文写作的证据闭环学术工作流：从定题、检索、下载、Zotero 到写作与引用审计，全程基于真实文献，而不是模型记忆。
 
@@ -777,6 +777,14 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
+### v1.0.15-20260619 (2026-06-19)
+- **Step 8 AI 味诊断与运行态状态源**：新增确定性写作诊断、`.skill-state/ai_trace_diagnostics.json`、Step 8 demo 和样例报告，用于把机械化表达、空泛套话、载体层脏污与局部分诊结果写成可追踪状态
+- **Windows + macOS 双平台运行入口**：核心入口统一改为 Python CLI 优先，`.sh` 继续作为 macOS/Linux wrapper 保留，Windows 原生 PowerShell/CMD 不再依赖 bash
+- **跨平台 CDP 与中文批处理入口**：新增 `scripts/start_cdp_browser.py` 和 `scripts/batch_chinese_search.py`，支持 Chrome/Edge、登录等待、CNKI/万方串行检索和原有 protocol markers
+- **下载与 Zotero 兼容性修复**：下载脚本统一提示 Python CDP 启动方式；Zotero MCP 安装支持识别 Windows `Scripts/zotero-mcp.exe`，并明确离线 wheel cache 的平台边界
+- **平台兼容扫描与测试加入质量门**：新增 `scripts/check_platform_compat.py` 和平台兼容测试，用于发现未标注的 macOS-only 命令、`bash/curl` 假设、硬编码临时目录和 Zotero 路径风险
+- **自动更新与后续开发规则固化**：版本检查、升级提示和用户确认边界形成可测试协议；新增脚本默认先提供 Python CLI，平台相关命令必须标注平台或提供跨平台替代
+
 ### v1.0.14-20260618 (2026-06-17 至 2026-06-18)
 - **Step 4 / Step 6 的中文元数据与映射产物补齐**：新增和增强 `manage_step4_intermediate.py`、`merge_workflow_results.py`、`export_chinese_metadata.py`、`export_outline_mapping.py`、`build_zotero_plan.py` 等链路，稳定生成中间工件、章节映射和 Zotero 规划输入，降低多章节场景下的手工整理成本
 - **Step 5 下载路由与出版社矩阵继续收口**：统一下载路由、通用出版社下载器、访问矩阵和 Step 5 文档同步更新，并补强下载测试，进一步固定直达下载和回退行为
@@ -915,7 +923,7 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 ---
 
 <a id="english"></a>
-# 📚 more paper workflow pro skill `v1.0.14-20260618`
+# 📚 more paper workflow pro skill `v1.0.15-20260619`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
@@ -1485,6 +1493,14 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 ## 📋 Version History
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
+
+### v1.0.15-20260619 (2026-06-19)
+- **Step 8 AI-trace diagnostics and runtime state**: added deterministic writing diagnostics, `.skill-state/ai_trace_diagnostics.json`, a runnable Step 8 demo, and sample reports so mechanical phrasing, generic filler, carrier-layer hygiene, and local triage results become traceable runtime state
+- **Windows + macOS runtime compatibility**: core entrypoints now prefer Python CLIs, while `.sh` files remain as macOS/Linux wrappers; native Windows PowerShell/CMD no longer depends on bash for the main flows
+- **Cross-platform CDP and Chinese batch helpers**: added `scripts/start_cdp_browser.py` and `scripts/batch_chinese_search.py` for Chrome/Edge startup, login waiting, serial CNKI/Wanfang execution, and existing protocol markers
+- **Download and Zotero compatibility fixes**: downloader prompts now point to the Python CDP launcher, and Zotero MCP setup detects Windows `Scripts/zotero-mcp.exe` with clearer platform notes for offline wheel caches
+- **Platform scan and tests added**: `scripts/check_platform_compat.py` and dedicated compatibility tests catch unscoped macOS-only commands, bash/curl assumptions, hardcoded temp paths, and Zotero path issues
+- **Update reminder and future development rules recorded**: version checks, upgrade prompts, and user-confirmation boundaries are now testable; new scripts should start with a Python CLI and platform-specific docs must be clearly scoped
 
 ### v1.0.14-20260618 (2026-06-17 to 2026-06-18)
 - **Step 4 / Step 6 metadata and mapping outputs were strengthened**: `manage_step4_intermediate.py`, `merge_workflow_results.py`, `export_chinese_metadata.py`, `export_outline_mapping.py`, and `build_zotero_plan.py` were added or expanded to stabilize intermediate artifacts, chapter mapping, and Zotero planning inputs for multi-chapter workflows

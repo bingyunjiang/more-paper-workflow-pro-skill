@@ -35,7 +35,7 @@ class CheckSkillUpdateScriptTest(unittest.TestCase):
         self.assertEqual(payload["suggested_action"], "continue")
         self.assertFalse(payload["should_prompt"])
         self.assertEqual(payload["prompt_options"], [])
-        self.assertEqual(payload["skill_version"], "v1.0.14-20260618")
+        self.assertEqual(payload["skill_version"], "v1.0.15-20260619")
 
     def test_record_choice_snoozes_matching_remote_head(self):
         with tempfile.TemporaryDirectory() as tmp:
