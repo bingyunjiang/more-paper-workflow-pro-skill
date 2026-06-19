@@ -83,7 +83,7 @@ def ensure_sd_access(port):
     return status == "ok"
 
 
-def _worker(name, port, papers, output_dir, results, log_lock):
+def _worker(name, port, papers, output_dir, results, log_lock, timeout_a, timeout_b):
     """Download a list of papers on one browser."""
     ok, fail = 0, 0
     for i, (key, doi, pii) in enumerate(papers):
@@ -91,7 +91,7 @@ def _worker(name, port, papers, output_dir, results, log_lock):
             break
 
         t0 = time.time()
-        data = download_sd_pii(port, pii)
+        data = download_sd_pii(port, pii, timeout_a=timeout_a, timeout_b=timeout_b)
         et = time.time() - t0
 
         if data and len(data) > 20000:
@@ -233,7 +233,7 @@ if __name__ == "__main__":
         for name, port, chunk in assignments:
             t = threading.Thread(
                 target=_worker,
-                args=(name, port, chunk, OUTPUT_DIR, results, log_lock)
+                args=(name, port, chunk, OUTPUT_DIR, results, log_lock, args.timeout_a, args.timeout_b)
             )
             threads.append(t)
 

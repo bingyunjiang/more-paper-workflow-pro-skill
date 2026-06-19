@@ -12,8 +12,10 @@ sys.path.insert(0, str(SCRIPT_DIR))
 import unified_download_router as router  # noqa: E402
 import generic_publisher_downloader as gpd  # noqa: E402
 import auto_sd_downloader as auto_sd  # noqa: E402
+import parallel_sd_download as parallel_sd  # noqa: E402
 import cdp_utils  # noqa: E402
 import sd_download  # noqa: E402
+import batch_resolve_pii  # noqa: E402
 import console_compat  # noqa: E402
 
 
@@ -57,6 +59,50 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(done, 1)
         self.assertEqual(remaining, [("WI9CIV79", "10.1016/j.ijheatmasstransfer.2025.127378", "S0017931025007173")])
+
+    def test_batch_resolve_pii_preserves_balanced_parentheses_in_old_doi(self):
+        self.assertEqual(
+            batch_resolve_pii._clean_doi("https://doi.org/10.1016/S0378-7753(03)00012-3)"),
+            "10.1016/S0378-7753(03)00012-3",
+        )
+        self.assertEqual(
+            batch_resolve_pii._clean_doi("10.1016/S0378-7753(03)00012-3"),
+            "10.1016/S0378-7753(03)00012-3",
+        )
+
+    def test_auto_sd_worker_passes_timeout_overrides_to_download(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "out"
+            out_dir.mkdir()
+            results = {}
+            papers = [("paper_001", "10.1016/j.demo.2026.01.001", "S0000000000000001")]
+
+            with patch.object(auto_sd, "download_sd_pii", return_value=b"%PDF" + b"x" * 25000) as mock_download:
+                auto_sd._worker("Chrome", 9223, papers, str(out_dir), results, auto_sd.threading.Lock(), 11, 27)
+                self.assertTrue((out_dir / "paper_001.pdf").exists())
+
+        mock_download.assert_called_once_with(9223, "S0000000000000001", timeout_a=11, timeout_b=27)
+
+    def test_sd_download_strategy_b_uses_timeout_for_article_page_wait(self):
+        with patch.object(sd_download, "_extract_pdfft_url", return_value="https://example.com/pdfft?md5=abc") as mock_extract, \
+             patch.object(sd_download, "_navigate_and_capture", return_value=b"%PDFdemo") as mock_capture:
+            pdf = sd_download._strategy_b(9223, "S0000000000000001", timeout=17)
+
+        self.assertEqual(pdf, b"%PDFdemo")
+        mock_extract.assert_called_once_with(9223, "S0000000000000001", render_timeout=17)
+        mock_capture.assert_called_once_with(9223, "https://example.com/pdfft?md5=abc", redirect_timeout=17, capture_timeout=20)
+
+    def test_parallel_sd_worker_passes_timeout_overrides_to_download(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "out"
+            out_dir.mkdir()
+            papers = [("paper_001", "10.1016/j.demo.2026.01.001", "S0000000000000001")]
+
+            with patch.object(parallel_sd, "download_sd_pii", return_value=b"%PDF" + b"x" * 25000) as mock_download:
+                parallel_sd.worker("Chrome", 9223, papers, str(out_dir), 9, 21)
+                self.assertTrue((out_dir / "paper_001.pdf").exists())
+
+        mock_download.assert_called_once_with(9223, "S0000000000000001", timeout_a=9, timeout_b=21)
 
     def test_sd_access_probe_uses_current_known_good_pii_sample(self):
         self.assertEqual(cdp_utils._SD_TEST_DOI, "10.1016/j.est.2024.113105")

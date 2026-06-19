@@ -31,12 +31,12 @@ from sd_download import download_sd_pii
 log_lock = threading.Lock()
 
 
-def worker(name, port, papers, output_dir):
+def worker(name, port, papers, output_dir, timeout_a, timeout_b):
     """Process a list of papers on one browser."""
     ok, fail = 0, 0
     for i, (key, doi, pii) in enumerate(papers, 1):
         t0 = time.time()
-        data = download_sd_pii(port, pii)
+        data = download_sd_pii(port, pii, timeout_a=timeout_a, timeout_b=timeout_b)
         et = time.time() - t0
 
         if data and len(data) > 20000:
@@ -134,7 +134,10 @@ if __name__ == "__main__":
     # ---- Download ----
     threads = []
     for (name, port), papers in assignments:
-        t = threading.Thread(target=worker, args=(name, port, papers, OUTPUT_DIR))
+        t = threading.Thread(
+            target=worker,
+            args=(name, port, papers, OUTPUT_DIR, args.timeout_a, args.timeout_b),
+        )
         threads.append(t)
 
     t0 = time.time()

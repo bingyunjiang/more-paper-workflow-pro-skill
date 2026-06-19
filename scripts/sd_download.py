@@ -262,7 +262,7 @@ def _strategy_b(port: int, pii: str, timeout: int = 25) -> bytes | None:
 
     Works for ~70% of SD papers served via the online PDF viewer.
     """
-    full_url = _extract_pdfft_url(port, pii, render_timeout=25)
+    full_url = _extract_pdfft_url(port, pii, render_timeout=timeout)
     if not full_url:
         return None
 

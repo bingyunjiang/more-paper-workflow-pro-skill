@@ -47,8 +47,11 @@ def _clean_doi(raw: str) -> str:
     # Remove protocol prefix if present
     doi = raw.strip()
     doi = re.sub(r'^https?://doi\.org/', '', doi)
-    # Strip trailing punctuation that gets caught in plain-text regex
-    doi = doi.rstrip('.,;)]}\'"')
+    # Strip trailing punctuation from surrounding prose, but preserve DOI-internal
+    # balanced parentheses used by older Elsevier DOI formats.
+    doi = doi.rstrip('.,;]}\'"')
+    while doi.endswith(")") and doi.count("(") < doi.count(")"):
+        doi = doi[:-1]
     return doi
 
 
