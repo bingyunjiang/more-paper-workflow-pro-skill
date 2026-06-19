@@ -1,0 +1,138 @@
+{
+  "issues": [
+    {
+      "issue_id": "ai-trace-stock-001",
+      "category": "可直接修订",
+      "issue_type": "language_mechanical",
+      "severity": "warn",
+      "location": "L1",
+      "problem": "检测到套话短语/模板化句式 ×1，建议清理高频空泛表达。",
+      "evidence_basis": "deterministic-writing-diagnostics",
+      "allowed_action": "直接修改",
+      "proposed_revision": "删除套话短语，改为更具体的学术陈述或直接进入论点。",
+      "meaning_audit_required": false,
+      "meaning_audit_reason": "",
+      "verification": {
+        "term_consistency": "WARN",
+        "meaning_drift": "PASS",
+        "claim_strength": "PASS",
+        "citation_reference_flow": "PASS"
+      },
+      "final_status": "WARN",
+      "next_action": "保留修改",
+      "issue_state": "identified",
+      "state_reason": "由确定性写作诊断规则命中，待 Step 8 决定是否修订",
+      "rule_family": "套话短语规则",
+      "rule_id": "stock_phrases.dense",
+      "rule_examples": [
+        "值得注意的是"
+      ],
+      "density_signal": "sparse",
+      "deficiency_kind": ""
+    },
+    {
+      "issue_id": "ai-trace-vague-001",
+      "category": "当前依据不足",
+      "issue_type": "language_mechanical",
+      "severity": "warn",
+      "location": "L1",
+      "problem": "检测到空泛归因 ×1，若贴近关键 claim 应回查 Step 7 引用审计或原文支持。",
+      "evidence_basis": "deterministic-writing-diagnostics citation_risk_note",
+      "allowed_action": "人工决定",
+      "proposed_revision": "改为更具体的来源表述，或保留并补充引用支撑检查。",
+      "meaning_audit_required": true,
+      "meaning_audit_reason": "空泛归因可能影响句子强度，且可能与引用落点相邻。",
+      "verification": {
+        "term_consistency": "WARN",
+        "meaning_drift": "WARN",
+        "claim_strength": "WARN",
+        "citation_reference_flow": "WARN"
+      },
+      "final_status": "WARN",
+      "next_action": "return_to_step_7_citation_audit",
+      "issue_state": "identified",
+      "state_reason": "由确定性写作诊断规则命中，待 Step 8 决定是否修订",
+      "rule_family": "空泛归因规则",
+      "rule_id": "vague_attribution.generic",
+      "rule_examples": [
+        "研究表明"
+      ],
+      "density_signal": "hits=1",
+      "deficiency_kind": "citation_evidence"
+    },
+    {
+      "issue_id": "ai-trace-structgap-001",
+      "category": "当前依据不足",
+      "issue_type": "language_mechanical",
+      "severity": "warn",
+      "location": "L3",
+      "problem": "检测到结构/资料缺口提示 ×2，当前正文显式暴露待补文献、数据、图表或实验材料。",
+      "evidence_basis": "deterministic-writing-diagnostics material_gap_note",
+      "allowed_action": "回退",
+      "proposed_revision": "不要在 Step 8 内硬补；先回到 Step 4/6 补资料或证据底座，再继续润色。",
+      "meaning_audit_required": false,
+      "meaning_audit_reason": "",
+      "verification": {
+        "term_consistency": "WARN",
+        "meaning_drift": "PASS",
+        "claim_strength": "PASS",
+        "citation_reference_flow": "PASS"
+      },
+      "final_status": "WARN",
+      "next_action": "return_to_step_4_or_6",
+      "issue_state": "identified",
+      "state_reason": "由确定性写作诊断规则命中，待 Step 8 决定是否修订",
+      "rule_family": "结构/资料缺口规则",
+      "rule_id": "structural_gap.placeholder",
+      "rule_examples": [
+        "这里需要补文献",
+        "图表待补"
+      ],
+      "density_signal": "hits=2",
+      "deficiency_kind": "structure_material"
+    }
+  ],
+  "ai_trace_diagnostics": {
+    "summary": {
+      "readiness": "partial",
+      "can_continue": true,
+      "blocking": [],
+      "warnings": [
+        "AI 味确定性检查只服务于 Step 8 润色诊断，不替代 Step 7 引用审计。"
+      ],
+      "recommended_next_step": "Step 8",
+      "issue_count": 3,
+      "direct_fix_count": 1,
+      "manual_review_count": 1,
+      "citation_evidence_rollback_count": 1,
+      "structure_material_rollback_count": 1,
+      "rule_family_counts": {
+        "套话短语规则": 1,
+        "空泛归因规则": 1,
+        "结构/资料缺口规则": 1
+      }
+    },
+    "issue_ids": [
+      "ai-trace-stock-001",
+      "ai-trace-vague-001",
+      "ai-trace-structgap-001"
+    ],
+    "step8_decision": {
+      "overall_status": "not_ready_requires_rollback",
+      "next_action": "return_to_step_4_or_6",
+      "decision_reason": "存在结构/资料缺口回退项，Step 8 不应在证据底座缺失时继续硬修。"
+    },
+    "status_contract": {
+      "readiness": "blocked",
+      "can_continue": false,
+      "blocking": [
+        "存在待补文献/图表/实验材料，占位提示尚未闭环"
+      ],
+      "warnings": [],
+      "recommended_next_step": "Step 4/6"
+    }
+  },
+  "warnings": [
+    "已并入 deterministic writing diagnostics 结果"
+  ]
+}

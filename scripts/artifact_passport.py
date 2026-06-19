@@ -44,6 +44,7 @@ COMMON_PATTERNS = (
     "指定章节.md",
     "论文润色稿.md",
     "diagnostic_summary.md",
+    ".skill-state/ai_trace_diagnostics.json",
 )
 
 

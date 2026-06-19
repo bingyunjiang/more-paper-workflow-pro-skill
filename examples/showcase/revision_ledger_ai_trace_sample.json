@@ -1,0 +1,57 @@
+{
+  "warnings": [
+    "已并入 deterministic writing diagnostics 结果"
+  ],
+  "issues": [
+    {
+      "issue_id": "ai-trace-stock-001",
+      "category": "可直接修订",
+      "issue_type": "language_mechanical",
+      "severity": "warn",
+      "location": "L12",
+      "problem": "检测到套话短语/模板化句式 ×3，建议清理高频空泛表达。",
+      "evidence_basis": "deterministic-writing-diagnostics",
+      "allowed_action": "直接修改",
+      "proposed_revision": "删除套话短语，改为更具体的学术陈述或直接进入论点。",
+      "meaning_audit_required": false,
+      "meaning_audit_reason": "",
+      "verification": {
+        "term_consistency": "WARN",
+        "meaning_drift": "PASS",
+        "claim_strength": "PASS",
+        "citation_reference_flow": "PASS"
+      },
+      "final_status": "WARN",
+      "next_action": "保留修改",
+      "issue_state": "identified",
+      "state_reason": "由确定性写作诊断规则命中，待 Step 8 决定是否修订",
+      "rule_family": "套话短语规则",
+      "rule_id": "stock_phrases.dense",
+      "rule_examples": [
+        "it is worth noting that",
+        "plays a crucial role"
+      ],
+      "density_signal": "dense"
+    }
+  ],
+  "ai_trace_diagnostics": {
+    "summary": {
+      "readiness": "partial",
+      "can_continue": true,
+      "blocking": [],
+      "warnings": [
+        "AI 味确定性检查只服务于 Step 8 润色诊断，不替代 Step 7 引用审计。"
+      ],
+      "recommended_next_step": "Step 8",
+      "issue_count": 1,
+      "direct_fix_count": 1,
+      "manual_review_count": 0,
+      "rule_family_counts": {
+        "套话短语规则": 1
+      }
+    },
+    "issue_ids": [
+      "ai-trace-stock-001"
+    ]
+  }
+}

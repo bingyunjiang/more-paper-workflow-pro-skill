@@ -499,10 +499,47 @@ python3 "$SKILL_DIR/scripts/check_skill_update.py" --quiet
 
 - 该检查为 **best-effort**：网络不可用、远程仓库不可访问或 git 不可用时不得阻塞主流程
 - 默认 24 小时最多提醒一次，状态写入用户缓存目录，不写入项目 `.skill-state/`
-- 只打印提醒和更新命令，不自动执行 `git pull`
+- 默认只检查、不自动执行 `git pull`
 - 手动强制检查：`python3 "$SKILL_DIR/scripts/check_skill_update.py" --force`
 - 关闭自动检查：设置环境变量 `MORE_PAPER_SKILL_UPDATE_CHECK=0`
 - 调整检查间隔：设置 `MORE_PAPER_SKILL_UPDATE_INTERVAL_HOURS=6`
+
+#### 启动时升级弹窗协议
+
+统一协议见：`references/update-reminder-protocol.md`
+
+若宿主支持原生弹窗/选项卡，则在调用 skill 时先执行：
+
+```
+python3 "$SKILL_DIR/scripts/check_skill_update.py" --json
+```
+
+若宿主只支持文本显示，推荐直接执行：
+
+```
+python3 "$SKILL_DIR/scripts/check_skill_update.py" --json | python3 "$SKILL_DIR/scripts/render_update_prompt.py"
+```
+
+当返回结果中 `should_prompt=true` 时，建议先发起一次**软提醒**，再继续当前任务：
+
+- `升级`：优先执行 `python3 "$SKILL_DIR/scripts/perform_skill_upgrade.py" --json`；若升级成功，再重新读取 `SKILL.md` 并用 `--record-choice upgrade` 回写状态；若升级失败，必须提示用户失败原因，但继续使用当前本地版本
+- `本次跳过`：仅跳过本次会话提醒，然后继续当前任务；宿主可自行维护 session 级免打扰，或调用 `--record-choice skip_once`
+- `今日不再提醒`：写入缓存抑制窗口，在默认 24 小时内不再针对同一远程 `HEAD` 提醒；可调用 `--record-choice snooze_today`
+
+若宿主支持原生弹窗/选项卡，则优先使用原生交互；若不支持，则必须降级为**结构化文本弹窗**，明确给出以下三个选项：
+
+- `升级`
+- `本次跳过`
+- `今日不再提醒`
+
+约束：
+
+- 默认是软提醒，不是每次调用都强拦截
+- 同一远程更新在抑制窗口内不重复提醒；默认抑制时长 24 小时，可用 `MORE_PAPER_SKILL_UPDATE_SUPPRESS_HOURS` 调整
+- 不自动替用户做“跳过”决定，也不自动执行升级
+- `metadata_mismatch=true` 仅作为告警提示；只有 `should_prompt=true` 才建议弹窗
+- 若网络不可用、git 不可用、当前目录不是 git checkout，或检查被节流/关闭，则跳过弹窗，继续主流程
+- 若宿主完全不支持原生弹窗，则必须按 `references/update-reminder-protocol.md` 输出标准文本提醒，并接受用户回复 `升级 / 本次跳过 / 今日不再提醒`
 
 ### 🆕 .skill-state/ 初始化规则
 

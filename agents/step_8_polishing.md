@@ -15,6 +15,7 @@
 - [ ] `.skill-state/decision_log.md` — 影响润色策略的决策
 - [ ] `references/polish-modes.md` — 🆕 revision scope 约束
 - [ ] `references/ai-trace-taxonomy.md` — 🆕 机械化表达风险参考
+- [ ] `references/deterministic-writing-diagnostics.md` — 🆕 AI 味确定性检查规则族与映射边界
 - [ ] `references/genre-style-axis.md` — 🆕 target_genre 默认规则
 - [ ] `references/writing-antipatterns.md` — 🆕 写作反模式回退条件
 
@@ -73,6 +74,8 @@
 Step 8 的直接入口只要求有可润色文本。评审报告、引用审计报告、Step 7 完整上下文都是质量增强输入，不是入口门。缺失时按降级规则标记风险，不能要求用户回跑 Step 7。
 Step 8 可以补局部内容，但仅限可由现有正文、Step 7 三工件、评审/审计输入支撑的修订性补写，不允许把本层升级为开放式重写器。
 
+> **AI 味确定性检查边界：** Step 8 内部包含一个“AI 味确定性检查”子层，输入为待润色正文、`.skill-state/term_aliases.md` 与 Step 7 三工件（如可用）。它只检查表达层确定性风险，用于识别机械化表达、空泛套话、悬垂洞见、节奏过匀和载体脏污等问题；它不判断学术观点真假，不判断引用是否真实存在，也不把“像 AI 写的”直接等同于“不能发表”或“必须回退”。
+
 > **RAG 边界：** Step 8 默认消费 `argument_plan` 中已确认的证据状态。必要时可读取 `retrieval_candidates.json` 做缺口提醒或修订风险说明，但不得把候选层内容直接当作正文证据、引用修复依据或 claim 支撑结论，不允许跳过原文确认层。
 
 > **PDF 边界：** Step 8 默认消费 Step 7 已确认的证据层与 PDF 处理结果。必要时可以读取带锚点的 `clean.md/chunks.json` 作为修订参考，但不得把未经确认的提取文本当成新增外部证据，也不得绕过原 PDF 的最终核验地位。统一口径见 `references/pdf-processing-policy.md`。
@@ -129,6 +132,14 @@ Step 8 不允许：
 | 术语一致性报告 | .md | 术语修改数、新增术语数、Main Term 变更数 |
 | 润色质量报告 | .md | 最终风险、降级说明、验证结果、人工复核项 |
 
+**AI 味检查结果并入规则：**
+
+- `diagnostic_summary.md` 必须包含 `AI 味确定性检查摘要` 区块：规则族命中数量、高密度章节/段落、可直接修复项数量、需人工复核项数量。
+- `revision_ledger.json/md` 中所有进入实际处理队列的 AI 味命中项，复用现有 issue 字段，并可追加 `rule_family / rule_id / rule_examples / density_signal`。
+- `润色质量报告.md` 必须包含 `AI 味检查结果` 区块：已处理的高频机械表达、保留未改的风格性项、建议作者人工复核的章节。
+- 若需要机器层中间结果，优先使用 `scripts/deterministic_writing_diagnostics.py` 生成结构化 issue，再并入 `revision_ledger.json`。
+- 若需要一个可直接运行的 Step 8 局部入口，优先使用 `scripts/run_step8_ai_trace.py`，默认文件名为：`论文初稿.md` 输入，`.skill-state/ai_trace_diagnostics.json`、`diagnostic_summary.md`、`revision_ledger.json`、`revision_ledger.md` 输出。
+
 ---
 
 ## 执行流程 (Execution Flow)
@@ -141,7 +152,7 @@ Step 8 不允许：
 | Stage | 阶段 | 输入 | 动作 | 输出 |
 |------:|------|------|------|------|
 | 0 | 输入接收 | 初稿、评审报告、引用审计报告、共享记忆 | 确认输入契约，记录缺失项和降级状态 | 输入检查摘要 |
-| 1 | 初稿诊断 | 初稿 + Step 7 评审/审计信息 | 按章节识别语言、结构、机械化表达、术语和引用风险，并做中文三分法分类 | `diagnostic_summary.md` + 润色任务清单 |
+| 1 | 初稿诊断 | 初稿 + Step 7 评审/审计信息 | 按章节识别语言、结构、机械化表达、术语和引用风险，并做中文三分法分类；内部运行 AI 味确定性检查 | `diagnostic_summary.md` + 润色任务清单 |
 | 2 | 四层润色 | 初稿 + 任务清单 | 依次执行 Level 1-4，允许受约束补写与直接修改，保持章节编号和引用格式稳定 | 润色正文草案 |
 | 3 | 问题闭环账本 | 原文 + 润色正文草案 + 诊断任务清单 | 记录每个问题的允许动作、修订建议、验证结果与最终状态 | `revision_ledger.json` + `revision_ledger.md` |
 | 4 | 对照表生成 | 原文 + 润色正文草案 | 抽取代表性修改，按固定字段记录原因 | 修改对照表 |
@@ -164,6 +175,8 @@ Step 8 不允许：
 - Step 8 的禁止动作：新增外部证据或引用来源、重写章节主体、重定义贡献点/研究问题、修复需要作者私有知识或新增实验的信息缺口。
 - Step 8 不能解决的问题：新增引用或补证据、修复 claim 与证据不匹配、重构章节功能、修复图表缺失造成的论证断裂、补 systematic-review 筛选协议；以上一律导向回退，不允许“润色硬修”。
 - Step 7 已经完成的基础可读性整形不应在 Step 8 中重复展开；Step 8 只处理全局一致性、终验和成稿级表达质量。
+- Step 8 会自动执行 AI 味确定性检查；其结果只是润色诊断的一部分，不构成新的完成门，也不会因为“像 AI”就单独要求用户回跑主写作。
+- 单纯词表或模式命中不得直接升格为 `evidence_gap / structure_drift / contribution_overclaim`；若没有独立证据支持，默认只能落入 `language_mechanical` 或术语一致性相关问题。
 
 ### 8.1. 标准诊断层
 
@@ -190,6 +203,9 @@ Step 8 不允许：
 - `language_mechanical` 通常可在 Step 8 修复。
 - `evidence_gap`、`structure_drift`、`citation_misalignment` 默认优先考虑回退，而不是本层强行修顺。
 - `contribution_overclaim` 需结合 Step 7 的 claim 与证据状态判断，不能只靠降级措辞判定为已解决。
+- AI 味确定性检查的大多数命中项默认映射到 `language_mechanical`。
+- 若命中同时涉及术语混乱，仍保持 `issue_type=language_mechanical`，并在 `problem` 或 `evidence_basis` 中标注 `term_consistency_related`。
+- 若命中同时暴露“空泛归因贴着关键结论”，主类型仍为 `language_mechanical`，但 `next_action` 可指向 `return_to_step_7_citation_audit`。
 
 ### 8.1.1. 中文三分法
 
@@ -215,8 +231,41 @@ Step 8 只在以下边界内执行这些层级：
 更细的润色示例、AI 痕迹分类与可选风格提示，统一查阅：
 
 - `references/ai-trace-taxonomy.md`
+- `references/deterministic-writing-diagnostics.md`
 - `references/polish-modes.md`
 - `references/writing-antipatterns.md`
+
+### 8.2.1. AI 味确定性检查
+
+Step 8 在 Level 3 表达风险清理前，默认运行“AI 味确定性检查”。该子层不是独立命令，也不是新的完成门，而是 `language_mechanical` 的高置信诊断器。
+
+**规则族固定为 6 组：**
+
+- `套话短语规则`：高频空泛短语和模板化句式，如 `plays a crucial role`、`it is worth noting that`、`值得注意的是`、`综上所述`。
+- `机械连接词堆积规则`：段首或句首连接词使用过密，如 `Moreover / Furthermore / Additionally / Notably`、`此外 / 另外 / 首先 / 其次 / 更重要的是`。
+- `伪洞见与悬垂表达规则`：如 `..., highlighting the importance of ...`、`..., underscoring ...` 或结尾挂抽象洞见却未增加实质信息的从句。
+- `空泛归因规则`：如 `Studies have shown`、`Experts believe`、`研究表明`、`学者认为`。
+- `句长节奏过匀规则`：只做段落/章节级节奏诊断，不对每句单独报错。
+- `冗余破折号与插入语规则`：识别过度插入、句内人工拉伸和冗余解释性补充。
+
+**动作矩阵固定为：**
+
+- 可在 Step 8 直接修订：套话短语、机械连接词堆积、悬垂 `-ing` / 伪洞见尾句、冗余破折号/插入语、明显重复表达、句子表面机械化但不改变 claim 的措辞。
+  - 默认 `allowed_action=直接修改` 或 `局部补写`
+  - 默认 `next_action=保留修改`
+- 可修但需轻量含义审计：涉及限定词、比较词、因果词的 AI 味表达；会影响句子强度的模板化短语；与引用落点相邻的空泛归因。
+  - 默认 `meaning_audit_required=true`
+  - 审计通过才可关闭 issue；否则 `next_action=转人工复核` 或 `return_to_step_7_citation_audit`
+- 只提醒，不在 Step 8 内硬修：统计层面的句长均匀、轻度被动语态偏高、少量风格化重复但作者可能有意保留的节奏。
+  - 写入 `润色质量报告.md`
+  - 可不进入逐条修改
+  - 不影响 Step 8 总完成结论
+
+**实现边界：**
+
+- 风格类命中默认不触发 rollback。
+- 单纯词表命中不得直接升格为证据问题。
+- Step 8 不因“AI 味”要求用户回跑主写作。
 
 ---
 

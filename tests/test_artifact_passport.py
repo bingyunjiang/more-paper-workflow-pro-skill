@@ -51,6 +51,66 @@ class ArtifactPassportTest(unittest.TestCase):
         self.assertIn("continue-existing", readiness["Step 7"].allowed_modes)
         self.assertIn("local-polish", readiness["Step 8"].allowed_modes)
 
+    def test_step8_status_contract_can_block_passport_readiness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            draft = root / "论文初稿.md"
+            draft.write_text("正文", encoding="utf-8")
+            skill_state = root / ".skill-state"
+            skill_state.mkdir()
+            ai_trace = skill_state / "ai_trace_diagnostics.json"
+            ai_trace.write_text(
+                json.dumps(
+                    {
+                        "status_contract": {
+                            "readiness": "blocked",
+                            "can_continue": False,
+                            "blocking": ["存在待补文献/图表/实验材料，占位提示尚未闭环"],
+                            "warnings": [],
+                            "recommended_next_step": "Step 4/6",
+                        }
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            passport = build_artifact_passport(root, [draft, ai_trace])
+            readiness = readiness_by_step(passport)
+
+        self.assertFalse(readiness["Step 8"].ready)
+        self.assertEqual(readiness["Step 8"].recommended_next_step, "Step 4/6")
+        self.assertIn("待补文献/图表/实验材料", readiness["Step 8"].blocked_reason)
+
+    def test_step8_status_contract_can_redirect_to_step7_without_blocking(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            draft = root / "论文初稿.md"
+            draft.write_text("正文", encoding="utf-8")
+            skill_state = root / ".skill-state"
+            skill_state.mkdir()
+            ai_trace = skill_state / "ai_trace_diagnostics.json"
+            ai_trace.write_text(
+                json.dumps(
+                    {
+                        "status_contract": {
+                            "readiness": "partial",
+                            "can_continue": True,
+                            "blocking": [],
+                            "warnings": ["存在引用/证据型回退项，建议回到 Step 7 做引用审计或原文确认"],
+                            "recommended_next_step": "Step 7",
+                        }
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            passport = build_artifact_passport(root, [draft, ai_trace])
+            readiness = readiness_by_step(passport)
+
+        self.assertTrue(readiness["Step 8"].ready)
+        self.assertEqual(readiness["Step 8"].recommended_next_step, "Step 7")
+        self.assertIn("引用/证据型回退项", " ".join(readiness["Step 8"].risks))
+
     def test_pdf_directory_enables_step6_plan_only_with_risk_boundary(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

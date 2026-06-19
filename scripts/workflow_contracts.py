@@ -825,6 +825,8 @@ def infer_artifact_kind(path: str | Path) -> str:
         return "capability_index"
     if "引用审计" in name or "citation_audit" in name:
         return "citation_audit"
+    if "ai_trace_diagnostics" in name:
+        return "polishing"
     if any(token in name for token in ("实验报告", "试验报告", "evidence_report", "report")) and suffix in (".md", ".docx", ".txt", ".pdf"):
         return "evidence_report"
     if any(token in name for token in ("标准", "规范", "standard", "spec")) and suffix in (".md", ".docx", ".txt", ".pdf"):
@@ -852,6 +854,21 @@ def artifact_record_from_path(
     fmt = "directory" if p.is_dir() else p.suffix.lstrip(".").lower()
     risk_level = "low" if exists else "medium"
     confidence = "high" if inferred_kind != "unknown" and exists else "medium"
+    metadata = {"size_bytes": p.stat().st_size if exists and p.is_file() else 0}
+    if exists and inferred_kind == "polishing" and fmt == "json":
+        try:
+            payload = json.loads(p.read_text(encoding="utf-8"))
+            status_contract = payload.get("status_contract")
+            if isinstance(status_contract, dict):
+                metadata["status_contract"] = status_contract
+            ai_trace = payload.get("ai_trace_diagnostics")
+            if isinstance(ai_trace, dict):
+                if isinstance(ai_trace.get("status_contract"), dict):
+                    metadata["status_contract"] = ai_trace["status_contract"]
+                if isinstance(ai_trace.get("step8_decision"), dict):
+                    metadata["step8_decision"] = ai_trace["step8_decision"]
+        except Exception:
+            metadata["status_contract_parse_error"] = True
     return ArtifactRecord(
         artifact_id=_artifact_id(rel_path, inferred_kind),
         kind=inferred_kind,
@@ -863,7 +880,7 @@ def artifact_record_from_path(
         exists=exists,
         confidence=confidence,
         risk_level=risk_level,
-        metadata={"size_bytes": p.stat().st_size if exists and p.is_file() else 0},
+        metadata=metadata,
     )
 
 
@@ -898,6 +915,12 @@ def infer_step_origin(kind: str) -> str:
 def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepReadiness]:
     existing = [a for a in artifacts if a.exists]
     kinds = {a.kind for a in existing}
+    polishing_status_contracts = [
+        a.metadata.get("status_contract")
+        for a in existing
+        if a.kind == "polishing" and isinstance(a.metadata.get("status_contract"), dict)
+    ]
+    step8_status_contract = polishing_status_contracts[0] if polishing_status_contracts else None
 
     def ids(*allowed: str) -> list[str]:
         return [a.artifact_id for a in existing if a.kind in allowed]
@@ -985,17 +1008,39 @@ def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepRea
     ))
 
     step8_ready = "draft" in kinds or "polishing" in kinds
+    step8_blocked_by_status = bool(
+        isinstance(step8_status_contract, dict) and step8_status_contract.get("readiness") == "blocked"
+    )
+    step8_can_continue = not (
+        isinstance(step8_status_contract, dict) and step8_status_contract.get("can_continue") is False
+    )
+    step8_recommended = "按文本范围选择局部润色、章节修订或全稿精修"
+    step8_risks = ["Step 8 不替代 Step 7 引用审计；缺审计时只能标记风险"] if step8_ready else []
+    step8_blocked_reason = "" if step8_ready else "没有可润色的正文材料"
+    if isinstance(step8_status_contract, dict):
+        contract_warnings = step8_status_contract.get("warnings") or []
+        if isinstance(contract_warnings, list):
+            step8_risks.extend(str(item) for item in contract_warnings if str(item) not in step8_risks)
+        recommended = step8_status_contract.get("recommended_next_step")
+        if isinstance(recommended, str) and recommended:
+            step8_recommended = recommended
+        if step8_blocked_by_status:
+            blocking = step8_status_contract.get("blocking") or []
+            if isinstance(blocking, list) and blocking:
+                step8_blocked_reason = "；".join(str(item) for item in blocking)
+            else:
+                step8_blocked_reason = "Step 8 运行态状态块标记为 blocked"
     readiness.append(StepReadiness(
         step="Step 8",
-        ready=step8_ready,
+        ready=step8_ready and not step8_blocked_by_status and step8_can_continue,
         route_mode="audit-only" if "citation_audit" in kinds and "draft" not in kinds else "direct-step",
         allowed_modes=["local-polish", "section-revision", "full-manuscript-pass"] if step8_ready else ["risk-note-only"],
         available_artifacts=ids("draft", "polishing", "citation_audit"),
         missing_required=[] if step8_ready else ["论文初稿、指定章节或待润色文本"],
         missing_optional=["引用审计报告", "term_aliases.md"] if step8_ready else [],
-        risks=["Step 8 不替代 Step 7 引用审计；缺审计时只能标记风险"] if step8_ready else [],
-        blocked_reason="" if step8_ready else "没有可润色的正文材料",
-        recommended_next_step="按文本范围选择局部润色、章节修订或全稿精修",
+        risks=step8_risks,
+        blocked_reason=step8_blocked_reason,
+        recommended_next_step=step8_recommended,
     ))
     return readiness
 

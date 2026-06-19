@@ -31,6 +31,13 @@ Step 8 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 - 缺引用审计时，Step 8 只做润色与术语终验风险标记，不替代 Step 7 的引用审计结论。
 - Passport 的全局 `route_mode` 不覆盖 Step 8 的 `revision_scope / target_genre`。
 
+Step 8 若存在 `$CWD/.skill-state/ai_trace_diagnostics.json`，应把它视为运行态状态源之一：
+
+- 其中的 `step8_decision` 记录本地分诊结论
+- 其中的 `status_contract` 记录 `readiness / can_continue / blocking / warnings / recommended_next_step`
+- `artifact_passport.json` 可消费该状态块，进而影响 Step 8 readiness 与推荐下一步
+- 它不是上游证据产物替代品，也不替代 `diagnostic_summary.md` / `revision_ledger.json` / `润色质量报告.md` 的正式交付地位
+
 ## 加载顺序
 
 1. `manifest.step8.yaml`

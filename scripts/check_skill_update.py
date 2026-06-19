@@ -15,12 +15,14 @@ import json
 import os
 import re
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 
 DEFAULT_INTERVAL_HOURS = 24
 REMOTE_TIMEOUT_SECONDS = 5
+DEFAULT_SUPPRESS_HOURS = 24
 
 
 def skill_dir() -> Path:
@@ -35,7 +37,7 @@ def read_text(path: Path) -> str:
 
 
 def parse_skill_version(root: Path) -> str | None:
-    match = re.search(r"^version:\s*(\S+)\s*$", read_text(root / "SKILL.md"), re.M)
+    match = re.search(r"^version:\s*([^\s(]+)", read_text(root / "SKILL.md"), re.M)
     return match.group(1) if match else None
 
 
@@ -90,12 +92,24 @@ def save_state(path: Path, state: dict) -> None:
         pass
 
 
+def current_time() -> float:
+    return time.time()
+
+
 def should_check(path: Path, interval_hours: float, force: bool) -> bool:
     if force:
         return True
     state = load_state(path)
     last_checked = float(state.get("last_checked", 0) or 0)
-    return (time.time() - last_checked) >= interval_hours * 3600
+    return (current_time() - last_checked) >= interval_hours * 3600
+
+
+def is_suppressed(state: dict, remote_head: str | None, now_ts: float) -> tuple[bool, str | None]:
+    suppressed_remote = state.get("suppressed_remote_head")
+    suppress_until = float(state.get("suppress_until", 0) or 0)
+    if remote_head and suppressed_remote == remote_head and now_ts < suppress_until:
+        return True, "snoozed_for_today"
+    return False, None
 
 
 def print_reminder(lines: list[str]) -> None:
@@ -104,11 +118,28 @@ def print_reminder(lines: list[str]) -> None:
         print(line)
 
 
+def emit_json(payload: dict) -> None:
+    json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
+    sys.stdout.write("\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Check whether this skill may need an update.")
     parser.add_argument("--force", action="store_true", help="Ignore daily throttling and check now.")
     parser.add_argument("--no-network", action="store_true", help="Only compare local metadata; skip git remote check.")
     parser.add_argument("--quiet", action="store_true", help="Only print when an update or metadata mismatch is found.")
+    parser.add_argument("--json", action="store_true", help="Print machine-readable status for runtime gating.")
+    parser.add_argument(
+        "--record-choice",
+        choices=["upgrade", "skip_once", "snooze_today"],
+        help="Persist the user's choice after a prompt so the next startup can decide whether to remind again.",
+    )
+    parser.add_argument(
+        "--suppress-hours",
+        type=float,
+        default=float(os.environ.get("MORE_PAPER_SKILL_UPDATE_SUPPRESS_HOURS", DEFAULT_SUPPRESS_HOURS)),
+        help="Hours to suppress the same remote update after choosing snooze_today. Default: 24.",
+    )
     parser.add_argument(
         "--interval-hours",
         type=float,
@@ -118,11 +149,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if os.environ.get("MORE_PAPER_SKILL_UPDATE_CHECK", "").lower() in {"0", "false", "no", "off"}:
+        if args.json:
+            emit_json({"enabled": False, "skipped": True, "reason": "disabled_by_env"})
         return 0
 
     root = skill_dir()
     state_file = state_path()
+    state = load_state(state_file)
     if not should_check(state_file, args.interval_hours, args.force):
+        if args.json:
+            emit_json({"enabled": True, "skipped": True, "reason": "throttled", "state_file": str(state_file)})
         return 0
 
     skill_version = parse_skill_version(root)
@@ -130,35 +166,89 @@ def main(argv: list[str] | None = None) -> int:
     changelog_version = parse_changelog_version(root)
 
     lines: list[str] = []
+    metadata_mismatch = False
     expected_version = changelog_version or readme_version
     if expected_version and skill_version and skill_version != expected_version:
+        metadata_mismatch = True
         lines.append(f"- 本地 SKILL.md 版本为 {skill_version}，但 README/CHANGELOG 最新为 {expected_version}。")
         lines.append("- 建议先同步 skill 元数据，避免 Agent 读取到旧版本号。")
 
     local_head = run_git(root, ["rev-parse", "HEAD"], timeout=2)
     remote_head = None
     remote_url = run_git(root, ["config", "--get", "remote.origin.url"], timeout=2)
+    remote_update_available = False
     if not args.no_network and remote_url and local_head:
         remote_raw = run_git(root, ["ls-remote", "origin", "HEAD"], timeout=REMOTE_TIMEOUT_SECONDS)
         if remote_raw:
             remote_head = remote_raw.split()[0]
             if remote_head and remote_head != local_head:
+                remote_update_available = True
                 lines.append(f"- 远程仓库已有新提交：本地 {local_head[:7]}，远程 {remote_head[:7]}。")
                 lines.append(f"- 更新命令：cd {root} && git pull --ff-only")
 
-    save_state(
-        state_file,
+    now_ts = current_time()
+    suppressed, suppress_reason = is_suppressed(state, remote_head, now_ts)
+    should_prompt = remote_update_available and not suppressed
+
+    choice_recorded = None
+    if args.record_choice:
+        choice_recorded = args.record_choice
+        state["last_user_choice"] = args.record_choice
+        state["last_choice_at"] = now_ts
+        state["last_prompted_remote_head"] = remote_head
+        if args.record_choice == "snooze_today" and remote_head:
+            state["suppressed_remote_head"] = remote_head
+            state["suppress_until"] = now_ts + args.suppress_hours * 3600
+        elif args.record_choice == "upgrade":
+            state.pop("suppressed_remote_head", None)
+            state.pop("suppress_until", None)
+        elif args.record_choice == "skip_once":
+            # skip_once only affects the current host session; leave no long-lived suppression marker.
+            state.pop("suppressed_remote_head", None)
+            state.pop("suppress_until", None)
+
+    payload = {
+        "enabled": True,
+        "skipped": False,
+        "skill_version": skill_version,
+        "readme_version": readme_version,
+        "changelog_version": changelog_version,
+        "expected_version": expected_version,
+        "metadata_mismatch": metadata_mismatch,
+        "local_head": local_head,
+        "remote_head": remote_head,
+        "remote_url": remote_url,
+        "remote_update_available": remote_update_available,
+        "update_available": remote_update_available,
+        "should_prompt": should_prompt,
+        "suggested_action": "soft_prompt_upgrade_skip_snooze" if should_prompt else "continue",
+        "update_command": f"cd {root} && git pull --ff-only" if remote_update_available else None,
+        "prompt_mode": "soft" if should_prompt else "none",
+        "prompt_options": ["upgrade", "skip_once", "snooze_today"] if should_prompt else [],
+        "suppressed": suppressed,
+        "suppress_reason": suppress_reason,
+        "suppress_until": state.get("suppress_until"),
+        "last_user_choice": state.get("last_user_choice"),
+        "choice_recorded": choice_recorded,
+        "state_file": str(state_file),
+        "messages": lines,
+    }
+
+    state.update(
         {
-            "last_checked": time.time(),
+            "last_checked": now_ts,
             "skill_version": skill_version,
             "readme_version": readme_version,
             "changelog_version": changelog_version,
             "local_head": local_head,
             "remote_head": remote_head,
-        },
+        }
     )
+    save_state(state_file, state)
 
-    if lines:
+    if args.json:
+        emit_json(payload)
+    elif lines:
         print_reminder(lines)
     elif not args.quiet:
         print(f"✅ More Paper Workflow Pro Skill 已是当前可见版本：{skill_version or 'unknown'}")

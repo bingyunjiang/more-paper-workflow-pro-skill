@@ -166,6 +166,39 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("return_to_step_7_argument_plan", text)
         self.assertIn("return_to_step_4_or_6", text)
 
+    def test_step8_ai_trace_diagnostics_contract_exists(self):
+        text = read_rel("agents/step_8_polishing.md")
+        command = read_rel("commands/polish.md")
+        readme = read_rel("README.md")
+        reference = read_rel("references/deterministic-writing-diagnostics.md")
+
+        self.assertIn("AI 味确定性检查", text)
+        self.assertIn("language_mechanical", text)
+        self.assertIn("diagnostic_summary.md", text)
+        self.assertIn("revision_ledger.json", text)
+        self.assertIn("revision_ledger.md", text)
+        self.assertIn("润色质量报告.md", text)
+        self.assertIn("单纯词表或模式命中不得直接升格为 `evidence_gap / structure_drift / contribution_overclaim`", text)
+        self.assertIn("风格类命中默认不触发 rollback", text)
+        self.assertIn("Step 8 不因“AI 味”要求用户回跑主写作", text)
+        self.assertIn("AI 味确定性检查", command)
+        self.assertIn("AI 味确定性检查", readme)
+        self.assertIn("载体清洁度检查", readme)
+
+        for token in [
+            "套话短语规则",
+            "机械连接词堆积规则",
+            "伪洞见与悬垂表达规则",
+            "空泛归因规则",
+            "句长节奏过匀规则",
+            "冗余破折号与插入语规则",
+            "可在 Step 8 直接修订",
+            "可修但需轻量含义审计",
+            "只提醒，不在 Step 8 内硬修",
+        ]:
+            self.assertIn(token, text)
+            self.assertIn(token, reference)
+
     def test_step8_revision_ledger_and_minimum_validation_contracts_exist(self):
         text = read_rel("agents/step_8_polishing.md")
         command = read_rel("commands/polish.md")
