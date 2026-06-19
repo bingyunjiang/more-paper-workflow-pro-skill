@@ -41,6 +41,7 @@ from generic_publisher_downloader import (
     resolve_publisher, download_one as generic_download_one,
     check_publisher_session, _PUBLISHER_CONFIGS, extract_dois,
 )
+from sd_download import diagnose_sd_pii
 from workflow_contracts import (
     as_chinese_papers,
     dois_from_download_items,
@@ -145,6 +146,23 @@ def parse_input(input_path: str) -> list[str]:
     dois = extract_dois(input_path)
     if not dois:
         print(f"ERROR: No DOIs found in {input_path}")
+        sys.exit(1)
+    return dois
+
+
+def parse_doi_file(input_path: str) -> list[str]:
+    """Read one DOI per line from a plain text file."""
+    path = Path(input_path)
+    if not path.exists():
+        print(f"ERROR: DOI file not found: {input_path}")
+        sys.exit(1)
+    dois = [
+        line.strip()
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    if not dois:
+        print(f"ERROR: No DOIs found in DOI file: {input_path}")
         sys.exit(1)
     return dois
 
@@ -337,7 +355,7 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
     return downloaded, remaining
 
 
-def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str], list[str]]:
+def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str], list[str], dict[str, str]]:
     """Round 2: ScienceDirect CDP for 10.1016/ papers.
     Returns (downloaded_dois, remaining_dois)."""
     sd_dois = []
@@ -353,7 +371,7 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
 
     if not sd_dois:
         print(f"\n⏭ Round 2 (SD CDP): No Elsevier papers remaining.")
-        return [], dois
+        return [], dois, {}
 
     print(f"\n{'='*60}")
     print(f"Round 2: ScienceDirect CDP ({len(sd_dois)} Elsevier papers)")
@@ -399,6 +417,13 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
     # Check results
     downloaded = []
     remaining = list(other_dois)
+    failure_reasons: dict[str, str] = {}
+    pii_map: dict[str, dict] = {}
+    if os.path.exists(pii_map_path):
+        try:
+            pii_map = json.loads(Path(pii_map_path).read_text(encoding="utf-8")).get("resolved", {})
+        except Exception:
+            pii_map = {}
     for d in sd_dois:
         basename = d.replace("/", "_").replace(":", "_")
         fpath = os.path.join(output_dir, f"{basename}.pdf")
@@ -406,6 +431,19 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
             downloaded.append(d)
         else:
             remaining.append(d)
+            pii = pii_map.get(basename, {}).get("pii")
+            if pii:
+                diag = diagnose_sd_pii(port, pii)
+                if diag["kind"] == "manual_verification_required":
+                    failure_reasons[d] = "manual_verification_required"
+                elif diag["kind"] == "referencework_abs":
+                    failure_reasons[d] = "not_subscribed_or_referencework"
+                elif diag["kind"] == "article_page_only":
+                    failure_reasons[d] = "article_page_no_pdf_route"
+                else:
+                    failure_reasons[d] = "sd_failed_unknown"
+            else:
+                failure_reasons[d] = "pii_resolution_failed"
 
     print(f"  SD result: ✅ {len(downloaded)} downloaded, → {len(sd_dois) - len(downloaded)} remaining for next round")
 
@@ -414,7 +452,7 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
     except Exception:
         pass
 
-    return downloaded, remaining
+    return downloaded, remaining, failure_reasons
 
 
 def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str], list[str]]:
@@ -493,7 +531,7 @@ def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[st
 
 
 def run_generic_round(dois: list[str], output_dir: str, port: int,
-                      include_si: bool = False) -> tuple[list[str], list[str]]:
+                      include_si: bool = False) -> tuple[list[str], list[str], dict[str, str]]:
     """Round 4: Generic CDP for all remaining publishers.
     Returns (downloaded_dois, remaining_dois)."""
     # Filter: generic + direct_http publishers only
@@ -515,7 +553,7 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
             print(f"\n⏭ Round 4 (Generic CDP): {len(skip_dois)} papers skipped (MDPI/unavailable), 0 eligible.")
         else:
             print(f"\n⏭ Round 4 (Generic CDP): No remaining papers.")
-        return [], dois
+        return [], dois, {}
 
     print(f"\n{'='*60}")
     print(f"Round 4: Generic Publisher CDP ({len(generic_dois)} papers)")
@@ -524,6 +562,7 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
     ok, fail = 0, 0
     downloaded = []
     remaining = []
+    failure_reasons: dict[str, str] = {}
 
     for i, doi in enumerate(generic_dois):
         pub = resolve_publisher(doi)
@@ -560,20 +599,23 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
             print(f"  ↳ {pub_name} 需要你现在去可见 Chrome 完成机构登录/验证；完成后可继续重跑剩余列表。")
             remaining.append(doi)
             fail += 1
+            failure_reasons[doi] = "manual_confirmation_required"
         elif status == "si_only":
             print(f"⚠ SI only ({elapsed:.1f}s)")
             remaining.append(doi)
             fail += 1
+            failure_reasons[doi] = "supplementary_only"
         else:
             print(f"❌ ({elapsed:.1f}s)")
             remaining.append(doi)
             fail += 1
+            failure_reasons[doi] = "generic_failed"
 
     # Remaining = failures + skips
     remaining = remaining + skip_dois
     print(f"  Generic result: ✅ {ok} downloaded, ❌ {fail} failed, ⏭ {len(skip_dois)} skipped")
 
-    return downloaded, remaining
+    return downloaded, remaining, failure_reasons
 
 
 # ── Chinese Round ────────────────────────────────────────────────────────────
@@ -663,7 +705,7 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
 
 def run_english_pipeline(dois: list[str], output_dir: str, port: int,
                          skip_scihub: bool = False, skip_sd: bool = False,
-                         include_si: bool = False) -> tuple[list[str], list[str], list[dict]]:
+                         include_si: bool = False) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
     """Run English download pipeline: R1 Sci-Hub → R2 SD CDP → R3 Generic CDP.
 
     Designed to be called in parallel with run_chinese_round() via
@@ -683,6 +725,7 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
     all_downloaded: list[str] = []
     round_results: list[dict] = []
     remaining = list(dois)
+    failure_reasons: dict[str, str] = {}
 
     # Round 1: Sci-Hub
     if not skip_scihub:
@@ -694,34 +737,36 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
 
     if not remaining:
         print(f"\n🎉 English pipeline complete — all {len(all_downloaded)}/{len(dois)} downloaded!")
-        return all_downloaded, remaining, round_results
+        return all_downloaded, remaining, round_results, failure_reasons
 
     # Round 2: ScienceDirect CDP
     if not skip_sd:
-        downloaded, remaining = run_sd_round(remaining, output_dir, port)
+        downloaded, remaining, sd_failures = run_sd_round(remaining, output_dir, port)
         all_downloaded.extend(downloaded)
         round_results.append({"round": "SD CDP", "downloaded": downloaded})
+        failure_reasons.update(sd_failures)
     else:
         print(f"\n⏭ Round 2 (SD CDP): Skipped (--skip-sd)")
 
     if not remaining:
         print(f"\n🎉 English pipeline complete — all {len(all_downloaded)}/{len(dois)} downloaded!")
-        return all_downloaded, remaining, round_results
+        return all_downloaded, remaining, round_results, failure_reasons
 
     # Round 3: Generic CDP (IEEE included here via strategy="generic")
-    downloaded, remaining = run_generic_round(
+    downloaded, remaining, generic_failures = run_generic_round(
         remaining, output_dir, port, include_si=include_si
     )
     all_downloaded.extend(downloaded)
     round_results.append({"round": "Generic CDP", "downloaded": downloaded})
+    failure_reasons.update(generic_failures)
 
     print(f"\n🎉 English pipeline complete — ✅ {len(all_downloaded)}/{len(dois)}, ❌ {len(remaining)} remaining")
-    return all_downloaded, remaining, round_results
+    return all_downloaded, remaining, round_results, failure_reasons
 
 
 def run_english_cdp(dois: list[str], output_dir: str, port: int,
                     skip_sd: bool = False, include_si: bool = False
-                    ) -> tuple[list[str], list[str], list[dict]]:
+                    ) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
     """Run English CDP-only pipeline: R2 SD CDP → R3 Generic CDP. No Sci-Hub.
 
     Designed to run AFTER English login gate in Phase 2.
@@ -729,41 +774,46 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
     all_downloaded: list[str] = []
     round_results: list[dict] = []
     remaining = list(dois)
+    failure_reasons: dict[str, str] = {}
 
     # R2: ScienceDirect CDP
     if not skip_sd:
-        downloaded, remaining = run_sd_round(remaining, output_dir, port)
+        downloaded, remaining, sd_failures = run_sd_round(remaining, output_dir, port)
         all_downloaded.extend(downloaded)
         round_results.append({"round": "SD CDP", "downloaded": downloaded})
+        failure_reasons.update(sd_failures)
     else:
         print(f"\n⏭ R2 (SD CDP): Skipped (--skip-sd)")
 
     if not remaining:
         print(f"\n🎉 English CDP complete — all {len(all_downloaded)}/{len(dois)} downloaded!")
-        return all_downloaded, remaining, round_results
+        return all_downloaded, remaining, round_results, failure_reasons
 
     # R3: Generic CDP
-    downloaded, remaining = run_generic_round(
+    downloaded, remaining, generic_failures = run_generic_round(
         remaining, output_dir, port, include_si=include_si
     )
     all_downloaded.extend(downloaded)
     round_results.append({"round": "Generic CDP", "downloaded": downloaded})
+    failure_reasons.update(generic_failures)
 
     print(f"\n🎉 English CDP complete — ✅ {len(all_downloaded)}/{len(dois)}, ❌ {len(remaining)} remaining")
-    return all_downloaded, remaining, round_results
+    return all_downloaded, remaining, round_results, failure_reasons
 
 
 # ── Download Log ────────────────────────────────────────────────────────────
 
 def generate_download_log(output_dir: str, all_dois: list[str],
-                          round_results: list[dict]) -> str:
+                          round_results: list[dict],
+                          failure_reasons: dict[str, str] | None = None) -> str:
     """Generate a Markdown download tracking log."""
     log_path = os.path.join(output_dir, "download_log.md")
 
+    failure_reasons = failure_reasons or {}
     # Build status map
     status_map: dict[str, dict] = {}
     for d in all_dois:
-        status_map[d] = {"status": "pending", "source": "", "path": "", "size_kb": 0}
+        status_map[d] = {"status": "pending", "source": "", "path": "", "size_kb": 0, "reason": failure_reasons.get(d, "")}
 
     for result in round_results:
         for d in result.get("downloaded", []):
@@ -775,6 +825,7 @@ def generate_download_log(output_dir: str, all_dois: list[str],
                 "source": result.get("round", "unknown"),
                 "path": fpath,
                 "size_kb": size_kb,
+                "reason": "",
             }
 
     # Generate Markdown
@@ -785,17 +836,18 @@ def generate_download_log(output_dir: str, all_dois: list[str],
         f"Output dir: {output_dir}",
         f"Total DOIs: {len(all_dois)}",
         f"",
-        f"| # | DOI | Status | Source | Size | Path |",
-        f"|---|-----|--------|--------|------|------|",
+        f"| # | DOI | Status | Source | Reason | Size | Path |",
+        f"|---|-----|--------|--------|--------|------|------|",
     ]
 
     for i, doi in enumerate(all_dois, 1):
         info = status_map.get(doi, {})
         status = info.get("status", "⏳")
         source = info.get("source", "")
+        reason = info.get("reason", "") or "-"
         size = f"{info.get('size_kb', 0)}KB" if info.get("size_kb") else "-"
         path = os.path.basename(info.get("path", "")) if info.get("path") else "-"
-        lines.append(f"| {i} | `{doi[:45]}` | {status} | {source} | {size} | {path} |")
+        lines.append(f"| {i} | `{doi[:45]}` | {status} | {source} | {reason} | {size} | {path} |")
 
     # Summary
     ok_count = sum(1 for v in status_map.values() if v["status"] == "✅")
@@ -979,6 +1031,7 @@ def main():
     )
     parser.add_argument("input", nargs="?", help="Input file: DOI list, Markdown literature table, or BibTeX")
     parser.add_argument("--papers", help="Comma-separated list of DOIs (inline)")
+    parser.add_argument("--doi-file", help="Plain text file with one DOI per line")
     parser.add_argument("--port", type=int, default=CDP_PORT, help=f"CDP Chrome debug port (default: {CDP_PORT})")
     parser.add_argument("--output", "-o", default=DEFAULT_OUTPUT, help=f"Output directory (default: {DEFAULT_OUTPUT}/)")
     parser.add_argument("--test", help="Test a single DOI (show routing decision + download)")
@@ -1111,7 +1164,9 @@ def main():
     workflow_chinese_papers = as_chinese_papers(workflow_items)
 
     # Batch mode
-    if args.input:
+    if args.doi_file:
+        dois = parse_doi_file(args.doi_file)
+    elif args.input:
         dois = parse_input(args.input)
     elif args.papers:
         dois = [d.strip() for d in args.papers.split(",") if d.strip()]
@@ -1283,6 +1338,7 @@ def main():
     en_dl: list[str] = []
     en_rem = list(scihub_rem)
     en_results: list[dict] = []
+    en_failure_reasons: dict[str, str] = {}
 
     if en_rem:
         # Check if remaining papers actually need CDP
@@ -1292,14 +1348,14 @@ def main():
         )
         if args.require_login_confirm and has_cdp:
             if show_english_login_gate(en_rem, skip_sd=args.skip_sd):
-                en_dl, en_rem, en_results = run_english_cdp(
+                en_dl, en_rem, en_results, en_failure_reasons = run_english_cdp(
                     en_rem, args.output, args.port,
                     skip_sd=args.skip_sd, include_si=args.include_si
                 )
             else:
                 print("English CDP skipped by user — Sci-Hub papers saved.")
         else:
-            en_dl, en_rem, en_results = run_english_cdp(
+            en_dl, en_rem, en_results, en_failure_reasons = run_english_cdp(
                 en_rem, args.output, args.port,
                 skip_sd=args.skip_sd, include_si=args.include_si
             )
@@ -1324,7 +1380,7 @@ def main():
         dois = dois + ch_dois
 
     # ── Final summary ─────────────────────────────────────────────────
-    log_path = generate_download_log(args.output, dois, round_results)
+    log_path = generate_download_log(args.output, dois, round_results, en_failure_reasons)
 
     total_all = len(dois)
     print(f"\n{'='*60}")
@@ -1340,7 +1396,9 @@ def main():
             for d in remaining:
                 pub = resolve_publisher(d)
                 pub_name = pub.get("_key", "unknown") if pub else "unknown"
-                f.write(f"{d}  # {pub_name}\n")
+                reason = en_failure_reasons.get(d, "")
+                suffix = f" | {reason}" if reason else ""
+                f.write(f"{d}  # {pub_name}{suffix}\n")
         print(f"  Failed list:     {failed_path}")
 
     print(f"  Download log:    {log_path}")

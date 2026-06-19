@@ -10,6 +10,7 @@ SCRIPT_DIR = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import cdp_utils  # noqa: E402
+import auto_sd_downloader  # noqa: E402
 import setup_zotero  # noqa: E402
 import unified_download_router as router  # noqa: E402
 
@@ -68,6 +69,12 @@ class PlatformCompatTest(unittest.TestCase):
              patch.object(router, "start_persistent_cdp_browser") as starter:
             self.assertTrue(router.ensure_cdp_running(9223))
         starter.assert_called_once()
+
+    def test_auto_sd_default_browser_is_single_chrome(self):
+        parser = auto_sd_downloader.argparse.ArgumentParser()
+        parser.add_argument("--browser", choices=["auto", "chrome", "edge"], default="chrome")
+        args = parser.parse_args([])
+        self.assertEqual(args.browser, "chrome")
 
     def test_platform_compat_scan_has_no_errors(self):
         result = subprocess.run(

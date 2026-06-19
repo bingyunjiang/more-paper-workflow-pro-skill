@@ -13,6 +13,7 @@ import unified_download_router as router  # noqa: E402
 import generic_publisher_downloader as gpd  # noqa: E402
 import auto_sd_downloader as auto_sd  # noqa: E402
 import cdp_utils  # noqa: E402
+import sd_download  # noqa: E402
 import console_compat  # noqa: E402
 
 
@@ -61,6 +62,18 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(cdp_utils._SD_TEST_DOI, "10.1016/j.est.2024.113105")
         self.assertIn("S2352152X24026914", cdp_utils._SD_TEST_URL)
         self.assertTrue(cdp_utils._SD_TEST_URL.endswith("/pdfft"))
+
+    def test_sd_download_diagnosis_detects_referencework_and_verification(self):
+        tabs = [
+            {"id": "ref", "url": "https://www.sciencedirect.com/science/chapter/referencework/abs/pii/B9780323960205000388", "title": "Book chapter - ScienceDirect"},
+            {"id": "chk", "url": "https://www.sciencedirect.com/science/article/pii/S0000", "title": "请稍候…"},
+        ]
+        with patch.object(sd_download, "list_tabs", return_value=tabs):
+            ref_state = sd_download._inspect_sd_tab_state(9223, "ref")
+            chk_state = sd_download._inspect_sd_tab_state(9223, "chk")
+
+        self.assertEqual(ref_state["kind"], "referencework_abs")
+        self.assertEqual(chk_state["kind"], "manual_verification_required")
 
     def test_console_compat_translates_status_symbols_for_ascii_mode(self):
         with patch.dict("os.environ", {"MORE_PAPER_SYMBOLS": "ascii"}):
@@ -111,6 +124,20 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(papers[0]["source"], "wanfang")
         self.assertIn("wanfangdata.com.cn", papers[0]["article_url"])
         self.assertEqual(papers[0]["doi"], "wanfang.test")
+
+    def test_parse_doi_file_reads_one_doi_per_line(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "dois.txt"
+            path.write_text("\n".join([
+                "# comment",
+                "10.1016/j.test.2024.01.001",
+                "",
+                "10.1007/demo.2024.1",
+            ]), encoding="utf-8")
+
+            dois = router.parse_doi_file(str(path))
+
+        self.assertEqual(dois, ["10.1016/j.test.2024.01.001", "10.1007/demo.2024.1"])
 
     def test_show_chinese_login_gate_accepts_confirmed_login(self):
         papers = [{
@@ -214,18 +241,35 @@ class Step5DownloadTest(unittest.TestCase):
         with patch.object(router, "resolve_publisher", return_value={"strategy": "generic", "_key": "springer", "publisher_domain": "link.springer.com"}), \
              patch.object(router, "generic_download_one", side_effect=RuntimeError("502") ), \
              patch.object(router, "ensure_cdp_running", return_value=True):
-            downloaded, remaining = router.run_generic_round(["10.1007/demo"], "paper-temp", 9223)
+            downloaded, remaining, reasons = router.run_generic_round(["10.1007/demo"], "paper-temp", 9223)
 
         self.assertEqual(downloaded, [])
         self.assertEqual(remaining, ["10.1007/demo"])
+        self.assertEqual(reasons["10.1007/demo"], "generic_failed")
 
     def test_generic_round_keeps_manual_required_item_for_rerun(self):
         with patch.object(router, "resolve_publisher", return_value={"strategy": "generic", "_key": "springer", "publisher_domain": "link.springer.com"}), \
              patch.object(router, "generic_download_one", return_value=(None, "manual_required", "springer")):
-            downloaded, remaining = router.run_generic_round(["10.1007/demo"], "paper-temp", 9223)
+            downloaded, remaining, reasons = router.run_generic_round(["10.1007/demo"], "paper-temp", 9223)
 
         self.assertEqual(downloaded, [])
         self.assertEqual(remaining, ["10.1007/demo"])
+        self.assertEqual(reasons["10.1007/demo"], "manual_confirmation_required")
+
+    def test_generate_download_log_includes_reason_column(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf_path = Path(tmp) / "10.1007_demo.pdf"
+            pdf_path.write_bytes(b"%PDF-1.4\n" + b"x" * 6000)
+            log_path = router.generate_download_log(
+                tmp,
+                ["10.1007/demo", "10.1016/j.demo"],
+                [{"round": "Generic CDP", "downloaded": ["10.1007/demo"]}],
+                {"10.1016/j.demo": "manual_verification_required"},
+            )
+            text = Path(log_path).read_text(encoding="utf-8")
+
+        self.assertIn("| # | DOI | Status | Source | Reason | Size | Path |", text)
+        self.assertIn("manual_verification_required", text)
 
 
 if __name__ == "__main__":

@@ -119,8 +119,8 @@ if __name__ == "__main__":
                         help="PDF output directory")
     parser.add_argument("--pii-map", "-p", default="./sd_pii_map.json",
                         help="DOI→PII mapping JSON")
-    parser.add_argument("--browser", choices=["auto", "chrome", "edge"], default="auto",
-                        help="auto=detect Chrome+Edge, chrome/edge=single browser")
+    parser.add_argument("--browser", choices=["auto", "chrome", "edge"], default="chrome",
+                        help="default=chrome single-browser; auto=detect Chrome+Edge, chrome/edge=single browser")
     parser.add_argument("--browser-path",
                         help="Browser executable path (overrides auto-detection)")
     parser.add_argument("--browser-path-edge",

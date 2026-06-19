@@ -42,6 +42,7 @@ from console_compat import configure_console_output
 
 SD_PDF_HOST = "https://pdf.sciencedirectassets.com"
 FETCH_PATTERN = "*pdf.sciencedirectassets.com*main.pdf*"
+REFERENCEWORK_PATH_FRAGMENT = "/science/chapter/referencework/abs/pii/"
 
 
 def _log(msg: str) -> None:
@@ -76,6 +77,43 @@ def _wait_for_pdf_tab(port: int, timeout: int = 10) -> dict | None:
         except Exception:
             break
     return None
+
+
+def _inspect_sd_tab_state(port: int, target_id: str) -> dict:
+    """Inspect the current SD tab and classify common blockers."""
+    try:
+        for t in list_tabs(port):
+            if t.get("id") != target_id:
+                continue
+            url = t.get("url", "") or ""
+            title = t.get("title", "") or ""
+            lower_url = url.lower()
+            lower_title = title.lower()
+            if REFERENCEWORK_PATH_FRAGMENT in lower_url:
+                return {
+                    "kind": "referencework_abs",
+                    "url": url,
+                    "title": title,
+                    "reason": "referencework chapter redirected to abstract page",
+                }
+            if "are you a robot" in lower_title or "请稍候" in title or "challenge" in lower_url:
+                return {
+                    "kind": "manual_verification_required",
+                    "url": url,
+                    "title": title,
+                    "reason": "article page still behind anti-bot verification",
+                }
+            if "/article/pii/" in lower_url and "pdfft" not in lower_url:
+                return {
+                    "kind": "article_page_only",
+                    "url": url,
+                    "title": title,
+                    "reason": "article page opened but no PDF route became available",
+                }
+            return {"kind": "ok", "url": url, "title": title, "reason": ""}
+    except Exception:
+        pass
+    return {"kind": "unknown", "url": "", "title": "", "reason": ""}
 
 
 def _capture_from_tab(tab_ws_url: str, port: int, timeout: int = 20) -> bytes | None:
@@ -182,6 +220,9 @@ def _extract_pdfft_url(port: int, pii: str, render_timeout: int = 12) -> str | N
     full_url = None
     try:
         time.sleep(render_timeout)
+        state = _inspect_sd_tab_state(port, tid)
+        if state["kind"] in ("referencework_abs", "manual_verification_required"):
+            return None
 
         tws = None
         for t in list_tabs(port):
@@ -226,6 +267,19 @@ def _strategy_b(port: int, pii: str, timeout: int = 25) -> bytes | None:
         return None
 
     return _navigate_and_capture(port, full_url, redirect_timeout=timeout, capture_timeout=20)
+
+
+def diagnose_sd_pii(port: int, pii: str, render_timeout: int = 12) -> dict:
+    """Diagnose why a specific SD PII is not downloading."""
+    art_url = f"https://www.sciencedirect.com/science/article/pii/{pii}"
+    tid = _create_tab(port, art_url)
+    if not tid:
+        return {"kind": "unknown", "reason": "failed to create article tab", "url": "", "title": ""}
+    try:
+        time.sleep(render_timeout)
+        return _inspect_sd_tab_state(port, tid)
+    finally:
+        close_tab(port, tid)
 
 
 # ── Public API ───────────────────────────────────────────────────────────────
