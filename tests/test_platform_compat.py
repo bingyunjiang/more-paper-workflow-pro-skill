@@ -3,6 +3,8 @@ import subprocess
 import sys
 import unittest
 from unittest.mock import patch
+import io
+from contextlib import redirect_stdout
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -75,6 +77,17 @@ class PlatformCompatTest(unittest.TestCase):
         parser.add_argument("--browser", choices=["auto", "chrome", "edge"], default="chrome")
         args = parser.parse_args([])
         self.assertEqual(args.browser, "chrome")
+
+    def test_router_doi_file_entry_prefers_parse_doi_file(self):
+        argv = ["unified_download_router.py", "--doi-file", "C:\\demo\\dois.txt", "--dry-run"]
+        with patch.object(sys, "argv", argv), \
+             patch.object(router, "parse_doi_file", return_value=["10.1016/j.test.2024.01.001"]) as parse_doi_file, \
+             patch.object(router, "parse_input") as parse_input, \
+             redirect_stdout(io.StringIO()):
+            router.main()
+
+        parse_doi_file.assert_called_once_with("C:\\demo\\dois.txt")
+        parse_input.assert_not_called()
 
     def test_platform_compat_scan_has_no_errors(self):
         result = subprocess.run(
