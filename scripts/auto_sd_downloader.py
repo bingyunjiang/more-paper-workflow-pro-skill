@@ -44,11 +44,10 @@ def _load_remaining_papers(pii_map_path: str, output_dir: str):
     with open(pii_map_path, encoding="utf-8") as f:
         data = json.load(f)
     pii_list = [(k, v["doi"], v["pii"]) for k, v in data["resolved"].items()]
-    done = set(
-        f[:-4]
-        for f in os.listdir(output_dir)
-        if f.startswith("paper_") and f.endswith(".pdf")
-    )
+    done = set()
+    for key, _, _ in pii_list:
+        if os.path.exists(os.path.join(output_dir, f"{key}.pdf")):
+            done.add(key)
     remaining = [p for p in pii_list if p[0] not in done]
     return remaining, len(done)
 
@@ -175,7 +174,7 @@ if __name__ == "__main__":
     while True:
         remaining, already_done = _load_remaining_papers(PII_MAP, OUTPUT_DIR)
         if not remaining:
-            print(f"\n🎉 ALL DONE! Total: {already_done}/94 papers", flush=True)
+            print(f"\n🎉 ALL DONE! Total: {already_done}/{already_done} papers", flush=True)
             break
 
         wave += 1
@@ -257,5 +256,5 @@ if __name__ == "__main__":
             zero_progress_waves = 0
 
     # Keep browser alive — do not kill
-    total = len([f for f in os.listdir(OUTPUT_DIR) if f.startswith("paper_") and f.endswith(".pdf")])
-    print(f"\nFINAL: {total} paper_* PDFs in {OUTPUT_DIR}", flush=True)
+    _, total = _load_remaining_papers(PII_MAP, OUTPUT_DIR)
+    print(f"\nFINAL: {total} PDFs in {OUTPUT_DIR}", flush=True)

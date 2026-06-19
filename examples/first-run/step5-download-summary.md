@@ -4,9 +4,9 @@
 
 3 个 DOI：
 
-- `10.1016/j.ijheatmasstransfer.2024.125012`
+- `10.1016/j.est.2024.113105`
 - `10.1109/ACCESS.2024.3399912`
-- `10.1016/j.applthermaleng.2024.123456`
+- `10.1016/j.energy.2022.125097`
 
 ## 触发结果
 
@@ -20,9 +20,9 @@
 
 | DOI | Publisher Guess | Route | Status |
 |---|---|---|---|
-| 10.1016/j.ijheatmasstransfer.2024.125012 | Elsevier | Sci-Hub -> SD CDP | ready |
+| 10.1016/j.est.2024.113105 | Elsevier | Sci-Hub -> SD CDP | ready |
 | 10.1109/ACCESS.2024.3399912 | IEEE | Sci-Hub -> Generic CDP / IEEE fallback | ready |
-| 10.1016/j.applthermaleng.2024.123456 | Elsevier | Sci-Hub -> SD CDP | ready |
+| 10.1016/j.energy.2022.125097 | Elsevier | Sci-Hub -> SD CDP | ready |
 
 输出：
 - `download_manifest.json`

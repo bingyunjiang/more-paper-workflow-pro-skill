@@ -12,6 +12,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 import unified_download_router as router  # noqa: E402
 import generic_publisher_downloader as gpd  # noqa: E402
 import auto_sd_downloader as auto_sd  # noqa: E402
+import cdp_utils  # noqa: E402
 import console_compat  # noqa: E402
 
 
@@ -34,6 +35,32 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(done, 0)
         self.assertEqual(remaining, [("paper_001", "10.1016/j.demo.2026.01.001", "S0000000000000001")])
+
+    def test_auto_sd_loader_recognizes_completed_key_named_pdf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pii_map = Path(tmp) / "sd_pii_map.json"
+            out_dir = Path(tmp) / "out"
+            out_dir.mkdir()
+            pii_map.write_text(
+                """{
+                  "resolved": {
+                    "S8RREAFT": {"doi": "10.1016/j.ijheatmasstransfer.2021.121612", "pii": "S0017931021007158"},
+                    "WI9CIV79": {"doi": "10.1016/j.ijheatmasstransfer.2025.127378", "pii": "S0017931025007173"}
+                  }
+                }""",
+                encoding="utf-8",
+            )
+            (out_dir / "S8RREAFT.pdf").write_bytes(b"%PDF-1.4\n")
+
+            remaining, done = auto_sd._load_remaining_papers(str(pii_map), str(out_dir))
+
+        self.assertEqual(done, 1)
+        self.assertEqual(remaining, [("WI9CIV79", "10.1016/j.ijheatmasstransfer.2025.127378", "S0017931025007173")])
+
+    def test_sd_access_probe_uses_current_known_good_pii_sample(self):
+        self.assertEqual(cdp_utils._SD_TEST_DOI, "10.1016/j.est.2024.113105")
+        self.assertIn("S2352152X24026914", cdp_utils._SD_TEST_URL)
+        self.assertTrue(cdp_utils._SD_TEST_URL.endswith("/pdfft"))
 
     def test_console_compat_translates_status_symbols_for_ascii_mode(self):
         with patch.dict("os.environ", {"MORE_PAPER_SYMBOLS": "ascii"}):

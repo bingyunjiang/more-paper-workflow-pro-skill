@@ -31,6 +31,24 @@ class PlatformCompatTest(unittest.TestCase):
              patch.object(cdp_utils.os.path, "isfile", side_effect=lambda p: p == chrome):
             self.assertEqual(cdp_utils.find_chrome_path(), chrome)
 
+    def test_windows_profile_cleanup_targets_only_matching_profile_processes(self):
+        calls = []
+
+        def _fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+        with patch.object(cdp_utils, "_is_macos", return_value=False), \
+             patch.object(cdp_utils, "_is_windows", return_value=True), \
+             patch.object(cdp_utils.subprocess, "run", side_effect=_fake_run), \
+             patch.object(cdp_utils.time, "sleep", return_value=None):
+            cdp_utils.kill_browser_by_profile(r"C:\Users\demo\.hermes\chrome_sd_profile")
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0:3], ["powershell", "-NoProfile", "-Command"])
+        self.assertIn("chrome_sd_profile", calls[0][3])
+        self.assertNotIn("/IM", " ".join(calls[0]))
+
     def test_zotero_bin_detects_windows_scripts_exe(self):
         site_packages = r"C:\Users\demo\AppData\Local\Programs\Python\Python311\Lib\site-packages"
         expected = r"C:\Users\demo\AppData\Local\Programs\Python\Python311\Scripts\zotero-mcp.exe"

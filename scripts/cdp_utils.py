@@ -525,11 +525,27 @@ def kill_browser_by_profile(profile_dir):
     """
     try:
         if _is_windows():
-            # Windows: kill processes whose command line contains the profile dir
+            # Windows: kill only Chromium processes whose command line points at
+            # the target user-data-dir. Never blanket-kill all chrome.exe/msedge.exe,
+            # or we will wipe the user's visible browser session and force re-login.
+            escaped = profile_dir.replace("'", "''")
+            ps_script = (
+                "$needle = '" + escaped + "'; "
+                "Get-CimInstance Win32_Process | "
+                "Where-Object { "
+                "($_.Name -in @('chrome.exe','msedge.exe')) -and "
+                "($_.CommandLine -like ('*' + $needle + '*')) "
+                "} | "
+                "ForEach-Object { "
+                "taskkill /F /PID $_.ProcessId | Out-Null "
+                "}"
+            )
             subprocess.run(
-                ["taskkill", "/F", "/IM", "chrome.exe"], capture_output=True)
-            subprocess.run(
-                ["taskkill", "/F", "/IM", "msedge.exe"], capture_output=True)
+                ["powershell", "-NoProfile", "-Command", ps_script],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
         else:
             # macOS/Linux
             subprocess.run(
@@ -715,9 +731,13 @@ def _get_browser_name(port):
 
 # ===== ScienceDirect access check =====
 
-# A known open-access SD paper used to probe whether the browser has access
-_SD_TEST_DOI = "10.1016/j.jbusres.2023.113753"
-_SD_TEST_URL = f"https://www.sciencedirect.com/science/article/pii/S0148296323001114/pdfft"
+# A known accessible SD paper used to probe whether the browser has access.
+# Keep DOI/PII in sync; the previous PII sample had gone stale and returned 404.
+_SD_TEST_DOI = "10.1016/j.est.2024.113105"
+_SD_TEST_URL = (
+    "https://www.sciencedirect.com/science/article/pii/"
+    "S2352152X24026914/pdfft"
+)
 _SD_PDF_HOST = "https://pdf.sciencedirectassets.com"
 
 
