@@ -233,6 +233,12 @@ def _is_macos():
     return sys.platform == "darwin"
 
 
+def _profile_dir(browser="chrome"):
+    """Return the persistent CDP profile directory for a browser."""
+    name = "edge_sd_profile" if browser == "edge" else "chrome_sd_profile"
+    return os.path.join(os.path.expanduser("~"), ".hermes", name)
+
+
 def find_chrome_path():
     """Find the Chrome/Chromium executable for the current platform.
 
@@ -426,6 +432,40 @@ def start_browser(port, user_data_dir, url="about:blank", browser_path=None):
     except Exception:
         pass
     return None  # signal to caller: CDP unavailable
+
+
+def start_persistent_cdp_browser(port=9223, browser="chrome", urls=None):
+    """Start a persistent Chrome/Edge CDP browser across macOS/Windows/Linux.
+
+    This is the cross-platform replacement for shelling out to
+    start_cdp_chrome.sh from automation paths. The shell script remains useful
+    for manual macOS sessions, but Python callers should use this function.
+    """
+    browser = (browser or "chrome").lower()
+    if browser == "edge":
+        browser_path = find_edge_path()
+    else:
+        browser = "chrome"
+        browser_path = find_chrome_path()
+
+    if not browser_path:
+        print(f"  ❌ 未找到 {browser} 浏览器可执行文件", flush=True)
+        print("     可设置 CHROME_PATH 或 EDGE_PATH 指向浏览器可执行文件。", flush=True)
+        return None
+
+    kill_browser_by_port(port)
+    profile_dir = _profile_dir(browser)
+    first_url = (urls or ["about:blank"])[0]
+    proc = start_browser(port, profile_dir, url=first_url, browser_path=browser_path)
+    if not proc:
+        return None
+
+    for url in (urls or [])[1:]:
+        try:
+            create_tab(port, url)
+        except Exception:
+            pass
+    return proc
 
 
 def kill_browser_by_port(port):

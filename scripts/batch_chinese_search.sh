@@ -69,17 +69,21 @@ if curl -s "http://127.0.0.1:$PORT/json/version" >/dev/null 2>&1; then
 else
     echo "CDP_CHROME_STARTING:$PORT"
 
-    pkill -f "Google Chrome.*remote-debugging-port=$PORT" 2>/dev/null || true
-    sleep 1
+    python3 - << PYEOF
+import sys
+from pathlib import Path
 
-    open -na "Google Chrome" --args \
-        --remote-debugging-port="$PORT" \
-        --remote-allow-origins="http://127.0.0.1:$PORT" \
-        --no-first-run --no-default-browser-check \
-        --disable-blink-features=AutomationControlled \
-        --user-data-dir="$HOME/.hermes/chrome_sd_profile" \
-        "https://kns.cnki.net/kns8s/" \
-        "https://www.wanfangdata.com.cn/"
+sys.path.insert(0, str(Path("$SCRIPT_DIR")))
+from cdp_utils import start_persistent_cdp_browser
+
+proc = start_persistent_cdp_browser(
+    port=$PORT,
+    browser="chrome",
+    urls=["https://kns.cnki.net/kns8s/", "https://www.wanfangdata.com.cn/"],
+)
+if not proc:
+    sys.exit(1)
+PYEOF
 
     for i in $(seq 1 15); do
         if curl -s "http://127.0.0.1:$PORT/json/version" >/dev/null 2>&1; then

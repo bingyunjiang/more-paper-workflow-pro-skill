@@ -35,7 +35,7 @@ from datetime import datetime
 SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from cdp_utils import check_cdp, check_required_deps
+from cdp_utils import check_cdp, check_required_deps, start_persistent_cdp_browser
 from generic_publisher_downloader import (
     resolve_publisher, download_one as generic_download_one,
     check_publisher_session, _PUBLISHER_CONFIGS, extract_dois,
@@ -71,15 +71,16 @@ def ensure_cdp_running(port: int) -> bool:
         return True
 
     print(f"\n⏳ CDP Chrome not detected on :{port}. Starting browser automatically...")
-    start_script = SCRIPTS_DIR / "start_cdp_chrome.sh"
-    if not start_script.exists():
-        return False
-
-    subprocess.run(
-        ["bash", str(start_script), "--port", str(port)],
-        check=False,
+    start_persistent_cdp_browser(
+        port=port,
+        browser=os.environ.get("CDP_BROWSER", "chrome"),
+        urls=["https://www.sciencedirect.com/"],
     )
-    return check_cdp(port)
+    ok = check_cdp(port)
+    if not ok:
+        print("  ❌ CDP browser failed to start.")
+        print("     Windows: set CHROME_PATH or EDGE_PATH if browser auto-detection fails.")
+    return ok
 
 
 # ── Year Estimation ─────────────────────────────────────────────────────────

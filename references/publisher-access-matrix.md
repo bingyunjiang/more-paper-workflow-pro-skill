@@ -160,12 +160,11 @@ SD CDP 方法理论上适用于任何满足以下条件的出版商：
    rm -f ~/Library/Application\ Support/Google/Chrome/SingletonLock
    rm -f ~/Library/Application\ Support/Google/Chrome/SingletonSocket
    rm -f ~/Library/Application\ Support/Google/Chrome/SingletonCookie
-4. 用真实 Profile 启动 CDP Chrome：
-   /Applications/Google Chrome.app/Contents/MacOS/Google Chrome \
-     --remote-debugging-port=9223 \
-     --remote-allow-origins=http://127.0.0.1:9223 \
-     --user-data-dir="$HOME/Library/Application Support/Google/Chrome" \
-     https://onlinelibrary.wiley.com/doi/10.1002/ente.202301205
+4. 用跨平台脚本启动 CDP Chrome：
+   bash scripts/start_cdp_chrome.sh --port 9223 \
+     --url https://onlinelibrary.wiley.com/doi/10.1002/ente.202301205
+
+   如浏览器路径无法自动识别，先设置 `CHROME_PATH` 或 `EDGE_PATH`。
 ```
 
 ### 通用步骤

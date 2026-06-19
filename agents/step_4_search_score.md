@@ -348,12 +348,7 @@ bash scripts/batch_chinese_search.sh .skill-state/chinese_queries.json \
 **CDP Chrome 手动启动（备用）：**
 ```bash
 # 仅当 batch_chinese_search.sh 自动启动失败时手动兜底
-open -na "Google Chrome" --args --remote-debugging-port=9223 \
-  --remote-allow-origins=http://127.0.0.1:9223 \
-  --no-first-run --no-default-browser-check \
-  --disable-blink-features=AutomationControlled \
-  --user-data-dir="$HOME/.hermes/chrome_sd_profile" \
-  https://kns.cnki.net/kns8s/
+bash scripts/start_cdp_chrome.sh --port 9223 --url https://kns.cnki.net/kns8s/
 
 # 验证 CDP 是否就绪
 for i in {1..10}; do

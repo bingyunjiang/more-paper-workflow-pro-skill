@@ -55,6 +55,8 @@ except:
 
 **真实 Chrome Profile CDP 端口不绑定（macOS 特定）：** 某些扩展阻止 CDP server 端口绑定。推荐使用持久化临时 Profile + `start_cdp_chrome.sh`。
 
+**Windows 不能依赖 macOS Chrome 启动命令：** 自动下载路径不要直接调用 `open -na "Google Chrome"` 或写死 `/Applications/...`。应使用 `cdp_utils.start_persistent_cdp_browser()`，必要时通过 `CHROME_PATH` / `EDGE_PATH` 指定浏览器可执行文件。
+
 ### SD 下载陷阱
 
 **论文无 PDF 可下：** 约 4% 的 SD 论文只提供摘要页。10 秒超时快速跳过。
