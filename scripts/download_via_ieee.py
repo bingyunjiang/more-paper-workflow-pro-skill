@@ -439,13 +439,10 @@ def main():
     if not check_cdp(CDP_PORT):
         print(f"\n⚠ CDP Chrome（端口 {CDP_PORT}）未运行。")
         print("请先启动 Chrome（首次需在窗口中完成 Institutional Sign In）：")
-        print(f'  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \\')
-        print(f"    --remote-debugging-port={CDP_PORT} \\")
-        print(f"    --remote-allow-origins=http://127.0.0.1:{CDP_PORT} \\")
-        print(f"    --no-first-run --no-default-browser-check \\")
-        print(f"    --disable-blink-features=AutomationControlled \\")
-        print(f"    --user-data-dir=/tmp/chrome_ieee_profile \\")
-        print(f"    https://ieeexplore.ieee.org/")
+        print(f"  {sys.executable} scripts/start_cdp_browser.py "
+              f"--port {CDP_PORT} --url https://ieeexplore.ieee.org/")
+        print("  macOS/Linux 兼容入口：bash scripts/start_cdp_chrome.sh "
+              f"--port {CDP_PORT} --url https://ieeexplore.ieee.org/")
         return
 
     # 会话检查（交互式登录流程）

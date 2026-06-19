@@ -420,7 +420,7 @@ def start_browser(port, user_data_dir, url="about:blank", browser_path=None):
         print(f"\n⚠  CDP 端口 {port} 在 {user_data_dir} 上未绑定!", flush=True)
         print(f"   这是用真实 Chrome Profile 启动时的已知问题。", flush=True)
         print(f"   原因：某些扩展或配置阻止了 CDP server 绑定端口。", flush=True)
-        print(f"   建议：改用临时 Profile（不传 --user-data-dir 或传 /tmp/xxx）。", flush=True)
+        print(f"   建议：改用临时 Profile（不传 --user-data-dir，或使用 tempfile 目录）。", flush=True)
         print(f"   诊断：python3 -c \"import urllib.request,json; "
               f"d=json.load(urllib.request.urlopen('http://127.0.0.1:{port}/json/version')); "
               f"print(d.get('Browser','N/A'))\"\n", flush=True)

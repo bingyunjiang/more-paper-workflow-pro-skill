@@ -160,10 +160,11 @@ SD CDP 方法理论上适用于任何满足以下条件的出版商：
    rm -f ~/Library/Application\ Support/Google/Chrome/SingletonLock
    rm -f ~/Library/Application\ Support/Google/Chrome/SingletonSocket
    rm -f ~/Library/Application\ Support/Google/Chrome/SingletonCookie
-4. 用跨平台脚本启动 CDP Chrome：
-   bash scripts/start_cdp_chrome.sh --port 9223 \
+4. 用跨平台 Python 入口启动 CDP Chrome：
+   python scripts/start_cdp_browser.py --port 9223 \
      --url https://onlinelibrary.wiley.com/doi/10.1002/ente.202301205
 
+   macOS/Linux 兼容 wrapper 仍可用：`bash scripts/start_cdp_chrome.sh ...`。
    如浏览器路径无法自动识别，先设置 `CHROME_PATH` 或 `EDGE_PATH`。
 ```
 

@@ -269,7 +269,7 @@ python3 scripts/search_by_topic.py "<中文检索词>" --source wanfang --langua
       （文件格式见下方 queries.json 模板）
 
    b) Agent 启动一条长驻 exec_command（yield_time_ms=30000）：
-        bash scripts/batch_chinese_search.sh <queries.json> --output-dir <output/>
+        python scripts/batch_chinese_search.py <queries.json> --output-dir <output/>
 
    c) 脚本自动处理 CDP Chrome：
       ├─ 端口 9223 已有 CDP → 复用（打印 CDP_ALIVE）
@@ -338,7 +338,7 @@ cat > .skill-state/chinese_queries.json << 'JSONEOF'
 JSONEOF
 
 # 2. 启动交互式批量检索（一条命令，CDP 不会断连）
-bash scripts/batch_chinese_search.sh .skill-state/chinese_queries.json \
+python scripts/batch_chinese_search.py .skill-state/chinese_queries.json \
   --output-dir .skill-state/
 
 # 3. 检测到 === LOGIN_REQUIRED === 后告知用户登录，等回复后用 write_stdin("go\n")
@@ -347,16 +347,10 @@ bash scripts/batch_chinese_search.sh .skill-state/chinese_queries.json \
 
 **CDP Chrome 手动启动（备用）：**
 ```bash
-# 仅当 batch_chinese_search.sh 自动启动失败时手动兜底
-bash scripts/start_cdp_chrome.sh --port 9223 --url https://kns.cnki.net/kns8s/
+# 仅当 batch_chinese_search.py 自动启动失败时手动兜底
+python scripts/start_cdp_browser.py --port 9223 --url https://kns.cnki.net/kns8s/
 
-# 验证 CDP 是否就绪
-for i in {1..10}; do
-  if curl -s "http://127.0.0.1:9223/json/version" >/dev/null 2>&1; then
-    echo "✅ CDP ready on :9223"; break
-  fi
-  sleep 1
-done
+# macOS/Linux wrapper: bash scripts/start_cdp_chrome.sh --port 9223 --url https://kns.cnki.net/kns8s/
 ```
 
 # L1 OpenAlex：每子课题跑 3 策略（relevance + cited + recent），每策略 50 条

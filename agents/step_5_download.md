@@ -162,9 +162,9 @@ Phase 1:
 3. 🚧 中文登录门控（仅 probe 需要时显示）
    "CNKI/万方需要 CARSI 机构登录。
     🚀 Agent 将自动启动交互式 CDP 会话（同一条命令内，不会断连）。"
-4. 🚀 Agent 执行交互式 CDP 启动（使用 batch_chinese_search.sh --login-only）：
+4. 🚀 Agent 执行交互式 CDP 启动（优先使用跨平台 Python 入口）：
    a) Agent 启动一条长驻 exec_command（yield_time_ms=60000）：
-        bash scripts/batch_chinese_search.sh --login-only
+        python scripts/batch_chinese_search.py --login-only
    b) 脚本自动处理：
       ├─ 端口 9223 已有 CDP → 复用
       └─ 无 CDP → 自动启动 Chrome → 导航到 CNKI/万方 → 等待就绪
@@ -205,7 +205,7 @@ python3 scripts/unified_download_router.py 检索文献表.md --dry-run
 
 # 子阶段 B：交互式启动 CDP + 登录 (Phase 1 中文门控)
 #   Agent 启动长驻命令，等待用户登录后 write_stdin 继续
-bash scripts/batch_chinese_search.sh --login-only
+python scripts/batch_chinese_search.py --login-only
 
 # 子阶段 C：用户确认后 (同一条命令内) 执行中文下载
 #   Agent 新开命令（CDP 端口仍然存活）
@@ -375,7 +375,7 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 - [ ] 如含标题：已生成 `direct_download_manifest.md/json`，且仅下载 `status=ready` 条目
 - [ ] 如有无法唯一解析条目：已写入 `unresolved_download_items.md`，未擅自猜 DOI
 - [ ] CDP 登录门控已执行：Agent 已提示用户完成机构登录，用户已确认"已登录" 🆕
-- [ ] CDP 浏览器已启动且端口可访问（`curl -s http://127.0.0.1:9223/json/version`）
+- [ ] CDP 浏览器已启动且端口可访问（`python scripts/start_cdp_browser.py --port 9223` 可启动/复用；也可用 Python urllib 检查 `/json/version`）
 - [ ] 会话状态已检查（`--check-session`）
 - [ ] 下载已通过 `--require-login-confirm` 门控参数启动（或 Agent 已手动确认登录） 🆕
 - [ ] 下载记录完整追踪每篇论文状态

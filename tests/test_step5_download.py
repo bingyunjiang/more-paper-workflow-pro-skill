@@ -78,9 +78,9 @@ class Step5DownloadTest(unittest.TestCase):
 
     def test_ensure_cdp_running_auto_starts_browser(self):
         with patch.object(router, "check_cdp", side_effect=[False, True]), \
-             patch("subprocess.run") as run_cmd:
+             patch.object(router, "start_persistent_cdp_browser") as starter:
             self.assertTrue(router.ensure_cdp_running(9223))
-        run_cmd.assert_called_once()
+        starter.assert_called_once()
 
     def test_dry_run_classification_includes_chinese_and_english_items(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -118,7 +118,7 @@ class Step5DownloadTest(unittest.TestCase):
              patch.object(gpd, "close_tab") as close_tab:
             result = gpd._strategy_article_page(9223, "10.1007/demo", publisher, timeout=1)
 
-        self.assertIsNone(result)
+        self.assertEqual(result, "MANUAL_REQUIRED")
         close_tab.assert_not_called()
 
     def test_download_one_returns_manual_required_for_login_wall(self):

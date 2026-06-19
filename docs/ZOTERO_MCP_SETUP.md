@@ -303,9 +303,7 @@ python3 scripts/setup_zotero.py --smoke-test
 
 #### Q: 离线安装失败
 
-`scripts/packages/` 中的 wheel 均为纯 Python 包（`py3-none-any`），理论上跨平台通用。如果安装失败：
-
-从 `0.5.0` 开始，这个前提不再总成立：缓存中可能含有平台相关 wheel。若目标机器与缓存平台不一致，请在目标平台重新执行：
+`scripts/packages/` 当前缓存不保证全平台通用：其中可能包含 macOS/Linux/Windows 平台相关 wheel。若目标机器与缓存平台不一致，请在目标平台重新执行：
 
 ```bash
 pip download zotero-mcp-server==0.5.0 --dest scripts/packages/

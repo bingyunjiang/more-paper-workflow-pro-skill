@@ -24,7 +24,7 @@ Usage:
   python3 scripts/setup_zotero.py --export                     输出 export 命令
   python3 scripts/setup_zotero.py --smoke-test                 功能验证
 """
-import sys, os, json, subprocess, shutil, configparser, platform
+import sys, os, json, subprocess, shutil, configparser, platform, ntpath
 
 PACKAGE_NAME = "zotero-mcp-server"
 RECOMMENDED_VERSION = "0.5.0"
@@ -290,17 +290,26 @@ def get_zotero_bin():
         for line in r.stdout.splitlines():
             if line.startswith("Location:"):
                 site_pkgs = line.split(":", 1)[1].strip()
+                pathmod = ntpath if "\\" in site_pkgs else os.path
+                site_parent = pathmod.dirname(site_pkgs)
+                py_root = pathmod.dirname(site_parent)
                 # zotero-mcp 可执行文件通常在 bin/ 目录（同级或上一级）
                 for candidate in [
-                    os.path.join(os.path.dirname(site_pkgs), "bin", "zotero-mcp"),
-                    os.path.join(site_pkgs, "bin", "zotero-mcp"),
+                    pathmod.join(py_root, "Scripts", "zotero-mcp.exe"),
+                    pathmod.join(py_root, "Scripts", "zotero-mcp"),
+                    pathmod.join(site_parent, "Scripts", "zotero-mcp.exe"),
+                    pathmod.join(site_parent, "Scripts", "zotero-mcp"),
+                    pathmod.join(site_parent, "bin", "zotero-mcp"),
+                    pathmod.join(site_pkgs, "Scripts", "zotero-mcp.exe"),
+                    pathmod.join(site_pkgs, "Scripts", "zotero-mcp"),
+                    pathmod.join(site_pkgs, "bin", "zotero-mcp"),
                 ]:
                     if os.path.exists(candidate):
                         return candidate
     except Exception:
         pass
     # fallback: which
-    return shutil.which("zotero-mcp") or "zotero-mcp"
+    return shutil.which("zotero-mcp.exe") or shutil.which("zotero-mcp") or "zotero-mcp"
 
 
 def configure_mcp(api_key="", user_id="", local_mode=False, target="hermes"):

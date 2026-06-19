@@ -1008,10 +1008,8 @@ def main():
     if not check_cdp(args.port):
         print(f"ERROR: CDP Chrome not running on port {args.port}.")
         print("Start Chrome with:")
-        print(f"  /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome \\")
-        print(f"    --remote-debugging-port={args.port} \\")
-        print(f"    --remote-allow-origins=http://127.0.0.1:{args.port} \\")
-        print(f"    --no-first-run --no-default-browser-check")
+        print(f"  {sys.executable} scripts/start_cdp_browser.py --port {args.port}")
+        print("  macOS/Linux wrapper also supported: bash scripts/start_cdp_chrome.sh")
         sys.exit(1)
 
     # --check-session mode
