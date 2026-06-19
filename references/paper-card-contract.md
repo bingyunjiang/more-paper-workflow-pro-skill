@@ -117,6 +117,8 @@ updated_at: <date>
 - 写作前按章节优先筛选 `evidence_role` 合适、`content_fit` 不为 `mismatch` 的文献。
 - `background_only` 只能用于背景、领域现状或综述性句子。
 - `abstract_only` 只能用于低风险背景，不得支撑方法细节、实验数值、强因果结论或关键 claim。
+- Step 7 正文引用必须显式暴露已读深度：`full_text / pdf_verified / zotero_note -> （已读全文）`，`abstract_only -> （已读摘要）`，`metadata_only -> （仅元数据）`。
+- `metadata_only` 不得承载具体结论；`abstract_only` 不得承载实验结果、参数、机制、效果比较或强 claim；这些内容只能由 `（已读全文）` 文献支撑。
 - 正文 claim 超出 `primary_claim` 或 `content_fit_note` 时，引用审计应标记为 `weak-support` 或 `not-supported`。
 - 没有合适文献时，输出 `[待补证据: claim]` 或写入 `evidence_gap_list.md`，不得硬写强 claim。
 - 缺少 `paper_card` 不阻塞 Step 7；按现有 Zotero/PDF/证据包规则降级运行，并记录缺口。

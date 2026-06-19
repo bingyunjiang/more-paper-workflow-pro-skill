@@ -336,6 +336,29 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("thesis-abstract", text)
         self.assertIn("bilingual-abstract", text)
 
+    def test_step7_reading_depth_labels_and_claim_boundaries_are_documented(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        paper_card = read_rel("references/paper-card-contract.md")
+
+        for token in [
+            "已读深度标注规则",
+            "（已读全文）",
+            "（已读摘要）",
+            "（仅元数据）",
+            "reading_depth=full_text / pdf_verified / zotero_note",
+            "reading_depth=abstract_only",
+            "reading_depth=metadata_only",
+            "具体结论、方法细节、实验设置、结果比较、机制判断和强 claim，只能引用 `（已读全文）` 文献",
+        ]:
+            self.assertIn(token, step7)
+
+        for token in [
+            "正文引用必须显式暴露已读深度",
+            "`metadata_only` 不得承载具体结论",
+            "`abstract_only` 不得承载实验结果、参数、机制、效果比较或强 claim",
+        ]:
+            self.assertIn(token, paper_card)
+
     def test_commands_and_showcase_exist(self):
         for rel in [
             "commands/topic.md",
