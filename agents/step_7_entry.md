@@ -8,6 +8,7 @@
 - 默认使用 `target_genre` 驱动，而不是期刊 prestige 驱动
 - 让 style learning、citation audit、pre-review 等能力按需加载
 - Step 7 内部可完成基础可读性整形，但用户不需要感知内部写作流水线；外部入口仍只有写作、续写、综述、审稿前自检等任务。
+- Step 7 同时支持写文后补图和写作中同步插图；图文必须共享同一条证据链，不允许正文和图表分开漂移。
 
 ## mode 轴
 
@@ -17,6 +18,12 @@
 - `abstract-only`
 - `review-only`
 - `revision-only`
+
+## figure_mode 轴
+
+- `auto_insert`
+- `post_write`
+- `skip`
 
 ## target_genre 轴
 
@@ -35,6 +42,7 @@
 - 用户说“只写摘要/中英摘要” -> `abstract-only`
 - 用户说“写文献综述” -> `review-only`
 - 用户说“按审稿意见修改/修稿/逐条回应后改正文” -> `revision-only`
+- 用户说“自动插图/同步插图/写完顺手补图” -> 进入 Step 7 图文联合链路，默认 `figure_mode=auto_insert`
 
 ## Artifact Passport 读取规则
 
@@ -45,6 +53,13 @@ Step 7 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 - 有 `citation_audit` 时，可进入基于审计结果的 `revision-only`，或作为 `continue-existing / chapter-only` 的风险输入。
 - 缺 `pdf-附件池索引.json` 或证据矩阵时，生成最小映射和风险标记；不得声明引用安全通过。
 - Passport 的全局 `route_mode` 只决定 direct-entry/plan-only/repair，不覆盖本文件的 Step 7 `mode` 和 `target_genre`。
+
+## 图文联合规则
+
+- `auto_insert_figures=true` 时，条目必须具备 `LLM-for-Zotero-MinerU-cache-*.zip` 或等价图文资产包。
+- 没有 MinerU ZIP 时，允许继续写正文，但只能放图位占位，不自动选图。
+- `post_write` 用于正文先完成、后按章补图；`auto_insert` 用于写作中同步扫图位。
+- `skip` 允许用户显式跳过插图，只保留正文和图位说明。
 
 ## 加载顺序
 

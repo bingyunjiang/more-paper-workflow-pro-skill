@@ -1008,6 +1008,7 @@ This tool deliberately does NOT do "one-click paper generation." Instead, it fol
 - Literature review writing mode (8-section skeleton + 7 writing disciplines)
 - GB/T 7714-2015 complete citation standard
 - **Figure generation (Step 7.15)**: generate reviewable figure drafts and figure inventories for paper use
+- **Figure insertion (Step 7.17)**: bind正文引出句、图/表、图后解释句 into one evidence chain; support auto-insert and post-write modes when MinerU ZIP or equivalent assets exist
 - **Post-writing citation audit (Step 7.16)**: 3-layer audit (`format_status` / `mapping_status` / `evidence_status`) plus `recommended_action` for every citation
 - **Quality defense system**: upgraded linked gates across planning, drafting, revision, audit, and polishing (topic→outline→search→argument plan→paragraph→citation→revision/rereview→audit→polish diagnostics)
 - PyMuPDF multi-process batch extraction (<20 papers on-demand / ≥20 papers full parallel)
@@ -1406,9 +1407,10 @@ Step 7 provides:
 - **Literature evidence matrix (7.1):** turns T1/T2/T3 sources into writing-ready, citation-ready, auditable evidence.
 - **Target genre/document style (7.2):** supports journal papers, theses/dissertations, conference papers, course papers, and existing-draft continuation.
 - **Flexible writing scope:** full document, review-only, selected chapters, existing draft continuation, abstract-only, or revision-only.
+- **Figure chain support:** supports synchronous figure insertion during drafting and post-write figure supplementation as one evidence chain.
 - **Revision entry (7.12):** reviewer comments stay inside Step 7 and produce a roadmap, response skeleton, and evidence-gap list before text edits.
 - **Citation loop:** paragraph-level claim matching against Zotero items and PDF/note/annotation evidence, followed by citation audit.
-- **Quality gates:** paragraph self-check, simulated peer review, figure generation, and post-writing citation audit.
+- **Quality gates:** paragraph self-check, simulated peer review, figure generation, figure binding, and post-writing citation audit.
 
 See [`agents/step_7_writing.md`](agents/step_7_writing.md) for the authoritative execution rules.
 

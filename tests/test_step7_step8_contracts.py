@@ -490,6 +490,7 @@ class Step7Step8ContractsTest(unittest.TestCase):
     def test_figure_evidence_subchain_is_documented(self):
         step7 = read_rel("agents/step_7_writing.md")
         readme = read_rel("README.md")
+        interface = read_rel("references/figure-writing-interface.md")
 
         self.assertIn("figure_index.json", step7)
         self.assertIn("figure_evidence_report.md/json", step7)
@@ -508,6 +509,42 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("figure_risk_note", step7)
         self.assertIn("图表意图与证据约束", step7)
         self.assertIn("图表证据子链", readme)
+        for token in [
+            "figure_source",
+            "figure_asset_mode",
+            "replacement_hint",
+            "正文引出句",
+            "图后解释句",
+            "auto_insert_figures=true",
+            "LLM-for-Zotero-MinerU-cache-*.zip",
+            "没有 MinerU ZIP 时，只允许正文占位，不自动选图",
+        ]:
+            self.assertIn(token, interface)
+
+    def test_step7_auto_insert_figures_degrades_without_mineru_zip(self):
+        step7_entry = read_rel("agents/step_7_entry.md")
+        step7 = read_rel("agents/step_7_writing.md")
+
+        for token in [
+            "## figure_mode 轴",
+            "- `auto_insert`",
+            "- `post_write`",
+            "- `skip`",
+        ]:
+            self.assertIn(token, step7_entry)
+
+        for token in [
+            "| MinerU 图文资产 | Zotero 附件 / 用户提供 | `LLM-for-Zotero-MinerU-cache-*.zip` 或等价图文资产包 | `auto_insert_figures=true` 时必选 |",
+        ]:
+            self.assertIn(token, step7)
+
+        for token in [
+            "没有 MinerU ZIP 时，允许继续写正文，但只能放图位占位，不自动选图",
+            "- `skip`",
+        ]:
+            self.assertIn(token, step7_entry)
+
+        self.assertIn("若 `auto_insert_figures=true` 且 MinerU ZIP 缺失，应明确降级为 `figure_mode=post_write`；若连正文占位都不适合，则退回 `figure_mode=skip`，不得静默失败。", step7)
 
     def test_step8_light_meaning_audit_trigger_exists(self):
         step8 = read_rel("agents/step_8_polishing.md")

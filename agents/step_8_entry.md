@@ -31,6 +31,8 @@ Step 8 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 - 缺引用审计时，Step 8 只做润色与术语终验风险标记，不替代 Step 7 的引用审计结论。
 - Passport 的全局 `route_mode` 不覆盖 Step 8 的 `revision_scope / target_genre`。
 
+Step 8 不找图、不换图源、不新增图表证据；若正文含图文联合草稿，只能做图注和图文表达收口。
+
 Step 8 若存在 `$CWD/.skill-state/ai_trace_diagnostics.json`，应把它视为运行态状态源之一：
 
 - 其中的 `step8_decision` 记录本地分诊结论

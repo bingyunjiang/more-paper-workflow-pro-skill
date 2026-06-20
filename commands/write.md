@@ -17,6 +17,8 @@
 - 关键论点优先使用“英文基础/国际研究 + 中文工程场景文献”联合支撑
 - 重要判断尽量用 2-3 篇文献并列支撑，不让单篇文献独自承担关键结论
 - 试写阶段默认使用作者-年份，并逐条标注 `（已读全文）/（已读摘要）/（仅元数据）`
+- 图文联合时默认先写正文，再补图；`auto_insert_figures=true` 仅在 MinerU ZIP 或等价图文资产可用时自动插图
+- 图文最小单元是“正文引出句 + 图/表 + 图后解释句”，没有 MinerU ZIP 时只保留正文占位，不自动选图
 
 如果输入是已有草稿，优先判定为：
 - `continue-existing`
@@ -31,6 +33,7 @@
 - `retrieval_candidates.json`
 - `argument_plan.md/json` 中的证据确认区块
 - `论文初稿.md/.docx` 或指定章节草稿
+- `figure_index.json`、`figure_evidence_report.md/json`、`图文联合草稿.md/.docx`
 - `revision_roadmap.md`、`response_letter_skeleton.md`、`evidence_gap_list.md`
 
 ## 常见阻塞点

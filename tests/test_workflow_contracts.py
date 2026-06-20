@@ -328,6 +328,15 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(summary.image_count, 1)
         self.assertEqual(summary.warnings, [])
 
+    def test_inspect_missing_mineru_zip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            zip_path = Path(tmp) / "missing.zip"
+
+            summary = inspect_mineru_zip(zip_path)
+
+        self.assertEqual(summary.warnings, ["zip_missing"])
+        self.assertEqual(summary.zip_path, zip_path.as_posix())
+
     def test_figure_evidence_payload(self):
         records = [
             FigureEvidenceRecord(

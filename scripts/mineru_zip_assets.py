@@ -59,7 +59,16 @@ def _iter_manifest_figures(manifest: dict[str, Any]) -> list[dict[str, Any]]:
 def scan_mineru_zip(zip_path: Path, output: Path, figures_dir: Path | None, copy_images: bool) -> int:
     summary = inspect_mineru_zip(zip_path)
     if "bad_zip" in summary.warnings or "zip_missing" in summary.warnings:
-        raise SystemExit(f"Cannot read MinerU ZIP: {zip_path}")
+        payload = {
+            "available": False,
+            "reason": "zip_missing_or_bad",
+            "zip_path": zip_path.as_posix(),
+            "summary": summary.__dict__,
+        }
+        output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"FIGURE_ASSET_STATUS: {output}")
+        print("AUTO_INSERT_FIGURES: false")
+        return 0
 
     records: list[FigureIndexRecord] = []
     copied: list[str] = []
@@ -109,6 +118,7 @@ def scan_mineru_zip(zip_path: Path, output: Path, figures_dir: Path | None, copy
         "source_zip": zip_path.as_posix(),
         "mineru_zip_summary": summary.__dict__,
         "copied_images": copied,
+        "auto_insert_figures": bool(records),
         "notes": [
             "MinerU images are candidates only until bound to a claim.",
             "PDF remains the truth source for captions, tables, equations, and strong claims.",
@@ -119,6 +129,7 @@ def scan_mineru_zip(zip_path: Path, output: Path, figures_dir: Path | None, copy
     print(f"FIGURES: {len(records)}")
     if copied:
         print(f"COPIED_IMAGES: {len(copied)}")
+    print(f"AUTO_INSERT_FIGURES: {bool(records)}")
     return 0
 
 
