@@ -8,6 +8,19 @@
 
 ---
 
+## v1.0.16-20260621 (2026-06-21)
+
+### Step 8、跨平台入口与更新协议继续收口
+
+- **Step 8 AI trace 诊断与运行态状态源继续落地**：确定性写作诊断、`.skill-state/ai_trace_diagnostics.json`、Step 8 demo 与样例报告、`artifact_passport` 对接和更新提醒协议一起收口，润色层开始有了可追踪的状态和验证边界。
+- **Windows + macOS 运行入口继续统一**：核心流程继续向 Python CLI 收拢，`start_cdp_browser.py`、`batch_chinese_search.py`、Zotero Windows 支持、平台兼容扫描与测试门一起把下载、检索和写作入口从平台碎片化里拉出来。
+
+### 对外封面与版本口径同步
+
+- **首屏宣传封面改为点击跳转视频入口**：README 顶部海报图改为可点击封面，统一跳转到 B 站介绍视频，作为对外展示的主入口。
+- **同类海报统一点击风格**：`posters/story/more-paper-long-scroll.png` 与 `posters/story/preview-contact-sheet.png` 采用同一张视频跳转链接，减少首屏重复入口并保持视觉一致。
+- **README 公共展示口径继续收紧**：版本历史仍保留对外要点，运行规则继续留在 `SKILL.md` 与 `agents/*.md`，避免把发布文案写成运行手册。
+
 ## v1.0.15-20260619 (2026-06-19)
 
 ### Step 8 AI 味诊断、运行态状态源与演示链路

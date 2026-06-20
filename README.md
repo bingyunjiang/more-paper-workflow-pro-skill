@@ -11,7 +11,7 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 more paper workflow pro skill `v1.0.15-20260619`
+# 📚 more paper workflow pro skill `v1.0.16-20260621`
 
 > 面向中文/双语论文写作的证据闭环学术工作流：从定题、检索、下载、Zotero 到写作与引用审计，全程基于真实文献，而不是模型记忆。
 
@@ -42,7 +42,7 @@
 
 **More Paper Workflow Pro Skill** 的目标不是一键替你写论文，而是把学术写作拆成 8 个可见、可中断、可回溯的步骤，让检索、下载、Zotero、写作和引用审计围绕真实文献闭环运作。
 
-![中文海报](posters/story/more-paper-long-scroll.png)
+[![中文海报](posters/story/more-paper-long-scroll.png)](https://www.bilibili.com/video/BV1hzjE6jEmo/?vd_source=45e56689c0324bcaf7fe9c9cd13fca01)
 
 ## 🎯 适合谁？不适合谁？
 
@@ -167,7 +167,7 @@ Step 6: Zotero 文库管理（架构+BibTeX条目+PDF附件一致性） → zote
 Step 7: 论文写作（文献证据矩阵+目标体裁/文档风格+章节级候选证据层+图表+引用审计） → 文献证据矩阵.csv + 论文初稿或指定章节.md/.docx
 Step 8: 润色与保守修订（诊断、局部修订、验证）      → 论文润色稿.md
 ```
-![中文海报](posters/story/preview-contact-sheet.png)
+[![中文海报](posters/story/preview-contact-sheet.png)](https://www.bilibili.com/video/BV1hzjE6jEmo/?vd_source=45e56689c0324bcaf7fe9c9cd13fca01)
 
 ## 🚀 安装参考
 
@@ -779,6 +779,13 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
+### v1.0.16-20260621 (2026-06-21)
+- **Step 8 与运行态状态源继续收口**：AI 味诊断、`.skill-state/ai_trace_diagnostics.json`、Step 8 demo、`artifact_passport` 对接与更新提醒协议一起落位，润色层更接近可验证、可追踪的发布状态。
+- **跨平台主入口继续统一**：`start_cdp_browser.py`、`batch_chinese_search.py`、Zotero Windows 支持、平台兼容扫描与测试门继续收口，下载、检索和文库入口进一步转向 Python CLI 优先。
+- **首屏封面视频化**：README 顶部海报图改为点击跳转 B 站介绍视频，作为对外展示入口。
+- **同类海报统一入口**：`posters/story/more-paper-long-scroll.png` 与 `posters/story/preview-contact-sheet.png` 统一为同一个视频跳转链接。
+- **对外展示继续保持压缩**：README 只保留展示和入口信息，运行规则仍以 `SKILL.md` 与 `agents/*.md` 为准。
+
 ### v1.0.15-20260619 (2026-06-19)
 - **Step 8 AI 味诊断与运行态状态源**：新增确定性写作诊断、`.skill-state/ai_trace_diagnostics.json`、Step 8 demo 和样例报告，用于把机械化表达、空泛套话、载体层脏污与局部分诊结果写成可追踪状态
 - **Windows + macOS 双平台运行入口**：核心入口统一改为 Python CLI 优先，`.sh` 继续作为 macOS/Linux wrapper 保留，Windows 原生 PowerShell/CMD 不再依赖 bash
@@ -925,7 +932,7 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 ---
 
 <a id="english"></a>
-# 📚 more paper workflow pro skill `v1.0.15-20260619`
+# 📚 more paper workflow pro skill `v1.0.16-20260621`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
@@ -1497,6 +1504,11 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 ## 📋 Version History
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
+
+### v1.0.16-20260621 (2026-06-21)
+- **Hero poster became a clickable video cover**: the top README poster now links to the Bilibili intro video as the public-facing entry point.
+- **Related posters now share one destination**: `posters/story/more-paper-long-scroll.png` and `posters/story/preview-contact-sheet.png` both point to the same video link.
+- **Public docs stay compressed**: README keeps only presentation and entry information; runtime rules remain in `SKILL.md` and `agents/*.md`.
 
 ### v1.0.15-20260619 (2026-06-19)
 - **Step 8 AI-trace diagnostics and runtime state**: added deterministic writing diagnostics, `.skill-state/ai_trace_diagnostics.json`, a runnable Step 8 demo, and sample reports so mechanical phrasing, generic filler, carrier-layer hygiene, and local triage results become traceable runtime state
