@@ -169,7 +169,7 @@ def generate_structure(keywords_text):
 
         # ── Step 2 标准格式：## 章节大纲 下的编号列表 ──
         if section in OUTLINE_SECTION_TITLES:
-            om = re.match(r"^(\d+(?:\.\d+)*)[\.、]\s*(.+)$", stripped)
+            om = re.match(r"^(\d+(?:\.\d+)*)(?:[\.、]|\s+)\s*(.+)$", stripped)
             if om:
                 number = om.group(1)
                 title = om.group(2).strip()

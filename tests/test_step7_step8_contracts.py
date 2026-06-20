@@ -146,6 +146,53 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("推荐 Zotero 用户安装 `llm-for-zotero` 插件", skill)
         self.assertIn("parser_confidence: low", policy)
 
+    def test_step7_section_scoped_writing_and_thesis_depth_rules_exist(self):
+        text = read_rel("agents/step_7_writing.md")
+        command = read_rel("commands/write.md")
+        mapping = read_rel("references/zotero-outline-mapping.md")
+        readme = read_rel("README.md")
+
+        for token in [
+            "大纲-集合锁定取证",
+            "不扫整个 Zotero 文库",
+            "只读取当前节号对应的集合、子集合、条目和附件",
+            "不得因为“文库里还有很多相关文献”就提前读取后续小节集合",
+            "每次只写一个当前请求的小节",
+            "不提前展开后续小节",
+            "问题推进式叙述",
+            "target_genre=thesis",
+            "博士论文深度",
+            "工程场景 -> 需求来源 -> 机理约束 -> 制造约束 -> 研究必要性",
+            "英文基础/国际研究 + 中文工程场景文献",
+            "重要判断默认不只挂 1 篇文献",
+            "试写阶段默认保持作者-年份格式",
+        ]:
+            self.assertIn(token, text)
+
+        self.assertIn("按大纲对应的 Zotero 子集合取证；不扫整个 Zotero 文库", command)
+        self.assertIn("每次只写一个当前小节，不提前展开后续小节", command)
+        self.assertIn("写 `1.1` 就只读 `1.1` 对应集合", mapping)
+        self.assertIn("按大纲对应的 Zotero 子集合逐节读取证据，不扫整个文库", readme)
+
+    def test_step8_remains_conservative_and_does_not_add_evidence(self):
+        text = read_rel("agents/step_8_polishing.md")
+        command = read_rel("commands/polish.md")
+
+        for token in [
+            "Step 8 不得替换 Step 7 的引用审计结论",
+            "不得新增未经确认的证据",
+            "只负责保守修订",
+            "改善衔接、压缩或扩展局部表达",
+            "凡涉及新增论据、补全文献、扩大章节范围，必须回退 Step 7",
+        ]:
+            self.assertIn(token, text)
+
+        for token in [
+            "Step 8 只做保守修订，不新增未经确认的证据",
+            "Step 8 不替代 Step 7 的引用审计，不重写章节主体，不扩大写作范围",
+        ]:
+            self.assertIn(token, command)
+
     def test_step8_degraded_entry_rules_remain_non_blocking(self):
         text = read_rel("agents/step_8_polishing.md")
         self.assertIn("评审依据不足", text)

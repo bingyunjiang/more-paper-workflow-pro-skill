@@ -27,6 +27,12 @@
 - 机器层结构化结果可由 `scripts/deterministic_writing_diagnostics.py` 生成，再并入 `revision_ledger`
 - 若需要一个真实执行入口，优先使用 `scripts/run_step8_ai_trace.py`，默认串起 `论文初稿.md -> .skill-state/ai_trace_diagnostics.json -> diagnostic_summary.md -> revision_ledger.json/md`
 
+## 保守边界
+- Step 8 只做保守修订，不新增未经确认的证据
+- Step 8 可以降低机械感、改善衔接、压缩或扩展局部表达
+- Step 8 不替代 Step 7 的引用审计，不重写章节主体，不扩大写作范围
+- 若问题本质上是证据不足、论证越界或章节范围漂移，应回退 Step 7，而不是在 Step 8 里硬修
+
 ## 常见阻塞点
 - 没有评审报告时可继续，但必须标记“评审依据不足”
 - 没有引用审计报告时可继续，但不得声称引用安全已通过

@@ -71,6 +71,69 @@ class Step3Step6AssetContractsTest(unittest.TestCase):
         self.assertIn("capability_index.json/md", command)
         self.assertIn("capability_index.json/md", architecture)
 
+    def test_step6_uses_outline_second_level_collection_contract(self):
+        step6 = read_rel("agents/step_6_zotero.md")
+        command = read_rel("commands/zotero.md")
+        readme = read_rel("README.md")
+
+        for token in [
+            "一级集合对应一级章节，二级集合对应大纲二级目录",
+            "不得用关键词、证据类型或单篇文献临时替代大纲层级",
+            "workflow_search_results.json` / `文献-大纲对照.json",
+            "不应重新用关键词猜章节归属",
+            "推荐集合路径应尽量落到大纲二级目录",
+            "二级目录为二级子集合",
+        ]:
+            self.assertIn(token, step6)
+
+        self.assertIn("新建集合和子集合优先依据 Step 2 大纲二级目录", command)
+        self.assertIn("入库集合路径应直接复用该映射", command)
+        self.assertIn("二级集合对应大纲二级目录", readme)
+
+    def test_organize_zotero_builds_second_level_outline_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            outline = tmp_path / "大纲关键词.md"
+            output = tmp_path / "zotero-架构.md"
+            output_json = tmp_path / "zotero-架构.json"
+            outline.write_text(
+                "# 论文大纲与关键词\n\n"
+                "## 论文标题\n"
+                "高速充电系统能量管理研究\n\n"
+                "## 章节大纲\n"
+                "1. 绪论\n"
+                "1.1 研究背景与工程意义\n"
+                "1.2 国内外研究现状\n"
+                "2. 系统建模\n"
+                "2.1 充电站负荷模型\n",
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(ROOT / "scripts/organize_zotero.py"),
+                    str(outline),
+                    "--output",
+                    str(output),
+                    "--json",
+                    str(output_json),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            tree = json.loads(output_json.read_text(encoding="utf-8"))
+
+        self.assertEqual(tree["name"], "高速充电系统能量管理研究")
+        self.assertEqual(tree["children"][0]["name"], "绪论")
+        self.assertEqual(tree["children"][0]["children"][0]["name"], "研究背景与工程意义")
+        self.assertEqual(tree["children"][0]["children"][1]["name"], "国内外研究现状")
+        self.assertEqual(tree["children"][1]["name"], "系统建模")
+        self.assertEqual(tree["children"][1]["children"][0]["name"], "充电站负荷模型")
+
     def test_step6_mineru_zip_and_zotero_non_hard_dependency_contract_exists(self):
         step6 = read_rel("agents/step_6_zotero.md")
         for token in [

@@ -305,8 +305,9 @@ python3 scripts/organize_zotero.py 大纲关键词.md \
   4. 一级标题，但必须排除 `论文大纲与关键词`、`论文大纲`、`大纲关键词` 等模板标题。
   5. 全部失败时回退为 `论文文献库`。
 - 用户显式传入 `--root-name` 时，以用户指定为准。
-- 一级集合应对应论文主要章节或研究方向。
-- 二级/三级集合应对应子问题、方法路线、证据类型或关键主题。
+- 标准链路中，集合树应优先复用 Step 2 大纲层级：根集合为论文题目，一级集合对应一级章节，二级集合对应大纲二级目录。
+- 三级及更深集合只有在大纲真实存在对应层级时才创建；不得用关键词、证据类型或单篇文献临时替代大纲层级。
+- 关键词、证据类型、方法路线和研究对象默认进入标签、note 或 `paper_card` 字段，不作为主集合层级。
 - 不为单篇论文创建集合；单篇论文归属通过条目、标签和附件体现。
 - 架构生成后先向用户展示概要，确认后再进入 6.2。
 
@@ -317,6 +318,7 @@ python3 scripts/organize_zotero.py 大纲关键词.md \
 输入：
 - `文献库.bib`（Step 4 筛选后的 BibTeX 文献库）
 - `中文论文元数据.json`（如存在中文文献；兼容旧名 `chinese_papers.json` / `chinese_metadata.json`）
+- `workflow_search_results.json` 或 `文献-大纲对照.json`（如存在；用于复用前序文献-大纲映射）
 - `zotero-架构.md`
 - `zotero-架构.json`
 - PDF 附件池目录：Step 5 下载目录（通常为 `paper-temp/`）、项目原有 PDF 目录、用户后续补下载目录
@@ -327,6 +329,7 @@ python3 scripts/organize_zotero.py 大纲关键词.md \
 python3 scripts/build_zotero_plan.py \
   --bib 文献库.bib \
   --structure zotero-架构.json \
+  --workflow-results workflow_search_results.json \
   --pdf-dir paper-temp/ \
   --chinese 中文论文元数据.json \
   --output 文献-Zotero架构对照.json \
@@ -348,6 +351,7 @@ python3 scripts/prepare_pdf_for_llm.py \
 python3 scripts/build_zotero_plan.py \
   --bib 文献库.bib \
   --structure zotero-架构.json \
+  --workflow-results workflow_search_results.json \
   --pdf-dir paper-temp/ \
   --prepared-pdf-artifacts pdf-prepared/prepared_pdf_artifacts.json \
   --chinese 中文论文元数据.json \
@@ -370,7 +374,9 @@ python3 scripts/citation_audit.py 论文初稿.md \
 - `prepared_pdf_artifacts.json`：PDF 全文工作层索引，供 Step 6/7/7.16/8 共享
 
 **核心任务：**
-结合 BibTeX 条目的 title / author / year / doi / abstract / note 字段，与 `zotero-架构` 的集合和标签方案匹配，生成每篇文献应该进入哪个 Zotero 集合的对照表。
+优先复用 `workflow_search_results.json` / `文献-大纲对照.json` 中已有的 `chapter_id / chapter_title / secondary_chapter_ids / secondary_chapter_titles`，再与 `zotero-架构` 中按大纲二级目录生成的集合路径匹配，生成每篇文献应该进入哪个 Zotero 集合的对照表。
+
+如果前序文献-大纲映射存在，Step 6 不应重新用关键词猜章节归属；关键词匹配只作为映射缺失时的降级手段。
 
 **PDF 附件池规则：**
 - 不假设 PDF 只来自 Step 5。
@@ -470,12 +476,14 @@ python3 scripts/citation_audit.py 论文初稿.md \
 > `文献-Zotero架构对照.md` 只供人工审阅；6.3/6.4 的集合创建、条目导入、PDF 附件关联、状态回写必须以 `文献-Zotero架构对照.json` 为准。
 
 **匹配规则：**
-1. 英文/国际文献：优先使用真实 DOI 精确匹配 PDF 文件名、下载日志或文献表。
-2. CNKI/万方中文文献：不得依赖 DOI；优先使用 `source + source_id`、`article_url`、标题规范化匹配 PDF 和 Zotero 条目。
-3. DOI 缺失时，使用标题规范化匹配；标题仍不可靠时标记为「待人工确认」。
-4. 优先依据 BibTeX `note` 中的 `subtopic`、`Tier`、`Score` 字段匹配集合。
-5. 其次依据 title / abstract / keywords 与 `zotero-架构.md` 的集合名、标签说明匹配。
-6. 不确定归属时不要硬分配，放入 `待确认` 集合或在对照表中标注「待人工确认」。
+1. 若存在 `workflow_search_results.json` 或 `文献-大纲对照.json`，优先使用其中的 `chapter_id / chapter_title` 匹配主集合路径。
+2. 若存在 `secondary_chapter_ids / secondary_chapter_titles`，写入 `secondary_collection_paths`，供 6.5 自动次挂。
+3. 英文/国际文献：优先使用真实 DOI 精确匹配 PDF 文件名、下载日志或文献表。
+4. CNKI/万方中文文献：不得依赖 DOI；优先使用 `source + source_id`、`article_url`、标题规范化匹配 PDF 和 Zotero 条目。
+5. DOI 缺失时，使用标题规范化匹配；标题仍不可靠时标记为「待人工确认」。
+6. 前序映射缺失时，才依据 BibTeX `note` 中的 `subtopic`、`Tier`、`Score` 字段匹配集合。
+7. 再次降级时，才依据 title / abstract / keywords 与 `zotero-架构.md` 的集合名、标签说明匹配。
+8. 不确定归属时不要硬分配，放入 `待确认` 集合或在对照表中标注「待人工确认」。
 
 **中文文献元数据规则：**
 - `cnki.xxx` / `wanfang.xxx` 是内部 source id，不是真实 DOI。
@@ -487,6 +495,7 @@ python3 scripts/citation_audit.py 论文初稿.md \
 **质量要求：**
 - 每个 BibTeX 条目必须出现在对照表中。
 - 每个 T1/T2/T3 条目必须有推荐集合路径。
+- 标准链路下，推荐集合路径应尽量落到大纲二级目录；只有大纲没有二级目录或文献确属章级背景时，才允许停留在一级章节集合。
 - 每个条目必须保留 Step 4 的可信度字段；旧 BibTeX 缺失时标记 `verification_status=WARN`、`warn_class=legacy-unverified`，但不中断。
 - `verification_status=REJECT` 的记录不得进入 Zotero 写入队列；只保留在异常清单或补查候选中。
 - `verification_status=WARN` 的记录可进入计划表，但必须保留 `warn_class`，写入前作为待审项向用户展示。
@@ -530,6 +539,8 @@ zotero_get_collections()
 
 **关键规则：**
 - 创建集合时只以 `zotero-架构.json` 中的根集合名为准，不再硬编码 `论文文献库`。
+- 标准链路中，递归创建的集合树应保持 Step 2 大纲层级：一级章节为一级子集合，二级目录为二级子集合。
+- 只有 `zotero-架构.json` 中真实存在三级及更深节点时，才继续创建更深子集合。
 - `parent_collection` 始终传直接父级的 8 位 key，不能偷懒传根 key。
 - 每创建或复用一个集合，立即记录 `collection_path → collection_key` 映射。
 - 集合已存在时复用 key；不得创建同名重复集合。
