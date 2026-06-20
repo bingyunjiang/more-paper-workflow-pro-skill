@@ -1,0 +1,92 @@
+[
+  {
+    "title": "直流充电桩温度预测与控制系统开发",
+    "source": "cnki",
+    "source_id": "cnki.D7585ZGL",
+    "article_url": "https://kns.cnki.net/kcms2/article/abstract?v=zcrJ0BckwPMwOUTe8tVBf_PyymaAfGLpZ6rGWWcFjO_snrs6IWgR1n3hPj8CamdRD0kXhhfldZ65AF4incDzASsBAGJHblQk9y6TcyNxSf9D3XX7v0z27XU1Xq75sji01zXPZETv7JQAu9az0gCiOa9AIc_M_77kqY48dC1QAIWI3SkgzyzA5uKssnM87wIr&uniplatform=NZKPT&language=CHS",
+    "doi": "",
+    "authors": [
+      "朱, 婧"
+    ],
+    "year": "2022",
+    "publication_title": "石家庄铁道大学",
+    "abstract": "由于全球国民经济规模和人口数量的持续扩大,世界各国对能源市场的竞争也愈演愈烈,新能源汽车应运而生,目前电动汽车的销量已明显领先于其他新能源汽车。充电桩是电动汽车主要的充电基础设施,它不但可以及时地为电动汽车提供能量,还可以对电动汽车行业和充电设施的发展提供促进作用。目前随着人们对交通便捷要求的不断提高,对充电速度等的要求也不断增加,需相应地增大充电桩功率等级,而功率等级的增加必然会伴随着充电桩内部功率密度的提升,因此对充电桩内部进行合理温度控制,保证充电桩的安全运行是目前研制充电桩需要解决的技术问题。本文首先对选题的背景进行了较为全面的阐述,并简要的说明了近年来国内外充电桩的发展现状,随后对Kalman滤波算法以及温度控制系统的研究现状进行了阐述。并根据卡尔曼滤波原理对充电桩内部发热量最大的元器件进行温度预测,建立状态方程并通过MATLAB仿真验证预测的准确性。较准确的预测温度可作为温控系统的输入信号。其次,简述了实验中采用的驱动风扇的电机的工作原理,并对其进行了建模,基于电机参数确定了电机的传递函数,为后续控制策略的仿真奠定了独立基础。之后完成了模糊PID和传统PID的转速控制模型的建立,选取相同参数进行对比,结果表明,模糊PID控制优于传统PID控制。前面的仿真部分奠定了温控系统开发的基础。之后完成了以MC56F8346为主控芯片的温控系统的硬件和软件设计。硬件设计部分,设计了保证DSP正常工作的最小系统电路和SCI串口通信电路,另外还进行了外围电路的设计,包括信号采集、调理电路和稳压电路等,用于信号的采集和调理。软件开发部分,在主控芯片MC56F8346的开发环境Code Warrior中完成了各模块程序的编写和调试,主要涉及AD采集、转速采集、PWM控制信号输出、电机转速控制和SCI串口程序,实现了利用上位机的Lab VIEW软件监测和控制系统的运行状况。最后运用实验室现有设备搭建了温度控制系统实验平台,使用LabVIEW和示波器观察实验结果,验证了温度控制系统的有效性。",
+    "language": "zh-CN",
+    "tier": "",
+    "score": "",
+    "record_id": "",
+    "citekey": "ZhuZhiLiuChongDianZhuangWenDuYuCeYuKongZhiXiTongKaiFa2022",
+    "zotero_item_key": "D7585ZGL",
+    "status": "ready"
+  },
+  {
+    "title": "电动汽车充电桩电源模块热仿真分析",
+    "source": "cnki",
+    "source_id": "10.16638/j.cnki.1671-7988.2022.011.001",
+    "article_url": "https://kns.cnki.net/kcms2/article/abstract?v=ZODoBDhYdpfMHzm6UPX3aFpM8fV_pErj2Kja8iqeSfFw1h1JYtULamJdz0Sapziy79nvnUlah5hm0KPWaEzlLCTHFX-UPkVGNTCJnBFeEdd5zELWf1x6kHV1lMjkttKS&uniplatform=NZKPT&language=gb",
+    "doi": "10.16638/j.cnki.1671-7988.2022.011.001",
+    "authors": [
+      "王, 军",
+      "谷, 腾飞",
+      "于, 庆瑞",
+      "黄, 文辉"
+    ],
+    "year": "2022",
+    "publication_title": "汽车实用技术",
+    "abstract": "电动汽车作为普及率最高的新能源汽车，广泛应用于现代化交通运输领域，是推动汽车产业碳达峰、碳中和目标如期达成的主力军。电动汽车充电桩是电动汽车发展不可或缺的关键配套设备。为了研究电动汽车充电桩电源模块热稳定性能，建立了电源模块模型，通过热力学仿真分析确定了合理的印刷电路板上主发热元器件布置形式和风冷条件设计，提高了电动汽车充电桩电源模块结构设计合理性和长期运行的温升稳定性，为充电桩电源模块的技术开发科研工作提供了一种解决方案和研究思路。",
+    "language": "zh-CN",
+    "tier": "",
+    "score": "",
+    "record_id": "",
+    "citekey": "WangDianDongQiCheChongDianZhuangDianYuanMoKuaiReFangZhenFenXi2022",
+    "zotero_item_key": "EZ8W5MEF",
+    "status": "ready"
+  },
+  {
+    "title": "电动汽车充电桩的气动噪声分析和优化",
+    "source": "cnki",
+    "source_id": "cnki.HA2YD95Q",
+    "article_url": "https://kns.cnki.net/kcms2/article/abstract?v=SeVhTfopIAYDcqx4nqt-Ywh_BO__wEfVUyP656owGaUeyWL1V0CBhh0gaCflUNUhC0o6TTZJ0C5UK5leBU7rAsQWoTg0xcfTk06UvMRwX-2DoKjrg8CQ9-0iv-8ModHh&uniplatform=NZKPT&language=gb",
+    "doi": "",
+    "authors": [
+      "潘, 琦",
+      "江, 丙云",
+      "陈, 云"
+    ],
+    "year": "2024",
+    "publication_title": "浙江大学学报(工学版)",
+    "abstract": "分析180 kW大功率直流充电桩在不同工况下的气动噪声特性，进行整桩的降噪优化设计.采用计算流体力学（CFD）与计算气动声学（CAA）分步耦合仿真的方法，分析整桩的噪声频谱和声场分布规律；开展整桩试验测试，验证仿真的精确性；对比、分析不同降噪方案的降噪性能，并进行方案的试验验证.结果显示，整桩噪声主频为830 Hz，整桩噪声次频为650 Hz，分别与电源模块风扇以及系统风扇的叶片通过频率重合；在电源模块进风口布置吸音棉能够有效消除整桩噪声第三、第四峰值频率幅值；在系统风扇出风口布置吸音棉能够使整桩A计权声压级总值降低约1.2 dB；相同布置位置，在保证散热的同时增加吸音棉厚度的降噪效果不显著，整桩A计权声压级总值降低不足1.0 dB.",
+    "language": "zh-CN",
+    "tier": "",
+    "score": "",
+    "record_id": "",
+    "citekey": "PanDianDongQiCheChongDianZhuangDeQiDongZaoShengFenXiHeYouHua2024",
+    "zotero_item_key": "HA2YD95Q",
+    "status": "ready"
+  },
+  {
+    "title": "液冷式锂电池储能系统高倍率调频应用研究",
+    "source": "cnki",
+    "source_id": "10.14044/j.1674-1757.pcrpc.2024.03.020",
+    "article_url": "https://doi.org/10.14044/j.1674-1757.pcrpc.2024.03.020",
+    "doi": "10.14044/j.1674-1757.pcrpc.2024.03.020",
+    "authors": [
+      "雷, 博",
+      "吴, 越",
+      "史, 尤杰",
+      "曹, 文炅",
+      "王, 亦伟",
+      "蒋, 方明"
+    ],
+    "year": "2024",
+    "publication_title": "电力电容器与无功补偿",
+    "abstract": "针对风光能源规模化接入电网造成的频率波动问题，提出了结合功率型锂电池及液冷式热管理的储能系统。基于实验测试获取了功率型锂电池的电热特性，结果表明高倍率工况下仅依靠自然对流散热不能满足电池合理工作温度需求。建立了液冷式热管理系统及其仿真模型，并通过数值仿真对4C倍率放电、不同流量以及实际AGC调频工况条件下系统热管理性能及电池热行为进行了分析。研究表明实际AGC调频工况下，电池间温差小于2℃，最高温度小于33℃，证明了液冷式热管理方案能够实现储能系统在高倍率调频工况下的长期稳定运行。",
+    "language": "zh-CN",
+    "tier": "",
+    "score": "",
+    "record_id": "",
+    "citekey": "LeiYeLengShiLiDianChiChuNengXiTongGaoBeiLuDiaoPinYingYongYanJiu2024",
+    "zotero_item_key": "TSEUT6F9",
+    "status": "ready"
+  }
+]

@@ -1,0 +1,16 @@
+group,language,publisher_family,publisher,item_key,citation_key,doi_prefix,doi,title
+sd_core,en,Elsevier,Elsevier BV,79BDA8FT,kramaImpactExtremeClimatic2026,10.1016,10.1016/j.ecmx.2026.101960,Impact of Extreme Climatic Conditions on Fast EV Charger Performance: Field Experimental Insights from Qatar
+sd_core,en,Elsevier,Elsevier BV,PE7EDFVR,teteDevelopmentsBatteryThermal2021,10.1016,10.1016/j.est.2021.102255,Developments in Battery Thermal Management Systems for Electric Vehicles: A Technical Review
+sd_core,en,Elsevier,Elsevier BV,FUK5ZQGS,liuExploringAdvantagesCoupling2025,10.1016,10.1016/j.jclepro.2025.144704,Exploring the Advantages of Coupling Composite Phase Change Material and Air-Cooled Vapor Chamber for the Heat Management of Charging Power Component
+sd_core,en,Elsevier,Elsevier BV,2IWGN4WT,madaouiResearchImplementationFastcharging2025,10.1016,10.1016/j.est.2025.117285,Research and Implementation of a Fast-Charging Methodology for Lithium-Ion Batteries under Bottom and Dual Cooling Configurations
+sd_core,en,Elsevier,Elsevier BV,7KH277QV,wuExperimentalAssessmentComparison2023,10.1016,10.1016/j.est.2023.108727,Experimental Assessment and Comparison of Single-Phase versus Two-Phase Liquid Cooling Battery Thermal Management Systems
+special,en,IEEE,Institute of Electrical and Electronics Engineers (IEEE),7KUPCP2P,yangElectrothermalModelingLithiumIon2019,10.1109,10.1109/tvt.2018.2880138,Electrothermal Modeling of Lithium-Ion Batteries for Electric Vehicles
+oa_or_special,en,MDPI,MDPI AG,R37SWUZV,taiReviewAdvancedBattery2024,10.3390,10.3390/batteries10100372,A Review on Advanced Battery Thermal Management Systems for Fast Charging in Electric Vehicles
+special,en,Wiley,Wiley,V7ZHBSXN,wuResearchSprayCooling2022,10.1002,10.1002/er.7775,Research on Spray Cooling Performance Based on Battery Thermal Management
+special,en,Springer,Springer,DMHXFCTI,Wang2023_liquidcooled,10.1007,10.1007/s12206-023-0343-7,Liquid-Cooled Cold Plate for a Li-ion Battery Thermal Management System Designed by Topology Optimization
+special,en,RSC,Royal Society of Chemistry (RSC),ZH529NZQ,talhaMitigatingThermalRunaway2025,10.1039,10.1039/d5ra02870a,Mitigating Thermal Runaway in EV Batteries Using Hybrid Energy Storage and Phase Change Materials
+oa_or_special,en,Nature,Scientific Reports,GQYFHB6A,yadavHybridFuzzyMPCBased2025,10.1038,10.1038/s41598-025-26279-4,Hybrid Fuzzy-MPC Based Multi-Objective Control Strategy for Fast Charging of Electric Vehicles with Advanced Battery Thermal Management and Renewable Grid Support
+cn_compat,zh,CNKI/CSSD,石家庄铁道大学,D7585ZGL,ZhuZhiLiuChongDianZhuangWenDuYuCeYuKongZhiXiTongKaiFa2022,,,"直流充电桩温度预测与控制系统开发"
+cn_compat,zh,CNKI,汽车实用技术,EZ8W5MEF,WangDianDongQiCheChongDianZhuangDianYuanMoKuaiReFangZhenFenXi2022,10.16638,10.16638/j.cnki.1671-7988.2022.011.001,电动汽车充电桩电源模块热仿真分析
+cn_compat,zh,CNKI,浙江大学学报(工学版),HA2YD95Q,PanDianDongQiCheChongDianZhuangDeQiDongZaoShengFenXiHeYouHua2024,,,电动汽车充电桩的气动噪声分析和优化
+cn_compat,zh,CNKI,电力电容器与无功补偿,TSEUT6F9,LeiYeLengShiLiDianChiChuNengXiTongGaoBeiLuDiaoPinYingYongYanJiu2024,10.14044,10.14044/j.1674-1757.pcrpc.2024.03.020,液冷式锂电池储能系统高倍率调频应用研究
