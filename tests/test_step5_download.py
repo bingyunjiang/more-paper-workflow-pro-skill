@@ -384,6 +384,26 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(remaining, ["10.1007/demo"])
         self.assertEqual(reasons["10.1007/demo"], "manual_confirmation_required")
 
+    def test_english_cdp_prompts_and_retries_first_login_required_failure(self):
+        first = ([], ["10.1007/demo", "10.1021/demo"], {
+            "10.1007/demo": "manual_confirmation_required",
+            "10.1021/demo": "generic_failed",
+        })
+        second = (["10.1007/demo"], [], {})
+
+        with patch.object(router, "run_generic_round", side_effect=[first, second]) as run_generic, \
+             patch.object(router, "show_english_login_gate", return_value=True) as login_gate:
+            downloaded, remaining, results, reasons = router.run_english_cdp(
+                ["10.1007/demo", "10.1021/demo"], "paper-temp", 9223
+            )
+
+        self.assertEqual(downloaded, ["10.1007/demo"])
+        self.assertEqual(remaining, ["10.1021/demo"])
+        self.assertEqual(reasons, {"10.1021/demo": "generic_failed"})
+        login_gate.assert_called_once_with(["10.1007/demo"], skip_sd=False)
+        self.assertEqual(run_generic.call_args_list[1].args[0], ["10.1007/demo"])
+        self.assertEqual(results[-1]["round"], "Generic CDP (after login)")
+
     def test_generate_download_log_includes_reason_column(self):
         with tempfile.TemporaryDirectory() as tmp:
             pdf_path = Path(tmp) / "10.1007_demo.pdf"

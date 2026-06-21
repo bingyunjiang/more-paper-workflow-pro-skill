@@ -138,7 +138,7 @@
 
 **中文门控（Phase 1）：** 仅当 CNKI/万方 preflight 或 article/download probe 返回 `pdf_probe_blocked` / `pdf_probe_unknown` / `carsi_required` / `login_required` / `access_denied` 时触发。
 
-**英文门控（Phase 2）：** Sci-Hub 完成后，仅对剩余英文论文中 PDF probe 未通过的 publisher 触发。
+**英文门控（Phase 2）：** Sci-Hub 完成后，默认先执行 Generic CDP；第一次遇到 `manual_confirmation_required` / `login_required` / `login_wall` / `access_denied` / `pdf_probe_blocked` / `pdf_probe_unknown` 时，立即阻塞提醒用户完成机构登录，并只重试这些失败条目一次。若显式使用 `--require-login-confirm`，则在英文 CDP 开始前先强制确认登录。
 
 **交互兼容规则：**
 
@@ -178,9 +178,9 @@ Phase 1:
 
 Phase 2:
 6. 等待 Sci-Hub 完成
-7. 对剩余英文 CDP 论文执行 PDF probe
-   ├─ direct_http / oa / pdf_probe_ok → 直接下载
-   └─ pdf_probe_blocked / pdf_probe_unknown / login_required / access_denied → 🚧 英文登录门控
+7. 对剩余英文 CDP 论文先执行 Generic CDP 下载
+   ├─ direct_http / oa / pdf_probe_ok / 成功捕获 PDF bytes → 直接完成
+   └─ 首次出现 pdf_probe_blocked / pdf_probe_unknown / login_required / access_denied / manual_confirmation_required → 🚧 英文登录门控，并重试这些条目一次
    Agent 执行同样的交互式 CDP 启动，导航到对应出版社首页：
    "[Generic CDP]  elsevier (sciencedirect.com), ieee (ieeexplore.ieee.org),
     acs (pubs.acs.org), ..."
@@ -188,7 +188,7 @@ Phase 2:
    a) 启动 exec_command：检查/启动 CDP Chrome → 导航到出版社首页
    b) 打印 === LOGIN_REQUIRED === → 用户登录后告知；如果用户没有机构账号，明确允许 `skip`，Agent 应继续后续 OA/已完成结果汇总，不得把整批任务视为失败
    c) 脚本确认 CDP 可用后退出
-9. Agent 执行 English CDP 下载（R2 SD → R3 Generic）
+9. Agent 重试需要登录的 English CDP 条目（R2 Generic，含 SD / IEEE 适配器）
 ```
 
 **强制要求：**
@@ -233,11 +233,11 @@ Phase 1 ────────────────────────
 
 Phase 2 ──────────────────────────────────────────────────
   等待 Sci-Hub 完成
-  若剩余英文 CDP 论文（SD / Generic）:
-    🔍 英文 PDF probe
-       direct_http / oa / pdf_probe_ok → 直接执行 CDP
-       pdf_probe_blocked / pdf_probe_unknown / login_required / access_denied → 用户确认
-       → English CDP 启动（R2 SD → R3 Generic）
+  若剩余英文 CDP 论文（Generic，含 SD / IEEE 适配器）:
+    English CDP 启动（R2 Generic）
+       成功捕获 PDF bytes → 完成
+       首次出现登录/权限/unknown probe 类失败 → 用户确认机构登录
+       → 仅重试这些失败条目一次
 
 Phase 3 ──────────────────────────────────────────────────
   合并 Sci-Hub + Chinese CDP + English CDP 结果
