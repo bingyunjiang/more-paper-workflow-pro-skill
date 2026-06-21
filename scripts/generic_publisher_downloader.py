@@ -208,10 +208,15 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
 
 
 def _download_sciencedirect(port: int, doi: str, output_dir: str) -> tuple[Optional[str], str]:
-    """ScienceDirect adapter used by the Generic CDP route."""
+    """ScienceDirect adapter used by the Generic CDP route.
+
+    Keep the ScienceDirect-specific DOI -> PII knowledge, but use the generic
+    capture primitive: fresh tab, Fetch.enable before navigation, and article
+    referrer on the PDF request.
+    """
     try:
         from batch_resolve_pii import _resolve_pii_from_crossref
-        from sd_download import diagnose_sd_pii, download_sd_pii
+        from sd_download import diagnose_sd_pii
     except Exception:
         return None, "failed"
 
@@ -219,7 +224,14 @@ def _download_sciencedirect(port: int, doi: str, output_dir: str) -> tuple[Optio
     if not pii:
         return None, "pii_resolution_failed"
 
-    data = download_sd_pii(port, pii)
+    article_url = f"https://www.sciencedirect.com/science/article/pii/{pii}"
+    pdfft_url = f"{article_url}/pdfft"
+    data = _navigate_and_capture_pdf(
+        port,
+        pdfft_url,
+        referrer=article_url,
+        timeout=DEFAULT_TIMEOUT,
+    )
     if data and len(data) > 20000:
         return _save_pdf(data, _doi_to_filename(doi, output_dir)), "ok"
 
@@ -230,7 +242,7 @@ def _download_sciencedirect(port: int, doi: str, output_dir: str) -> tuple[Optio
     if kind == "referencework_abs":
         return None, "not_subscribed_or_referencework"
     if kind == "article_page_only":
-        return None, "article_page_no_pdf_route"
+        return None, "manual_required"
     return None, "failed"
 
 

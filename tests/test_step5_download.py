@@ -329,7 +329,35 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertIn("generic", strategies)
         self.assertIn("chinese_cdp", strategies)
 
-    def test_sciencedirect_generic_adapter_downloads_via_sd_pii(self):
+    def test_sciencedirect_generic_adapter_downloads_via_generic_capture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(gpd, "_navigate_and_capture_pdf", return_value=b"%PDF" + b"x" * 25000) as capture, \
+                 patch("batch_resolve_pii._resolve_pii_from_crossref", return_value="S0000000000000001"):
+                result_path, status = gpd._download_sciencedirect(
+                    9223, "10.1016/j.demo.2026.01.001", tmp
+                )
+
+            self.assertEqual(status, "ok")
+            self.assertTrue(Path(result_path).exists())
+            capture.assert_called_once_with(
+                9223,
+                "https://www.sciencedirect.com/science/article/pii/S0000000000000001/pdfft",
+                referrer="https://www.sciencedirect.com/science/article/pii/S0000000000000001",
+                timeout=gpd.DEFAULT_TIMEOUT,
+            )
+
+    def test_sciencedirect_article_page_only_prompts_login_retry(self):
+        with patch.object(gpd, "_navigate_and_capture_pdf", return_value=None), \
+             patch("batch_resolve_pii._resolve_pii_from_crossref", return_value="S0000000000000001"), \
+             patch("sd_download.diagnose_sd_pii", return_value={"kind": "article_page_only"}):
+            result_path, status = gpd._download_sciencedirect(
+                9223, "10.1016/j.demo.2026.01.001", "paper-temp"
+            )
+
+        self.assertIsNone(result_path)
+        self.assertEqual(status, "manual_required")
+
+    def test_sciencedirect_download_one_routes_through_generic_adapter(self):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(gpd, "_download_sciencedirect", return_value=(str(Path(tmp) / "paper.pdf"), "ok")) as sd_adapter:
                 result_path, status, pub = gpd.download_one(
