@@ -6,8 +6,8 @@
 """
 Auto-restart ScienceDirect PDF batch downloader — cross-platform (macOS / Windows / Linux).
 
-Automatically detects Chrome and/or Edge. When both are available, runs dual-browser
-parallel download (papers split 50/50). Gracefully degrades to single-browser mode.
+Defaults to one browser to preserve the user's institutional login session.
+Use --browser auto explicitly for dual-browser parallel download.
 
 Hybrid download strategy:
   A (fast): /pdfft direct redirect → capture (8s)
@@ -16,7 +16,8 @@ Hybrid download strategy:
 Usage:
     python3 scripts/auto_sd_downloader.py
     python3 scripts/auto_sd_downloader.py --output-dir download/paper-temp
-    python3 scripts/auto_sd_downloader.py --browser chrome   # force single browser
+    python3 scripts/auto_sd_downloader.py --browser edge     # use Edge only
+    python3 scripts/auto_sd_downloader.py --browser auto     # explicit Chrome+Edge parallel mode
 
 Design principle: all papers are accessible; failure means need a better strategy.
 """
@@ -37,6 +38,28 @@ DEFAULT_PROFILES = {
     "chrome": os.path.join(os.path.expanduser("~/.hermes"), "chrome_sd_profile"),
     "edge": os.path.join(os.path.expanduser("~/.hermes"), "edge_sd_profile"),
 }
+
+
+def _resolve_browsers(args):
+    """Resolve browser executable(s) from CLI options."""
+    browsers = []
+    if args.browser == "auto":
+        chrome_path = args.browser_path or find_chrome_path()
+        if chrome_path:
+            browsers.append(("Chrome", chrome_path, args.port_chrome, DEFAULT_PROFILES["chrome"]))
+
+        edge_path = args.browser_path_edge or find_edge_path()
+        if edge_path and edge_path != chrome_path:
+            browsers.append(("Edge", edge_path, args.port_edge, DEFAULT_PROFILES["edge"]))
+    elif args.browser == "edge":
+        edge_path = args.browser_path or args.browser_path_edge or find_edge_path()
+        if edge_path:
+            browsers.append(("Edge", edge_path, args.port_edge, DEFAULT_PROFILES["edge"]))
+    else:
+        chrome_path = args.browser_path or find_chrome_path()
+        if chrome_path:
+            browsers.append(("Chrome", chrome_path, args.port_chrome, DEFAULT_PROFILES["chrome"]))
+    return browsers
 
 
 def _load_remaining_papers(pii_map_path: str, output_dir: str):
@@ -148,20 +171,7 @@ if __name__ == "__main__":
         exit(1)
 
     # ---- Resolve browser(s) ----
-    browsers = []
-    chrome_path = find_chrome_path() if args.browser in ("auto", "chrome") else None
-    if chrome_path:
-        browsers.append(("Chrome", chrome_path, args.port_chrome, DEFAULT_PROFILES["chrome"]))
-
-    edge_path = None
-    if args.browser == "auto" and not args.browser_path:
-        edge_path = args.browser_path_edge or find_edge_path()
-    if edge_path and edge_path != chrome_path:
-        if not browsers or edge_path != browsers[0][1]:
-            browsers.append(("Edge", edge_path, args.port_edge, DEFAULT_PROFILES["edge"]))
-
-    if args.browser_path and not browsers:
-        browsers.append(("Custom", args.browser_path, args.port_chrome, DEFAULT_PROFILES["chrome"]))
+    browsers = _resolve_browsers(args)
 
     if not browsers:
         print(CHROME_INSTALL_GUIDE, flush=True)

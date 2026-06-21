@@ -34,6 +34,30 @@ class PlatformCompatTest(unittest.TestCase):
              patch.object(cdp_utils.os.path, "isfile", side_effect=lambda p: p == chrome):
             self.assertEqual(cdp_utils.find_chrome_path(), chrome)
 
+    def test_windows_edge_localappdata_fallback_is_detected(self):
+        edge = r"C:\Users\demo\AppData\Local\Microsoft\Edge\Application\msedge.exe"
+        with patch.object(cdp_utils, "_is_macos", return_value=False), \
+             patch.object(cdp_utils, "_is_windows", return_value=True), \
+             patch.object(cdp_utils.shutil, "which", return_value=None), \
+             patch.object(cdp_utils.os.path, "expandvars", return_value=edge), \
+             patch.object(cdp_utils.os.path, "isfile", side_effect=lambda p: p == edge):
+            self.assertEqual(cdp_utils.find_edge_path(), edge)
+
+    def test_windows_start_persistent_cdp_browser_falls_back_to_edge(self):
+        fake_proc = object()
+        with patch.object(cdp_utils, "_is_windows", return_value=True), \
+             patch.object(cdp_utils, "find_chrome_path", return_value=None), \
+             patch.object(cdp_utils, "find_edge_path", return_value=r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"), \
+             patch.object(cdp_utils, "kill_browser_by_port"), \
+             patch.object(cdp_utils, "start_browser", return_value=fake_proc) as start_browser, \
+             redirect_stdout(io.StringIO()) as stdout:
+            proc = cdp_utils.start_persistent_cdp_browser(browser="chrome")
+
+        self.assertIs(proc, fake_proc)
+        self.assertIn("自动回退到 Edge", stdout.getvalue())
+        self.assertEqual(start_browser.call_args.kwargs["browser_path"],
+                         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe")
+
     def test_windows_profile_cleanup_targets_only_matching_profile_processes(self):
         calls = []
 

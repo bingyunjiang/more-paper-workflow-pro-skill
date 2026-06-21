@@ -13,6 +13,17 @@ from cdp_utils import check_cdp, start_persistent_cdp_browser
 from console_compat import configure_console_output
 
 
+def _print_cdp_path_hint() -> None:
+    if sys.platform == "win32":
+        print(r"   PowerShell: $env:CHROME_PATH='C:\Program Files\Google\Chrome\Application\chrome.exe'")
+        print(r"   PowerShell: $env:EDGE_PATH='C:\Program Files\Microsoft\Edge\Application\msedge.exe'")
+        print(r"   CMD: set CHROME_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe")
+        print(r"   CMD: set EDGE_PATH=C:\Program Files\Microsoft\Edge\Application\msedge.exe")
+        return
+
+    print("   Set CHROME_PATH or EDGE_PATH if browser auto-detection fails.")
+
+
 def main() -> int:
     configure_console_output()
 
@@ -49,7 +60,7 @@ def main() -> int:
         return 0
 
     print(f"❌ CDP failed to start on port {args.port}")
-    print("   Set CHROME_PATH or EDGE_PATH if browser auto-detection fails.")
+    _print_cdp_path_hint()
     return 1
 
 

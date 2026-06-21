@@ -356,6 +356,19 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 | `auto_sd_downloader.py` | SD 全自动下载 | 只下 Elsevier 论文时 |
 | `generic_publisher_downloader.py` | 通用CDP下载引擎 | 测试特定非SD/IEEE论文 |
 
+ScienceDirect 默认只使用一个 CDP 浏览器，以复用用户已经完成机构登录的会话：
+
+```bash
+# 默认 Chrome
+python3 scripts/unified_download_router.py dois.txt --browser chrome
+
+# 用户默认 Edge 或机构账号已在 Edge 中登录
+python3 scripts/unified_download_router.py dois.txt --browser edge
+
+# 只有明确需要双浏览器加速时才启用 Chrome + Edge
+python3 scripts/unified_download_router.py dois.txt --sd-browser auto
+```
+
 ### 5.9. 核心设计原则
 
 1. **默认所有论文都有访问权限** — 下不到是策略问题，不是权限问题
@@ -366,6 +379,7 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 6. **IEEE 已归入 Generic CDP**，`download_via_ieee.py` 保留作为手动 fallback
 7. **直达下载先归一化、再下载** — DOI 可直接路由，标题必须先解析为 DOI/URL/中文 article_url
 8. **checkpoint 不是入口锁** — `CP-DOWNLOAD-LOGIN` 只阻塞需要登录态的下载执行，不阻塞 manifest 生成、dry-run、OA/Sci-Hub/direct_http 路径
+9. **SD 默认跟随用户浏览器选择** — `--browser edge` 则 ScienceDirect 也用 Edge；`--browser chrome` 则 ScienceDirect 也用 Chrome；只有 `--sd-browser auto` 才启用 Chrome + Edge 双浏览器模式。
 
 ---
 

@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Dr. Jiang Bingyun
-# Licensed under CC BY-NC-SA 4.0 — Attribution-NonCommercial-ShareAlike 4.0 International
+# Licensed under CC BY-NC-SA 4.0 - Attribution-NonCommercial-ShareAlike 4.0 International
 # https://creativecommons.org/licenses/by-nc-sa/4.0/
 #
 """
-Unified PDF download router — single entry point for all publishers.
+Unified PDF download router - single entry point for all publishers.
 
 Routes each DOI to the optimal download strategy using the publisher
 routing matrix, then orchestrates download rounds:
 
-  1. Sci-Hub CDP    → pre-2021 papers (free, ~6s/paper)
-  2. SD CDP         → 10.1016/ Elsevier papers (96% success)
-  3. Generic CDP    → IEEE (10.1109/) + all other publishers
+  1. Sci-Hub CDP    -> pre-2021 papers (free, ~6s/paper)
+  2. SD CDP         -> 10.1016/ Elsevier papers (96% success)
+  3. Generic CDP    -> IEEE (10.1109/) + all other publishers
                      (Wiley, ACS, RSC, Nature, Springer, etc.)
                      IEEE uses generic engine (strategy B: article page
-                     → stamp URL extraction). Dedicated download_via_ieee.py
+                     -> stamp URL extraction). Dedicated download_via_ieee.py
                      available as fallback for interactive SSO login flow.
 
 Usage:
@@ -30,13 +30,23 @@ from __future__ import annotations
 import sys, os, time, re, json, argparse, subprocess, hashlib
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 
 # Ensure scripts/ is on path
 SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from cdp_utils import check_cdp, check_required_deps, start_persistent_cdp_browser
-from console_compat import configure_child_python_utf8_env, configure_console_output
+from console_compat import (
+    ARROW,
+    DONE,
+    FAIL,
+    OK,
+    SKIP,
+    WARN,
+    configure_child_python_utf8_env,
+    configure_console_output,
+)
 from generic_publisher_downloader import (
     resolve_publisher, download_one as generic_download_one,
     check_publisher_session, _PUBLISHER_CONFIGS, extract_dois,
@@ -67,39 +77,39 @@ CHINESE_PUBLISHERS = {"cnki", "wanfang"}
 CHINESE_PAPER_FIELDS = frozenset({"title", "source", "article_url"})
 
 
-def ensure_cdp_running(port: int) -> bool:
+def ensure_cdp_running(port: int, browser: str = "chrome") -> bool:
     """Reuse an existing CDP browser or start one automatically."""
     if check_cdp(port):
         return True
 
-    print(f"\n⏳ CDP Chrome not detected on :{port}. Starting browser automatically...")
+    print(f"\nCDP {browser.title()} not detected on :{port}. Starting browser automatically...")
     start_persistent_cdp_browser(
         port=port,
-        browser=os.environ.get("CDP_BROWSER", "chrome"),
+        browser=browser,
         urls=["https://www.sciencedirect.com/"],
     )
     ok = check_cdp(port)
     if not ok:
-        print("  ❌ CDP browser failed to start.")
+        print(f"  {FAIL} CDP browser failed to start.")
         print("     Windows: set CHROME_PATH or EDGE_PATH if browser auto-detection fails.")
     return ok
 
 
 # ── Year Estimation ─────────────────────────────────────────────────────────
 
-def estimate_year(doi: str) -> int | None:
+def estimate_year(doi: str) -> Optional[int]:
     """Estimate publication year from DOI patterns. Returns int or None.
 
     DOIs often embed the year, e.g.:
-      - 10.1016/j.jpowsour.2019.01.052 → 2019
-      - 10.1109/tvt.2022.3183866 → 2022
-      - 10.1002/ente.202301205 → 2023 (year embedded in larger number)
-      - 10.1038/s41467-2024-45578 → 2024
+      - 10.1016/j.jpowsour.2019.01.052 -> 2019
+      - 10.1109/tvt.2022.3183866 -> 2022
+      - 10.1002/ente.202301205 -> 2023 (year embedded in larger number)
+      - 10.1038/s41467-2024-45578 -> 2024
 
     We scan the part AFTER the first '/' for 4-digit numbers in the
     publication-year range (1990–2026), skipping the DOI prefix.
     """
-    # Split: "10.1016/j.jpowsour.2019.01.052" → prefix="10.1016", rest="j.jpowsour.2019.01.052"
+    # Split: "10.1016/j.jpowsour.2019.01.052" -> prefix="10.1016", rest="j.jpowsour.2019.01.052"
     parts = doi.split("/", 1)
     search_region = parts[1] if len(parts) > 1 else doi
 
@@ -305,7 +315,7 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
             new_dois.append(d)
 
     if not old_dois:
-        print(f"\n⏭ Round 1 (Sci-Hub): No pre-{SCI_HUB_CUTOFF_YEAR} papers to try ({len(new_dois)} papers are post-{SCI_HUB_CUTOFF_YEAR-1}).")
+        print(f"\n{SKIP} Round 1 (Sci-Hub): No pre-{SCI_HUB_CUTOFF_YEAR} papers to try ({len(new_dois)} papers are post-{SCI_HUB_CUTOFF_YEAR-1}).")
         return [], dois
 
     print(f"\n{'='*60}")
@@ -321,7 +331,7 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
 
     scihub_script = SCRIPTS_DIR / "download_via_scihub.py"
     if not scihub_script.exists():
-        print(f"  WARNING: {scihub_script} not found — skipping Sci-Hub round.")
+        print(f"  WARNING: {scihub_script} not found - skipping Sci-Hub round.")
         return [], dois
 
     try:
@@ -331,7 +341,7 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
             check=False, timeout=600, env=configure_child_python_utf8_env()
         )
     except subprocess.TimeoutExpired:
-        print("  ⚠ Sci-Hub round timed out after 10 minutes.")
+        print(f"  {WARN} Sci-Hub round timed out after 10 minutes.")
 
     # Check which papers now exist on disk
     downloaded = []
@@ -344,7 +354,7 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
         else:
             remaining.append(d)
 
-    print(f"  Sci-Hub result: ✅ {len(downloaded)} downloaded, → {len(old_dois) - len(downloaded)} remaining for next round")
+    print(f"  Sci-Hub result: {OK} {len(downloaded)} downloaded, {ARROW} {len(old_dois) - len(downloaded)} remaining for next round")
 
     # Cleanup
     try:
@@ -355,7 +365,8 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
     return downloaded, remaining
 
 
-def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str], list[str], dict[str, str]]:
+def run_sd_round(dois: list[str], output_dir: str, port: int,
+                 sd_browser: str = "chrome") -> tuple[list[str], list[str], dict[str, str]]:
     """Round 2: ScienceDirect CDP for 10.1016/ papers.
     Returns (downloaded_dois, remaining_dois)."""
     sd_dois = []
@@ -370,7 +381,7 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
             other_dois.append(d)
 
     if not sd_dois:
-        print(f"\n⏭ Round 2 (SD CDP): No Elsevier papers remaining.")
+        print(f"\n{SKIP} Round 2 (SD CDP): No Elsevier papers remaining.")
         return [], dois, {}
 
     print(f"\n{'='*60}")
@@ -394,25 +405,32 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
                 check=False, timeout=300, env=configure_child_python_utf8_env()
             )
         except subprocess.TimeoutExpired:
-            print("  ⚠ PII resolution timed out.")
+            print(f"  {WARN} PII resolution timed out.")
     else:
-        print(f"  WARNING: {batch_pii_script} not found — cannot resolve PII for SD.")
+        print(f"  WARNING: {batch_pii_script} not found - cannot resolve PII for SD.")
 
     # Download via auto_sd_downloader
     auto_sd_script = SCRIPTS_DIR / "auto_sd_downloader.py"
     if auto_sd_script.exists() and os.path.exists(pii_map_path):
+        auto_sd_cmd = [
+            sys.executable, str(auto_sd_script),
+            "--output-dir", output_dir,
+            "--pii-map", pii_map_path,
+            "--browser", sd_browser,
+        ]
+        if sd_browser == "edge":
+            auto_sd_cmd.extend(["--port-edge", str(port)])
+        else:
+            auto_sd_cmd.extend(["--port-chrome", str(port)])
         try:
             subprocess.run(
-                [sys.executable, str(auto_sd_script),
-                 "--output-dir", output_dir,
-                 "--pii-map", pii_map_path,
-                 "--port-chrome", str(port)],
+                auto_sd_cmd,
                 check=False, timeout=1800, env=configure_child_python_utf8_env()
             )
         except subprocess.TimeoutExpired:
-            print("  ⚠ SD download timed out after 30 minutes.")
+            print(f"  {WARN} SD download timed out after 30 minutes.")
     elif not os.path.exists(pii_map_path):
-        print(f"  ⚠ PII map not found — skipping SD download.")
+        print(f"  {WARN} PII map not found - skipping SD download.")
 
     # Check results
     downloaded = []
@@ -445,7 +463,7 @@ def run_sd_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str]
             else:
                 failure_reasons[d] = "pii_resolution_failed"
 
-    print(f"  SD result: ✅ {len(downloaded)} downloaded, → {len(sd_dois) - len(downloaded)} remaining for next round")
+    print(f"  SD result: {OK} {len(downloaded)} downloaded, {ARROW} {len(sd_dois) - len(downloaded)} remaining for next round")
 
     try:
         os.remove(sd_input)
@@ -474,7 +492,7 @@ def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[st
             other_dois.append(d)
 
     if not ieee_dois:
-        print(f"\n⏭ Round 3 (IEEE CDP): No IEEE papers remaining.")
+        print(f"\n{SKIP} Round 3 (IEEE CDP): No IEEE papers remaining.")
         return [], dois
 
     print(f"\n{'='*60}")
@@ -483,7 +501,7 @@ def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[st
 
     ieee_script = SCRIPTS_DIR / "download_via_ieee.py"
     if not ieee_script.exists():
-        print(f"  WARNING: {ieee_script} not found — skipping IEEE round.")
+        print(f"  WARNING: {ieee_script} not found - skipping IEEE round.")
         return [], dois
 
     # Write temp input
@@ -501,9 +519,9 @@ def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[st
             check=False, timeout=900, env=configure_child_python_utf8_env()
         )
     except subprocess.TimeoutExpired:
-        print("  ⚠ IEEE round timed out after 15 minutes.")
+        print(f"  {WARN} IEEE round timed out after 15 minutes.")
 
-    # Check results — IEEE uses arnumber_DOI.pdf naming
+    # Check results - IEEE uses arnumber_DOI.pdf naming
     downloaded = []
     remaining = list(other_dois)
     for d in ieee_dois:
@@ -520,7 +538,7 @@ def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[st
         if not found:
             remaining.append(d)
 
-    print(f"  IEEE result: ✅ {len(downloaded)} downloaded, → {len(ieee_dois) - len(downloaded)} remaining for next round")
+    print(f"  IEEE result: {OK} {len(downloaded)} downloaded, {ARROW} {len(ieee_dois) - len(downloaded)} remaining for next round")
 
     try:
         os.remove(ieee_input)
@@ -545,14 +563,14 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
         elif strategy == "skip":
             skip_dois.append(d)
         else:
-            # SD or IEEE that weren't caught earlier — still try generic
+            # SD or IEEE that weren't caught earlier - still try generic
             generic_dois.append(d)
 
     if not generic_dois:
         if skip_dois:
-            print(f"\n⏭ Round 4 (Generic CDP): {len(skip_dois)} papers skipped (MDPI/unavailable), 0 eligible.")
+            print(f"\n{SKIP} Round 4 (Generic CDP): {len(skip_dois)} papers skipped (MDPI/unavailable), 0 eligible.")
         else:
-            print(f"\n⏭ Round 4 (Generic CDP): No remaining papers.")
+            print(f"\n{SKIP} Round 4 (Generic CDP): No remaining papers.")
         return [], dois, {}
 
     print(f"\n{'='*60}")
@@ -569,7 +587,7 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
         pub_name = pub.get("_key", "unknown") if pub else "unknown"
         publisher_domain = pub.get("publisher_domain", "?") if pub else "?"
 
-        print(f"  [{i+1}/{len(generic_dois)}] {doi[:50]} → {pub_name} ({publisher_domain})", end=" ", flush=True)
+        print(f"  [{i+1}/{len(generic_dois)}] {doi[:50]} {ARROW} {pub_name} ({publisher_domain})", end=" ", flush=True)
 
         t0 = time.time()
         try:
@@ -586,34 +604,34 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
                     result_path, status = None, "failed"
             else:
                 result_path, status = None, "failed"
-            print(f"\n  ⚠ Retry after error: {type(e).__name__}")
+            print(f"\n  {WARN} Retry after error: {type(e).__name__}")
         elapsed = time.time() - t0
 
         if result_path and status == "ok":
             size_kb = os.path.getsize(result_path) // 1024
-            print(f"✅ ({size_kb}KB, {elapsed:.1f}s)")
+            print(f"{OK} ({size_kb}KB, {elapsed:.1f}s)")
             downloaded.append(doi)
             ok += 1
         elif status == "manual_required":
-            print(f"⚠ manual confirmation needed ({elapsed:.1f}s)")
-            print(f"  ↳ {pub_name} 需要你现在去可见 Chrome 完成机构登录/验证；完成后可继续重跑剩余列表。")
+            print(f"{WARN} manual confirmation needed ({elapsed:.1f}s)")
+            print(f"  {ARROW} {pub_name} 需要你现在去可见 Chrome 完成机构登录/验证；完成后可继续重跑剩余列表。")
             remaining.append(doi)
             fail += 1
             failure_reasons[doi] = "manual_confirmation_required"
         elif status == "si_only":
-            print(f"⚠ SI only ({elapsed:.1f}s)")
+            print(f"{WARN} SI only ({elapsed:.1f}s)")
             remaining.append(doi)
             fail += 1
             failure_reasons[doi] = "supplementary_only"
         else:
-            print(f"❌ ({elapsed:.1f}s)")
+            print(f"{FAIL} ({elapsed:.1f}s)")
             remaining.append(doi)
             fail += 1
             failure_reasons[doi] = "generic_failed"
 
     # Remaining = failures + skips
     remaining = remaining + skip_dois
-    print(f"  Generic result: ✅ {ok} downloaded, ❌ {fail} failed, ⏭ {len(skip_dois)} skipped")
+    print(f"  Generic result: {OK} {ok} downloaded, {FAIL} {fail} failed, {SKIP} {len(skip_dois)} skipped")
 
     return downloaded, remaining, failure_reasons
 
@@ -635,7 +653,7 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
     Returns: (downloaded_dois, remaining_dois).
     """
     if not papers:
-        print(f"\n⏭ Chinese Round: No Chinese papers to download.")
+        print(f"\n{SKIP} Chinese Round: No Chinese papers to download.")
         return [], []
 
     print(f"\n{'='*60}")
@@ -661,7 +679,7 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
         print(f"  [{i+1}/{len(papers)}] [{source.upper():6s}] {display_title}", end=" ", flush=True)
 
         if not article_url:
-            print("❌ (no article URL — cannot download)")
+            print(f"{FAIL} (no article URL - cannot download)")
             remaining.append(doi or title)
             skipped += 1
             continue
@@ -684,29 +702,30 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
 
         if result_path and status == "ok":
             size_kb = os.path.getsize(result_path) // 1024
-            print(f"✅ ({size_kb}KB, {elapsed:.1f}s)")
+            print(f"{OK} ({size_kb}KB, {elapsed:.1f}s)")
             downloaded.append(doi or title)
             ok += 1
         elif status == "no_url":
-            print(f"❌ (no article URL)")
+            print(f"{FAIL} (no article URL)")
             remaining.append(doi or title)
             skipped += 1
         else:
-            print(f"❌ ({elapsed:.1f}s)")
+            print(f"{FAIL} ({elapsed:.1f}s)")
             remaining.append(doi or title)
             fail += 1
 
-    print(f"  Chinese result: ✅ {ok} downloaded, ❌ {fail} failed, ⏭ {skipped} skipped (no URL)")
+    print(f"  Chinese result: {OK} {ok} downloaded, {FAIL} {fail} failed, {SKIP} {skipped} skipped (no URL)")
 
     return downloaded, remaining
 
 
-# ── English Pipeline (R1→R2→R3 sequential) ─────────────────────────────────
+# ── English Pipeline (R1->R2->R3 sequential) ────────────────────────────────
 
 def run_english_pipeline(dois: list[str], output_dir: str, port: int,
                          skip_scihub: bool = False, skip_sd: bool = False,
-                         include_si: bool = False) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
-    """Run English download pipeline: R1 Sci-Hub → R2 SD CDP → R3 Generic CDP.
+                         include_si: bool = False,
+                         sd_browser: str = "chrome") -> tuple[list[str], list[str], list[dict], dict[str, str]]:
+    """Run English download pipeline: R1 Sci-Hub -> R2 SD CDP -> R3 Generic CDP.
 
     Designed to be called in parallel with run_chinese_round() via
     ThreadPoolExecutor, sharing the same CDP port.
@@ -733,23 +752,23 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
         all_downloaded.extend(downloaded)
         round_results.append({"round": "Sci-Hub", "downloaded": downloaded})
     else:
-        print(f"\n⏭ Round 1 (Sci-Hub): Skipped (--skip-scihub)")
+        print(f"\n{SKIP} Round 1 (Sci-Hub): Skipped (--skip-scihub)")
 
     if not remaining:
-        print(f"\n🎉 English pipeline complete — all {len(all_downloaded)}/{len(dois)} downloaded!")
+        print(f"\n{DONE} English pipeline complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
         return all_downloaded, remaining, round_results, failure_reasons
 
     # Round 2: ScienceDirect CDP
     if not skip_sd:
-        downloaded, remaining, sd_failures = run_sd_round(remaining, output_dir, port)
+        downloaded, remaining, sd_failures = run_sd_round(remaining, output_dir, port, sd_browser=sd_browser)
         all_downloaded.extend(downloaded)
         round_results.append({"round": "SD CDP", "downloaded": downloaded})
         failure_reasons.update(sd_failures)
     else:
-        print(f"\n⏭ Round 2 (SD CDP): Skipped (--skip-sd)")
+        print(f"\n{SKIP} Round 2 (SD CDP): Skipped (--skip-sd)")
 
     if not remaining:
-        print(f"\n🎉 English pipeline complete — all {len(all_downloaded)}/{len(dois)} downloaded!")
+        print(f"\n{DONE} English pipeline complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
         return all_downloaded, remaining, round_results, failure_reasons
 
     # Round 3: Generic CDP (IEEE included here via strategy="generic")
@@ -760,14 +779,15 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
     round_results.append({"round": "Generic CDP", "downloaded": downloaded})
     failure_reasons.update(generic_failures)
 
-    print(f"\n🎉 English pipeline complete — ✅ {len(all_downloaded)}/{len(dois)}, ❌ {len(remaining)} remaining")
+    print(f"\n{DONE} English pipeline complete - {OK} {len(all_downloaded)}/{len(dois)}, {FAIL} {len(remaining)} remaining")
     return all_downloaded, remaining, round_results, failure_reasons
 
 
 def run_english_cdp(dois: list[str], output_dir: str, port: int,
-                    skip_sd: bool = False, include_si: bool = False
+                    skip_sd: bool = False, include_si: bool = False,
+                    sd_browser: str = "chrome"
                     ) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
-    """Run English CDP-only pipeline: R2 SD CDP → R3 Generic CDP. No Sci-Hub.
+    """Run English CDP-only pipeline: R2 SD CDP -> R3 Generic CDP. No Sci-Hub.
 
     Designed to run AFTER English login gate in Phase 2.
     """
@@ -778,15 +798,15 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
 
     # R2: ScienceDirect CDP
     if not skip_sd:
-        downloaded, remaining, sd_failures = run_sd_round(remaining, output_dir, port)
+        downloaded, remaining, sd_failures = run_sd_round(remaining, output_dir, port, sd_browser=sd_browser)
         all_downloaded.extend(downloaded)
         round_results.append({"round": "SD CDP", "downloaded": downloaded})
         failure_reasons.update(sd_failures)
     else:
-        print(f"\n⏭ R2 (SD CDP): Skipped (--skip-sd)")
+        print(f"\n{SKIP} R2 (SD CDP): Skipped (--skip-sd)")
 
     if not remaining:
-        print(f"\n🎉 English CDP complete — all {len(all_downloaded)}/{len(dois)} downloaded!")
+        print(f"\n{DONE} English CDP complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
         return all_downloaded, remaining, round_results, failure_reasons
 
     # R3: Generic CDP
@@ -797,7 +817,7 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
     round_results.append({"round": "Generic CDP", "downloaded": downloaded})
     failure_reasons.update(generic_failures)
 
-    print(f"\n🎉 English CDP complete — ✅ {len(all_downloaded)}/{len(dois)}, ❌ {len(remaining)} remaining")
+    print(f"\n{DONE} English CDP complete - {OK} {len(all_downloaded)}/{len(dois)}, {FAIL} {len(remaining)} remaining")
     return all_downloaded, remaining, round_results, failure_reasons
 
 
@@ -805,7 +825,7 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
 
 def generate_download_log(output_dir: str, all_dois: list[str],
                           round_results: list[dict],
-                          failure_reasons: dict[str, str] | None = None) -> str:
+                          failure_reasons: Optional[dict[str, str]] = None) -> str:
     """Generate a Markdown download tracking log."""
     log_path = os.path.join(output_dir, "download_log.md")
 
@@ -821,7 +841,7 @@ def generate_download_log(output_dir: str, all_dois: list[str],
             fpath = os.path.join(output_dir, f"{basename}.pdf")
             size_kb = os.path.getsize(fpath) // 1024 if os.path.exists(fpath) else 0
             status_map[d] = {
-                "status": "✅",
+                "status": "[OK]",
                 "source": result.get("round", "unknown"),
                 "path": fpath,
                 "size_kb": size_kb,
@@ -842,7 +862,7 @@ def generate_download_log(output_dir: str, all_dois: list[str],
 
     for i, doi in enumerate(all_dois, 1):
         info = status_map.get(doi, {})
-        status = info.get("status", "⏳")
+        status = info.get("status", "[PENDING]")
         source = info.get("source", "")
         reason = info.get("reason", "") or "-"
         size = f"{info.get('size_kb', 0)}KB" if info.get("size_kb") else "-"
@@ -850,14 +870,14 @@ def generate_download_log(output_dir: str, all_dois: list[str],
         lines.append(f"| {i} | `{doi[:45]}` | {status} | {source} | {reason} | {size} | {path} |")
 
     # Summary
-    ok_count = sum(1 for v in status_map.values() if v["status"] == "✅")
+    ok_count = sum(1 for v in status_map.values() if v["status"] == "[OK]")
     fail_count = sum(1 for v in status_map.values() if v["status"] == "pending")
     lines.extend([
         f"",
         f"## Summary",
         f"",
-        f"- ✅ Downloaded: {ok_count}/{len(all_dois)}",
-        f"- ❌ Failed/Pending: {fail_count}/{len(all_dois)}",
+        f"- [OK] Downloaded: {ok_count}/{len(all_dois)}",
+        f"- [FAIL] Failed/Pending: {fail_count}/{len(all_dois)}",
     ])
 
     content = "\n".join(lines)
@@ -887,12 +907,12 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
         if source in ("cnki", "wanfang"):
             cfg = _PUBLISHER_CONFIGS.get(source, {})
             domain = cfg.get("publisher_domain", "?")
-            pubs.append(f"  • {source} ({domain})")
+            pubs.append(f"  - {source} ({domain})")
     if not pubs:
         return True
 
     print(f"\n{'='*60}")
-    print(f"🚧 Chinese Login Gate — CNKI / Wanfang")
+    print("Chinese Login Gate - CNKI / Wanfang")
     print(f"{'='*60}")
     print()
     print("Please verify CNKI/Wanfang login in the CDP browser.")
@@ -910,15 +930,15 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
     try:
         resp = input("Enter 1/2/3: ").strip().lower()
     except (EOFError, KeyboardInterrupt):
-        print("\n⏹ Skipping Chinese download.")
+        print("\nSkipping Chinese download.")
         return False
     if resp in ("1", "已登录", "y", "yes", "done", "继续", "go"):
-        print("✅ Chinese login confirmed — starting CNKI/Wanfang CDP.\n")
+        print(f"{OK} Chinese login confirmed - starting CNKI/Wanfang CDP.\n")
         return True
     if resp in ("2", "skip", "q", "quit", "exit", "n", "no", "无账号", "没有账号"):
-        print("⏭ Chinese login skipped — continuing with other download paths.\n")
+        print(f"{SKIP} Chinese login skipped - continuing with other download paths.\n")
         return False
-    print("⏭ Chinese login deferred — continuing with other download paths.\n")
+    print(f"{SKIP} Chinese login deferred - continuing with other download paths.\n")
     return False
 
 
@@ -930,7 +950,7 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
     Returns True if confirmed, False to abort English CDP.
     """
     # Classify remaining DOIs to find CDP-dependent publishers
-    login_publishers: dict[str, set[str]] = {}  # strategy → set of publisher keys
+    login_publishers: dict[str, set[str]] = {}  # strategy -> set of publisher keys
     seen = set()
 
     for doi in dois:
@@ -948,11 +968,11 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
             login_publishers.setdefault(strategy, set()).add(f"{pub_key} ({domain})")
 
     if not login_publishers:
-        print("\n✅ No English publishers requiring institutional login.")
+        print(f"\n{OK} No English publishers requiring institutional login.")
         return True
 
     print(f"\n{'='*60}")
-    print(f"🚧 English Login Gate — Institutional Access Required")
+    print("English Login Gate - Institutional Access Required")
     print(f"{'='*60}")
     print()
     print("The following publishers require institutional login before download:")
@@ -961,7 +981,7 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
         label = {"sd_cdp": "ScienceDirect CDP", "generic": "Generic CDP"}.get(strategy, strategy)
         print(f"  [{label}]")
         for p in sorted(pubs):
-            print(f"    • {p}")
+            print(f"    - {p}")
         print()
     print("Please complete these steps BEFORE continuing.")
     print("If you do not have an institutional account for some or all of these")
@@ -981,19 +1001,19 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
     try:
         resp = input("\nEnter 1/2/3: ").strip().lower()
     except (EOFError, KeyboardInterrupt):
-        print("\n\n⏹ English CDP skipped.")
+        print("\n\nEnglish CDP skipped.")
         return False
     if resp in ("1", "已登录", "y", "yes", "done", "logged in", "继续", "go"):
-        print("✅ Login confirmed — proceeding with English CDP.\n")
+        print(f"{OK} Login confirmed - proceeding with English CDP.\n")
         return True
     elif resp in ("2", "q", "quit", "exit", "n", "no", "skip", "无账号", "没有账号"):
-        print("⏭ English institutional login skipped — continuing without login-only publishers.")
+        print(f"{SKIP} English institutional login skipped - continuing without login-only publishers.")
         return False
     elif resp in ("3", "later", "retry", "稍后", "重试"):
-        print("⏳ English login deferred — you can rerun the remaining list later.\n")
+        print("English login deferred - you can rerun the remaining list later.\n")
         return False
     else:
-        print(f"⚠ Unrecognized response — proceeding (Ctrl+C to abort).\n")
+        print(f"{WARN} Unrecognized response - proceeding (Ctrl+C to abort).\n")
         return True
 
 
@@ -1010,15 +1030,15 @@ def check_all_sessions(port: int):
         strategy = cfg.get("strategy", "?")
         has_session, count = check_publisher_session(port, cfg)
 
-        icon = "✅" if has_session else "❌"
+        icon = OK if has_session else FAIL
         count_str = str(count) if count >= 0 else "err"
         print(f"  {icon} {key:18s} | {domain:35s} | {strategy:10s} | {count_str}")
 
     # Also check generic CDP browser availability
     if check_cdp(port):
-        print(f"\n  ✅ CDP Chrome running on port {port}")
+        print(f"\n  {OK} CDP Chrome running on port {port}")
     else:
-        print(f"\n  ❌ CDP Chrome NOT running on port {port}")
+        print(f"\n  {FAIL} CDP Chrome NOT running on port {port}")
 
 
 # ── Main ────────────────────────────────────────────────────────────────────
@@ -1027,12 +1047,17 @@ def main():
     configure_console_output()
 
     parser = argparse.ArgumentParser(
-        description="Unified PDF download router — auto-routes DOI to optimal strategy."
+        description="Unified PDF download router - auto-routes DOI to optimal strategy."
     )
     parser.add_argument("input", nargs="?", help="Input file: DOI list, Markdown literature table, or BibTeX")
     parser.add_argument("--papers", help="Comma-separated list of DOIs (inline)")
     parser.add_argument("--doi-file", help="Plain text file with one DOI per line")
     parser.add_argument("--port", type=int, default=CDP_PORT, help=f"CDP Chrome debug port (default: {CDP_PORT})")
+    parser.add_argument("--browser", choices=("chrome", "edge"),
+                        default=os.environ.get("CDP_BROWSER", "chrome"),
+                        help="CDP browser for single-browser rounds (default: chrome; use edge to reuse Edge login)")
+    parser.add_argument("--sd-browser", choices=("chrome", "edge", "auto"),
+                        help="ScienceDirect browser. Defaults to --browser. Use auto only for explicit Chrome+Edge parallel mode.")
     parser.add_argument("--output", "-o", default=DEFAULT_OUTPUT, help=f"Output directory (default: {DEFAULT_OUTPUT}/)")
     parser.add_argument("--test", help="Test a single DOI (show routing decision + download)")
     parser.add_argument("--check-session", action="store_true", help="Check publisher sessions and exit")
@@ -1053,6 +1078,7 @@ def main():
     parser.add_argument("--test-wanfang", help="Test single Wanfang paper download (provide article URL)")
 
     args = parser.parse_args()
+    sd_browser = args.sd_browser or args.browser
 
     # --check-session
     if args.check_session:
@@ -1063,7 +1089,7 @@ def main():
     if args.test:
         doi = args.test.strip()
         info = classify_doi(doi)
-        print(f"=== DOI Router — Test Mode ===")
+        print("=== DOI Router - Test Mode ===")
         print(f"DOI:       {doi}")
         print(f"Publisher: {info['publisher']}")
         print(f"Strategy:  {info['strategy']}")
@@ -1079,11 +1105,11 @@ def main():
             print(f"Issues:    {known}")
 
         if info['strategy'] == "skip":
-            print(f"\n⏭ SKIPPED — automation not possible for this publisher")
+            print(f"\n{SKIP} SKIPPED - automation not possible for this publisher")
             return
 
         if info['strategy'] in ("sd_cdp", "ieee_cdp"):
-            print(f"\n→ Delegated to {info['strategy']} script (use dedicated downloader).")
+            print(f"\n{ARROW} Delegated to {info['strategy']} script (use dedicated downloader).")
             return
 
         if args.dry_run:
@@ -1101,11 +1127,11 @@ def main():
         )
         if result_path and status == "ok":
             size_kb = os.path.getsize(result_path) // 1024
-            print(f"✅ Downloaded: {result_path} ({size_kb} KB)")
+            print(f"{OK} Downloaded: {result_path} ({size_kb} KB)")
         elif status == "si_only":
-            print(f"⚠ SI downloaded only (no PDF)")
+            print(f"{WARN} SI downloaded only (no PDF)")
         else:
-            print(f"❌ Failed: status={status}")
+            print(f"{FAIL} Failed: status={status}")
         return
 
     # --test-cnki (single CNKI paper via article URL)
@@ -1114,7 +1140,7 @@ def main():
         if not article_url.startswith("http"):
             print(f"ERROR: --test-cnki requires a full article URL (https://...)")
             sys.exit(1)
-        print(f"=== Chinese Download — Test Mode (CNKI) ===")
+        print("=== Chinese Download - Test Mode (CNKI) ===")
         print(f"URL: {article_url}")
         if not ensure_cdp_running(args.port):
             print(f"\nERROR: CDP Chrome not running on port {args.port}.")
@@ -1126,9 +1152,9 @@ def main():
         )
         if result_path and status == "ok":
             size_kb = os.path.getsize(result_path) // 1024
-            print(f"✅ Downloaded: {result_path} ({size_kb} KB)")
+            print(f"{OK} Downloaded: {result_path} ({size_kb} KB)")
         else:
-            print(f"❌ Failed: status={status}")
+            print(f"{FAIL} Failed: status={status}")
         return
 
     # --test-wanfang (single Wanfang paper via article URL)
@@ -1137,7 +1163,7 @@ def main():
         if not article_url.startswith("http"):
             print(f"ERROR: --test-wanfang requires a full article URL (https://...)")
             sys.exit(1)
-        print(f"=== Chinese Download — Test Mode (Wanfang) ===")
+        print("=== Chinese Download - Test Mode (Wanfang) ===")
         print(f"URL: {article_url}")
         if not ensure_cdp_running(args.port):
             print(f"\nERROR: CDP Chrome not running on port {args.port}.")
@@ -1149,9 +1175,9 @@ def main():
         )
         if result_path and status == "ok":
             size_kb = os.path.getsize(result_path) // 1024
-            print(f"✅ Downloaded: {result_path} ({size_kb} KB)")
+            print(f"{OK} Downloaded: {result_path} ({size_kb} KB)")
         else:
-            print(f"❌ Failed: status={status}")
+            print(f"{FAIL} Failed: status={status}")
         return
 
     workflow_items = []
@@ -1268,10 +1294,10 @@ def main():
     # Check CDP (required for all rounds except Sci-Hub only)
     has_cdp_rounds = any(c["strategy"] in ("sd_cdp", "generic", "chinese_cdp")
                          for c in classified) or bool(chinese_papers)
-    if has_cdp_rounds and not ensure_cdp_running(args.port):
-        print(f"\nERROR: CDP Chrome not running on port {args.port}.")
-        print("Start Chrome with:")
-        print(f"  {sys.executable} scripts/start_cdp_browser.py --port {args.port}")
+    if has_cdp_rounds and not ensure_cdp_running(args.port, browser=args.browser):
+        print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
+        print(f"Start {args.browser.title()} with:")
+        print(f"  {sys.executable} scripts/start_cdp_browser.py --browser {args.browser} --port {args.port}")
         print("  macOS/Linux wrapper also supported: bash scripts/start_cdp_chrome.sh")
         sys.exit(1)
 
@@ -1350,17 +1376,19 @@ def main():
             if show_english_login_gate(en_rem, skip_sd=args.skip_sd):
                 en_dl, en_rem, en_results, en_failure_reasons = run_english_cdp(
                     en_rem, args.output, args.port,
-                    skip_sd=args.skip_sd, include_si=args.include_si
+                    skip_sd=args.skip_sd, include_si=args.include_si,
+                    sd_browser=sd_browser
                 )
             else:
-                print("English CDP skipped by user — Sci-Hub papers saved.")
+                print("English CDP skipped by user - Sci-Hub papers saved.")
         else:
             en_dl, en_rem, en_results, en_failure_reasons = run_english_cdp(
                 en_rem, args.output, args.port,
-                skip_sd=args.skip_sd, include_si=args.include_si
+                skip_sd=args.skip_sd, include_si=args.include_si,
+                sd_browser=sd_browser
             )
     elif not scihub_rem:
-        print(f"\n🎉 Sci-Hub downloaded all papers! ({len(scihub_dl)}/{len(dois)})")
+        print(f"\n{DONE} Sci-Hub downloaded all papers! ({len(scihub_dl)}/{len(dois)})")
 
     # ═══════════════════════════════════════════════════════════════════
     # Phase 3: Merge results from all phases
@@ -1387,8 +1415,8 @@ def main():
     print(f"Final Summary")
     print(f"{'='*60}")
     print(f"  Total papers:     {total_all}")
-    print(f"  ✅ Downloaded:    {len(all_downloaded)}")
-    print(f"  ❌ Failed/Pending: {len(remaining)}")
+    print(f"  {OK} Downloaded:    {len(all_downloaded)}")
+    print(f"  {FAIL} Failed/Pending: {len(remaining)}")
 
     if remaining:
         failed_path = os.path.join(args.output, "failed_dois.txt")
@@ -1402,7 +1430,7 @@ def main():
         print(f"  Failed list:     {failed_path}")
 
     print(f"  Download log:    {log_path}")
-    print(f"\n  Next step → Step 6: Zotero library management")
+    print(f"\n  Next step {ARROW} Step 6: Zotero library management")
 
 
 if __name__ == "__main__":

@@ -83,6 +83,46 @@ class Step5DownloadTest(unittest.TestCase):
 
         mock_download.assert_called_once_with(9223, "S0000000000000001", timeout_a=11, timeout_b=27)
 
+    def test_auto_sd_resolve_browsers_edge_uses_edge_only(self):
+        args = auto_sd.argparse.Namespace(
+            browser="edge",
+            browser_path=None,
+            browser_path_edge=None,
+            port_chrome=9223,
+            port_edge=9223,
+        )
+        with patch.object(auto_sd, "find_chrome_path", return_value=r"C:\Chrome\chrome.exe") as find_chrome, \
+             patch.object(auto_sd, "find_edge_path", return_value=r"C:\Edge\msedge.exe"):
+            browsers = auto_sd._resolve_browsers(args)
+
+        find_chrome.assert_not_called()
+        self.assertEqual(browsers, [("Edge", r"C:\Edge\msedge.exe", 9223, auto_sd.DEFAULT_PROFILES["edge"])])
+
+    def test_run_sd_round_passes_edge_browser_and_user_port_to_auto_sd(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            pii_map = out_dir / "sd_pii_map.json"
+
+            def fake_run(cmd, **kwargs):
+                if "batch_resolve_pii.py" in str(cmd[1]):
+                    pii_map.write_text(
+                        '{"resolved":{"10.1016_j.demo_2026.01.001":{"doi":"10.1016/j.demo.2026.01.001","pii":"S0000000000000001"}}}',
+                        encoding="utf-8",
+                    )
+                return router.subprocess.CompletedProcess(args=cmd, returncode=0)
+
+            with patch.object(router, "resolve_publisher", return_value={"strategy": "sd_cdp"}), \
+                 patch.object(router.subprocess, "run", side_effect=fake_run) as mock_run, \
+                 patch.object(router, "diagnose_sd_pii", return_value={"kind": "unknown"}):
+                router.run_sd_round(["10.1016/j.demo.2026.01.001"], str(out_dir), 9223, sd_browser="edge")
+
+        auto_sd_cmd = mock_run.call_args_list[1].args[0]
+        self.assertIn("--browser", auto_sd_cmd)
+        self.assertIn("edge", auto_sd_cmd)
+        self.assertIn("--port-edge", auto_sd_cmd)
+        self.assertIn("9223", auto_sd_cmd)
+        self.assertNotIn("--port-chrome", auto_sd_cmd)
+
     def test_sd_download_strategy_b_uses_timeout_for_article_page_wait(self):
         with patch.object(sd_download, "_extract_pdfft_url", return_value="https://example.com/pdfft?md5=abc") as mock_extract, \
              patch.object(sd_download, "_navigate_and_capture", return_value=b"%PDFdemo") as mock_capture:

@@ -316,6 +316,7 @@ def find_edge_path():
         candidates = [
             r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe"),
         ]
     else:
         candidates = [
@@ -454,10 +455,21 @@ def start_persistent_cdp_browser(port=9223, browser="chrome", urls=None):
     else:
         browser = "chrome"
         browser_path = find_chrome_path()
+        if _is_windows() and not browser_path:
+            edge_path = find_edge_path()
+            if edge_path:
+                browser = "edge"
+                browser_path = edge_path
+                print("  ℹ 未找到 Chrome，Windows 下自动回退到 Edge。", flush=True)
 
     if not browser_path:
         print(f"  ❌ 未找到 {browser} 浏览器可执行文件", flush=True)
         print("     可设置 CHROME_PATH 或 EDGE_PATH 指向浏览器可执行文件。", flush=True)
+        if _is_windows():
+            print(r"     PowerShell: $env:CHROME_PATH='C:\Program Files\Google\Chrome\Application\chrome.exe'", flush=True)
+            print(r"     PowerShell: $env:EDGE_PATH='C:\Program Files\Microsoft\Edge\Application\msedge.exe'", flush=True)
+            print(r"     CMD: set CHROME_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe", flush=True)
+            print(r"     CMD: set EDGE_PATH=C:\Program Files\Microsoft\Edge\Application\msedge.exe", flush=True)
         return None
 
     kill_browser_by_port(port)
