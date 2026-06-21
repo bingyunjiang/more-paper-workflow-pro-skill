@@ -881,6 +881,23 @@ def generate_download_log(output_dir: str, all_dois: list[str],
 # OA publishers (direct_http strategy) are excluded.
 # Sci-Hub and Chinese publishers are handled separately.
 ENGLISH_LOGIN_STRATEGIES = {"generic"}
+ENGLISH_LOGIN_REQUIRED_REASONS = {
+    "manual_confirmation_required",
+    "manual_required",
+    "login_required",
+    "login_wall",
+    "access_denied",
+    "pdf_probe_blocked",
+    "pdf_probe_unknown",
+}
+
+
+def _filter_login_required_dois(dois: list[str], failure_reasons: dict[str, str]) -> list[str]:
+    """Return failed DOIs that should prompt an institutional-login retry."""
+    return [
+        doi for doi in dois
+        if failure_reasons.get(doi) in ENGLISH_LOGIN_REQUIRED_REASONS
+    ]
 
 
 def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
