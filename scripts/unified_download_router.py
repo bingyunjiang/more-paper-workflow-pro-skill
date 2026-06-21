@@ -48,7 +48,7 @@ from console_compat import (
 )
 from generic_publisher_downloader import (
     resolve_publisher, download_one as generic_download_one,
-    check_publisher_session, _PUBLISHER_CONFIGS, extract_dois,
+    check_publisher_session, describe_publisher_session, _PUBLISHER_CONFIGS, extract_dois,
 )
 from sd_download import diagnose_sd_pii
 from workflow_contracts import (
@@ -678,12 +678,19 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
             print(f"{OK} ({size_kb}KB, {elapsed:.1f}s)")
             downloaded.append(doi)
             ok += 1
-        elif status == "manual_required":
+        elif status in (
+            "manual_required",
+            "captcha_required",
+            "institution_login_required",
+            "pdf_probe_unknown",
+            "access_denied",
+            "login_required",
+        ):
             print(f"{WARN} manual confirmation needed ({elapsed:.1f}s)")
             print(f"  {ARROW} {pub_name} 需要你现在去可见 Chrome 完成机构登录/验证；完成后可继续重跑剩余列表。")
             remaining.append(doi)
             fail += 1
-            failure_reasons[doi] = "manual_confirmation_required"
+            failure_reasons[doi] = status
         elif status == "si_only":
             print(f"{WARN} SI only ({elapsed:.1f}s)")
             remaining.append(doi)
@@ -871,7 +878,16 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
     login_retry_dois = _filter_login_required_dois(remaining, generic_failures)
     if login_retry_dois:
         print(f"\n{WARN} Institutional login required for {len(login_retry_dois)} publisher item(s).")
-        if show_english_login_gate(login_retry_dois, skip_sd=skip_sd):
+        interactive_gate = sys.stdin.isatty()
+        if not interactive_gate:
+            checkpoint_path = write_login_checkpoint(
+                output_dir,
+                stage="english_cdp_retry",
+                dois=login_retry_dois,
+                failure_reasons=generic_failures,
+            )
+            print(f"  {ARROW} Non-interactive login checkpoint written: {checkpoint_path}")
+        if show_english_login_gate(login_retry_dois, skip_sd=skip_sd, interactive=interactive_gate):
             retry_downloaded, retry_remaining, retry_failures = run_generic_round(
                 login_retry_dois, output_dir, port, include_si=include_si
             )
@@ -955,6 +971,29 @@ def generate_download_log(output_dir: str, all_dois: list[str],
     return log_path
 
 
+def write_failed_doi_sidecar(output_dir: str, remaining: list[str],
+                             failure_reasons: dict[str, str]) -> str:
+    """Write structured failed DOI metadata for later replay and triage."""
+    sidecar_path = os.path.join(output_dir, "failed_dois.json")
+    payload = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "items": [],
+    }
+    for doi in remaining:
+        pub = resolve_publisher(doi)
+        payload["items"].append({
+            "doi": doi,
+            "publisher": pub.get("_key", "unknown") if pub else "unknown",
+            "domain": pub.get("publisher_domain", "") if pub else "",
+            "strategy": pub.get("strategy", "") if pub else "",
+            "failure_reason": failure_reasons.get(doi, ""),
+            "retry_hint": f"python3 scripts/unified_download_router.py --papers \"{doi}\" --output {output_dir}",
+        })
+    with open(sidecar_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    return sidecar_path
+
+
 # ── Login Gates ──────────────────────────────────────────────────────────────
 
 # Publishers that typically require institutional login for CDP download.
@@ -964,6 +1003,8 @@ ENGLISH_LOGIN_STRATEGIES = {"generic"}
 ENGLISH_LOGIN_REQUIRED_REASONS = {
     "manual_confirmation_required",
     "manual_required",
+    "captcha_required",
+    "institution_login_required",
     "login_required",
     "login_wall",
     "access_denied",
@@ -978,6 +1019,34 @@ def _filter_login_required_dois(dois: list[str], failure_reasons: dict[str, str]
         doi for doi in dois
         if failure_reasons.get(doi) in ENGLISH_LOGIN_REQUIRED_REASONS
     ]
+
+
+def write_login_checkpoint(output_dir: str, stage: str, dois: list[str],
+                           failure_reasons: dict[str, str]) -> str:
+    """Write a re-runnable login checkpoint for remaining English CDP items."""
+    path = os.path.join(output_dir, "login_checkpoint.json")
+    items = []
+    for doi in dois:
+        info = classify_doi(doi)
+        pub_cfg = info.get("publisher_config", {}) or {}
+        items.append({
+            "doi": doi,
+            "publisher": info.get("publisher", "unknown"),
+            "strategy": info.get("strategy", "unknown"),
+            "domain": pub_cfg.get("publisher_domain", ""),
+            "failure_reason": failure_reasons.get(doi, ""),
+        })
+    payload = {
+        "checkpoint_type": "publisher_login",
+        "status": "pending_user_login",
+        "stage": stage,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "items": items,
+        "rerun_hint": "python3 scripts/unified_download_router.py --papers \"DOI1,DOI2\" --output paper-temp/",
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    return path
 
 
 def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
@@ -1027,7 +1096,8 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
     return False
 
 
-def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
+def show_english_login_gate(dois: list[str], skip_sd: bool = False,
+                            interactive: bool = True) -> bool:
     """Display English publisher login gate for remaining CDP papers.
 
     Only triggers for papers needing Generic CDP strategy.
@@ -1081,6 +1151,9 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
     print("  4. Verify the login persists (check for 'Access provided by...' badges)")
     print()
     print(f"{'='*60}")
+    if not interactive:
+        print(f"{WARN} Non-interactive mode: login checkpoint required before rerun.\n")
+        return False
     try:
         resp = input("\nEnter 1/2/3: ").strip().lower()
     except (EOFError, KeyboardInterrupt):
@@ -1104,24 +1177,31 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
 
 def check_all_sessions(port: int):
     """Print session status for all known publishers."""
+    def _readiness_label(signal: dict) -> str:
+        if signal.get("probe_status") == "ok":
+            return "可直接尝试下载"
+        if signal.get("probe_status") == "blocked":
+            return "需要先人工登录/验证"
+        return "信号不足，需实际下载验证"
+
     print("=== Publisher Session Check ===")
-    print(f"{'Publisher':20s} {'Domain':35s} {'Session':10s} {'Cookies'}")
-    print("-" * 75)
+    print(f"{'Publisher':20s} {'Domain':35s} {'结论':16s} {'Signal':16s} {'Probe'}")
+    print("-" * 128)
 
     for key, cfg in _PUBLISHER_CONFIGS.items():
-        domain = cfg.get("publisher_domain", "N/A")
-        strategy = cfg.get("strategy", "?")
-        has_session, count = check_publisher_session(port, cfg)
-
-        icon = OK if has_session else FAIL
-        count_str = str(count) if count >= 0 else "err"
-        print(f"  {icon} {key:18s} | {domain:35s} | {strategy:10s} | {count_str}")
+        signal = describe_publisher_session(port, cfg)
+        icon = OK if signal["has_session"] else FAIL
+        probe = f"{signal['probe_status']}: {signal['probe_reason']}"
+        signal_label = f"{signal['signal_strength']} ({signal['cookie_count']})"
+        readiness = _readiness_label(signal)
+        print(f"  {icon} {key:18s} | {signal['domain']:35s} | {readiness:16s} | {signal_label:16s} | {probe}")
 
     # Also check generic CDP browser availability
     if check_cdp(port):
         print(f"\n  {OK} CDP Chrome running on port {port}")
     else:
         print(f"\n  {FAIL} CDP Chrome NOT running on port {port}")
+    print("  Note: cookie count is a weak signal; only PDF/article probe can confirm access.")
 
 
 # ── Main ────────────────────────────────────────────────────────────────────
@@ -1522,7 +1602,9 @@ def main():
                 reason = en_failure_reasons.get(d, "")
                 suffix = f" | {reason}" if reason else ""
                 f.write(f"{d}  # {pub_name}{suffix}\n")
+        sidecar_path = write_failed_doi_sidecar(args.output, remaining, en_failure_reasons)
         print(f"  Failed list:     {failed_path}")
+        print(f"  Failed sidecar:  {sidecar_path}")
 
     print(f"  Download log:    {log_path}")
     print(f"\n  Next step {ARROW} Step 6: Zotero library management")

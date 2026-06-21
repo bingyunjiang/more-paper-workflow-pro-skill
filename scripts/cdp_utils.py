@@ -310,6 +310,16 @@ def _profile_dir(browser="chrome"):
     return _ensure_profile_dir(name)
 
 
+def get_persistent_profile_dir(browser="chrome") -> str:
+    """Public helper for the active persistent CDP profile directory."""
+    return _profile_dir(browser)
+
+
+def get_launch_log_path(browser="chrome") -> str:
+    """Public helper for the launch log path of a persistent CDP profile."""
+    return _launch_log_path(_profile_dir(browser))
+
+
 def find_chrome_path():
     """Find the Chrome/Chromium executable for the current platform.
 

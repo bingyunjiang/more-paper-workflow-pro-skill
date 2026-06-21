@@ -1,4 +1,6 @@
 from pathlib import Path
+import io
+import json
 import sys
 import tempfile
 import unittest
@@ -297,6 +299,14 @@ class Step5DownloadTest(unittest.TestCase):
         with patch("builtins.input", return_value="已登录"):
             self.assertTrue(router.show_english_login_gate(dois))
 
+    def test_show_english_login_gate_noninteractive_returns_false(self):
+        self.assertFalse(
+            router.show_english_login_gate(
+                ["10.1016/j.test.2024.01.001"],
+                interactive=False,
+            )
+        )
+
     def test_ensure_cdp_running_reuses_existing_browser(self):
         with patch.object(router, "check_cdp", return_value=True):
             self.assertTrue(router.ensure_cdp_running(9223))
@@ -355,7 +365,7 @@ class Step5DownloadTest(unittest.TestCase):
             )
 
         self.assertIsNone(result_path)
-        self.assertEqual(status, "manual_required")
+        self.assertEqual(status, "pdf_probe_unknown")
 
     def test_sciencedirect_download_one_routes_through_generic_adapter(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -383,7 +393,7 @@ class Step5DownloadTest(unittest.TestCase):
              patch.object(gpd, "close_tab") as close_tab:
             result = gpd._strategy_article_page(9223, "10.1007/demo", publisher, timeout=1)
 
-        self.assertEqual(result, "MANUAL_REQUIRED")
+        self.assertEqual(result, "LOGIN_REQUIRED")
         close_tab.assert_not_called()
 
     def test_download_one_returns_manual_required_for_login_wall(self):
@@ -433,7 +443,16 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(downloaded, [])
         self.assertEqual(remaining, ["10.1007/demo"])
-        self.assertEqual(reasons["10.1007/demo"], "manual_confirmation_required")
+        self.assertEqual(reasons["10.1007/demo"], "manual_required")
+
+    def test_generic_round_keeps_captcha_reason_for_rerun(self):
+        with patch.object(router, "resolve_publisher", return_value={"strategy": "generic", "_key": "wiley", "publisher_domain": "onlinelibrary.wiley.com"}), \
+             patch.object(router, "generic_download_one", return_value=(None, "captcha_required", "wiley")):
+            downloaded, remaining, reasons = router.run_generic_round(["10.1002/demo"], "paper-temp", 9223)
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["10.1002/demo"])
+        self.assertEqual(reasons["10.1002/demo"], "captcha_required")
 
     def test_english_cdp_prompts_and_retries_first_login_required_failure(self):
         first = ([], ["10.1007/demo", "10.1021/demo"], {
@@ -451,7 +470,7 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(downloaded, ["10.1007/demo"])
         self.assertEqual(remaining, ["10.1021/demo"])
         self.assertEqual(reasons, {"10.1021/demo": "generic_failed"})
-        login_gate.assert_called_once_with(["10.1007/demo"], skip_sd=False)
+        login_gate.assert_called_once_with(["10.1007/demo"], skip_sd=False, interactive=False)
         self.assertEqual(run_generic.call_args_list[1].args[0], ["10.1007/demo"])
         self.assertEqual(results[-1]["round"], "Generic CDP (after login)")
 
@@ -469,6 +488,121 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertIn("| # | DOI | Status | Source | Reason | Size | Path |", text)
         self.assertIn("manual_verification_required", text)
+
+    def test_write_failed_doi_sidecar_writes_structured_retry_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = router.write_failed_doi_sidecar(
+                tmp,
+                ["10.1002/er.7775"],
+                {"10.1002/er.7775": "captcha_required"},
+            )
+            data = json.loads(Path(sidecar).read_text(encoding="utf-8"))
+
+        self.assertEqual(data["items"][0]["doi"], "10.1002/er.7775")
+        self.assertEqual(data["items"][0]["failure_reason"], "captcha_required")
+        self.assertIn("--papers", data["items"][0]["retry_hint"])
+
+    def test_write_login_checkpoint_writes_pending_login_items(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = router.write_login_checkpoint(
+                tmp,
+                stage="english_cdp_retry",
+                dois=["10.1016/j.ecmx.2026.101960"],
+                failure_reasons={"10.1016/j.ecmx.2026.101960": "institution_login_required"},
+            )
+            data = json.loads(Path(checkpoint).read_text(encoding="utf-8"))
+
+        self.assertEqual(data["status"], "pending_user_login")
+        self.assertEqual(data["items"][0]["failure_reason"], "institution_login_required")
+
+    def test_check_all_sessions_reports_weak_cookie_probe(self):
+        with patch.object(router, "_PUBLISHER_CONFIGS", {"sd_elsevier": {"publisher_domain": "www.sciencedirect.com", "strategy": "generic", "_key": "sd_elsevier"}}), \
+             patch.object(router, "describe_publisher_session", return_value={
+                 "publisher": "sd_elsevier",
+                 "domain": "www.sciencedirect.com",
+                 "strategy": "generic",
+                 "has_session": False,
+                 "cookie_count": 0,
+                 "signal_strength": "pdf_probe",
+                 "probe_status": "blocked",
+                 "probe_reason": "pdf probe unknown",
+             }), \
+             patch.object(router, "check_cdp", return_value=True), \
+             patch("sys.stdout", new_callable=io.StringIO) as stdout:
+            router.check_all_sessions(9223)
+
+        text = stdout.getvalue()
+        self.assertIn("pdf_probe (0)", text)
+        self.assertIn("weak signal", text.lower() if "weak signal" in text.lower() else "cookie count is a weak signal")
+        self.assertIn("需要先人工登录/验证", text)
+
+    def test_check_all_sessions_prints_three_state_readiness_labels(self):
+        signals = iter([
+            {
+                "publisher": "wiley",
+                "domain": "onlinelibrary.wiley.com",
+                "strategy": "generic",
+                "has_session": True,
+                "cookie_count": 0,
+                "signal_strength": "article_probe",
+                "probe_status": "ok",
+                "probe_reason": "pdf_link_present",
+            },
+            {
+                "publisher": "springer",
+                "domain": "link.springer.com",
+                "strategy": "generic",
+                "has_session": False,
+                "cookie_count": 0,
+                "signal_strength": "weak_cookie_probe",
+                "probe_status": "unknown",
+                "probe_reason": "cookie probe only",
+            },
+        ])
+        with patch.object(router, "_PUBLISHER_CONFIGS", {
+            "wiley": {"publisher_domain": "onlinelibrary.wiley.com", "strategy": "generic", "_key": "wiley"},
+            "springer": {"publisher_domain": "link.springer.com", "strategy": "generic", "_key": "springer"},
+        }), \
+             patch.object(router, "describe_publisher_session", side_effect=lambda port, cfg: next(signals)), \
+             patch.object(router, "check_cdp", return_value=True), \
+             patch("sys.stdout", new_callable=io.StringIO) as stdout:
+            router.check_all_sessions(9223)
+
+        text = stdout.getvalue()
+        self.assertIn("可直接尝试下载", text)
+        self.assertIn("信号不足，需实际下载验证", text)
+
+    def test_check_wiley_access_reports_pdf_link_present(self):
+        publisher = {
+            "_key": "wiley",
+            "selectors": ['a[href*="pdfdirect"]'],
+            "publisher_domain": "onlinelibrary.wiley.com",
+        }
+        with patch.object(gpd, "check_cdp", return_value=True), \
+             patch.object(gpd, "create_tab", return_value=(None, "tab-1")), \
+             patch.object(gpd, "_detect_access_barrier", return_value=(None, "")), \
+             patch.object(gpd, "_extract_pdf_url_from_dom", return_value="https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/ente.202301205"), \
+             patch.object(gpd, "close_tab"), \
+             patch.object(gpd.time, "sleep", return_value=None):
+            status, reason = gpd.check_wiley_access(9223, publisher)
+
+        self.assertEqual(status, "ok")
+        self.assertIn("pdf_link_present", reason)
+
+    def test_describe_publisher_session_uses_wiley_article_probe(self):
+        publisher = {
+            "_key": "wiley",
+            "publisher_domain": "onlinelibrary.wiley.com",
+            "strategy": "generic",
+            "selectors": ['a[href*="pdfdirect"]'],
+        }
+        with patch.object(gpd, "check_publisher_session", return_value=(False, 0)), \
+             patch.object(gpd, "check_wiley_access", return_value=("ok", "pdf_link_present")):
+            signal = gpd.describe_publisher_session(9223, publisher)
+
+        self.assertEqual(signal["signal_strength"], "article_probe")
+        self.assertEqual(signal["probe_status"], "ok")
+        self.assertTrue(signal["has_session"])
 
 
 if __name__ == "__main__":

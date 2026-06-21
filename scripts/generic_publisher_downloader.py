@@ -117,6 +117,8 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
 
     Returns: (pdf_path_or_None, status, publisher_name)
       status: "ok" | "failed" | "skipped" | "manual_required" | "no_url"
+              | "captcha_required" | "institution_login_required"
+              | "pdf_probe_unknown" | "access_denied"
     """
     publisher = resolve_publisher(doi)
     pub_name = publisher.get("_key", "unknown") if publisher else "unknown"
@@ -139,9 +141,8 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
         return None, "skipped", pub_name
 
     if strategy == "direct_http":
-        return _strategy_direct_http(doi, publisher, output_dir), \
-               ("ok" if _strategy_direct_http(doi, publisher, output_dir) else "failed"), \
-               pub_name
+        path = _strategy_direct_http(doi, publisher, output_dir)
+        return path, ("ok" if path else "failed"), pub_name
 
     if strategy in ("sd_cdp", "ieee_cdp", "scihub_only"):
         return None, "delegated", pub_name  # handled by router, not us
@@ -193,8 +194,8 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
 
     # Strategy B: Article page extraction
     pdf_data = _strategy_article_page(port, doi, publisher, timeout)
-    if pdf_data == "MANUAL_REQUIRED":
-        return None, "manual_required", pub_name
+    if isinstance(pdf_data, str):
+        return None, pdf_data.lower(), pub_name
     if pdf_data:
         return _save_pdf(pdf_data, dest), "ok", pub_name
 
@@ -238,11 +239,11 @@ def _download_sciencedirect(port: int, doi: str, output_dir: str) -> tuple[Optio
     diag = diagnose_sd_pii(port, pii)
     kind = diag.get("kind")
     if kind == "manual_verification_required":
-        return None, "manual_required"
+        return None, "institution_login_required"
     if kind == "referencework_abs":
         return None, "not_subscribed_or_referencework"
     if kind == "article_page_only":
-        return None, "manual_required"
+        return None, "pdf_probe_unknown"
     return None, "failed"
 
 
@@ -322,7 +323,7 @@ def download_si(port: int, doi: str, publisher: dict,
 
 
 def check_publisher_session(port: int, publisher: dict) -> tuple[bool, int]:
-    """Check if CDP browser has valid cookies for this publisher.
+    """Check if CDP browser has cookies for this publisher.
     Returns (has_session, cookie_count)."""
     domain = publisher.get("publisher_domain", "")
     if not domain:
@@ -344,6 +345,94 @@ def check_publisher_session(port: int, publisher: dict) -> tuple[bool, int]:
         return len(matching) > 0, len(matching)
     except Exception:
         return False, -1
+
+
+def describe_publisher_session(port: int, publisher: dict) -> dict:
+    """Return a richer session/probe description for reporting."""
+    key = publisher.get("_key", "unknown")
+    domain = publisher.get("publisher_domain", "")
+    strategy = publisher.get("strategy", "?")
+    has_session, count = check_publisher_session(port, publisher)
+    result = {
+        "publisher": key,
+        "domain": domain,
+        "strategy": strategy,
+        "has_session": has_session,
+        "cookie_count": count,
+        "signal_strength": "weak_cookie_probe",
+        "probe_status": "unknown",
+        "probe_reason": "cookie probe only",
+    }
+
+    if key == "sd_elsevier":
+        try:
+            from cdp_utils import check_sd_access
+            status, reason = check_sd_access(port)
+            result["signal_strength"] = "pdf_probe"
+            result["probe_status"] = status
+            result["probe_reason"] = reason
+            if status == "ok":
+                result["has_session"] = True
+        except Exception as exc:
+            result["probe_status"] = "error"
+            result["probe_reason"] = f"probe error: {type(exc).__name__}"
+    elif key == "wiley":
+        status, reason = check_wiley_access(port, publisher)
+        result["signal_strength"] = "article_probe"
+        result["probe_status"] = status
+        result["probe_reason"] = reason
+        if status == "ok":
+            result["has_session"] = True
+    elif count == 0:
+        result["probe_status"] = "unknown"
+        result["probe_reason"] = "no matching cookies; manual verification may still succeed"
+    else:
+        result["probe_status"] = "cookie_present"
+        result["probe_reason"] = f"{count} matching cookies"
+
+    return result
+
+
+_WILEY_TEST_DOI = "10.1002/ente.202301205"
+
+
+def check_wiley_access(port: int, publisher: dict, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, str]:
+    """Probe whether Wiley looks downloadable in the current CDP session.
+
+    This is lighter-weight than a full download: it loads a known Wiley article
+    page, checks for access barriers, then asks the existing DOM extractor
+    whether a plausible PDF link is present.
+    """
+    if not check_cdp(port):
+        return "blocked", "CDP browser not running"
+
+    article_url = _build_article_url(_WILEY_TEST_DOI)
+    if not article_url:
+        return "error", "failed to build Wiley test URL"
+
+    try:
+        _, tid = create_tab(port, article_url)
+    except Exception:
+        return "error", "failed to create Wiley probe tab"
+
+    try:
+        time.sleep(min(timeout, ARTICLE_RENDER_WAIT))
+        barrier, barrier_detail = _detect_access_barrier(port, tid)
+        pdf_url = _extract_pdf_url_from_dom(port, tid, publisher.get("selectors", []))
+
+        if barrier == "captcha":
+            return "blocked", f"captcha: {barrier_detail}"
+        if pdf_url == "LOGIN_REQUIRED":
+            return "blocked", "login_required: article page requests institutional login"
+        if pdf_url == "ACCESS_DENIED":
+            return "blocked", "access_denied: article page reports no access"
+        if isinstance(pdf_url, str) and pdf_url not in ("NO_PDF_LINK", ""):
+            return "ok", f"pdf_link_present: {pdf_url[:80]}"
+        if barrier:
+            return "blocked", f"{barrier}: {barrier_detail}"
+        return "unknown", "no_pdf_link_observed"
+    finally:
+        close_tab(port, tid)
 
 
 # ── Strategy A: Direct PDF URL ──────────────────────────────────────────────
@@ -404,13 +493,15 @@ def _strategy_article_page(port: int, doi: str, publisher: dict,
         print("  ⚠ wiley requires manual access confirmation — leaving tab open")
         print("  ↳ Open institutional access on this Wiley page, or use: "
               "https://onlinelibrary.wiley.com/action/ssostart")
-        return "MANUAL_REQUIRED"
+        if barrier == "captcha":
+            return "CAPTCHA_REQUIRED"
+        return "PDF_PROBE_UNKNOWN"
 
     # Keep the tab open when the site wants human login/verification so the
     # user has time to complete it in the visible CDP browser.
     if pdf_url in ("LOGIN_REQUIRED", "ACCESS_DENIED"):
         print(f"  ⚠ {pub_key or 'publisher'} requires manual access confirmation — leaving tab open")
-        return "MANUAL_REQUIRED"
+        return pdf_url
 
     # Close article tab
     close_tab(port, tid)
@@ -1062,10 +1153,14 @@ def main():
     if args.check_session:
         print("=== Publisher Session Check ===")
         for key, cfg in _PUBLISHER_CONFIGS.items():
-            has_session, count = check_publisher_session(args.port, cfg)
-            domain = cfg.get("publisher_domain", "N/A")
-            icon = "✅" if has_session else "❌"
-            print(f"  {icon} {key:20s} | {domain:35s} | cookies={count}")
+            signal = describe_publisher_session(args.port, cfg)
+            icon = "✅" if signal["has_session"] else "❌"
+            print(
+                f"  {icon} {key:20s} | {signal['domain']:35s} | "
+                f"cookies={signal['cookie_count']} | "
+                f"{signal['probe_status']}: {signal['probe_reason']}"
+            )
+        print("\n  Note: cookie count is only a weak signal; real PDF access may differ.")
         return
 
     # --test mode

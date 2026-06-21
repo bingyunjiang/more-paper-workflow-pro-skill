@@ -9,7 +9,12 @@ from __future__ import annotations
 import argparse
 import sys
 
-from cdp_utils import check_cdp, start_persistent_cdp_browser
+from cdp_utils import (
+    check_cdp,
+    get_launch_log_path,
+    get_persistent_profile_dir,
+    start_persistent_cdp_browser,
+)
 from console_compat import configure_console_output
 
 
@@ -57,6 +62,8 @@ def main() -> int:
 
     if check_cdp(args.port):
         print(f"✅ CDP ready on :{args.port}")
+        print(f"   Profile: {get_persistent_profile_dir(args.browser)}")
+        print(f"   Launch log: {get_launch_log_path(args.browser)}")
         return 0
 
     print(f"❌ CDP failed to start on port {args.port}")

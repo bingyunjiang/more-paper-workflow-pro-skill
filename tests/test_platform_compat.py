@@ -16,6 +16,7 @@ import cdp_utils  # noqa: E402
 import auto_sd_downloader  # noqa: E402
 import setup_zotero  # noqa: E402
 import unified_download_router as router  # noqa: E402
+import start_cdp_browser as start_cdp_browser  # noqa: E402
 
 
 class PlatformCompatTest(unittest.TestCase):
@@ -179,6 +180,21 @@ class PlatformCompatTest(unittest.TestCase):
              patch.object(router, "start_persistent_cdp_browser") as starter:
             self.assertTrue(router.ensure_cdp_running(9223))
         starter.assert_called_once()
+
+    def test_start_cdp_browser_prints_profile_and_log_on_success(self):
+        argv = ["start_cdp_browser.py", "--browser", "chrome", "--port", "9223"]
+        with patch.object(sys, "argv", argv), \
+             patch.object(start_cdp_browser, "check_cdp", side_effect=[False, True]), \
+             patch.object(start_cdp_browser, "start_persistent_cdp_browser"), \
+             patch.object(start_cdp_browser, "get_persistent_profile_dir", return_value="/tmp/profile"), \
+             patch.object(start_cdp_browser, "get_launch_log_path", return_value="/tmp/profile/cdp_launch.log"), \
+             redirect_stdout(io.StringIO()) as stdout:
+            rc = start_cdp_browser.main()
+
+        self.assertEqual(rc, 0)
+        text = stdout.getvalue()
+        self.assertIn("Profile: /tmp/profile", text)
+        self.assertIn("Launch log: /tmp/profile/cdp_launch.log", text)
 
     def test_auto_sd_default_browser_is_single_chrome(self):
         parser = auto_sd_downloader.argparse.ArgumentParser()
