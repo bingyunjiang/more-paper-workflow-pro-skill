@@ -2,7 +2,7 @@
   "name": "more-paper-workflow-pro-skill",
   "display_name": "More Paper Workflow Pro Skill",
   "description": "中文/双语论文的证据闭环学术工作流：从定题、检索、下载、Zotero 到写作与引用审计，全程基于真实文献。",
-  "version": "v1.0.11-20260613-1",
+  "version": "v1.0.16-20260621",
   "license": "CC-BY-NC-SA-4.0",
   "repository": "https://github.com/bingyunjiang/more-paper-workflow-pro-skill",
   "homepage": "https://github.com/bingyunjiang/more-paper-workflow-pro-skill",
@@ -18,6 +18,8 @@
     "citation-audit",
     "claude-code",
     "codex",
+    "openclaw",
+    "reasonix",
     "skills"
   ]
 }

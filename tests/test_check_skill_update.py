@@ -35,7 +35,18 @@ class CheckSkillUpdateScriptTest(unittest.TestCase):
         self.assertEqual(payload["suggested_action"], "continue")
         self.assertFalse(payload["should_prompt"])
         self.assertEqual(payload["prompt_options"], [])
-        self.assertEqual(payload["skill_version"], "v1.0.15-20260619")
+        self.assertEqual(payload["skill_version"], "v1.0.16-20260621")
+
+    def test_parse_skill_version_reads_skill_metadata_body(self):
+        import scripts.check_skill_update as check_skill_update
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "SKILL.md").write_text(
+                "---\nname: demo\ndescription: demo\n---\n\n## Skill metadata\n\nversion: v9.9.9-20991231 (2099-12-31)\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(check_skill_update.parse_skill_version(root), "v9.9.9-20991231")
 
     def test_record_choice_snoozes_matching_remote_head(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,0 +1,7 @@
+interface:
+  display_name: "More Paper Workflow Pro"
+  short_description: "Academic research workflow for literature search, Zotero organization, paper writing, citation audit, and polishing."
+  default_prompt: "Use $more-paper-workflow-pro-skill to help me plan and execute an academic paper workflow."
+
+policy:
+  allow_implicit_invocation: true

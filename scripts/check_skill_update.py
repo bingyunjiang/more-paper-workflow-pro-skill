@@ -44,7 +44,11 @@ def read_text(path: Path) -> str:
 
 
 def parse_skill_version(root: Path) -> str | None:
-    match = re.search(r"^version:\s*([^\s(]+)", read_text(root / "SKILL.md"), re.M)
+    text = read_text(root / "SKILL.md")
+    match = re.search(r"^version:\s*([^\s(]+)", text, re.M)
+    if match:
+        return match.group(1)
+    match = re.search(r"^version:\s*([^\s(]+)", text.split("## Skill metadata", 1)[-1], re.M)
     return match.group(1) if match else None
 
 
@@ -174,10 +178,14 @@ def main(argv: list[str] | None = None) -> int:
 
     lines: list[str] = []
     metadata_mismatch = False
-    expected_version = changelog_version or readme_version
-    if expected_version and skill_version and skill_version != expected_version:
+    if skill_version and readme_version and skill_version != readme_version:
         metadata_mismatch = True
-        lines.append(f"- 本地 SKILL.md 版本为 {skill_version}，但 README/CHANGELOG 最新为 {expected_version}。")
+        lines.append(f"- 本地 SKILL.md 版本为 {skill_version}，但 README 版本为 {readme_version}。")
+    if skill_version and changelog_version and skill_version != changelog_version:
+        metadata_mismatch = True
+        lines.append(f"- 本地 SKILL.md 版本为 {skill_version}，但 CHANGELOG 最新为 {changelog_version}。")
+    expected_version = skill_version or changelog_version or readme_version
+    if metadata_mismatch:
         lines.append("- 建议先同步 skill 元数据，避免 Agent 读取到旧版本号。")
 
     local_head = run_git(root, ["rev-parse", "HEAD"], timeout=2)
