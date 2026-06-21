@@ -524,4 +524,4 @@ if __name__ == "__main__":
             for d in failed_list:
                 f.write(d + "\n")
         print(f"\n失败列表: {flist}", flush=True)
-        print("提示: 失败论文可走第二轮 SD CDP 下载", flush=True)
+        print("提示: 失败论文可走 Generic CDP 下载", flush=True)

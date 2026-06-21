@@ -4,9 +4,8 @@
 # Used by generic_publisher_downloader.py and unified_download_router.py.
 #
 # Strategy types:
-#   sd_cdp      → Use existing sd_download.py (96% success, dedicated infrastructure)
 #   ieee_cdp    → Use existing download_via_ieee.py (100% with SSO)
-#   generic     → Use generic_publisher_downloader.py (strategy A → B fallback)
+#   generic     → Use generic_publisher_downloader.py (publisher-specific adapter → strategy A → B fallback)
 #   chinese_cdp → CDP-based download for Chinese publishers (CNKI/Wanfang)
 #                 navigates to article detail page, extracts PDF via selectors
 #   direct_http → Standard urllib download (OA journals, no auth needed)
@@ -15,16 +14,17 @@
 
 
 # =============================================================================
-# ROUTED PUBLISHERS (dedicated scripts, preserved unchanged)
+# GENERIC ROUTED PUBLISHERS
 # =============================================================================
 
 [publishers.sd_elsevier]
 doi_prefixes = ["10.1016/"]
-strategy = "sd_cdp"
+strategy = "generic"
 requires_auth = "ip_or_sso"
 provider_label = "ScienceDirect / Elsevier"
-route_hint = "dedicated_provider"
-notes = "ScienceDirect CDP. 96% success (180/185). Requires PII resolution first."
+publisher_domain = "www.sciencedirect.com"
+route_hint = "generic_cdp_sd_adapter"
+notes = "ScienceDirect adapter inside Generic CDP. Reuses PII → /pdfft → PDF capture path."
 
 [publishers.ieee]
 doi_prefixes = ["10.1109/"]

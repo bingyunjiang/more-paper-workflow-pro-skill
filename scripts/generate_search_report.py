@@ -988,7 +988,7 @@ def build_report(
     lines.append("## 8. 下一步行动")
     lines.append("")
     lines.append(f"- **Step 5**: 统一路由下载 {total} 篇 PDF（T1-T3）")
-    lines.append(f"  - 自动路由: Sci-Hub → ScienceDirect CDP → IEEE CDP → Generic CDP")
+    lines.append(f"  - 自动路由: Sci-Hub → Generic CDP（含 ScienceDirect / IEEE 适配器）")
     if sat and not sat.get("fit_failed"):
         cov = sat.get("coverage_estimate", 0)
         if cov < 0.6:

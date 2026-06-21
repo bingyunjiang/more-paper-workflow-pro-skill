@@ -98,30 +98,19 @@ class Step5DownloadTest(unittest.TestCase):
         find_chrome.assert_not_called()
         self.assertEqual(browsers, [("Edge", r"C:\Edge\msedge.exe", 9223, auto_sd.DEFAULT_PROFILES["edge"])])
 
-    def test_run_sd_round_passes_edge_browser_and_user_port_to_auto_sd(self):
+    def test_run_generic_round_routes_sciencedirect_through_generic_cdp(self):
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = Path(tmp)
-            pii_map = out_dir / "sd_pii_map.json"
+            pdf_path = Path(tmp) / "10.1016_j.demo_2026.01.001.pdf"
+            pdf_path.write_bytes(b"%PDF-1.4\n" + b"x" * 6000)
+            with patch.object(router, "generic_download_one", return_value=(str(pdf_path), "ok", "sd_elsevier")) as download:
+                downloaded, remaining, reasons = router.run_generic_round(
+                    ["10.1016/j.demo.2026.01.001"], tmp, 9223
+                )
 
-            def fake_run(cmd, **kwargs):
-                if "batch_resolve_pii.py" in str(cmd[1]):
-                    pii_map.write_text(
-                        '{"resolved":{"10.1016_j.demo_2026.01.001":{"doi":"10.1016/j.demo.2026.01.001","pii":"S0000000000000001"}}}',
-                        encoding="utf-8",
-                    )
-                return router.subprocess.CompletedProcess(args=cmd, returncode=0)
-
-            with patch.object(router, "resolve_publisher", return_value={"strategy": "sd_cdp"}), \
-                 patch.object(router.subprocess, "run", side_effect=fake_run) as mock_run, \
-                 patch.object(router, "diagnose_sd_pii", return_value={"kind": "unknown"}):
-                router.run_sd_round(["10.1016/j.demo.2026.01.001"], str(out_dir), 9223, sd_browser="edge")
-
-        auto_sd_cmd = mock_run.call_args_list[1].args[0]
-        self.assertIn("--browser", auto_sd_cmd)
-        self.assertIn("edge", auto_sd_cmd)
-        self.assertIn("--port-edge", auto_sd_cmd)
-        self.assertIn("9223", auto_sd_cmd)
-        self.assertNotIn("--port-chrome", auto_sd_cmd)
+        self.assertEqual(downloaded, ["10.1016/j.demo.2026.01.001"])
+        self.assertEqual(remaining, [])
+        self.assertEqual(reasons, {})
+        download.assert_called_once_with(9223, "10.1016/j.demo.2026.01.001", tmp, include_si=False)
 
     def test_sd_download_strategy_b_uses_timeout_for_article_page_wait(self):
         with patch.object(sd_download, "_extract_pdfft_url", return_value="https://example.com/pdfft?md5=abc") as mock_extract, \
@@ -314,8 +303,20 @@ class Step5DownloadTest(unittest.TestCase):
                 classified.append(c)
 
         strategies = {item["strategy"] for item in classified}
-        self.assertIn("sd_cdp", strategies)
+        self.assertIn("generic", strategies)
         self.assertIn("chinese_cdp", strategies)
+
+    def test_sciencedirect_generic_adapter_downloads_via_sd_pii(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(gpd, "_download_sciencedirect", return_value=(str(Path(tmp) / "paper.pdf"), "ok")) as sd_adapter:
+                result_path, status, pub = gpd.download_one(
+                    9223, "10.1016/j.demo.2026.01.001", tmp
+                )
+
+        self.assertEqual(status, "ok")
+        self.assertEqual(pub, "sd_elsevier")
+        self.assertTrue(result_path.endswith("paper.pdf"))
+        sd_adapter.assert_called_once_with(9223, "10.1016/j.demo.2026.01.001", tmp)
 
     def test_article_page_login_wall_keeps_tab_open_for_manual_login(self):
         publisher = {

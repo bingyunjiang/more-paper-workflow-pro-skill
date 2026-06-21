@@ -179,6 +179,10 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
             return _save_pdf(pdf_data, dest), "ok", pub_name
         return None, "failed", pub_name
 
+    if pub_name == "sd_elsevier":
+        pdf_path, status = _download_sciencedirect(port, doi, output_dir)
+        return pdf_path, status, pub_name
+
     # Generic strategy: A → B fallback
     dest = _doi_to_filename(doi, output_dir)
 
@@ -201,6 +205,33 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
             return None, "si_only", pub_name
 
     return None, "failed", pub_name
+
+
+def _download_sciencedirect(port: int, doi: str, output_dir: str) -> tuple[Optional[str], str]:
+    """ScienceDirect adapter used by the Generic CDP route."""
+    try:
+        from batch_resolve_pii import _resolve_pii_from_crossref
+        from sd_download import diagnose_sd_pii, download_sd_pii
+    except Exception:
+        return None, "failed"
+
+    pii = _resolve_pii_from_crossref(doi)
+    if not pii:
+        return None, "pii_resolution_failed"
+
+    data = download_sd_pii(port, pii)
+    if data and len(data) > 20000:
+        return _save_pdf(data, _doi_to_filename(doi, output_dir)), "ok"
+
+    diag = diagnose_sd_pii(port, pii)
+    kind = diag.get("kind")
+    if kind == "manual_verification_required":
+        return None, "manual_required"
+    if kind == "referencework_abs":
+        return None, "not_subscribed_or_referencework"
+    if kind == "article_page_only":
+        return None, "article_page_no_pdf_route"
+    return None, "failed"
 
 
 def download_si(port: int, doi: str, publisher: dict,

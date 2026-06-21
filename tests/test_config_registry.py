@@ -59,7 +59,7 @@ class ConfigRegistryTest(unittest.TestCase):
         ieee = resolve_publisher("10.1109/TEST.2024.123")
         mdpi = resolve_publisher("10.3390/test123")
 
-        self.assertEqual(sd["strategy"], "sd_cdp")
+        self.assertEqual(sd["strategy"], "generic")
         self.assertEqual(sd["provider_label"], "ScienceDirect / Elsevier")
         self.assertEqual(ieee["strategy"], "generic")
         self.assertEqual(ieee["provider_label"], "IEEE Xplore")

@@ -10,8 +10,7 @@ Routes each DOI to the optimal download strategy using the publisher
 routing matrix, then orchestrates download rounds:
 
   1. Sci-Hub CDP    -> pre-2021 papers (free, ~6s/paper)
-  2. SD CDP         -> 10.1016/ Elsevier papers (96% success)
-  3. Generic CDP    -> IEEE (10.1109/) + all other publishers
+  2. Generic CDP    -> Elsevier/ScienceDirect, IEEE, and other publishers
                      (Wiley, ACS, RSC, Nature, Springer, etc.)
                      IEEE uses generic engine (strategy B: article page
                      -> stamp URL extraction). Dedicated download_via_ieee.py
@@ -67,7 +66,7 @@ DEFAULT_OUTPUT = "paper-temp"
 SCI_HUB_CUTOFF_YEAR = 2021  # Sci-Hub has very few papers after 2020
 
 # Strategy routing table (for display and decisions)
-STRATEGY_ORDER = ["scihub", "sd_cdp", "ieee_cdp", "generic", "chinese_cdp", "direct_http", "skip"]
+STRATEGY_ORDER = ["scihub", "ieee_cdp", "generic", "chinese_cdp", "direct_http", "skip"]
 
 # Chinese CDP publishers (identified by strategy, not DOI prefix)
 CHINESE_PUBLISHERS = {"cnki", "wanfang"}
@@ -367,7 +366,11 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
 
 def run_sd_round(dois: list[str], output_dir: str, port: int,
                  sd_browser: str = "chrome") -> tuple[list[str], list[str], dict[str, str]]:
-    """Round 2: ScienceDirect CDP for 10.1016/ papers.
+    """Legacy standalone ScienceDirect CDP round.
+
+    Main routing now sends 10.1016/ papers through Generic CDP, which calls
+    the ScienceDirect adapter internally.
+
     Returns (downloaded_dois, remaining_dois)."""
     sd_dois = []
     other_dois = []
@@ -476,7 +479,7 @@ def run_sd_round(dois: list[str], output_dir: str, port: int,
 def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str], list[str]]:
     """Round 3 (fallback): IEEE CDP for 10.1109/ papers.
 
-    NOTE: IEEE is now handled by Round 4 (Generic CDP) via publishers.toml
+    NOTE: IEEE is now handled by Round 2 (Generic CDP) via publishers.toml
     strategy="generic". This round is a fallback that only triggers if
     the publisher config is overridden to strategy="ieee_cdp" or when
     download_via_ieee.py is invoked directly for interactive SSO login.
@@ -550,7 +553,7 @@ def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[st
 
 def run_generic_round(dois: list[str], output_dir: str, port: int,
                       include_si: bool = False) -> tuple[list[str], list[str], dict[str, str]]:
-    """Round 4: Generic CDP for all remaining publishers.
+    """Round 2: Generic CDP for all remaining publishers.
     Returns (downloaded_dois, remaining_dois)."""
     # Filter: generic + direct_http publishers only
     generic_dois = []
@@ -568,13 +571,13 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
 
     if not generic_dois:
         if skip_dois:
-            print(f"\n{SKIP} Round 4 (Generic CDP): {len(skip_dois)} papers skipped (MDPI/unavailable), 0 eligible.")
+            print(f"\n{SKIP} Round 2 (Generic CDP): {len(skip_dois)} papers skipped (MDPI/unavailable), 0 eligible.")
         else:
-            print(f"\n{SKIP} Round 4 (Generic CDP): No remaining papers.")
+            print(f"\n{SKIP} Round 2 (Generic CDP): No remaining papers.")
         return [], dois, {}
 
     print(f"\n{'='*60}")
-    print(f"Round 4: Generic Publisher CDP ({len(generic_dois)} papers)")
+    print(f"Round 2: Generic Publisher CDP ({len(generic_dois)} papers)")
     print(f"{'='*60}")
 
     ok, fail = 0, 0
@@ -623,6 +626,11 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
             remaining.append(doi)
             fail += 1
             failure_reasons[doi] = "supplementary_only"
+        elif status in ("pii_resolution_failed", "not_subscribed_or_referencework", "article_page_no_pdf_route"):
+            print(f"{FAIL} ({status}, {elapsed:.1f}s)")
+            remaining.append(doi)
+            fail += 1
+            failure_reasons[doi] = status
         else:
             print(f"{FAIL} ({elapsed:.1f}s)")
             remaining.append(doi)
@@ -725,7 +733,7 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
                          skip_scihub: bool = False, skip_sd: bool = False,
                          include_si: bool = False,
                          sd_browser: str = "chrome") -> tuple[list[str], list[str], list[dict], dict[str, str]]:
-    """Run English download pipeline: R1 Sci-Hub -> R2 SD CDP -> R3 Generic CDP.
+    """Run English download pipeline: R1 Sci-Hub -> R2 Generic CDP.
 
     Designed to be called in parallel with run_chinese_round() via
     ThreadPoolExecutor, sharing the same CDP port.
@@ -735,7 +743,7 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
         output_dir: Directory to save PDFs.
         port: CDP Chrome debug port.
         skip_scihub: Skip Sci-Hub round.
-        skip_sd: Skip ScienceDirect round.
+        skip_sd: Backward-compatible no-op; ScienceDirect now flows through Generic CDP.
         include_si: Download supplementary info where available.
 
     Returns:
@@ -758,20 +766,10 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
         print(f"\n{DONE} English pipeline complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
         return all_downloaded, remaining, round_results, failure_reasons
 
-    # Round 2: ScienceDirect CDP
-    if not skip_sd:
-        downloaded, remaining, sd_failures = run_sd_round(remaining, output_dir, port, sd_browser=sd_browser)
-        all_downloaded.extend(downloaded)
-        round_results.append({"round": "SD CDP", "downloaded": downloaded})
-        failure_reasons.update(sd_failures)
-    else:
-        print(f"\n{SKIP} Round 2 (SD CDP): Skipped (--skip-sd)")
+    if skip_sd:
+        print(f"\n{SKIP} --skip-sd ignored: ScienceDirect is handled inside Generic CDP.")
 
-    if not remaining:
-        print(f"\n{DONE} English pipeline complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
-        return all_downloaded, remaining, round_results, failure_reasons
-
-    # Round 3: Generic CDP (IEEE included here via strategy="generic")
+    # Round 2: Generic CDP (ScienceDirect and IEEE included here)
     downloaded, remaining, generic_failures = run_generic_round(
         remaining, output_dir, port, include_si=include_si
     )
@@ -787,7 +785,7 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
                     skip_sd: bool = False, include_si: bool = False,
                     sd_browser: str = "chrome"
                     ) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
-    """Run English CDP-only pipeline: R2 SD CDP -> R3 Generic CDP. No Sci-Hub.
+    """Run English CDP-only pipeline through Generic CDP. No Sci-Hub.
 
     Designed to run AFTER English login gate in Phase 2.
     """
@@ -796,20 +794,10 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
     remaining = list(dois)
     failure_reasons: dict[str, str] = {}
 
-    # R2: ScienceDirect CDP
-    if not skip_sd:
-        downloaded, remaining, sd_failures = run_sd_round(remaining, output_dir, port, sd_browser=sd_browser)
-        all_downloaded.extend(downloaded)
-        round_results.append({"round": "SD CDP", "downloaded": downloaded})
-        failure_reasons.update(sd_failures)
-    else:
-        print(f"\n{SKIP} R2 (SD CDP): Skipped (--skip-sd)")
+    if skip_sd:
+        print(f"\n{SKIP} --skip-sd ignored: ScienceDirect is handled inside Generic CDP.")
 
-    if not remaining:
-        print(f"\n{DONE} English CDP complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
-        return all_downloaded, remaining, round_results, failure_reasons
-
-    # R3: Generic CDP
+    # R2: Generic CDP
     downloaded, remaining, generic_failures = run_generic_round(
         remaining, output_dir, port, include_si=include_si
     )
@@ -892,7 +880,7 @@ def generate_download_log(output_dir: str, all_dois: list[str],
 # Publishers that typically require institutional login for CDP download.
 # OA publishers (direct_http strategy) are excluded.
 # Sci-Hub and Chinese publishers are handled separately.
-ENGLISH_LOGIN_STRATEGIES = {"sd_cdp", "generic"}
+ENGLISH_LOGIN_STRATEGIES = {"generic"}
 
 
 def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
@@ -945,7 +933,7 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
 def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
     """Display English publisher login gate for remaining CDP papers.
 
-    Only triggers for papers needing sd_cdp or generic strategy.
+    Only triggers for papers needing Generic CDP strategy.
     Sci-Hub and Chinese are excluded (handled separately).
     Returns True if confirmed, False to abort English CDP.
     """
@@ -957,8 +945,6 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
         c = classify_doi(doi)
         strategy = c["strategy"]
         if strategy not in ENGLISH_LOGIN_STRATEGIES:
-            continue
-        if strategy == "sd_cdp" and skip_sd:
             continue
         pub_key = c["publisher"]
         pub_config = c.get("publisher_config", {})
@@ -978,7 +964,7 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False) -> bool:
     print("The following publishers require institutional login before download:")
     print()
     for strategy, pubs in sorted(login_publishers.items()):
-        label = {"sd_cdp": "ScienceDirect CDP", "generic": "Generic CDP"}.get(strategy, strategy)
+        label = {"generic": "Generic CDP"}.get(strategy, strategy)
         print(f"  [{label}]")
         for p in sorted(pubs):
             print(f"    - {p}")
@@ -1057,12 +1043,12 @@ def main():
                         default=os.environ.get("CDP_BROWSER", "chrome"),
                         help="CDP browser for single-browser rounds (default: chrome; use edge to reuse Edge login)")
     parser.add_argument("--sd-browser", choices=("chrome", "edge", "auto"),
-                        help="ScienceDirect browser. Defaults to --browser. Use auto only for explicit Chrome+Edge parallel mode.")
+                        help=argparse.SUPPRESS)
     parser.add_argument("--output", "-o", default=DEFAULT_OUTPUT, help=f"Output directory (default: {DEFAULT_OUTPUT}/)")
     parser.add_argument("--test", help="Test a single DOI (show routing decision + download)")
     parser.add_argument("--check-session", action="store_true", help="Check publisher sessions and exit")
     parser.add_argument("--skip-scihub", action="store_true", help="Skip Sci-Hub round (post-2021 papers)")
-    parser.add_argument("--skip-sd", action="store_true", help="Skip ScienceDirect round")
+    parser.add_argument("--skip-sd", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--skip-ieee", action="store_true", help="Skip IEEE round")
     parser.add_argument("--include-si", action="store_true", help="Download supplementary info where available")
     parser.add_argument("--dry-run", action="store_true", help="Show routing decisions without downloading")
@@ -1108,7 +1094,7 @@ def main():
             print(f"\n{SKIP} SKIPPED - automation not possible for this publisher")
             return
 
-        if info['strategy'] in ("sd_cdp", "ieee_cdp"):
+        if info['strategy'] == "ieee_cdp":
             print(f"\n{ARROW} Delegated to {info['strategy']} script (use dedicated downloader).")
             return
 
@@ -1272,7 +1258,6 @@ def main():
     print("Routing summary:")
     strategy_labels = {
         "scihub_only": "Sci-Hub (pre-2021)",
-        "sd_cdp": "ScienceDirect CDP",
         "ieee_cdp": "IEEE CDP",
         "generic": "Generic CDP",
         "chinese_cdp": "Chinese CDP (CNKI/Wanfang)",
@@ -1292,7 +1277,7 @@ def main():
         return
 
     # Check CDP (required for all rounds except Sci-Hub only)
-    has_cdp_rounds = any(c["strategy"] in ("sd_cdp", "generic", "chinese_cdp")
+    has_cdp_rounds = any(c["strategy"] in ("generic", "chinese_cdp")
                          for c in classified) or bool(chinese_papers)
     if has_cdp_rounds and not ensure_cdp_running(args.port, browser=args.browser):
         print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
@@ -1369,7 +1354,7 @@ def main():
     if en_rem:
         # Check if remaining papers actually need CDP
         has_cdp = any(
-            classify_doi(d)["strategy"] in ("sd_cdp", "generic")
+            classify_doi(d)["strategy"] == "generic"
             for d in en_rem
         )
         if args.require_login_confirm and has_cdp:
