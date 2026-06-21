@@ -21,6 +21,7 @@ import json, os, sys, shutil, subprocess, urllib.request, time
 
 PROFILE_HOME_DIRNAME = ".more-paper-workflow"
 LEGACY_PROFILE_HOME_DIRNAME = ".hermes"
+CDP_STARTUP_TIMEOUT_SECONDS = 30
 
 # ---- websocket-client dependency check ----
 _websocket_missing = None  # set to error message if import fails
@@ -249,6 +250,37 @@ def _profile_home() -> str:
     return os.path.join(os.path.expanduser("~"), PROFILE_HOME_DIRNAME)
 
 
+def _launch_log_path(user_data_dir: str) -> str:
+    return os.path.join(user_data_dir, "cdp_launch.log")
+
+
+def _append_launch_log(log_path: str, lines) -> None:
+    try:
+        with open(log_path, "a", encoding="utf-8") as fh:
+            for line in lines:
+                fh.write(f"{line}\n")
+    except Exception:
+        pass
+
+
+def _macos_app_path_from_binary(browser_path: str) -> str | None:
+    marker = ".app/"
+    if marker not in browser_path:
+        return None
+    return browser_path.split(marker, 1)[0] + ".app"
+
+
+def _windows_start_process_command(browser_path: str, args: list[str]) -> list[str]:
+    quoted_args = ",".join("'" + arg.replace("'", "''") + "'" for arg in args)
+    escaped_browser_path = browser_path.replace("'", "''")
+    script = (
+        "$argList = @(" + quoted_args + "); "
+        f"Start-Process -FilePath '{escaped_browser_path}' "
+        "-ArgumentList $argList"
+    )
+    return ["powershell", "-NoProfile", "-Command", script]
+
+
 def _legacy_profile_home() -> str:
     """Return the previous profile home used by older releases."""
     return os.path.join(os.path.expanduser("~"), LEGACY_PROFILE_HOME_DIRNAME)
@@ -425,23 +457,63 @@ def start_browser(port, user_data_dir, url="about:blank", browser_path=None):
         "--disable-features=InfiniteSessionRestore",
     ]
 
+    browser_args = [
+        f"--remote-debugging-port={port}",
+        f"--remote-allow-origins=http://127.0.0.1:{port}",
+        *anti_detection_flags,
+        f"--user-data-dir={user_data_dir}",
+        url,
+    ]
+    log_path = _launch_log_path(user_data_dir)
+    _append_launch_log(log_path, [
+        "",
+        f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Launching CDP browser",
+        f"browser_path={browser_path}",
+        f"port={port}",
+        f"url={url}",
+    ])
+
     try:
-        proc = subprocess.Popen([
-            browser_path,
-            f"--remote-debugging-port={port}",
-            f"--remote-allow-origins=http://127.0.0.1:{port}",
-            *anti_detection_flags,
-            f"--user-data-dir={user_data_dir}",
-            url,
-        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        log_fh = open(log_path, "a", encoding="utf-8")
+    except Exception:
+        log_fh = None
+
+    proc = None
+    try:
+        if _is_macos():
+            app_path = _macos_app_path_from_binary(browser_path)
+            if not app_path:
+                return None
+            command = [
+                "open",
+                "-na",
+                app_path,
+                "--args",
+                *browser_args,
+            ]
+        elif _is_windows():
+            command = _windows_start_process_command(browser_path, browser_args)
+        else:
+            command = [browser_path, *browser_args]
+
+        _append_launch_log(log_path, [f"command={command!r}"])
+        proc = subprocess.Popen(
+            command,
+            stdout=log_fh or subprocess.DEVNULL,
+            stderr=log_fh or subprocess.DEVNULL,
+        )
     except FileNotFoundError:
         return None
-    except Exception:
+    except Exception as exc:
+        _append_launch_log(log_path, [f"launch_exception={exc!r}"])
         return None
+    finally:
+        if log_fh:
+            log_fh.close()
 
     # Wait for CDP to be ready
     cdp_ready = False
-    for _ in range(15):
+    for _ in range(CDP_STARTUP_TIMEOUT_SECONDS):
         time.sleep(1)
         if check_cdp(port):
             cdp_ready = True
@@ -450,7 +522,7 @@ def start_browser(port, user_data_dir, url="about:blank", browser_path=None):
     if cdp_ready:
         return proc
 
-    # CDP not bound after 15s — likely real-profile issue on macOS
+    # CDP not bound after timeout — likely profile/policy/startup delay
     # Detect "real" profile by checking if user_data_dir is under ~/Library
     real_profile_hints = ["Library/Application Support", "AppData/Local",
                           "AppData/Roaming"]
@@ -464,14 +536,13 @@ def start_browser(port, user_data_dir, url="about:blank", browser_path=None):
         print(f"   诊断：python3 -c \"import urllib.request,json; "
               f"d=json.load(urllib.request.urlopen('http://127.0.0.1:{port}/json/version')); "
               f"print(d.get('Browser','N/A'))\"\n", flush=True)
+    else:
+        print(f"\n⚠  CDP 端口 {port} 在 {CDP_STARTUP_TIMEOUT_SECONDS}s 内未就绪。", flush=True)
 
-    # Kill the orphaned process
-    try:
-        proc.kill()
-        proc.wait(timeout=5)
-    except Exception:
-        pass
-    return None  # signal to caller: CDP unavailable
+    print(f"   启动日志: {log_path}", flush=True)
+    _append_launch_log(log_path, [f"cdp_not_ready_after={CDP_STARTUP_TIMEOUT_SECONDS}s"])
+
+    return None  # signal to caller: CDP unavailable; leave browser for diagnosis
 
 
 def start_persistent_cdp_browser(port=9223, browser="chrome", urls=None):

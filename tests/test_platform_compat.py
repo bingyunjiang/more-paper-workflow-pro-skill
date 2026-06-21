@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 import io
 from contextlib import redirect_stdout
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,6 +58,63 @@ class PlatformCompatTest(unittest.TestCase):
         self.assertIn("自动回退到 Edge", stdout.getvalue())
         self.assertEqual(start_browser.call_args.kwargs["browser_path"],
                          r"C:\Program Files\Microsoft\Edge\Application\msedge.exe")
+
+    def test_start_browser_uses_open_na_on_macos(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(cdp_utils, "_is_macos", return_value=True), \
+             patch.object(cdp_utils, "_is_windows", return_value=False), \
+             patch.object(cdp_utils, "check_cdp", side_effect=[False, True]), \
+             patch.object(cdp_utils.time, "sleep", return_value=None), \
+             patch.object(cdp_utils.subprocess, "Popen") as popen:
+            cdp_utils.start_browser(
+                9223,
+                tmp,
+                url="https://example.com",
+                browser_path="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            )
+
+        command = popen.call_args.args[0]
+        self.assertEqual(command[:4], ["open", "-na", "/Applications/Google Chrome.app", "--args"])
+        self.assertIn("--remote-debugging-port=9223", command)
+        self.assertIn("https://example.com", command)
+
+    def test_start_browser_uses_start_process_on_windows(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(cdp_utils, "_is_macos", return_value=False), \
+             patch.object(cdp_utils, "_is_windows", return_value=True), \
+             patch.object(cdp_utils, "check_cdp", side_effect=[False, True]), \
+             patch.object(cdp_utils.time, "sleep", return_value=None), \
+             patch.object(cdp_utils.subprocess, "Popen") as popen:
+            cdp_utils.start_browser(
+                9223,
+                tmp,
+                url="https://example.com",
+                browser_path=r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            )
+
+        command = popen.call_args.args[0]
+        self.assertEqual(command[:3], ["powershell", "-NoProfile", "-Command"])
+        self.assertIn("Start-Process", command[3])
+        self.assertIn("--remote-debugging-port=9223", command[3])
+
+    def test_start_browser_timeout_does_not_kill_process(self):
+        fake_proc = object()
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(cdp_utils, "_is_macos", return_value=False), \
+             patch.object(cdp_utils, "_is_windows", return_value=False), \
+             patch.object(cdp_utils, "check_cdp", return_value=False), \
+             patch.object(cdp_utils.time, "sleep", return_value=None), \
+             patch.object(cdp_utils.subprocess, "Popen", return_value=fake_proc), \
+             redirect_stdout(io.StringIO()) as stdout:
+            proc = cdp_utils.start_browser(
+                9223,
+                tmp,
+                url="https://example.com",
+                browser_path="/usr/bin/google-chrome",
+            )
+
+        self.assertIsNone(proc)
+        self.assertIn("启动日志", stdout.getvalue())
 
     def test_windows_profile_cleanup_targets_only_matching_profile_processes(self):
         calls = []
