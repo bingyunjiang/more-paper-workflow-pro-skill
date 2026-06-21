@@ -197,6 +197,28 @@ class PlatformCompatTest(unittest.TestCase):
         parse_doi_file.assert_called_once_with("C:\\demo\\dois.txt")
         parse_input.assert_not_called()
 
+    def test_parse_doi_file_ignores_inline_hash_comments(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doi_file = Path(tmp) / "failed_dois.txt"
+            doi_file.write_text(
+                "\n".join([
+                    "# full-line comment",
+                    "10.1002/er.7775  # wiley",
+                    "10.1016/j.ecmx.2026.101960#sd_elsevier",
+                    "   10.1038/s41598-025-26279-4   ",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+
+            dois = router.parse_doi_file(str(doi_file))
+
+        self.assertEqual(dois, [
+            "10.1002/er.7775",
+            "10.1016/j.ecmx.2026.101960",
+            "10.1038/s41598-025-26279-4",
+        ])
+
     def test_platform_compat_scan_has_no_errors(self):
         result = subprocess.run(
             [sys.executable, str(SCRIPT_DIR / "check_platform_compat.py")],

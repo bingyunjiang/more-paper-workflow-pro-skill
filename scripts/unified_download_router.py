@@ -228,11 +228,11 @@ def parse_doi_file(input_path: str) -> list[str]:
     if not path.exists():
         print(f"ERROR: DOI file not found: {input_path}")
         sys.exit(1)
-    dois = [
-        line.strip()
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    ]
+    dois = []
+    for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if line:
+            dois.append(line)
     if not dois:
         print(f"ERROR: No DOIs found in DOI file: {input_path}")
         sys.exit(1)
