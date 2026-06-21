@@ -17,6 +17,7 @@ related_skills:
 ## Entry routing
 
 - Cross-agent entry vocabulary lives in `references/entry-routing-index.md`.
+- Full trigger vocabulary lives in `references/trigger-catalog.md`.
 - Platform-specific launch hints live in thin adapter files such as `agents/openai.yaml` and `.claude-plugin/marketplace.json`.
 - Step-specific runtime contracts remain in `agents/step_*.md` and `references/*.md`.
 
@@ -27,6 +28,7 @@ related_skills:
 - Step handoff: `references/step-handoff-contract.md`
 - Update reminders: `references/update-reminder-protocol.md`
 - Entry vocabulary: `references/entry-routing-index.md`
+- Trigger catalog: `references/trigger-catalog.md`
 
 ## Workflow map
 

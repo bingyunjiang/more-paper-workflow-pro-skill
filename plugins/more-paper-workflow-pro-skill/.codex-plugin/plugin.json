@@ -1,0 +1,37 @@
+{
+  "name": "more-paper-workflow-pro-skill",
+  "version": "1.0.16",
+  "description": "Academic workflow plugin for research topic clarification, outline generation, literature search, batch PDF download, Zotero organization, paper writing, citation audit, and polishing.",
+  "author": {
+    "name": "Dr. Jiang Bingyun"
+  },
+  "homepage": "https://github.com/bingyunjiang/more-paper-workflow-pro-skill",
+  "repository": "https://github.com/bingyunjiang/more-paper-workflow-pro-skill",
+  "license": "CC-BY-NC-SA-4.0",
+  "keywords": [
+    "academic",
+    "research",
+    "literature-search",
+    "zotero",
+    "citation-audit",
+    "writing"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "More Paper Workflow Pro",
+    "shortDescription": "Academic workflow for literature search, Zotero organization, writing, and citation audit",
+    "longDescription": "More Paper Workflow Pro helps Codex route academic work across topic clarification, structured search planning, literature retrieval, batch PDF download, Zotero organization, writing, citation audit, and polishing.",
+    "developerName": "Dr. Jiang Bingyun",
+    "category": "Education & Research",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/bingyunjiang/more-paper-workflow-pro-skill",
+    "defaultPrompt": [
+      "Help me plan and execute an academic paper workflow"
+    ],
+    "brandColor": "#0D5C63",
+    "screenshots": []
+  }
+}

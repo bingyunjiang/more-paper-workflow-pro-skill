@@ -2,6 +2,8 @@
 
 This file keeps the cross-agent entry vocabulary out of `SKILL.md` frontmatter.
 
+For the full long-form trigger list, see `references/trigger-catalog.md`.
+
 ## Core entry intents
 
 - Step 1: research topic clarification, topic review, research-stage diagnosis
