@@ -76,6 +76,32 @@ class PlatformCompatTest(unittest.TestCase):
         self.assertIn("chrome_sd_profile", calls[0][3])
         self.assertNotIn("/IM", " ".join(calls[0]))
 
+    def test_profile_dir_uses_neutral_home_by_default(self):
+        with patch.object(cdp_utils.os.path, "expanduser", return_value="/Users/demo"), \
+             patch.object(cdp_utils.os.path, "exists", return_value=False), \
+             patch.object(cdp_utils.os, "makedirs") as makedirs:
+            profile_dir = cdp_utils._profile_dir("chrome")
+
+        self.assertEqual(profile_dir, "/Users/demo/.more-paper-workflow/chrome_sd_profile")
+        makedirs.assert_not_called()
+
+    def test_profile_dir_migrates_legacy_hermes_profile(self):
+        def _fake_exists(path):
+            return path == "/Users/demo/.hermes/chrome_sd_profile"
+
+        with patch.object(cdp_utils.os.path, "expanduser", return_value="/Users/demo"), \
+             patch.object(cdp_utils.os.path, "exists", side_effect=_fake_exists), \
+             patch.object(cdp_utils.os, "makedirs") as makedirs, \
+             patch.object(cdp_utils.shutil, "move") as move:
+            profile_dir = cdp_utils._profile_dir("chrome")
+
+        self.assertEqual(profile_dir, "/Users/demo/.more-paper-workflow/chrome_sd_profile")
+        makedirs.assert_called_once_with("/Users/demo/.more-paper-workflow", exist_ok=True)
+        move.assert_called_once_with(
+            "/Users/demo/.hermes/chrome_sd_profile",
+            "/Users/demo/.more-paper-workflow/chrome_sd_profile",
+        )
+
     def test_zotero_bin_detects_windows_scripts_exe(self):
         site_packages = r"C:\Users\demo\AppData\Local\Programs\Python\Python311\Lib\site-packages"
         expected = r"C:\Users\demo\AppData\Local\Programs\Python\Python311\Scripts\zotero-mcp.exe"

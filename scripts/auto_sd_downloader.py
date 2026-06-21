@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cdp_utils import (
     check_cdp, start_browser, kill_browser_by_port, kill_browser_by_profile,
-    find_chrome_path, find_edge_path, check_required_deps,
+    find_chrome_path, find_edge_path, check_required_deps, _profile_dir,
     check_sd_access, CHROME_INSTALL_GUIDE,
 )
 from console_compat import configure_console_output
@@ -35,8 +35,8 @@ from sd_download import download_sd_pii
 
 # Each browser gets its own persistent profile dir — retains SD login across runs
 DEFAULT_PROFILES = {
-    "chrome": os.path.join(os.path.expanduser("~/.hermes"), "chrome_sd_profile"),
-    "edge": os.path.join(os.path.expanduser("~/.hermes"), "edge_sd_profile"),
+    "chrome": _profile_dir("chrome"),
+    "edge": _profile_dir("edge"),
 }
 
 

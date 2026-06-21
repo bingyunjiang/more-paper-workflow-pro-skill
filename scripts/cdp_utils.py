@@ -18,6 +18,10 @@ except Exception:
 
 import json, os, sys, shutil, subprocess, urllib.request, time
 
+
+PROFILE_HOME_DIRNAME = ".more-paper-workflow"
+LEGACY_PROFILE_HOME_DIRNAME = ".hermes"
+
 # ---- websocket-client dependency check ----
 _websocket_missing = None  # set to error message if import fails
 try:
@@ -240,10 +244,38 @@ def _is_macos():
     return sys.platform == "darwin"
 
 
+def _profile_home() -> str:
+    """Return the neutral home directory used to store persistent browser profiles."""
+    return os.path.join(os.path.expanduser("~"), PROFILE_HOME_DIRNAME)
+
+
+def _legacy_profile_home() -> str:
+    """Return the previous profile home used by older releases."""
+    return os.path.join(os.path.expanduser("~"), LEGACY_PROFILE_HOME_DIRNAME)
+
+
+def _ensure_profile_dir(profile_name: str) -> str:
+    """Return the active profile dir, migrating from the legacy location if present."""
+    new_dir = os.path.join(_profile_home(), profile_name)
+    legacy_dir = os.path.join(_legacy_profile_home(), profile_name)
+
+    if os.path.exists(new_dir):
+        return new_dir
+
+    if os.path.exists(legacy_dir):
+        try:
+            os.makedirs(_profile_home(), exist_ok=True)
+            shutil.move(legacy_dir, new_dir)
+        except Exception:
+            # Fall back to the legacy directory if migration fails.
+            return legacy_dir
+    return new_dir
+
+
 def _profile_dir(browser="chrome"):
     """Return the persistent CDP profile directory for a browser."""
     name = "edge_sd_profile" if browser == "edge" else "chrome_sd_profile"
-    return os.path.join(os.path.expanduser("~"), ".hermes", name)
+    return _ensure_profile_dir(name)
 
 
 def find_chrome_path():
