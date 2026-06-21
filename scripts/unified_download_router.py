@@ -805,6 +805,23 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
     round_results.append({"round": "Generic CDP", "downloaded": downloaded})
     failure_reasons.update(generic_failures)
 
+    login_retry_dois = _filter_login_required_dois(remaining, generic_failures)
+    if login_retry_dois:
+        print(f"\n{WARN} Institutional login required for {len(login_retry_dois)} publisher item(s).")
+        if show_english_login_gate(login_retry_dois, skip_sd=skip_sd):
+            retry_downloaded, retry_remaining, retry_failures = run_generic_round(
+                login_retry_dois, output_dir, port, include_si=include_si
+            )
+            all_downloaded.extend(retry_downloaded)
+            round_results.append({"round": "Generic CDP (after login)", "downloaded": retry_downloaded})
+            remaining = [doi for doi in remaining if doi not in login_retry_dois]
+            remaining.extend(retry_remaining)
+            for doi in retry_downloaded:
+                failure_reasons.pop(doi, None)
+            failure_reasons.update(retry_failures)
+        else:
+            print("English CDP login retry skipped by user.")
+
     print(f"\n{DONE} English CDP complete - {OK} {len(all_downloaded)}/{len(dois)}, {FAIL} {len(remaining)} remaining")
     return all_downloaded, remaining, round_results, failure_reasons
 
