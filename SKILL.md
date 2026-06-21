@@ -47,6 +47,7 @@ related_skills:
 - Keep this file and `agents/*.md` authoritative for runtime behavior.
 - Do not duplicate workflow logic per agent; only thin adapters should vary.
 - Windows/macOS/Linux compatibility remains a default constraint.
+- On Windows, if Chinese text displays incorrectly, first read `SKILL.md`, `README.md`, and `agents/*.md` explicitly as UTF-8 before concluding the files are corrupted.
 
 ## Public-first entry examples
 

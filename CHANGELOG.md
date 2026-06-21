@@ -21,6 +21,14 @@
 - **同类海报统一点击风格**：`posters/story/more-paper-long-scroll.png` 与 `posters/story/preview-contact-sheet.png` 采用同一张视频跳转链接，减少首屏重复入口并保持视觉一致。
 - **README 公共展示口径继续收紧**：版本历史仍保留对外要点，运行规则继续留在 `SKILL.md` 与 `agents/*.md`，避免把发布文案写成运行手册。
 
+### 跨 Agent 兼容、触发词目录与版本锚点收口
+
+- **`SKILL.md` 改为最小发现头 + 正文元数据**：frontmatter 仅保留 `name` 与 `description`，版本、作者、许可证与兼容说明移入正文 `Skill metadata`，减少 Codex / Claude / 其它宿主对超长 frontmatter 的误解析风险。
+- **完整触发词恢复为独立目录**：新增 `references/trigger-catalog.md`，把原有长 trigger 清单从 `SKILL.md` 头部拆出；`references/entry-routing-index.md` 保留高层入口意图，`agents/step_*.md` 继续承载真正的 Step 路由契约。
+- **多宿主薄适配层补齐**：新增 `agents/openai.yaml` 供 Codex 使用，新增 `.claude-plugin/plugin.json` 并重写 `.claude-plugin/marketplace.json` 为 Claude 当前 CLI 可校验的 marketplace 结构；同时补充 `references/agent-compatibility.md` 与 Codex 独立 `.agents/plugins/marketplace.json` / `.codex-plugin/plugin.json` 骨架。
+- **升级检查统一到 `SKILL.md` 主版本源**：`scripts/check_skill_update.py` 现优先读取 `SKILL.md` 正文中的 `version`，再校验 README / CHANGELOG 是否同步；`perform_skill_upgrade.py` 继续只负责拉取代码，不直接改写版本文本。
+- **Windows 中文显示问题补充说明**：README 与 SKILL 增加 Windows UTF-8 读取说明，明确先按 UTF-8 显式读取，再区分终端显示乱码与文件真实损坏。
+
 ## v1.0.15-20260619 (2026-06-19)
 
 ### Step 8 AI 味诊断、运行态状态源与演示链路
