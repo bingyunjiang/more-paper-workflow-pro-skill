@@ -159,6 +159,69 @@ def parse_input(input_path: str) -> list[str]:
     return dois
 
 
+def _parse_bibtex_fields(entry: str) -> dict[str, str]:
+    """Extract simple BibTeX key/value fields used for routing decisions."""
+    fields: dict[str, str] = {}
+    for match in re.finditer(r'(?m)^\s*([A-Za-z_][\w-]*)\s*=\s*([{\"])(.*?)[}\"],?\s*$', entry):
+        fields[match.group(1).lower()] = match.group(3).strip()
+    return fields
+
+
+def _split_bibtex_entries(text: str) -> list[str]:
+    """Split BibTeX text into top-level entries without a full parser."""
+    entries: list[str] = []
+    start: Optional[int] = None
+    depth = 0
+    for i, ch in enumerate(text):
+        if ch == "@" and depth == 0:
+            start = i
+        if start is None:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                entries.append(text[start:i + 1])
+                start = None
+    return entries
+
+
+def _is_chinese_bibtex_entry(fields: dict[str, str]) -> bool:
+    doi = fields.get("doi", "").lower()
+    haystack = " ".join(fields.get(k, "") for k in ("title", "journal", "school", "langid")).lower()
+    if fields.get("langid", "").lower() in ("chinese", "zh", "zh-cn"):
+        return True
+    if doi.startswith(("10.16638/j.cnki", "10.14044/j.1674-1757")):
+        return True
+    return bool(re.search(r"[\u4e00-\u9fff]", haystack))
+
+
+def parse_bibtex_chinese_papers(input_path: str) -> list[dict]:
+    """Extract Chinese BibTeX entries so they do not fall through to Generic CDP."""
+    path = Path(input_path)
+    if path.suffix.lower() != ".bib" or not path.exists():
+        return []
+    text = path.read_text(encoding="utf-8", errors="replace")
+    papers: list[dict] = []
+    for entry in _split_bibtex_entries(text):
+        fields = _parse_bibtex_fields(entry)
+        doi = fields.get("doi", "").strip()
+        if not doi or not _is_chinese_bibtex_entry(fields):
+            continue
+        url = fields.get("article_url") or fields.get("url", "")
+        if not url and doi:
+            url = f"https://doi.org/{doi}"
+        source = "cnki" if "cnki" in doi.lower() or "cnki" in url.lower() else "cnki"
+        papers.append({
+            "title": fields.get("title", ""),
+            "source": source,
+            "article_url": url if url.startswith("http") else "",
+            "doi": doi,
+        })
+    return papers
+
+
 def parse_doi_file(input_path: str) -> list[str]:
     """Read one DOI per line from a plain text file."""
     path = Path(input_path)
@@ -1210,10 +1273,19 @@ def main():
     workflow_chinese_papers = as_chinese_papers(workflow_items)
 
     # Batch mode
+    bibtex_chinese_papers: list[dict] = []
     if args.doi_file:
         dois = parse_doi_file(args.doi_file)
     elif args.input:
         dois = parse_input(args.input)
+        bibtex_chinese_papers = parse_bibtex_chinese_papers(args.input)
+        if bibtex_chinese_papers:
+            chinese_dois = {
+                p.get("doi", "").strip().lower()
+                for p in bibtex_chinese_papers
+                if p.get("doi")
+            }
+            dois = [d for d in dois if d.strip().lower() not in chinese_dois]
     elif args.papers:
         dois = [d.strip() for d in args.papers.split(",") if d.strip()]
     elif workflow_items:
@@ -1229,17 +1301,21 @@ def main():
         sys.exit(1)
 
     # ── Parse Chinese papers ───────────────────────────────────────────
-    chinese_papers: list[dict] = list(workflow_chinese_papers)
+    chinese_papers: list[dict] = list(workflow_chinese_papers) + bibtex_chinese_papers
     if args.chinese_input:
         chinese_papers.extend(parse_chinese_papers(args.chinese_input))
     if chinese_papers:
-        seen_chinese = set()
-        deduped_chinese = []
+        seen_chinese: dict[tuple[str, str], int] = {}
+        deduped_chinese: list[dict] = []
         for paper in chinese_papers:
-            key = (paper.get("source", ""), paper.get("article_url", ""), paper.get("doi", ""), paper.get("title", ""))
+            key = (paper.get("source", ""), paper.get("doi", "") or paper.get("title", ""))
             if key in seen_chinese:
+                existing = deduped_chinese[seen_chinese[key]]
+                if not existing.get("article_url") or "doi.org/" in existing.get("article_url", ""):
+                    if paper.get("article_url"):
+                        existing.update(paper)
                 continue
-            seen_chinese.add(key)
+            seen_chinese[key] = len(deduped_chinese)
             deduped_chinese.append(paper)
         chinese_papers = deduped_chinese
         cnki_count = sum(1 for p in chinese_papers if p["source"] == "cnki")

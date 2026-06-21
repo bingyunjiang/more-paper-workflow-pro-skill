@@ -255,6 +255,29 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(dois, ["10.1016/j.test.2024.01.001", "10.1007/demo.2024.1"])
 
+    def test_parse_bibtex_chinese_papers_extracts_cnki_doi_entries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "mixed.bib"
+            path.write_text("""
+@article{english,
+  title = {Battery Thermal Management},
+  doi = {10.1016/j.est.2025.117285},
+  langid = {english}
+}
+
+@article{cnki,
+  title = {电动汽车充电桩电源模块热仿真分析},
+  doi = {10.16638/j.cnki.1671-7988.2022.011.001},
+  langid = {chinese}
+}
+""", encoding="utf-8")
+
+            papers = router.parse_bibtex_chinese_papers(str(path))
+
+        self.assertEqual(len(papers), 1)
+        self.assertEqual(papers[0]["source"], "cnki")
+        self.assertEqual(papers[0]["doi"], "10.16638/j.cnki.1671-7988.2022.011.001")
+
     def test_show_chinese_login_gate_accepts_confirmed_login(self):
         papers = [{
             "title": "CNKI demo",
