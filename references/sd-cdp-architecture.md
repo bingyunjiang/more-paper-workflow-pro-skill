@@ -20,11 +20,11 @@ SD 有两个独立的访问检查层级：
 
 | 层级 | 检查方式 | 通过条件 | 脚本检测 |
 |------|---------|---------|---------|
-| **首页访问** | `check_sd_access()` 加载 SD 首页 | IP 在机构范围内 → 自动通过 | 输出 `已登录 — 端口 XXXX` |
+| **PDF probe** | `check_sd_access()` 打开已知 `/pdfft` 样本 | 实际出现 `pdf.sciencedirectassets.com/.../main.pdf` | 输出 `SD PDF probe OK — 端口 XXXX` |
 | **PDF 下载** | 打开 `/pii/{PII}/pdfft` 后的过渡页 | 需要 ① 有效 SD Cookie + ② 期刊在机构订阅包中 | PDF 标签页 3-5s 内出现 |
 | **深层限制** | ~15 篇后可触发 Cloudflare 挑战 | 用户需在浏览器窗口中手动验证 | 连续多篇 ❌ 且耗时正常但不是 0s |
 
-**关键推论：** `已登录 — 端口 XXXX` 只表示 SD 首页可达，**不代表 PDF 下载通道开放**。必须尝试实际下载才能判断权限。约 80% 的 SD 论文没有 pdf 标签页（机构未订阅对应期刊）。
+**关键推论：** 校园 IP、VPN、cookie/session 只能作为原因说明，**不能作为 PDF 可下载的充分条件**。`check_sd_access()` 只有实际观察到 PDF host 时才返回通过；只看到 SD 首页、文章页、过渡页或 Cloudflare 后未出现 PDF，都应视为 `pdf_probe_unknown` / `blocked` 并触发登录或人工确认。必须尝试实际 PDF route 才能判断权限。约 80% 的 SD 论文没有 pdf 标签页（机构未订阅对应期刊）。
 
 ## 标签页管理策略
 

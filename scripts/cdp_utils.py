@@ -754,14 +754,14 @@ _SD_PDF_HOST = "https://pdf.sciencedirectassets.com"
 
 
 def check_sd_access(port=9223, timeout=10):
-    """Test whether ScienceDirect is accessible from the current browser session.
+    """Probe whether a known ScienceDirect PDF is actually reachable.
 
     Navigates to a known SD paper and watches for:
-      - PDF redirect → IP-based access OK
-      - Login/challenge page → needs manual login
+      - PDF redirect -> PDF route is open
+      - Login/challenge/unknown page -> needs manual confirmation
 
-    Returns ("ok", "ip") for IP access, ("ok", "login") for logged-in session,
-    or ("blocked", reason_string) if access is blocked.
+    Returns ("ok", "pdf_probe_ok") only when the PDF host appears, or
+    ("blocked", reason_string) when the PDF route is not proven open.
     """
     if not check_cdp(port):
         return "blocked", "CDP browser not running"
@@ -796,10 +796,10 @@ def check_sd_access(port=9223, timeout=10):
             url = t.get("url", "")
             title = t.get("title", "")
 
-            # PDF redirect → access is working
+            # PDF redirect -> the only reliable proof that this route is open.
             if url.startswith(_SD_PDF_HOST) and "main.pdf" in url:
                 close_tab(port, tid)
-                return "ok", "ip"
+                return "ok", "pdf_probe_ok"
 
             # Still on ScienceDirect → check what happened
             if "sciencedirect.com" in url:
@@ -809,7 +809,7 @@ def check_sd_access(port=9223, timeout=10):
                 if "access" in url.lower() or "denied" in url.lower():
                     close_tab(port, tid)
                     return "blocked", "access denied — check institutional subscription"
-                # Might still be loading or needs Cloudflare check
+                # Might still be loading or needs Cloudflare check.
                 if "challenge" in url.lower() or "captcha" in url.lower():
                     close_tab(port, tid)
                     return "blocked", "Cloudflare challenge detected — complete it in browser first"
@@ -820,14 +820,14 @@ def check_sd_access(port=9223, timeout=10):
                 resolved = wait_for_cloudflare(port, tid, timeout=60)
                 if resolved:
                     close_tab(port, tid)
-                    return "ok", "login"
+                    return "blocked", "pdf probe unknown after Cloudflare — retry PDF probe"
                 close_tab(port, tid)
                 return "blocked", ("Cloudflare 验证未自动完成 —— "
                                    "请在浏览器中手动点击 'Verify you are human'")
 
-            # Neither PDF nor challenge — might be logged-in session still loading
+            # Neither PDF nor known challenge: do not treat page access as PDF access.
             close_tab(port, tid)
-            return "ok", "login"
+            return "blocked", "pdf probe unknown — no PDF redirect observed"
 
         # Tab not found in list — might have closed/redirected
         close_tab(port, tid)

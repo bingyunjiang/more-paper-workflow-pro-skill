@@ -114,30 +114,31 @@
 
 ### 5.2. CHECKPOINT W — CP-DOWNLOAD-LOGIN 🚧 精准触发规则
 
-> **两个独立门控，分阶段触发。Sci-Hub 不需要门控。中文和英文各自独立确认。门控由 access_probe 结果触发，不由 publisher strategy 一刀切触发。**
+> **两个独立门控，分阶段触发。Sci-Hub 不需要门控。中文和英文各自独立确认。门控由 PDF / article probe 结果触发，不由 publisher strategy 或校园 IP 一刀切触发。**
 
-**不触发范围：** Sci-Hub、OA / `direct_http`、`skip`、校园 IP 已可访问、已有 cookie/session 已可访问。
+**不触发范围：** Sci-Hub、OA / `direct_http`、`skip`、已通过实际 PDF probe 的条目。
 
-**触发范围：** login wall、access denied、CARSI required、PDF link 缺失且页面显示权限不足。
+**触发范围：** login wall、access denied、CARSI required、PDF link 缺失、PDF probe unknown、页面显示权限不足。
 
-**access_probe 判定表：**
+**probe 判定表：**
 
-| access_probe | 含义 | 是否触发 CP-DOWNLOAD-LOGIN |
+| probe 状态 | 含义 | 是否触发 CP-DOWNLOAD-LOGIN |
 |--------------|------|:--:|
 | `scihub` | Sci-Hub 轮次处理，免费路径 | 否 |
 | `direct_http` / `oa` | OA 或直接 HTTP 下载 | 否 |
 | `skip` | 自动化不可行或需人工下载 | 否 |
-| `ip_access_ok` | 校园 IP / VPN 已授权，可访问 PDF | 否 |
-| `cookie_access_ok` | CDP 中已有可用登录 cookie/session | 否 |
+| `pdf_probe_ok` | 已实际观察到 PDF URL / PDF bytes，可进入下载 | 否 |
+| `pdf_probe_blocked` | login wall、access denied、未订阅、CARSI required | 是 |
+| `pdf_probe_unknown` | 只看到文章页/过渡页，未证明 PDF 可访问 | 是 |
 | `login_required` | 出版商登录墙或 SSO 页面 | 是 |
 | `access_denied` | 页面显示无权限/未订阅/无法下载 | 是 |
 | `carsi_required` | CNKI/万方需要 CARSI 机构登录 | 是 |
 
-> **重要：** 没有 cookie 不等于没有权限。校园网 IP 授权通常没有个人 cookie，只要实际 article/PDF probe 可访问，就应判为 `ip_access_ok`，不得要求用户登录。
+> **重要：** 校园 IP、VPN、cookie/session 只作为原因说明，不作为放行条件。只有实际 PDF probe 成功（例如出现 PDF URL 或捕获到 PDF bytes）才可判为 `pdf_probe_ok`。只看到文章页或平台首页时，应判为 `pdf_probe_unknown` 并触发登录/人工确认。
 
-**中文门控（Phase 1）：** 仅当 CNKI/万方 preflight 或 article probe 返回 `carsi_required` / `login_required` / `access_denied` 时触发。
+**中文门控（Phase 1）：** 仅当 CNKI/万方 preflight 或 article/download probe 返回 `pdf_probe_blocked` / `pdf_probe_unknown` / `carsi_required` / `login_required` / `access_denied` 时触发。
 
-**英文门控（Phase 2）：** Sci-Hub 完成后，仅对剩余英文论文中 `access_probe` 需要登录的 publisher 触发。
+**英文门控（Phase 2）：** Sci-Hub 完成后，仅对剩余英文论文中 PDF probe 未通过的 publisher 触发。
 
 **交互兼容规则：**
 
@@ -156,9 +157,9 @@
 ```
 Phase 1:
 1. Sci-Hub 后台启动（免费，不阻塞）
-2. 🔍 中文源 access_probe
-   ├─ ip_access_ok / cookie_access_ok → 直接执行中文下载
-   └─ carsi_required / login_required / access_denied → 显示中文登录门控
+2. 🔍 中文源 article/download probe
+   ├─ pdf_probe_ok → 直接执行中文下载
+   └─ pdf_probe_blocked / pdf_probe_unknown / carsi_required / login_required / access_denied → 显示中文登录门控
 3. 🚧 中文登录门控（仅 probe 需要时显示）
    "CNKI/万方需要 CARSI 机构登录。
     🚀 Agent 将自动启动交互式 CDP 会话（同一条命令内，不会断连）。"
@@ -177,9 +178,9 @@ Phase 1:
 
 Phase 2:
 6. 等待 Sci-Hub 完成
-7. 对剩余英文 CDP 论文执行 access_probe
-   ├─ direct_http / oa / ip_access_ok / cookie_access_ok → 直接下载
-   └─ login_required / access_denied → 🚧 英文登录门控
+7. 对剩余英文 CDP 论文执行 PDF probe
+   ├─ direct_http / oa / pdf_probe_ok → 直接下载
+   └─ pdf_probe_blocked / pdf_probe_unknown / login_required / access_denied → 🚧 英文登录门控
    Agent 执行同样的交互式 CDP 启动，导航到对应出版社首页：
    "[ScienceDirect CDP]  elsevier (sciencedirect.com)
     [Generic CDP]  ieee (ieeexplore.ieee.org), acs (pubs.acs.org), ..."
@@ -225,17 +226,17 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 ```
 Phase 1 ──────────────────────────────────────────────────
   Sci-Hub 启动（后台线程，免费，不需登录）
-  🔍 中文源 access_probe
-     ip_access_ok / cookie_access_ok → Chinese CDP 启动
-     carsi_required / login_required / access_denied → 用户确认 → Chinese CDP 启动
+  🔍 中文源 article/download probe
+     pdf_probe_ok → Chinese CDP 启动
+     pdf_probe_blocked / pdf_probe_unknown / carsi_required / login_required / access_denied → 用户确认 → Chinese CDP 启动
      Sci-Hub 和 Chinese CDP 可能同时跑
 
 Phase 2 ──────────────────────────────────────────────────
   等待 Sci-Hub 完成
   若剩余英文 CDP 论文（SD / Generic）:
-    🔍 英文 access_probe
-       ip_access_ok / cookie_access_ok → 直接执行 CDP
-       login_required / access_denied → 用户确认
+    🔍 英文 PDF probe
+       direct_http / oa / pdf_probe_ok → 直接执行 CDP
+       pdf_probe_blocked / pdf_probe_unknown / login_required / access_denied → 用户确认
        → English CDP 启动（R2 SD → R3 Generic）
 
 Phase 3 ──────────────────────────────────────────────────

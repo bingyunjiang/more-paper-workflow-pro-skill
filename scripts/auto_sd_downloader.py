@@ -94,10 +94,10 @@ def restart_browser(port, browser_path, profile_dir):
 
 
 def ensure_sd_access(port):
-    """Check SD access; if blocked, wait 30s for manual login."""
+    """Check SD PDF-route access; if unproven, wait 30s for manual login."""
     status, reason = check_sd_access(port)
     if status == "ok":
-        print(f"  {'IP 认证' if reason == 'ip' else '已登录'} — 端口 {port}", flush=True)
+        print(f"  SD PDF probe OK — 端口 {port}", flush=True)
         return True
     print(f"  SD 访问异常 (端口 {port}): {reason}", flush=True)
     print("  等待 30 秒供你手动登录...", flush=True)

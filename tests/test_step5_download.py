@@ -149,6 +149,47 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertIn("S2352152X24026914", cdp_utils._SD_TEST_URL)
         self.assertTrue(cdp_utils._SD_TEST_URL.endswith("/pdfft"))
 
+    def test_sd_access_probe_unknown_article_page_is_blocked(self):
+        tabs = [{
+            "id": "tab-1",
+            "url": "https://www.sciencedirect.com/science/article/pii/S2352152X24026914",
+            "title": "Article page - ScienceDirect",
+        }]
+        with patch.object(cdp_utils, "check_cdp", return_value=True), \
+             patch.object(cdp_utils, "get_cdp_ws_url", return_value="ws://browser"), \
+             patch.object(cdp_utils.websocket, "create_connection") as create_connection, \
+             patch.object(cdp_utils, "list_tabs", return_value=tabs), \
+             patch.object(cdp_utils, "close_tab") as close_tab, \
+             patch.object(cdp_utils.time, "sleep", return_value=None):
+            ws = create_connection.return_value
+            ws.recv.return_value = '{"result":{"targetId":"tab-1"}}'
+
+            status, reason = cdp_utils.check_sd_access(9223)
+
+        self.assertEqual(status, "blocked")
+        self.assertIn("pdf probe unknown", reason)
+        close_tab.assert_called_with(9223, "tab-1")
+
+    def test_sd_access_probe_pdf_redirect_is_ok(self):
+        tabs = [{
+            "id": "tab-1",
+            "url": "https://pdf.sciencedirectassets.com/demo/main.pdf",
+            "title": "main.pdf",
+        }]
+        with patch.object(cdp_utils, "check_cdp", return_value=True), \
+             patch.object(cdp_utils, "get_cdp_ws_url", return_value="ws://browser"), \
+             patch.object(cdp_utils.websocket, "create_connection") as create_connection, \
+             patch.object(cdp_utils, "list_tabs", return_value=tabs), \
+             patch.object(cdp_utils, "close_tab") as close_tab, \
+             patch.object(cdp_utils.time, "sleep", return_value=None):
+            ws = create_connection.return_value
+            ws.recv.return_value = '{"result":{"targetId":"tab-1"}}'
+
+            status, reason = cdp_utils.check_sd_access(9223)
+
+        self.assertEqual((status, reason), ("ok", "pdf_probe_ok"))
+        close_tab.assert_called_with(9223, "tab-1")
+
     def test_sd_download_diagnosis_detects_referencework_and_verification(self):
         tabs = [
             {"id": "ref", "url": "https://www.sciencedirect.com/science/chapter/referencework/abs/pii/B9780323960205000388", "title": "Book chapter - ScienceDirect"},
