@@ -8,6 +8,31 @@
 
 ---
 
+## v1.0.17-20260622 (2026-06-21 至 2026-06-22)
+
+### Step 5 真实下载链路、英文优先顺序与登录 checkpoint 收口
+
+- **Step 5 英文优先并加下载锁**：统一下载顺序收紧为 Sci-Hub / OA fast / English Generic CDP 完成后才进入 CNKI/万方；`--parallel-phase1` 保留兼容但不再并发启动中文，并新增跨进程 `step5_download.lock` 防止多个下载进程同时冲击同一 CDP 浏览器。
+- **英文 OA 清单分层与 CDP 分组**：Step 5 拿到英文 DOI 后先标记 `oa_candidate` / `no_oa_hint` / `unknown`，真实下载仍由 OA fast 验证；OA fast 剩余条目进入 English CDP 时按 publisher 分组执行，减少不同出版社页面互相冲击。
+- **English CDP 登录门控与重试语义固定**：English CDP 第一轮按 publisher 分组全部探测完成后才统一触发机构登录 gate；用户确认后只对登录类失败 DOI 分组重试一次，非登录类失败不进入登录重试。
+- **英文登录门控三态对齐中文**：英文机构登录 gate 的 `3 / 稍后重试`、非交互输入失败和未识别输入统一写 `login_checkpoint.json`，不再误当作 skip 或继续。
+- **真实下载产物从仓库内容中清理**：实测过程中产生的 `paper-temp/` PDF、下载日志和失败 DOI 临时文件不再保留为版本内容，避免把一次性下载结果混进 skill 发布面。
+
+### CNKI / 万方 Windows 实测反馈收口
+
+- **CNKI 失败状态拆分**：`generic_publisher_downloader.py` 对 CNKI 安全验证页返回 `captcha_required`，对详情页未证明下载入口返回 `pdf_probe_unknown`，对人工路径返回 `manual_required`，对未识别到 PDF 但出现章节/分页入口的页面返回 `chapter_download_mode`，不再统一压成 `failed`。
+- **CNKI 自动点击入口收紧为 PDF 白名单**：期刊论文和学位论文详情页都只允许自动点击明确的 `PDF下载` / `PDF 下载` / `#pdfDown`；`AI阅读`、`原版阅读`、`CAJ下载`、`章节下载`、`分页下载`、`我是作者`、`免费下载`、`在线阅读`、`整本下载` 一律不自动点击。
+- **万方自动点击入口按类型收紧**：期刊论文详情页只点击 `下载`，不点 `在线阅读` / `评审材料`；学位论文详情页只点击 `整篇下载`，不点 `在线阅读` / `分章下载`，并兼容 `d.wanfangdata.com.cn/...` 与 `details/detail.do` 两类 URL。
+- **中文登录门控改为 checkpoint 语义**：CNKI/万方登录确认变为三态；未收到明确“已登录”或用户选择“稍后重试”时写出 `chinese_login_checkpoint.json`，不再误判为 skip 并跳到后续数据库。
+- **中文下载清单稳定排序**：Step 5 拿到中文清单后先按 source 排序为 CNKI → 万方，同一数据库内部保留原顺序；排序后的清单贯穿路由 summary、登录门控、checkpoint、下载和 download log。
+- **Step 5 运行契约补充 Windows/CNKI 协作经验**：`agents/step_5_download.md` 和 `references/download-readiness-states.md` 写入安全验证、已验证详情页复用、独立中文 CDP 会话、人工点击下载 + Agent 监视落盘等规则。
+
+### Step 4 / Step 5 契约、平台兼容与测试补强
+
+- **Step 4 到 Step 5 的中文输入约定继续明确**：`agents/step_4_search_score.md` 和 `workflow_contracts.py` 补齐中文检索结果、中文元数据和 Step 5 下载清单之间的字段契约，减少 CNKI/万方 direct-entry 时的解析歧义。
+- **CDP 与平台兼容防线补强**：`cdp_utils.py`、`start_cdp_browser.py` 和平台兼容测试继续收口 Chrome/Edge 启动、Windows 路径、浏览器会话复用与下载落盘监视边界。
+- **回归测试补齐**：`tests/test_step5_download.py` 增加 CNKI 状态透传和入口优先级单元测试，避免后续把 CNKI 阻塞状态重新退化为 generic failed。
+
 ## v1.0.16-20260621 (2026-06-21)
 
 ### Step 8、跨平台入口与更新协议继续收口

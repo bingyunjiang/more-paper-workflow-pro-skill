@@ -26,7 +26,7 @@ Usage:
 
 from __future__ import annotations
 
-import sys, os, time, re, json, argparse, subprocess, hashlib
+import sys, os, time, re, json, argparse, subprocess, hashlib, atexit
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -74,6 +74,16 @@ DEFAULT_OUTPUT = "paper-temp"
 SCI_HUB_CUTOFF_YEAR = 2021  # Sci-Hub has very few papers after 2020
 OA_FAST_MIN_BYTES = 5000
 OA_FAST_TIMEOUT = 15
+DOWNLOAD_LOCK_MESSAGE = "上一进程下载中，请等一等，下载完再运行中文下载。"
+ENGLISH_CDP_PUBLISHER_PRIORITY = {
+    "sd_elsevier": 0,
+    "ieee": 1,
+    "springer": 2,
+    "wiley": 3,
+    "acs": 4,
+    "rsc": 5,
+    "nature": 6,
+}
 
 # Strategy routing table (for display and decisions)
 STRATEGY_ORDER = ["scihub", "ieee_cdp", "generic", "chinese_cdp", "direct_http", "skip"]
@@ -84,6 +94,120 @@ CHINESE_PUBLISHERS = {"cnki", "wanfang"}
 # Chinese paper entry schema (from literature table or JSON)
 # Each entry: {"title": str, "source": "cnki"|"wanfang", "article_url": str, "doi": str}
 CHINESE_PAPER_FIELDS = frozenset({"title", "source", "article_url"})
+CHINESE_SOURCE_PRIORITY = {"cnki": 0, "wanfang": 1}
+
+
+def step5_download_lock_path() -> Path:
+    """Return the cross-process lock file used by real Step 5 downloads."""
+    override = os.environ.get("MORE_PAPER_STEP5_LOCK_PATH", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".cache" / "more-paper-workflow-pro-skill" / "step5_download.lock"
+
+
+def _pid_is_running(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        try:
+            proc = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except Exception:
+            return True
+        return str(pid) in (proc.stdout or "")
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
+def _read_download_lock(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def acquire_step5_download_lock(mode: str, port: int) -> tuple[bool, Path, dict]:
+    """Atomically acquire the Step 5 real-download lock.
+
+    Returns (acquired, lock_path, blocker_payload). If acquired is False, the
+    lock belongs to a still-running process.
+    """
+    path = step5_download_lock_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "pid": os.getpid(),
+        "started_at": datetime.now().isoformat(timespec="seconds"),
+        "mode": mode,
+        "port": port,
+        "command": " ".join(sys.argv),
+    }
+    while True:
+        try:
+            fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            blocker = _read_download_lock(path)
+            blocker_pid = int(blocker.get("pid") or 0)
+            if _pid_is_running(blocker_pid):
+                return False, path, blocker
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+            continue
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        return True, path, {}
+
+
+def release_step5_download_lock(path: Path | str) -> None:
+    path = Path(path)
+    payload = _read_download_lock(path)
+    if int(payload.get("pid") or 0) != os.getpid():
+        return
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def _print_download_lock_blocker(lock_path: Path, blocker: dict) -> None:
+    print(f"\n{WARN} {DOWNLOAD_LOCK_MESSAGE}")
+    pid = blocker.get("pid") or "unknown"
+    mode = blocker.get("mode") or "unknown"
+    started = blocker.get("started_at") or "unknown"
+    print(f"  Lock: {lock_path}")
+    print(f"  Running process: pid={pid}, mode={mode}, started_at={started}")
+
+
+def acquire_or_exit_step5_download_lock(mode: str, port: int) -> Path:
+    acquired, lock_path, blocker = acquire_step5_download_lock(mode, port)
+    if not acquired:
+        _print_download_lock_blocker(lock_path, blocker)
+        sys.exit(2)
+    atexit.register(release_step5_download_lock, lock_path)
+    return lock_path
+
+
+def sort_chinese_papers_for_download(papers: list[dict]) -> list[dict]:
+    """Stable Step 5 Chinese download order: CNKI, then Wanfang, then unknown."""
+    return sorted(
+        papers,
+        key=lambda paper: CHINESE_SOURCE_PRIORITY.get(
+            str(paper.get("source", "")).strip().lower(),
+            len(CHINESE_SOURCE_PRIORITY),
+        ),
+    )
 
 
 def ensure_cdp_running(port: int, browser: str = "chrome") -> bool:
@@ -478,6 +602,68 @@ def build_oa_hints_from_items(items: list) -> dict[str, dict]:
     return hints
 
 
+def classify_oa_hint(hint: Optional[dict]) -> str:
+    """Classify list-time OA metadata. This is not PDF verification."""
+    if not hint or not any(str(v).strip() for v in hint.values()):
+        return "no_oa_hint"
+    pdf_url = str(hint.get("oa_pdf_url") or "").strip()
+    if pdf_url:
+        return "oa_candidate" if _looks_like_pdf_url(pdf_url) else "unknown"
+    status = str(hint.get("oa_status") or "").strip().lower()
+    source = str(hint.get("oa_source") or "").strip().lower()
+    if status in {"oa", "open", "open_access", "green", "gold", "hybrid", "bronze"}:
+        return "oa_candidate"
+    if source in {"unpaywall", "openalex", "semantic_scholar", "pmc", "pubmed"} and status:
+        return "oa_candidate"
+    return "unknown"
+
+
+def classify_english_oa_hints(dois: list[str], oa_hints: Optional[dict[str, dict]]) -> dict[str, str]:
+    hints = _normalise_oa_hints(oa_hints)
+    return {
+        doi: classify_oa_hint(hints.get(doi.strip().lower()))
+        for doi in dois
+    }
+
+
+def print_english_oa_hint_summary(dois: list[str], oa_hints: Optional[dict[str, dict]]) -> None:
+    if not dois:
+        return
+    classifications = classify_english_oa_hints(dois, oa_hints)
+    counts = {"oa_candidate": 0, "no_oa_hint": 0, "unknown": 0}
+    for status in classifications.values():
+        counts[status] = counts.get(status, 0) + 1
+    print("English OA hints:")
+    print(f"  oa_candidate: {counts.get('oa_candidate', 0):3d}")
+    print(f"  no_oa_hint:   {counts.get('no_oa_hint', 0):3d}")
+    print(f"  unknown:      {counts.get('unknown', 0):3d}")
+
+
+def group_english_cdp_dois(dois: list[str]) -> list[tuple[str, str, list[str]]]:
+    """Group English CDP DOI list by publisher while preserving in-group order."""
+    grouped: dict[str, dict] = {}
+    first_seen: dict[str, int] = {}
+    for idx, doi in enumerate(dois):
+        pub = resolve_publisher(doi)
+        pub_name = pub.get("_key", "unknown") if pub else "unknown"
+        publisher_domain = pub.get("publisher_domain", "?") if pub else "?"
+        if pub_name not in grouped:
+            grouped[pub_name] = {"domain": publisher_domain, "dois": []}
+            first_seen[pub_name] = idx
+        grouped[pub_name]["dois"].append(doi)
+
+    def sort_key(item: tuple[str, dict]) -> tuple[int, int]:
+        name, _payload = item
+        if name == "unknown":
+            return (10_000, first_seen[name])
+        return (ENGLISH_CDP_PUBLISHER_PRIORITY.get(name, 1_000), first_seen[name])
+
+    return [
+        (name, payload["domain"], payload["dois"])
+        for name, payload in sorted(grouped.items(), key=sort_key)
+    ]
+
+
 def _looks_like_pdf_url(url: str) -> bool:
     try:
         parsed = urllib.parse.urlparse(url)
@@ -817,64 +1003,64 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
     remaining = []
     failure_reasons: dict[str, str] = {}
 
-    for i, doi in enumerate(generic_dois):
-        pub = resolve_publisher(doi)
-        pub_name = pub.get("_key", "unknown") if pub else "unknown"
-        publisher_domain = pub.get("publisher_domain", "?") if pub else "?"
+    global_i = 0
+    for pub_name, publisher_domain, group_dois in group_english_cdp_dois(generic_dois):
+        print(f"\n  English CDP group: {pub_name} ({publisher_domain}), {len(group_dois)} papers")
+        for doi in group_dois:
+            global_i += 1
+            print(f"  [{global_i}/{len(generic_dois)}] {doi[:50]} {ARROW} {pub_name} ({publisher_domain})", end=" ", flush=True)
 
-        print(f"  [{i+1}/{len(generic_dois)}] {doi[:50]} {ARROW} {pub_name} ({publisher_domain})", end=" ", flush=True)
-
-        t0 = time.time()
-        try:
-            result_path, status, _ = generic_download_one(
-                port, doi, output_dir, include_si=include_si
-            )
-        except Exception as e:
-            if ensure_cdp_running(port):
-                try:
-                    result_path, status, _ = generic_download_one(
-                        port, doi, output_dir, include_si=include_si
-                    )
-                except Exception:
+            t0 = time.time()
+            try:
+                result_path, status, _ = generic_download_one(
+                    port, doi, output_dir, include_si=include_si
+                )
+            except Exception as e:
+                if ensure_cdp_running(port):
+                    try:
+                        result_path, status, _ = generic_download_one(
+                            port, doi, output_dir, include_si=include_si
+                        )
+                    except Exception:
+                        result_path, status = None, "failed"
+                else:
                     result_path, status = None, "failed"
-            else:
-                result_path, status = None, "failed"
-            print(f"\n  {WARN} Retry after error: {type(e).__name__}")
-        elapsed = time.time() - t0
+                print(f"\n  {WARN} Retry after error: {type(e).__name__}")
+            elapsed = time.time() - t0
 
-        if result_path and status == "ok":
-            size_kb = os.path.getsize(result_path) // 1024
-            print(f"{OK} ({size_kb}KB, {elapsed:.1f}s)")
-            downloaded.append(doi)
-            ok += 1
-        elif status in (
-            "manual_required",
-            "captcha_required",
-            "institution_login_required",
-            "pdf_probe_unknown",
-            "access_denied",
-            "login_required",
-        ):
-            print(f"{WARN} manual confirmation needed ({elapsed:.1f}s)")
-            print(f"  {ARROW} {pub_name} 需要你现在去可见 Chrome 完成机构登录/验证；完成后可继续重跑剩余列表。")
-            remaining.append(doi)
-            fail += 1
-            failure_reasons[doi] = status
-        elif status == "si_only":
-            print(f"{WARN} SI only ({elapsed:.1f}s)")
-            remaining.append(doi)
-            fail += 1
-            failure_reasons[doi] = "supplementary_only"
-        elif status in ("pii_resolution_failed", "not_subscribed_or_referencework", "article_page_no_pdf_route"):
-            print(f"{FAIL} ({status}, {elapsed:.1f}s)")
-            remaining.append(doi)
-            fail += 1
-            failure_reasons[doi] = status
-        else:
-            print(f"{FAIL} ({elapsed:.1f}s)")
-            remaining.append(doi)
-            fail += 1
-            failure_reasons[doi] = "generic_failed"
+            if result_path and status == "ok":
+                size_kb = os.path.getsize(result_path) // 1024
+                print(f"{OK} ({size_kb}KB, {elapsed:.1f}s)")
+                downloaded.append(doi)
+                ok += 1
+            elif status in (
+                "manual_required",
+                "captcha_required",
+                "institution_login_required",
+                "pdf_probe_unknown",
+                "access_denied",
+                "login_required",
+            ):
+                print(f"{WARN} manual confirmation needed ({elapsed:.1f}s)")
+                print(f"  {ARROW} {pub_name} 需要你现在去可见 Chrome 完成机构登录/验证；完成后可继续重跑剩余列表。")
+                remaining.append(doi)
+                fail += 1
+                failure_reasons[doi] = status
+            elif status == "si_only":
+                print(f"{WARN} SI only ({elapsed:.1f}s)")
+                remaining.append(doi)
+                fail += 1
+                failure_reasons[doi] = "supplementary_only"
+            elif status in ("pii_resolution_failed", "not_subscribed_or_referencework", "article_page_no_pdf_route"):
+                print(f"{FAIL} ({status}, {elapsed:.1f}s)")
+                remaining.append(doi)
+                fail += 1
+                failure_reasons[doi] = status
+            else:
+                print(f"{FAIL} ({elapsed:.1f}s)")
+                remaining.append(doi)
+                fail += 1
+                failure_reasons[doi] = "generic_failed"
 
     # Remaining = failures + skips
     remaining = remaining + skip_dois
@@ -977,8 +1163,8 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
                          ) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
     """Run English download pipeline: Sci-Hub (<=2021) -> OA fast -> Generic CDP.
 
-    Designed to be called in parallel with run_chinese_round() via
-    ThreadPoolExecutor, sharing the same CDP port.
+    English paths must finish before CNKI/Wanfang CDP starts. This helper is
+    retained for direct callers; main() now serializes English before Chinese.
 
     Args:
         dois: List of DOIs to download.
@@ -1068,7 +1254,8 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
 
     login_retry_dois = _filter_login_required_dois(remaining, generic_failures)
     if login_retry_dois:
-        print(f"\n{WARN} Institutional login required for {len(login_retry_dois)} publisher item(s).")
+        print(f"\n{WARN} First grouped English CDP pass completed; institutional login/manual confirmation required for {len(login_retry_dois)} item(s).")
+        print("  Only those login-required item(s) will be retried once after confirmation.")
         gate_result = show_english_login_gate(
             login_retry_dois,
             skip_sd=skip_sd,
@@ -1260,6 +1447,73 @@ def write_login_checkpoint(output_dir: str, stage: str, dois: list[str],
     return path
 
 
+def write_chinese_login_checkpoint(output_dir: str, papers: list[dict]) -> str:
+    """Write a re-runnable login checkpoint for pending CNKI/Wanfang papers."""
+    path = os.path.join(output_dir, "chinese_login_checkpoint.json")
+    os.makedirs(output_dir, exist_ok=True)
+    items = []
+    for idx, paper in enumerate(papers, start=1):
+        items.append({
+            "source": paper.get("source", ""),
+            "title": paper.get("title", f"paper_{idx}"),
+            "doi": paper.get("doi", paper.get("source_id", "")),
+            "source_id": paper.get("source_id", ""),
+            "article_url": paper.get("article_url", ""),
+            "failure_reason": "pending_user_login",
+        })
+    payload = {
+        "checkpoint_type": "chinese_publisher_login",
+        "status": "pending_user_login",
+        "stage": "chinese_cdp_login",
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "items": items,
+        "rerun_hint": "python3 scripts/unified_download_router.py --resume-chinese-login-checkpoint paper-temp/chinese_login_checkpoint.json --output paper-temp/ --require-login-confirm",
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    return path
+
+
+def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
+                                         port: int) -> tuple[list[str], list[str]]:
+    """Resume only the CNKI/Wanfang papers stored in a Chinese login checkpoint."""
+    with open(checkpoint_path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    papers = [
+        item for item in payload.get("items", [])
+        if item.get("source") in {"cnki", "wanfang"} and item.get("article_url")
+    ]
+    papers = sort_chinese_papers_for_download(papers)
+    if not papers:
+        return [], []
+
+    gate = show_chinese_login_gate(papers)
+    if gate is True:
+        return run_chinese_round(papers, output_dir, port)
+    if gate is False:
+        print("Chinese download skipped by user.")
+        return [], [paper.get("doi") or paper.get("title", "") for paper in papers]
+
+    refreshed = write_chinese_login_checkpoint(output_dir, papers)
+    print(f"{WARN} Chinese login still pending; checkpoint refreshed: {refreshed}")
+    return [], [paper.get("doi") or paper.get("title", "") for paper in papers]
+
+
+def prepare_chinese_round_with_login_gate(papers: list[dict], output_dir: str) -> bool:
+    """Return True only when Chinese login was explicitly confirmed."""
+    gate = show_chinese_login_gate(papers)
+    if gate is True:
+        return True
+    if gate is False:
+        print("Chinese download skipped by user.")
+        return False
+
+    checkpoint = write_chinese_login_checkpoint(output_dir, papers)
+    print(f"{WARN} Chinese login pending; checkpoint written: {checkpoint}")
+    return False
+
+
 def resume_from_login_checkpoint(checkpoint_path: str, output_dir: str, port: int,
                                  include_si: bool = False) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
     """Resume only the English DOI subset stored in a login checkpoint."""
@@ -1296,8 +1550,14 @@ def resume_from_login_checkpoint(checkpoint_path: str, output_dir: str, port: in
     return downloaded, remaining, round_results, failure_reasons
 
 
-def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
-    """Display Chinese (CNKI/Wanfang) login gate. Returns True if confirmed."""
+def show_chinese_login_gate(chinese_papers: list[dict]) -> Optional[bool]:
+    """Display Chinese login gate.
+
+    Returns:
+      True  -> user explicitly confirmed login
+      False -> user explicitly skipped
+      None  -> host cannot read input or user deferred
+    """
     if not chinese_papers:
         return True
     from generic_publisher_downloader import _PUBLISHER_CONFIGS
@@ -1320,7 +1580,7 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
     print("Choose one option:")
     print("  1) 已登录，继续")
     print("  2) 没有账号，跳过并继续")
-    print("  3) 稍后重试")
+    print("  3) 稍后重试（写 checkpoint，稍后恢复）")
     print()
     for p in sorted(set(pubs)):
         print(p)
@@ -1328,19 +1588,22 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
     print("  CNKI:  https://kns.cnki.net/")
     print("  Wanfang: https://www.wanfangdata.com.cn/")
     print()
-    try:
-        resp = input("Enter 1/2/3: ").strip().lower()
-    except (EOFError, KeyboardInterrupt):
-        print("\nSkipping Chinese download.")
-        return False
+    raw_resp = _safe_gate_input("Enter 1/2/3: ")
+    if raw_resp is None:
+        print("\nChinese login requires checkpoint/resume rather than treating this as skip.")
+        return None
+    resp = raw_resp.strip().lower()
     if resp in ("1", "已登录", "y", "yes", "done", "继续", "go"):
         print(f"{OK} Chinese login confirmed - starting CNKI/Wanfang CDP.\n")
         return True
     if resp in ("2", "skip", "q", "quit", "exit", "n", "no", "无账号", "没有账号"):
         print(f"{SKIP} Chinese login skipped - continuing with other download paths.\n")
         return False
-    print(f"{SKIP} Chinese login deferred - continuing with other download paths.\n")
-    return False
+    if resp in ("3", "later", "retry", "稍后", "重试", "稍后重试"):
+        print("Chinese login deferred - checkpoint required before rerun.\n")
+        return None
+    print(f"{WARN} Unrecognized response - checkpoint required before rerun.\n")
+    return None
 
 
 def show_english_login_gate(dois: list[str], skip_sd: bool = False,
@@ -1393,7 +1656,7 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False,
     print("Choose one option:")
     print("  1) 已登录，继续")
     print("  2) 没有账号，跳过并继续")
-    print("  3) 稍后重试")
+    print("  3) 稍后重试（写 checkpoint，稍后恢复）")
     print()
     print("  1. Open CDP Chrome at http://127.0.0.1:9223")
     print("  2. Navigate to each publisher's homepage (domains listed above)")
@@ -1415,12 +1678,12 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False,
     elif resp in ("2", "q", "quit", "exit", "n", "no", "skip", "无账号", "没有账号"):
         print(f"{SKIP} English institutional login skipped - continuing without login-only publishers.")
         return False
-    elif resp in ("3", "later", "retry", "稍后", "重试"):
-        print("English login deferred - you can rerun the remaining list later.\n")
-        return False
+    elif resp in ("3", "later", "retry", "稍后", "重试", "稍后重试"):
+        print("English login deferred - checkpoint required before rerun.\n")
+        return None
     else:
-        print(f"{WARN} Unrecognized response - proceeding (Ctrl+C to abort).\n")
-        return True
+        print(f"{WARN} Unrecognized response - checkpoint required before rerun.\n")
+        return None
 
 
 # ── Session Check ───────────────────────────────────────────────────────────
@@ -1492,6 +1755,8 @@ def main():
     parser.add_argument("--test-wanfang", help="Test single Wanfang paper download (provide article URL)")
     parser.add_argument("--resume-login-checkpoint", nargs="?", const="AUTO",
                         help="Resume English DOI download from login_checkpoint.json (default: <output>/login_checkpoint.json)")
+    parser.add_argument("--resume-chinese-login-checkpoint", nargs="?", const="AUTO",
+                        help="Resume CNKI/Wanfang download from chinese_login_checkpoint.json (default: <output>/chinese_login_checkpoint.json)")
 
     args = parser.parse_args()
     sd_browser = args.sd_browser or args.browser
@@ -1508,27 +1773,68 @@ def main():
         if not os.path.exists(checkpoint_path):
             print(f"ERROR: login checkpoint not found: {checkpoint_path}")
             sys.exit(1)
+        lock_path = acquire_or_exit_step5_download_lock("resume_english_login_checkpoint", args.port)
         if not ensure_cdp_running(args.port, browser=args.browser):
             print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
             sys.exit(1)
         if not check_required_deps():
             sys.exit(1)
 
-        downloaded, remaining, round_results, failure_reasons = resume_from_login_checkpoint(
-            checkpoint_path,
-            args.output,
-            args.port,
-            include_si=args.include_si,
-        )
-        with open(checkpoint_path, "r", encoding="utf-8") as f:
-            payload = json.load(f)
-        all_dois = [
-            item.get("doi", "").strip()
-            for item in payload.get("items", [])
-            if item.get("doi", "").strip()
-        ]
-        generate_download_log(args.output, all_dois, round_results, failure_reasons)
-        print(f"\n{DONE} Resume complete - {OK} {len(downloaded)}/{len(all_dois)}, {FAIL} {len(remaining)} remaining")
+        try:
+            downloaded, remaining, round_results, failure_reasons = resume_from_login_checkpoint(
+                checkpoint_path,
+                args.output,
+                args.port,
+                include_si=args.include_si,
+            )
+            with open(checkpoint_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            all_dois = [
+                item.get("doi", "").strip()
+                for item in payload.get("items", [])
+                if item.get("doi", "").strip()
+            ]
+            generate_download_log(args.output, all_dois, round_results, failure_reasons)
+            print(f"\n{DONE} Resume complete - {OK} {len(downloaded)}/{len(all_dois)}, {FAIL} {len(remaining)} remaining")
+        finally:
+            release_step5_download_lock(lock_path)
+        return
+
+    if args.resume_chinese_login_checkpoint:
+        checkpoint_path = args.resume_chinese_login_checkpoint
+        if checkpoint_path == "AUTO":
+            checkpoint_path = os.path.join(args.output, "chinese_login_checkpoint.json")
+        if not os.path.exists(checkpoint_path):
+            print(f"ERROR: Chinese login checkpoint not found: {checkpoint_path}")
+            sys.exit(1)
+        lock_path = acquire_or_exit_step5_download_lock("resume_chinese_login_checkpoint", args.port)
+        if not ensure_cdp_running(args.port, browser=args.browser):
+            print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
+            sys.exit(1)
+        if not check_required_deps():
+            sys.exit(1)
+
+        try:
+            downloaded, remaining = resume_from_chinese_login_checkpoint(
+                checkpoint_path,
+                args.output,
+                args.port,
+            )
+            with open(checkpoint_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            all_items = [
+                item.get("doi") or item.get("title", "")
+                for item in payload.get("items", [])
+                if item.get("doi") or item.get("title")
+            ]
+            generate_download_log(
+                args.output,
+                all_items,
+                [{"round": "Chinese CDP (resume login checkpoint)", "downloaded": downloaded}],
+            )
+            print(f"\n{DONE} Chinese resume complete - {OK} {len(downloaded)}/{len(all_items)}, {FAIL} {len(remaining)} remaining")
+        finally:
+            release_step5_download_lock(lock_path)
         return
 
     # --test
@@ -1563,21 +1869,25 @@ def main():
             return
 
         # Actual download attempt
+        lock_path = acquire_or_exit_step5_download_lock("test_doi", args.port)
         if not ensure_cdp_running(args.port, browser=args.browser):
             print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
             sys.exit(1)
 
-        print(f"\nDownloading via {info['strategy']} strategy...")
-        result_path, status, pub = generic_download_one(
-            args.port, doi, args.output, include_si=args.include_si
-        )
-        if result_path and status == "ok":
-            size_kb = os.path.getsize(result_path) // 1024
-            print(f"{OK} Downloaded: {result_path} ({size_kb} KB)")
-        elif status == "si_only":
-            print(f"{WARN} SI downloaded only (no PDF)")
-        else:
-            print(f"{FAIL} Failed: status={status}")
+        try:
+            print(f"\nDownloading via {info['strategy']} strategy...")
+            result_path, status, pub = generic_download_one(
+                args.port, doi, args.output, include_si=args.include_si
+            )
+            if result_path and status == "ok":
+                size_kb = os.path.getsize(result_path) // 1024
+                print(f"{OK} Downloaded: {result_path} ({size_kb} KB)")
+            elif status == "si_only":
+                print(f"{WARN} SI downloaded only (no PDF)")
+            else:
+                print(f"{FAIL} Failed: status={status}")
+        finally:
+            release_step5_download_lock(lock_path)
         return
 
     # --test-cnki (single CNKI paper via article URL)
@@ -1586,21 +1896,25 @@ def main():
         if not article_url.startswith("http"):
             print(f"ERROR: --test-cnki requires a full article URL (https://...)")
             sys.exit(1)
+        lock_path = acquire_or_exit_step5_download_lock("test_cnki", args.port)
         print("=== Chinese Download - Test Mode (CNKI) ===")
         print(f"URL: {article_url}")
         if not ensure_cdp_running(args.port, browser=args.browser):
             print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
             sys.exit(1)
-        print(f"\nDownloading via CNKI CDP...")
-        result_path, status, pub = generic_download_one(
-            args.port, f"cnki.test.{hashlib.md5(article_url.encode()).hexdigest()[:8]}",
-            args.output, article_url=article_url
-        )
-        if result_path and status == "ok":
-            size_kb = os.path.getsize(result_path) // 1024
-            print(f"{OK} Downloaded: {result_path} ({size_kb} KB)")
-        else:
-            print(f"{FAIL} Failed: status={status}")
+        try:
+            print(f"\nDownloading via CNKI CDP...")
+            result_path, status, pub = generic_download_one(
+                args.port, f"cnki.test.{hashlib.md5(article_url.encode()).hexdigest()[:8]}",
+                args.output, article_url=article_url
+            )
+            if result_path and status == "ok":
+                size_kb = os.path.getsize(result_path) // 1024
+                print(f"{OK} Downloaded: {result_path} ({size_kb} KB)")
+            else:
+                print(f"{FAIL} Failed: status={status}")
+        finally:
+            release_step5_download_lock(lock_path)
         return
 
     # --test-wanfang (single Wanfang paper via article URL)
@@ -1609,21 +1923,25 @@ def main():
         if not article_url.startswith("http"):
             print(f"ERROR: --test-wanfang requires a full article URL (https://...)")
             sys.exit(1)
+        lock_path = acquire_or_exit_step5_download_lock("test_wanfang", args.port)
         print("=== Chinese Download - Test Mode (Wanfang) ===")
         print(f"URL: {article_url}")
         if not ensure_cdp_running(args.port, browser=args.browser):
             print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
             sys.exit(1)
-        print(f"\nDownloading via Wanfang CDP...")
-        result_path, status, pub = generic_download_one(
-            args.port, f"wanfang.test.{hashlib.md5(article_url.encode()).hexdigest()[:8]}",
-            args.output, article_url=article_url
-        )
-        if result_path and status == "ok":
-            size_kb = os.path.getsize(result_path) // 1024
-            print(f"{OK} Downloaded: {result_path} ({size_kb} KB)")
-        else:
-            print(f"{FAIL} Failed: status={status}")
+        try:
+            print(f"\nDownloading via Wanfang CDP...")
+            result_path, status, pub = generic_download_one(
+                args.port, f"wanfang.test.{hashlib.md5(article_url.encode()).hexdigest()[:8]}",
+                args.output, article_url=article_url
+            )
+            if result_path and status == "ok":
+                size_kb = os.path.getsize(result_path) // 1024
+                print(f"{OK} Downloaded: {result_path} ({size_kb} KB)")
+            else:
+                print(f"{FAIL} Failed: status={status}")
+        finally:
+            release_step5_download_lock(lock_path)
         return
 
     workflow_items = []
@@ -1682,6 +2000,7 @@ def main():
             seen_chinese[key] = len(deduped_chinese)
             deduped_chinese.append(paper)
         chinese_papers = deduped_chinese
+        chinese_papers = sort_chinese_papers_for_download(chinese_papers)
         cnki_count = sum(1 for p in chinese_papers if p["source"] == "cnki")
         wf_count = sum(1 for p in chinese_papers if p["source"] == "wanfang")
         print(f"Chinese papers: {len(chinese_papers)} total ({cnki_count} CNKI + {wf_count} Wanfang)")
@@ -1743,6 +2062,7 @@ def main():
         if items:
             label = strategy_labels.get(s, s)
             print(f"  {label:25s}: {len(items):3d} papers")
+    print_english_oa_hint_summary(dois, oa_hints)
 
     if args.dry_run:
         total = sum(1 for c in classified if c["strategy"] != "skip")
@@ -1750,11 +2070,14 @@ def main():
               f"({sum(1 for c in classified if c['strategy']=='chinese_cdp')} Chinese)")
         return
 
-    # Check CDP only for phase-1 CDP work. English Generic CDP is checked after
+    lock_path = acquire_or_exit_step5_download_lock("batch_download", args.port)
+    if args.parallel_phase1:
+        print(f"\n{WARN} --parallel-phase1 is deprecated and ignored: English and Chinese downloads are serialized to protect the CDP browser.")
+
+    # Check CDP only for early CDP work. English Generic CDP is checked after
     # OA fast so public PDFs do not get blocked by institutional browser setup.
     has_scihub_round = bool(dois) and not args.skip_scihub and bool(_scihub_eligible_dois(dois))
-    has_chinese_cdp = bool(chinese_papers and not args.skip_chinese)
-    if (has_scihub_round or has_chinese_cdp) and not ensure_cdp_running(args.port, browser=args.browser):
+    if has_scihub_round and not ensure_cdp_running(args.port, browser=args.browser):
         print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
         print(f"Start {args.browser.title()} with:")
         print(f"  {sys.executable} scripts/start_cdp_browser.py --browser {args.browser} --port {args.port}")
@@ -1765,9 +2088,8 @@ def main():
         sys.exit(1)
 
     # ═══════════════════════════════════════════════════════════════════
-    # Phase 1: Sci-Hub + Chinese gate + Chinese CDP
-    # Default is serial because CNKI/Wanfang and shared CDP browser state are
-    # more reliable when not competing with other browser automation.
+    # Phase 1: Sci-Hub
+    # Chinese CDP is intentionally delayed until all English DOI paths finish.
     # ═══════════════════════════════════════════════════════════════════
 
     scihub_dl: list[str] = []
@@ -1775,54 +2097,12 @@ def main():
     ch_dl: list[str] = []
     ch_rem: list[str] = []
 
-    if args.parallel_phase1:
-        from concurrent.futures import ThreadPoolExecutor
-
-        scihub_future = None
-        ch_future = None
-        if dois and args.skip_scihub:
-            print(f"\n{SKIP} Round 1 (Sci-Hub): Skipped (--skip-scihub)")
-        elif dois and not has_scihub_round:
-            print(f"\n{SKIP} Round 1 (Sci-Hub): No <= {SCI_HUB_CUTOFF_YEAR} papers to try.")
-        with ThreadPoolExecutor(max_workers=2) as phase1:
-            if has_scihub_round:
-                scihub_future = phase1.submit(
-                    run_scihub_round, list(dois), args.output, args.port
-                )
-
-            if chinese_papers and not args.skip_chinese:
-                if args.require_login_confirm:
-                    if show_chinese_login_gate(chinese_papers):
-                        ch_future = phase1.submit(
-                            run_chinese_round, chinese_papers, args.output, args.port
-                        )
-                    else:
-                        print("Chinese download skipped by user.")
-                else:
-                    ch_future = phase1.submit(
-                        run_chinese_round, chinese_papers, args.output, args.port
-                    )
-
-        if scihub_future:
-            scihub_dl, scihub_rem = scihub_future.result()
-        if ch_future:
-            ch_dl, ch_rem = ch_future.result()
-    else:
-        if has_scihub_round:
-            scihub_dl, scihub_rem = run_scihub_round(list(dois), args.output, args.port)
-        elif dois and args.skip_scihub:
-            print(f"\n{SKIP} Round 1 (Sci-Hub): Skipped (--skip-scihub)")
-        elif dois:
-            print(f"\n{SKIP} Round 1 (Sci-Hub): No <= {SCI_HUB_CUTOFF_YEAR} papers to try.")
-
-        if chinese_papers and not args.skip_chinese:
-            if args.require_login_confirm:
-                if show_chinese_login_gate(chinese_papers):
-                    ch_dl, ch_rem = run_chinese_round(chinese_papers, args.output, args.port)
-                else:
-                    print("Chinese download skipped by user.")
-            else:
-                ch_dl, ch_rem = run_chinese_round(chinese_papers, args.output, args.port)
+    if has_scihub_round:
+        scihub_dl, scihub_rem = run_scihub_round(list(dois), args.output, args.port)
+    elif dois and args.skip_scihub:
+        print(f"\n{SKIP} Round 1 (Sci-Hub): Skipped (--skip-scihub)")
+    elif dois:
+        print(f"\n{SKIP} Round 1 (Sci-Hub): No <= {SCI_HUB_CUTOFF_YEAR} papers to try.")
 
     # ═══════════════════════════════════════════════════════════════════
     # Phase 2: English login gate (after Sci-Hub) + English CDP
@@ -1893,14 +2173,37 @@ def main():
     en_failure_reasons = {**oa_failure_reasons, **en_failure_reasons}
 
     # ═══════════════════════════════════════════════════════════════════
-    # Phase 3: Merge results from all phases
+    # Phase 3: Chinese login gate + Chinese CDP
+    # Runs only after English DOI paths have finished or were explicitly skipped.
+    # ═══════════════════════════════════════════════════════════════════
+
+    english_login_pending = any(reason == "pending_user_login" for reason in en_failure_reasons.values())
+    if chinese_papers and not args.skip_chinese and english_login_pending:
+        print(f"\n{WARN} English login is still pending; Chinese CDP will wait until the English checkpoint is resumed.")
+        print(f"  {ARROW} Resume English first: python3 scripts/unified_download_router.py --resume-login-checkpoint {os.path.join(args.output, 'login_checkpoint.json')} --output {args.output}/")
+    else:
+        if chinese_papers and not args.skip_chinese:
+            if not ensure_cdp_running(args.port, browser=args.browser):
+                print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
+                print(f"Start {args.browser.title()} with:")
+                print(f"  {sys.executable} scripts/start_cdp_browser.py --browser {args.browser} --port {args.port}")
+                print("  macOS/Linux wrapper also supported: bash scripts/start_cdp_chrome.sh")
+                sys.exit(1)
+            if args.require_login_confirm:
+                if prepare_chinese_round_with_login_gate(chinese_papers, args.output):
+                    ch_dl, ch_rem = run_chinese_round(chinese_papers, args.output, args.port)
+            else:
+                ch_dl, ch_rem = run_chinese_round(chinese_papers, args.output, args.port)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Phase 4: Merge results from all phases
     # ═══════════════════════════════════════════════════════════════════
 
     all_downloaded = scihub_dl + ch_dl + en_dl
     round_results = (
         [{"round": "Sci-Hub", "downloaded": scihub_dl}] * (1 if scihub_dl else 0) +
-        ([{"round": "Chinese CDP", "downloaded": ch_dl}] if ch_dl or (chinese_papers and not args.skip_chinese) else []) +
-        en_results
+        en_results +
+        ([{"round": "Chinese CDP", "downloaded": ch_dl}] if ch_dl or (chinese_papers and not args.skip_chinese) else [])
     )
     remaining = en_rem + ch_rem
 
@@ -1935,6 +2238,7 @@ def main():
 
     print(f"  Download log:    {log_path}")
     print(f"\n  Next step {ARROW} Step 6: Zotero library management")
+    release_step5_download_lock(lock_path)
 
 
 if __name__ == "__main__":

@@ -58,6 +58,17 @@ LARGE_PDF_TIMEOUT = 30
 ARTICLE_RENDER_WAIT = 8  # seconds for SPA page render
 LOADING_PAGE_TIMEOUT = 30  # seconds for AIP/AVS "请稍候" loading page
 HTTP_DOWNLOAD_TIMEOUT = 30  # seconds for direct HTTP download
+CNKI_NON_OK_STATUSES = {
+    "captcha_required",
+    "pdf_probe_unknown",
+    "manual_required",
+    "chapter_download_mode",
+}
+WANFANG_NON_OK_STATUSES = {
+    "manual_required",
+    "pdf_probe_unknown",
+    "no_url",
+}
 
 # ── Config Loading ──────────────────────────────────────────────────────────
 
@@ -119,6 +130,7 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
       status: "ok" | "failed" | "skipped" | "manual_required" | "no_url"
               | "captcha_required" | "institution_login_required"
               | "pdf_probe_unknown" | "access_denied"
+              | "chapter_download_mode"
     """
     publisher = resolve_publisher(doi)
     pub_name = publisher.get("_key", "unknown") if publisher else "unknown"
@@ -161,17 +173,21 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
 
         # Wanfang: download directly to output_dir, returns path (no _save_pdf)
         if pub_name == "wanfang":
-            pdf_path = _download_wanfang(port, article_url, publisher, timeout,
-                                         output_dir=output_dir)
-            if pdf_path:
-                return pdf_path, "ok", pub_name
+            wf_result = _download_wanfang(port, article_url, publisher, timeout,
+                                          output_dir=output_dir)
+            if wf_result in WANFANG_NON_OK_STATUSES:
+                return None, str(wf_result), pub_name
+            if wf_result:
+                return wf_result, "ok", pub_name
             return None, "failed", pub_name
         # CNKI: click-based download (requires Referrer from article page)
         elif pub_name == "cnki":
-            pdf_path = _download_cnki(port, article_url, publisher, timeout,
-                                      output_dir=output_dir)
-            if pdf_path:
-                return pdf_path, "ok", pub_name
+            cnki_result = _download_cnki(port, article_url, publisher, timeout,
+                                         output_dir=output_dir)
+            if cnki_result in CNKI_NON_OK_STATUSES:
+                return None, str(cnki_result), pub_name
+            if cnki_result:
+                return cnki_result, "ok", pub_name
             return None, "failed", pub_name
         else:
             pdf_data = _strategy_article_page(port, doi, publisher, timeout,
@@ -537,6 +553,85 @@ def _strategy_article_page(port: int, doi: str, publisher: dict,
 
 # ── Wanfang Download ─────────────────────────────────────────────────────────
 
+def _parse_wanfang_article_url(article_url: str) -> tuple[str, str, str] | None:
+    """Return (paper_type, paper_id, detail_url) for supported Wanfang URLs."""
+    import urllib.parse as _urlparse
+
+    parsed = _urlparse.urlparse(article_url)
+    path = parsed.path.strip("/")
+    query = _urlparse.parse_qs(parsed.query)
+
+    if parsed.netloc == "d.wanfangdata.com.cn":
+        parts = path.split("/", 1)
+        if len(parts) == 2 and parts[0] in {"periodical", "thesis"} and parts[1]:
+            return parts[0], parts[1], article_url
+
+    if parsed.netloc == "www.wanfangdata.com.cn" and path == "details/detail.do":
+        raw_type = (query.get("_type") or query.get("type") or [""])[0].lower()
+        paper_id = (query.get("id") or [""])[0]
+        if raw_type in {"perio", "periodical"} and paper_id:
+            return "periodical", paper_id, f"https://d.wanfangdata.com.cn/periodical/{paper_id}"
+        if raw_type == "thesis" and paper_id:
+            return "thesis", paper_id, f"https://d.wanfangdata.com.cn/thesis/{paper_id}"
+
+    return None
+
+
+def _wanfang_detail_click_expression(paper_type: str) -> str:
+    """Build Wanfang detail-page JS with per-type download white-listing."""
+    allowed = "整篇下载" if paper_type == "thesis" else "下载"
+    blocked = "['在线阅读', '评审材料', '分章下载']"
+    return f'''
+(function(){{
+  var allowed = '{allowed}';
+  var blocked = {blocked};
+  function textOf(node) {{
+    return ((node.innerText || node.textContent || node.getAttribute('title') || '') + '').trim();
+  }}
+  function hasAny(text, terms) {{
+    for (var i = 0; i < terms.length; i++) {{
+      if (text.indexOf(terms[i]) >= 0) return true;
+    }}
+    return false;
+  }}
+  var nodes = document.querySelectorAll('a, button, span, div');
+  for (var i = 0; i < nodes.length; i++) {{
+    var text = textOf(nodes[i]);
+    if (hasAny(text, blocked)) continue;
+    if (text === allowed || text.replace(/\\s+/g, '') === allowed) {{
+      if (nodes[i].removeAttribute) nodes[i].removeAttribute('target');
+      nodes[i].click();
+      return 'clicked:' + allowed;
+    }}
+  }}
+  return 'pdf_probe_unknown';
+}})()
+'''
+
+
+def _wanfang_click_download_interstitial(port: int, tab_id: str) -> str:
+    tab_ws_url = get_tab_ws_url(port, tab_id)
+    if not tab_ws_url:
+        return "pdf_probe_unknown"
+    tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
+    js_click = '''
+(function(){
+  var as = document.querySelectorAll("a");
+  for (var i = 0; i < as.length; i++) {
+    if ((as[i].innerText || '').indexOf("点击此处") >= 0) {
+      as[i].click();
+      return "clicked";
+    }
+  }
+  return "not_found";
+})()
+'''
+    tab_ws.send(json.dumps({"id": 2, "method": "Runtime.evaluate", "params": {"expression": js_click}}))
+    resp = json.loads(tab_ws.recv())
+    tab_ws.close()
+    return str(resp.get("result", {}).get("result", {}).get("value", ""))
+
+
 def _download_wanfang(port: int, article_url: str, publisher: dict,
                       timeout: int = DEFAULT_TIMEOUT,
                       output_dir: str = "") -> Optional[str]:
@@ -551,44 +646,43 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
     if not output_dir:
         output_dir = tempfile.mkdtemp(prefix="wf_")
     _os.makedirs(output_dir, exist_ok=True)
-    # Record existing PDFs so we only pick up the new one
-    before = set(_glob.glob(_os.path.join(output_dir, "*.pdf")))
+    parsed = _parse_wanfang_article_url(article_url)
+    if not parsed:
+        return "no_url"
+    paper_type, _paper_id, detail_url = parsed
 
-    # Step 1: Construct download page URL from article URL
-    # Thesis:  d.wanfangdata.com.cn/thesis/{id} → f.wanfangdata.com.cn/download/pc/thesis/{id}
-    # Periodical: d.wanfangdata.com.cn/periodical/{id} → f.wanfangdata.com.cn/download/pc/periodical/{id}
-    import re as _re
-    m = _re.match(r'https?://d\.wanfangdata\.com\.cn/(thesis|periodical)/(.+)', article_url)
-    if not m:
-        return None
-    download_url = f"https://f.wanfangdata.com.cn/download/pc/{m.group(1)}/{m.group(2)}"
-
-    # Step 2: Create tab and navigate to download page
+    # Step 1: Open Wanfang detail page and click the type-specific white-list entry.
     browser_ws_url = get_cdp_ws_url(port)
     bws = websocket.create_connection(browser_ws_url, timeout=10)
     bws.send(json.dumps({"id": 1, "method": "Target.createTarget",
-                         "params": {"url": download_url}}))
+                         "params": {"url": detail_url}}))
     tid = json.loads(bws.recv())["result"]["targetId"]
     bws.close()
     time.sleep(4)
 
+    downloads_dir = _os.path.expanduser("~/Downloads")
+    before_dl = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
+
     # Get tab WS for click operation
     tab_ws_url = get_tab_ws_url(port, tid)
     if not tab_ws_url:
-        return None
+        return "pdf_probe_unknown"
     tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
 
-    # Step 3: Wait for countdown, then click "点击此处"
-    time.sleep(10)
-
-    js_click = '(function(){var as=document.querySelectorAll("a");for(var i=0;i<as.length;i++){if(as[i].innerText.indexOf("点击此处")>=0){as[i].click();return"clicked";}}return"not found";})()'
-    tab_ws.send(json.dumps({"id": 2, "method": "Runtime.evaluate", "params": {"expression": js_click}}))
-    json.loads(tab_ws.recv())
+    tab_ws.send(json.dumps({"id": 2, "method": "Runtime.evaluate",
+                            "params": {"expression": _wanfang_detail_click_expression(paper_type)}}))
+    click_resp = json.loads(tab_ws.recv())
+    click_result = str(click_resp.get("result", {}).get("result", {}).get("value", ""))
     tab_ws.close()
+    if not click_result.startswith("clicked:"):
+        close_tab(port, tid)
+        return "pdf_probe_unknown"
 
-    # Step 4: Wait for PDF in ~/Downloads (Browser.setDownloadBehavior path is unreliable)
-    downloads_dir = _os.path.expanduser("~/Downloads")
-    before_dl = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
+    # Step 2: If Wanfang opens an interstitial download page, click "点击此处".
+    time.sleep(10)
+    _wanfang_click_download_interstitial(port, tid)
+
+    # Step 3: Wait for PDF in ~/Downloads (Browser.setDownloadBehavior path is unreliable)
     for i in range(timeout + 30):
         time.sleep(1)
         current = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
@@ -609,6 +703,91 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
 
 
 # ── CNKI Download ────────────────────────────────────────────────────────────
+
+def _cnki_download_click_expression() -> str:
+    """Build CNKI detail-page JS for status split and text-first entry lookup."""
+    return r'''
+(function(){
+  var title = (document.title || '').trim();
+  var url = String(location.href || '');
+  var body = (document.body && document.body.innerText || '').trim();
+  if (url.indexOf('/verify/home') >= 0 ||
+      title.indexOf('安全验证') >= 0 ||
+      body.indexOf('请完成安全验证') >= 0) {
+    return 'captcha_required';
+  }
+
+  function textOf(node) {
+    return ((node.innerText || node.textContent || node.getAttribute('title') || '') + '').trim();
+  }
+  function hrefOf(node) {
+    return ((node.href || node.getAttribute('href') || '') + '').trim();
+  }
+  function hasAny(text, terms) {
+    for (var i = 0; i < terms.length; i++) {
+      if (text.indexOf(terms[i]) >= 0) return true;
+    }
+    return false;
+  }
+  function isBlockedEntry(node) {
+    var text = textOf(node);
+    return hasAny(text, ['AI阅读', '原版阅读', 'CAJ下载', '章节下载', '分页下载', '我是作者', '免费下载']);
+  }
+  function findPdfDownload() {
+    var nodes = document.querySelectorAll('a, button, span, div');
+    for (var i = 0; i < nodes.length; i++) {
+      if (isBlockedEntry(nodes[i])) continue;
+      var text = textOf(nodes[i]);
+      var href = hrefOf(nodes[i]).toLowerCase();
+      if ((text.indexOf('PDF下载') >= 0 || text.indexOf('PDF 下载') >= 0) &&
+          !hasAny(text, ['CAJ', '章节', '分页', 'AI阅读', '原版阅读', '我是作者', '免费'])) {
+        return nodes[i];
+      }
+      if (href.indexOf('bar.cnki.net/bar/download/order') >= 0 &&
+          (text.indexOf('PDF') >= 0 || href.indexOf('pdf') >= 0)) {
+        return nodes[i];
+      }
+    }
+    return null;
+  }
+  function hasChapterMode() {
+    var nodes = document.querySelectorAll('a, button, span, div');
+    for (var i = 0; i < nodes.length; i++) {
+      var text = textOf(nodes[i]);
+      if (hasAny(text, ['章节下载', '分页下载'])) return true;
+    }
+    return false;
+  }
+  function clickNode(node, label) {
+    if (!node) return null;
+    if (node.removeAttribute) node.removeAttribute('target');
+    node.click();
+    return 'clicked:' + label + ':' + hrefOf(node).substring(0, 120);
+  }
+
+  var pdfDown = document.querySelector('#pdfDown');
+  var pdf = (pdfDown && !isBlockedEntry(pdfDown)) ? pdfDown : findPdfDownload();
+  var clicked = clickNode(pdf, 'PDF下载');
+  if (clicked) return clicked;
+
+  // Journal and thesis detail pages use the same rule: click PDF only.
+  // Chapter/page entries are diagnostic only when no PDF entry was found.
+  if (hasChapterMode()) return 'chapter_download_mode';
+  return 'pdf_probe_unknown';
+})()
+'''
+
+
+def _cnki_status_from_click_result(result_val: object) -> Optional[str]:
+    value = str(result_val or "")
+    if value in CNKI_NON_OK_STATUSES:
+        return value
+    if value.startswith("clicked:"):
+        return None
+    if value == "no_pdfDown":
+        return "pdf_probe_unknown"
+    return None
+
 
 def _download_cnki(port: int, article_url: str, publisher: dict,
                    timeout: int = DEFAULT_TIMEOUT,
@@ -635,36 +814,24 @@ def _download_cnki(port: int, article_url: str, publisher: dict,
         return None
     tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
 
-    # Step 2: Click PDF download (#pdfDown), removing target attr first
-    js = '''
-(function(){
-  var a = document.querySelector('#pdfDown');
-  if (!a) {
-    // Fallback: look for any PDF download link
-    var all = document.querySelectorAll('a');
-    for (var i=0; i<all.length; i++) {
-      if (all[i].innerText.indexOf('PDF下载')>=0) { a = all[i]; break; }
-    }
-  }
-  if (!a) return 'no_pdfDown';
-  a.removeAttribute('target');
-  a.click();
-  return 'clicked: ' + a.href.substring(0, 80);
-})()
-'''
+    # Step 2: Click whole-paper download entries, or return a precise CNKI state.
+    downloads_dir = _os.path.expanduser("~/Downloads")
+    before_dl = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
+    js = _cnki_download_click_expression()
     tab_ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate",
                             "params": {"expression": js}}))
     click_result = json.loads(tab_ws.recv())
     result_val = click_result.get("result", {}).get("result", {}).get("value", "")
     tab_ws.close()
 
-    if "no_pdfDown" in str(result_val):
-        close_tab(port, tid)
-        return None
+    status = _cnki_status_from_click_result(result_val)
+    if status:
+        # Leave captcha/manual tabs open so the user can verify or click manually.
+        if status not in ("captcha_required", "manual_required", "chapter_download_mode"):
+            close_tab(port, tid)
+        return status
 
     # Step 3: Wait for PDF in ~/Downloads
-    downloads_dir = _os.path.expanduser("~/Downloads")
-    before_dl = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
     for i in range(timeout + 15):
         time.sleep(1)
         current = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
@@ -680,7 +847,7 @@ def _download_cnki(port: int, article_url: str, publisher: dict,
                 return dest
 
     close_tab(port, tid)
-    return None
+    return "manual_required"
 
 
 # ── Strategy C: Direct HTTP Download ────────────────────────────────────────

@@ -196,6 +196,29 @@ class Step5DownloadTest(unittest.TestCase):
         oa_fast.assert_not_called()
         generic.assert_called_once()
 
+    def test_classify_english_oa_hints_marks_candidate_no_hint_and_unknown(self):
+        dois = ["10.1016/j.demo.1", "10.1007/demo", "10.1021/demo"]
+        hints = {
+            "10.1016/j.demo.1": {"oa_pdf_url": "https://example.org/paper.pdf"},
+            "10.1021/demo": {"oa_landing_url": "https://example.org/article", "oa_status": "maybe"},
+        }
+
+        classified = router.classify_english_oa_hints(dois, hints)
+
+        self.assertEqual(classified["10.1016/j.demo.1"], "oa_candidate")
+        self.assertEqual(classified["10.1007/demo"], "no_oa_hint")
+        self.assertEqual(classified["10.1021/demo"], "unknown")
+
+    def test_classify_oa_hint_treats_non_pdf_url_as_unknown(self):
+        self.assertEqual(
+            router.classify_oa_hint({"oa_pdf_url": "https://example.org/article"}),
+            "unknown",
+        )
+        self.assertEqual(
+            router.classify_oa_hint({"oa_status": "gold", "oa_source": "unpaywall"}),
+            "oa_candidate",
+        )
+
     def test_oa_fast_invalid_html_candidate_continues_to_cdp(self):
         doi = "10.1016/j.demo.2024.01.001"
         with tempfile.TemporaryDirectory() as tmp, \
@@ -210,6 +233,27 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(downloaded, [])
         self.assertEqual(remaining, [doi])
         self.assertEqual(reasons[doi], "invalid_pdf_candidate")
+
+    def test_oa_candidate_failed_verification_reaches_generic_cdp(self):
+        doi = "10.1016/j.demo.2024.01.001"
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(router, "run_scihub_round") as scihub, \
+             patch.object(router, "_fetch_url_bytes", return_value=(b"<html>not a pdf</html>" + b"x" * 6000, "text/html")), \
+             patch.object(router, "run_generic_round", return_value=([doi], [], {})) as generic:
+            downloaded, remaining, results, reasons = router.run_english_pipeline(
+                [doi],
+                tmp,
+                9223,
+                oa_hints={doi: {"oa_pdf_url": "https://example.org/demo.pdf"}},
+            )
+
+        self.assertEqual(downloaded, [doi])
+        self.assertEqual(remaining, [])
+        self.assertIn({"round": "OA fast (public_pdf_verified)", "downloaded": []}, results)
+        self.assertEqual(results[-1]["round"], "Generic CDP")
+        scihub.assert_not_called()
+        generic.assert_called_once_with([doi], tmp, 9223, include_si=False)
+
 
     def test_oa_fast_valid_public_pdf_downloads_and_marks_verified(self):
         doi = "10.1016/j.demo.2024.01.001"
@@ -405,6 +449,25 @@ class Step5DownloadTest(unittest.TestCase):
         with patch("builtins.input", return_value="已登录"):
             self.assertTrue(router.show_chinese_login_gate(papers))
 
+    def test_show_chinese_login_gate_skip_is_explicit_false(self):
+        with patch("builtins.input", return_value="2"):
+            self.assertFalse(router.show_chinese_login_gate([{
+                "title": "CNKI demo",
+                "source": "cnki",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+            }]))
+
+    def test_show_chinese_login_gate_defer_and_eof_return_none(self):
+        papers = [{
+            "title": "CNKI demo",
+            "source": "cnki",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+        }]
+        with patch("builtins.input", return_value="3"):
+            self.assertIsNone(router.show_chinese_login_gate(papers))
+        with patch("builtins.input", side_effect=EOFError):
+            self.assertIsNone(router.show_chinese_login_gate(papers))
+
     def test_show_english_login_gate_lists_cdp_publishers(self):
         dois = [
             "10.1016/j.test.2024.01.001",
@@ -488,6 +551,114 @@ class Step5DownloadTest(unittest.TestCase):
         strategies = {item["strategy"] for item in classified}
         self.assertIn("generic", strategies)
         self.assertIn("chinese_cdp", strategies)
+
+    def test_wanfang_article_url_parser_supports_detail_and_d_urls(self):
+        cases = [
+            (
+                "https://d.wanfangdata.com.cn/periodical/demo123",
+                ("periodical", "demo123", "https://d.wanfangdata.com.cn/periodical/demo123"),
+            ),
+            (
+                "https://d.wanfangdata.com.cn/thesis/demo456",
+                ("thesis", "demo456", "https://d.wanfangdata.com.cn/thesis/demo456"),
+            ),
+            (
+                "https://www.wanfangdata.com.cn/details/detail.do?_type=perio&id=perio789",
+                ("periodical", "perio789", "https://d.wanfangdata.com.cn/periodical/perio789"),
+            ),
+            (
+                "https://www.wanfangdata.com.cn/details/detail.do?_type=thesis&id=thesis789",
+                ("thesis", "thesis789", "https://d.wanfangdata.com.cn/thesis/thesis789"),
+            ),
+        ]
+
+        for url, expected in cases:
+            self.assertEqual(gpd._parse_wanfang_article_url(url), expected)
+
+    def test_wanfang_periodical_expression_clicks_download_only(self):
+        js = gpd._wanfang_detail_click_expression("periodical")
+
+        self.assertIn("allowed = '下载'", js)
+        self.assertIn("在线阅读", js)
+        self.assertIn("评审材料", js)
+        self.assertNotIn("allowed = '整篇下载'", js)
+        self.assertNotIn("分章下载')", js)
+
+    def test_wanfang_thesis_expression_clicks_whole_paper_only(self):
+        js = gpd._wanfang_detail_click_expression("thesis")
+
+        self.assertIn("allowed = '整篇下载'", js)
+        self.assertIn("在线阅读", js)
+        self.assertIn("分章下载", js)
+        self.assertNotIn("allowed = '下载'", js)
+
+    def test_download_one_returns_wanfang_non_ok_status(self):
+        with patch.object(gpd, "resolve_publisher", return_value=None), \
+             patch.object(gpd, "_download_wanfang", return_value="pdf_probe_unknown"):
+            path, status, pub = gpd.download_one(
+                9225,
+                "wanfang.demo",
+                "paper-temp",
+                article_url="https://d.wanfangdata.com.cn/periodical/demo123",
+            )
+
+        self.assertIsNone(path)
+        self.assertEqual(status, "pdf_probe_unknown")
+        self.assertEqual(pub, "wanfang")
+
+    def test_cnki_download_expression_only_auto_clicks_pdf_entries(self):
+        js = gpd._cnki_download_click_expression()
+
+        self.assertIn("captcha_required", js)
+        self.assertIn("/verify/home", js)
+        for blocked in ("AI阅读", "原版阅读", "CAJ下载", "章节下载", "我是作者", "免费下载"):
+            self.assertIn(blocked, js)
+            self.assertNotIn(f"clickNode(findByText(['{blocked}'])", js)
+            self.assertNotIn(f"clickNode(findByText([\"{blocked}\"])", js)
+        self.assertEqual(js.count("clickNode(pdf,"), 1)
+        self.assertIn("clickNode(pdf, 'PDF下载')", js)
+        self.assertNotIn("clickNode(findBarDownload()", js)
+        self.assertLess(js.index("clickNode(pdf, 'PDF下载')"), js.index("if (hasChapterMode())"))
+        self.assertIn("bar.cnki.net/bar/download/order", js)
+
+    def test_cnki_status_from_click_result_preserves_precise_states(self):
+        self.assertEqual(
+            gpd._cnki_status_from_click_result("captcha_required"),
+            "captcha_required",
+        )
+        self.assertEqual(
+            gpd._cnki_status_from_click_result("chapter_download_mode"),
+            "chapter_download_mode",
+        )
+        self.assertIsNone(gpd._cnki_status_from_click_result("clicked:PDF下载:https://x"))
+
+    def test_download_one_returns_cnki_captcha_required(self):
+        with patch.object(gpd, "resolve_publisher", return_value=None), \
+             patch.object(gpd, "_download_cnki", return_value="captcha_required"):
+            path, status, pub = gpd.download_one(
+                9225,
+                "cnki.demo",
+                "paper-temp",
+                article_url="https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+            )
+
+        self.assertIsNone(path)
+        self.assertEqual(status, "captcha_required")
+        self.assertEqual(pub, "cnki")
+
+    def test_download_one_returns_cnki_chapter_download_mode(self):
+        with patch.object(gpd, "resolve_publisher", return_value=None), \
+             patch.object(gpd, "_download_cnki", return_value="chapter_download_mode"):
+            path, status, pub = gpd.download_one(
+                9225,
+                "cnki.thesis",
+                "paper-temp",
+                article_url="https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CMFD&filename=test",
+            )
+
+        self.assertIsNone(path)
+        self.assertEqual(status, "chapter_download_mode")
+        self.assertEqual(pub, "cnki")
 
     def test_sciencedirect_generic_adapter_downloads_via_generic_capture(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -584,9 +755,18 @@ class Step5DownloadTest(unittest.TestCase):
         with patch("builtins.input", return_value="2"):
             self.assertFalse(router.show_english_login_gate(["10.1007/demo"]))
 
+    def test_show_english_login_gate_defer_returns_none_like_chinese_gate(self):
+        for value in ("3", "later", "retry", "稍后", "重试", "稍后重试"):
+            with self.subTest(value=value), patch("builtins.input", return_value=value):
+                self.assertIsNone(router.show_english_login_gate(["10.1007/demo"]))
+
+    def test_show_english_login_gate_unrecognized_returns_none(self):
+        with patch("builtins.input", return_value="maybe tomorrow"):
+            self.assertIsNone(router.show_english_login_gate(["10.1007/demo"]))
+
     def test_login_gate_prompts_offer_three_choices(self):
         with patch("builtins.input", return_value="3") as inp:
-            self.assertFalse(router.show_chinese_login_gate([{"source": "cnki", "article_url": "https://kns.cnki.net", "title": "x"}]))
+            self.assertIsNone(router.show_chinese_login_gate([{"source": "cnki", "article_url": "https://kns.cnki.net", "title": "x"}]))
         self.assertTrue(inp.called)
 
     def test_generic_round_recovers_from_single_item_exception(self):
@@ -617,6 +797,67 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(remaining, ["10.1002/demo"])
         self.assertEqual(reasons["10.1002/demo"], "captcha_required")
 
+    def test_group_english_cdp_dois_prioritizes_known_publishers_and_unknown_last(self):
+        dois = [
+            "10.9999/unknown",
+            "10.1007/springer-one",
+            "10.1016/j.sd-one",
+            "10.1007/springer-two",
+            "10.1016/j.sd-two",
+            "10.1002/wiley-one",
+        ]
+        pub_map = {
+            "10.1016/j.sd-one": {"strategy": "generic", "_key": "sd_elsevier", "publisher_domain": "www.sciencedirect.com"},
+            "10.1016/j.sd-two": {"strategy": "generic", "_key": "sd_elsevier", "publisher_domain": "www.sciencedirect.com"},
+            "10.1007/springer-one": {"strategy": "generic", "_key": "springer", "publisher_domain": "link.springer.com"},
+            "10.1007/springer-two": {"strategy": "generic", "_key": "springer", "publisher_domain": "link.springer.com"},
+            "10.1002/wiley-one": {"strategy": "generic", "_key": "wiley", "publisher_domain": "onlinelibrary.wiley.com"},
+        }
+
+        with patch.object(router, "resolve_publisher", side_effect=lambda doi: pub_map.get(doi)):
+            groups = router.group_english_cdp_dois(dois)
+
+        self.assertEqual([name for name, _domain, _dois in groups], ["sd_elsevier", "springer", "wiley", "unknown"])
+        self.assertEqual(groups[0][2], ["10.1016/j.sd-one", "10.1016/j.sd-two"])
+        self.assertEqual(groups[1][2], ["10.1007/springer-one", "10.1007/springer-two"])
+        self.assertEqual(groups[-1][2], ["10.9999/unknown"])
+
+    def test_generic_round_downloads_by_publisher_group_order(self):
+        dois = [
+            "10.1007/springer-one",
+            "10.1016/j.sd-one",
+            "10.1002/wiley-one",
+            "10.1016/j.sd-two",
+            "10.1007/springer-two",
+        ]
+        pub_map = {
+            "10.1016/j.sd-one": {"strategy": "generic", "_key": "sd_elsevier", "publisher_domain": "www.sciencedirect.com"},
+            "10.1016/j.sd-two": {"strategy": "generic", "_key": "sd_elsevier", "publisher_domain": "www.sciencedirect.com"},
+            "10.1007/springer-one": {"strategy": "generic", "_key": "springer", "publisher_domain": "link.springer.com"},
+            "10.1007/springer-two": {"strategy": "generic", "_key": "springer", "publisher_domain": "link.springer.com"},
+            "10.1002/wiley-one": {"strategy": "generic", "_key": "wiley", "publisher_domain": "onlinelibrary.wiley.com"},
+        }
+        call_order = []
+
+        def fake_download(port, doi, output_dir, include_si=False):
+            call_order.append(doi)
+            return None, "manual_required", pub_map[doi]["_key"]
+
+        with patch.object(router, "resolve_publisher", side_effect=lambda doi: pub_map.get(doi)), \
+             patch.object(router, "generic_download_one", side_effect=fake_download):
+            downloaded, remaining, reasons = router.run_generic_round(dois, "paper-temp", 9223)
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(call_order, [
+            "10.1016/j.sd-one",
+            "10.1016/j.sd-two",
+            "10.1007/springer-one",
+            "10.1007/springer-two",
+            "10.1002/wiley-one",
+        ])
+        self.assertEqual(remaining, call_order)
+        self.assertEqual(set(reasons.values()), {"manual_required"})
+
     def test_english_cdp_prompts_and_retries_first_login_required_failure(self):
         first = ([], ["10.1007/demo", "10.1021/demo"], {
             "10.1007/demo": "manual_confirmation_required",
@@ -636,6 +877,46 @@ class Step5DownloadTest(unittest.TestCase):
         login_gate.assert_called_once_with(["10.1007/demo"], skip_sd=False, interactive=False)
         self.assertEqual(run_generic.call_args_list[1].args[0], ["10.1007/demo"])
         self.assertEqual(results[-1]["round"], "Generic CDP (after login)")
+
+    def test_english_cdp_gate_runs_once_after_first_grouped_pass(self):
+        dois = ["10.1016/j.sd-one", "10.1007/springer-one", "10.1002/wiley-one"]
+        first = ([], list(dois), {
+            "10.1016/j.sd-one": "manual_required",
+            "10.1007/springer-one": "generic_failed",
+            "10.1002/wiley-one": "access_denied",
+        })
+        second = (["10.1016/j.sd-one"], ["10.1002/wiley-one"], {
+            "10.1002/wiley-one": "access_denied",
+        })
+
+        with patch.object(router, "run_generic_round", side_effect=[first, second]) as run_generic, \
+             patch.object(router, "show_english_login_gate", return_value=True) as login_gate, \
+             patch("sys.stdout", new_callable=io.StringIO) as stdout:
+            downloaded, remaining, results, reasons = router.run_english_cdp(dois, "paper-temp", 9223)
+
+        self.assertEqual(downloaded, ["10.1016/j.sd-one"])
+        self.assertEqual(remaining, ["10.1007/springer-one", "10.1002/wiley-one"])
+        self.assertEqual(reasons["10.1007/springer-one"], "generic_failed")
+        self.assertEqual(reasons["10.1002/wiley-one"], "access_denied")
+        self.assertEqual(run_generic.call_count, 2)
+        self.assertEqual(run_generic.call_args_list[0].args[0], dois)
+        self.assertEqual(run_generic.call_args_list[1].args[0], ["10.1016/j.sd-one", "10.1002/wiley-one"])
+        login_gate.assert_called_once_with(["10.1016/j.sd-one", "10.1002/wiley-one"], skip_sd=False, interactive=False)
+        self.assertIn("First grouped English CDP pass completed", stdout.getvalue())
+        self.assertEqual(results[-1]["round"], "Generic CDP (after login)")
+
+    def test_english_cdp_skip_does_not_retry_login_failures(self):
+        first = ([], ["10.1007/demo"], {"10.1007/demo": "manual_required"})
+
+        with patch.object(router, "run_generic_round", return_value=first) as run_generic, \
+             patch.object(router, "show_english_login_gate", return_value=False) as login_gate:
+            downloaded, remaining, results, reasons = router.run_english_cdp(["10.1007/demo"], "paper-temp", 9223)
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["10.1007/demo"])
+        self.assertEqual(reasons, {"10.1007/demo": "manual_required"})
+        self.assertEqual(run_generic.call_count, 1)
+        login_gate.assert_called_once()
 
     def test_english_cdp_noninteractive_writes_login_checkpoint_and_marks_pending(self):
         first = ([], ["10.1007/demo", "10.1021/demo"], {
@@ -658,6 +939,29 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(checkpoint["status"], "pending_user_login")
         self.assertEqual(checkpoint["items"][0]["doi"], "10.1007/demo")
         self.assertEqual(results, [{"round": "Generic CDP", "downloaded": []}])
+
+    def test_english_cdp_checkpoint_contains_only_login_required_failures(self):
+        first = ([], ["10.1007/demo", "10.1021/demo", "10.1002/demo"], {
+            "10.1007/demo": "manual_required",
+            "10.1021/demo": "generic_failed",
+            "10.1002/demo": "access_denied",
+        })
+
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(router, "run_generic_round", return_value=first), \
+             patch.object(router, "show_english_login_gate", return_value=None):
+            downloaded, remaining, results, reasons = router.run_english_cdp(
+                ["10.1007/demo", "10.1021/demo", "10.1002/demo"], tmp, 9223
+            )
+            checkpoint = json.loads((Path(tmp) / "login_checkpoint.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["10.1007/demo", "10.1021/demo", "10.1002/demo"])
+        self.assertEqual([item["doi"] for item in checkpoint["items"]], ["10.1007/demo", "10.1002/demo"])
+        self.assertEqual(reasons["10.1007/demo"], "pending_user_login")
+        self.assertEqual(reasons["10.1021/demo"], "generic_failed")
+        self.assertEqual(reasons["10.1002/demo"], "pending_user_login")
+
 
     def test_generate_download_log_includes_reason_column(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -700,6 +1004,413 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(data["status"], "pending_user_login")
         self.assertEqual(data["items"][0]["failure_reason"], "institution_login_required")
         self.assertIn("--resume-login-checkpoint", data["rerun_hint"])
+
+    def test_write_chinese_login_checkpoint_writes_pending_items(self):
+        papers = [{
+            "title": "中文论文",
+            "source": "cnki",
+            "doi": "cnki.demo",
+            "source_id": "cnki.demo",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+        }]
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = router.write_chinese_login_checkpoint(tmp, papers)
+            data = json.loads(Path(checkpoint).read_text(encoding="utf-8"))
+
+        self.assertEqual(data["checkpoint_type"], "chinese_publisher_login")
+        self.assertEqual(data["status"], "pending_user_login")
+        self.assertEqual(data["items"][0]["failure_reason"], "pending_user_login")
+        self.assertEqual(data["items"][0]["article_url"], papers[0]["article_url"])
+        self.assertIn("--resume-chinese-login-checkpoint", data["rerun_hint"])
+
+    def test_sort_chinese_papers_cnki_then_wanfang_stably(self):
+        papers = [
+            {"title": "wf-1", "source": "wanfang"},
+            {"title": "cnki-1", "source": "cnki"},
+            {"title": "other-1", "source": "vip"},
+            {"title": "wf-2", "source": "wanfang"},
+            {"title": "cnki-2", "source": "cnki"},
+            {"title": "other-2", "source": "unknown"},
+        ]
+
+        sorted_papers = router.sort_chinese_papers_for_download(papers)
+
+        self.assertEqual(
+            [p["title"] for p in sorted_papers],
+            ["cnki-1", "cnki-2", "wf-1", "wf-2", "other-1", "other-2"],
+        )
+
+    def test_write_chinese_login_checkpoint_uses_sorted_papers_when_caller_sorts(self):
+        papers = router.sort_chinese_papers_for_download([
+            {
+                "title": "万方一",
+                "source": "wanfang",
+                "doi": "wanfang.1",
+                "article_url": "https://d.wanfangdata.com.cn/periodical/wf1",
+            },
+            {
+                "title": "知网一",
+                "source": "cnki",
+                "doi": "cnki.1",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki1",
+            },
+            {
+                "title": "万方二",
+                "source": "wanfang",
+                "doi": "wanfang.2",
+                "article_url": "https://d.wanfangdata.com.cn/thesis/wf2",
+            },
+            {
+                "title": "知网二",
+                "source": "cnki",
+                "doi": "cnki.2",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki2",
+            },
+        ])
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = router.write_chinese_login_checkpoint(tmp, papers)
+            data = json.loads(Path(checkpoint).read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            [item["source"] for item in data["items"]],
+            ["cnki", "cnki", "wanfang", "wanfang"],
+        )
+        self.assertEqual(
+            [item["doi"] for item in data["items"]],
+            ["cnki.1", "cnki.2", "wanfang.1", "wanfang.2"],
+        )
+
+    def test_step5_download_lock_acquire_and_release(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(Path(tmp) / "step5.lock")}):
+            acquired, lock_path, blocker = router.acquire_step5_download_lock("batch_download", 9223)
+            self.assertTrue(acquired)
+            self.assertEqual(blocker, {})
+            data = json.loads(lock_path.read_text(encoding="utf-8"))
+            self.assertEqual(data["pid"], router.os.getpid())
+            self.assertEqual(data["mode"], "batch_download")
+
+            router.release_step5_download_lock(lock_path)
+
+            self.assertFalse(lock_path.exists())
+
+    def test_step5_download_lock_blocks_live_process(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(Path(tmp) / "step5.lock")}):
+            lock_path = Path(tmp) / "step5.lock"
+            lock_path.write_text(json.dumps({
+                "pid": router.os.getpid(),
+                "mode": "batch_download",
+                "started_at": "2026-06-22T10:00:00",
+            }), encoding="utf-8")
+
+            acquired, path, blocker = router.acquire_step5_download_lock("resume_chinese_login_checkpoint", 9223)
+
+        self.assertFalse(acquired)
+        self.assertEqual(path, lock_path)
+        self.assertEqual(blocker["mode"], "batch_download")
+
+    def test_step5_download_lock_prints_wait_message(self):
+        blocker = {
+            "pid": 12345,
+            "mode": "batch_download",
+            "started_at": "2026-06-22T10:00:00",
+        }
+        with patch("sys.stdout", new_callable=io.StringIO) as stdout:
+            router._print_download_lock_blocker(Path("/tmp/step5.lock"), blocker)
+
+        text = stdout.getvalue()
+        self.assertIn("上一进程下载中", text)
+        self.assertIn("请等一等", text)
+
+    def test_step5_download_lock_replaces_stale_lock(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(Path(tmp) / "step5.lock")}), \
+             patch.object(router, "_pid_is_running", return_value=False):
+            lock_path = Path(tmp) / "step5.lock"
+            lock_path.write_text(json.dumps({
+                "pid": 999999,
+                "mode": "old_download",
+                "started_at": "2026-06-22T09:00:00",
+            }), encoding="utf-8")
+
+            acquired, path, blocker = router.acquire_step5_download_lock("batch_download", 9223)
+            data = json.loads(path.read_text(encoding="utf-8"))
+
+            router.release_step5_download_lock(path)
+
+        self.assertTrue(acquired)
+        self.assertEqual(blocker, {})
+        self.assertEqual(data["pid"], router.os.getpid())
+        self.assertEqual(data["mode"], "batch_download")
+
+    def test_chinese_resume_lock_blocked_does_not_run_chinese_round(self):
+        checkpoint = {
+            "checkpoint_type": "chinese_publisher_login",
+            "status": "pending_user_login",
+            "items": [{
+                "title": "中文论文",
+                "source": "wanfang",
+                "doi": "wanfang.demo",
+                "article_url": "https://d.wanfangdata.com.cn/periodical/demo123",
+                "failure_reason": "pending_user_login",
+            }],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint_path = Path(tmp) / "chinese_login_checkpoint.json"
+            checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
+            lock_path = Path(tmp) / "step5.lock"
+            lock_path.write_text(json.dumps({
+                "pid": router.os.getpid(),
+                "mode": "batch_download",
+                "started_at": "2026-06-22T10:00:00",
+            }), encoding="utf-8")
+            argv = [
+                "unified_download_router.py",
+                "--resume-chinese-login-checkpoint", str(checkpoint_path),
+                "--output", tmp,
+            ]
+            with patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(lock_path)}), \
+                 patch.object(sys, "argv", argv), \
+                 patch.object(router, "run_chinese_round") as run_chinese, \
+                 patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                with self.assertRaises(SystemExit) as cm:
+                    router.main()
+
+        self.assertEqual(cm.exception.code, 2)
+        run_chinese.assert_not_called()
+        self.assertIn("上一进程下载中", stdout.getvalue())
+
+    def test_resume_from_chinese_login_checkpoint_retries_only_chinese_papers(self):
+        checkpoint = {
+            "checkpoint_type": "chinese_publisher_login",
+            "status": "pending_user_login",
+            "items": [{
+                "title": "中文论文",
+                "source": "wanfang",
+                "doi": "wanfang.demo",
+                "article_url": "https://d.wanfangdata.com.cn/periodical/demo123",
+                "failure_reason": "pending_user_login",
+            }],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint_path = Path(tmp) / "chinese_login_checkpoint.json"
+            checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
+            with patch.object(router, "show_chinese_login_gate", return_value=True), \
+                 patch.object(router, "run_chinese_round", return_value=(["wanfang.demo"], [])) as run_chinese:
+                downloaded, remaining = router.resume_from_chinese_login_checkpoint(
+                    str(checkpoint_path), tmp, 9223
+                )
+
+        self.assertEqual(downloaded, ["wanfang.demo"])
+        self.assertEqual(remaining, [])
+        run_chinese.assert_called_once()
+        self.assertEqual(run_chinese.call_args.args[0][0]["source"], "wanfang")
+
+    def test_resume_from_chinese_login_checkpoint_sorts_cnki_before_wanfang(self):
+        checkpoint = {
+            "checkpoint_type": "chinese_publisher_login",
+            "status": "pending_user_login",
+            "items": [
+                {
+                    "title": "万方一",
+                    "source": "wanfang",
+                    "doi": "wanfang.1",
+                    "article_url": "https://d.wanfangdata.com.cn/periodical/wf1",
+                    "failure_reason": "pending_user_login",
+                },
+                {
+                    "title": "知网一",
+                    "source": "cnki",
+                    "doi": "cnki.1",
+                    "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki1",
+                    "failure_reason": "pending_user_login",
+                },
+                {
+                    "title": "万方二",
+                    "source": "wanfang",
+                    "doi": "wanfang.2",
+                    "article_url": "https://d.wanfangdata.com.cn/thesis/wf2",
+                    "failure_reason": "pending_user_login",
+                },
+                {
+                    "title": "知网二",
+                    "source": "cnki",
+                    "doi": "cnki.2",
+                    "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki2",
+                    "failure_reason": "pending_user_login",
+                },
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint_path = Path(tmp) / "chinese_login_checkpoint.json"
+            checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
+            with patch.object(router, "show_chinese_login_gate", return_value=True), \
+                 patch.object(router, "run_chinese_round", return_value=(["cnki.1"], [])) as run_chinese:
+                router.resume_from_chinese_login_checkpoint(str(checkpoint_path), tmp, 9223)
+
+        self.assertEqual(
+            [paper["doi"] for paper in run_chinese.call_args.args[0]],
+            ["cnki.1", "cnki.2", "wanfang.1", "wanfang.2"],
+        )
+
+    def test_parallel_phase1_is_ignored_and_chinese_runs_after_english(self):
+        events = []
+        chinese_papers = [
+            {
+                "title": "万方一",
+                "source": "wanfang",
+                "doi": "wanfang.1",
+                "article_url": "https://d.wanfangdata.com.cn/periodical/wf1",
+            },
+            {
+                "title": "知网一",
+                "source": "cnki",
+                "doi": "cnki.1",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki1",
+            },
+            {
+                "title": "万方二",
+                "source": "wanfang",
+                "doi": "wanfang.2",
+                "article_url": "https://d.wanfangdata.com.cn/thesis/wf2",
+            },
+            {
+                "title": "知网二",
+                "source": "cnki",
+                "doi": "cnki.2",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki2",
+            },
+        ]
+        received_chinese_order = []
+
+        def fake_scihub(dois, output, port):
+            events.append("scihub")
+            return [], list(dois)
+
+        def fake_oa(dois, output, oa_hints=None):
+            events.append("oa")
+            return [], list(dois), {}
+
+        def fake_english(dois, output, port, skip_sd=False, include_si=False, sd_browser="chrome"):
+            events.append("english")
+            return [], [], [{"round": "Generic CDP", "downloaded": []}], {}
+
+        def fake_chinese(papers, output, port):
+            events.append("chinese")
+            received_chinese_order.extend(paper["doi"] for paper in papers)
+            return ["cnki.demo"], []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            lock_path = Path(tmp) / "step5.lock"
+            argv = [
+                "unified_download_router.py",
+                "--papers", "10.1007/demo",
+                "--chinese-input", "dummy.json",
+                "--output", tmp,
+                "--parallel-phase1",
+            ]
+            with patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(lock_path)}), \
+                 patch.object(sys, "argv", argv), \
+                 patch.object(router, "parse_chinese_papers", return_value=chinese_papers), \
+                 patch.object(router, "ensure_cdp_running", return_value=True), \
+                 patch.object(router, "check_required_deps", return_value=True), \
+                 patch.object(router, "_scihub_eligible_dois", return_value=["10.1007/demo"]), \
+                 patch.object(router, "run_scihub_round", side_effect=fake_scihub), \
+                 patch.object(router, "run_oa_fast_round", side_effect=fake_oa), \
+                 patch.object(router, "run_english_cdp", side_effect=fake_english), \
+                 patch.object(router, "run_chinese_round", side_effect=fake_chinese), \
+                 patch.object(router, "generate_download_log", return_value=str(Path(tmp) / "download_log.md")), \
+                 patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                router.main()
+
+        self.assertEqual(events, ["scihub", "oa", "english", "chinese"])
+        self.assertEqual(received_chinese_order, ["cnki.1", "cnki.2", "wanfang.1", "wanfang.2"])
+        self.assertIn("--parallel-phase1 is deprecated and ignored", stdout.getvalue())
+
+    def test_pending_english_login_checkpoint_defers_chinese_round(self):
+        chinese_papers = [{
+            "title": "中文论文",
+            "source": "cnki",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=test",
+        }]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            lock_path = Path(tmp) / "step5.lock"
+            argv = [
+                "unified_download_router.py",
+                "--papers", "10.1007/demo",
+                "--chinese-input", "dummy.json",
+                "--output", tmp,
+                "--require-login-confirm",
+            ]
+            with patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(lock_path)}), \
+                 patch.object(sys, "argv", argv), \
+                 patch.object(router, "parse_chinese_papers", return_value=chinese_papers), \
+                 patch.object(router, "ensure_cdp_running", return_value=True), \
+                 patch.object(router, "check_required_deps", return_value=True), \
+                 patch.object(router, "_scihub_eligible_dois", return_value=[]), \
+                 patch.object(router, "run_oa_fast_round", return_value=([], ["10.1007/demo"], {})), \
+                 patch.object(router, "show_english_login_gate", return_value=None), \
+                 patch.object(router, "write_login_checkpoint", return_value=str(Path(tmp) / "login_checkpoint.json")), \
+                 patch.object(router, "run_chinese_round") as run_chinese, \
+                 patch.object(router, "generate_download_log", return_value=str(Path(tmp) / "download_log.md")), \
+                 patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                router.main()
+
+        run_chinese.assert_not_called()
+        self.assertIn("English login is still pending", stdout.getvalue())
+
+    def test_main_writes_chinese_checkpoint_in_sorted_order(self):
+        chinese_papers = [
+            {
+                "title": "万方一",
+                "source": "wanfang",
+                "doi": "wanfang.1",
+                "article_url": "https://d.wanfangdata.com.cn/periodical/wf1",
+            },
+            {
+                "title": "知网一",
+                "source": "cnki",
+                "doi": "cnki.1",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki1",
+            },
+            {
+                "title": "万方二",
+                "source": "wanfang",
+                "doi": "wanfang.2",
+                "article_url": "https://d.wanfangdata.com.cn/thesis/wf2",
+            },
+            {
+                "title": "知网二",
+                "source": "cnki",
+                "doi": "cnki.2",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki2",
+            },
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            lock_path = Path(tmp) / "step5.lock"
+            argv = [
+                "unified_download_router.py",
+                "--chinese-input", "dummy.json",
+                "--output", tmp,
+                "--require-login-confirm",
+            ]
+            with patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(lock_path)}), \
+                 patch.object(sys, "argv", argv), \
+                 patch.object(router, "parse_chinese_papers", return_value=chinese_papers), \
+                 patch.object(router, "ensure_cdp_running", return_value=True), \
+                 patch.object(router, "check_required_deps", return_value=True), \
+                 patch.object(router, "show_chinese_login_gate", return_value=None), \
+                 patch.object(router, "generate_download_log", return_value=str(Path(tmp) / "download_log.md")):
+                router.main()
+
+            checkpoint = json.loads((Path(tmp) / "chinese_login_checkpoint.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            [item["doi"] for item in checkpoint["items"]],
+            ["cnki.1", "cnki.2", "wanfang.1", "wanfang.2"],
+        )
 
     def test_resume_from_login_checkpoint_retries_only_pending_english_dois(self):
         with tempfile.TemporaryDirectory() as tmp:
