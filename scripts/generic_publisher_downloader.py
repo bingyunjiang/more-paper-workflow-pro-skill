@@ -592,11 +592,11 @@ def _parse_wanfang_article_url(article_url: str) -> tuple[str, str, str] | None:
 
 def _wanfang_detail_click_expression(paper_type: str) -> str:
     """Build Wanfang detail-page JS with per-type download white-listing."""
-    allowed = "整篇下载" if paper_type == "thesis" else "下载"
+    allowed = "['整篇下载', '下载']" if paper_type == "thesis" else "['下载']"
     blocked = "['在线阅读', '评审材料', '分章下载']"
     return f'''
 (function(){{
-  var allowed = '{allowed}';
+  var allowed = {allowed};
   var blocked = {blocked};
   function textOf(node) {{
     return ((node.innerText || node.textContent || node.getAttribute('title') || '') + '').trim();
@@ -611,10 +611,11 @@ def _wanfang_detail_click_expression(paper_type: str) -> str:
   for (var i = 0; i < nodes.length; i++) {{
     var text = textOf(nodes[i]);
     if (hasAny(text, blocked)) continue;
-    if (text === allowed || text.replace(/\\s+/g, '') === allowed) {{
+    var compact = text.replace(/\\s+/g, '');
+    if (allowed.indexOf(text) >= 0 || allowed.indexOf(compact) >= 0) {{
       if (nodes[i].removeAttribute) nodes[i].removeAttribute('target');
       nodes[i].click();
-      return 'clicked:' + allowed;
+      return 'clicked:' + compact;
     }}
   }}
   return 'pdf_probe_unknown';
