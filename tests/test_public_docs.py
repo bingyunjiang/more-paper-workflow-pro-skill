@@ -98,6 +98,23 @@ class PublicDocsTest(unittest.TestCase):
         self.assertIn("值得注意的是", draft)
         self.assertIn("这里需要补文献", draft)
 
+    def test_step4_dashboard_is_default_and_discoverable(self):
+        readme = read_rel("README.md")
+        step4 = read_rel("agents/step_4_search_score.md")
+        triggers = read_rel("references/trigger-catalog.md")
+
+        self.assertIn("step4-dashboard/", readme)
+        self.assertIn("标准 Step 4 完成链路必须默认生成本地可视化看板", step4)
+        self.assertIn("Step 4 可视化看板已生成", step4)
+        self.assertIn("step4-dashboard/index.html", step4)
+        for token in [
+            "检索结果看板",
+            "检索结果可视化",
+            "下载优先级看板",
+            "search results dashboard",
+        ]:
+            self.assertIn(token, triggers)
+
 
 if __name__ == "__main__":
     unittest.main()

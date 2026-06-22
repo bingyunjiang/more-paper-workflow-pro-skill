@@ -140,7 +140,7 @@
 
 **中文门控（Phase 3）：** 仅在英文 DOI 路径全部完成或被用户明确跳过后触发。CNKI/万方 preflight 或 article/download probe 返回 `pdf_probe_blocked` / `pdf_probe_unknown` / `carsi_required` / `login_required` / `access_denied` 时，必须等待用户明确确认登录或写出中文 checkpoint。
 
-**英文门控（Phase 2）：** Sci-Hub（仅 `year <= 2021`）完成后，先执行 OA fast；OA fast 只接受真实公开 PDF URL，下载后必须通过 `%PDF`、最小大小、非 HTML、可读页数验证。剩余条目才按 publisher 分组进入 Generic CDP；第一轮所有 publisher 组都探测完成后，统一收集 `manual_confirmation_required` / `login_required` / `login_wall` / `access_denied` / `pdf_probe_blocked` / `pdf_probe_unknown` 等登录类失败，再提示用户完成机构登录。用户确认后只对这些失败条目按 publisher 分组重试一次。若显式使用 `--require-login-confirm`，则在英文 CDP 开始前先强制确认登录。
+**英文门控（Phase 2）：** Sci-Hub（仅 `year <= 2021`）完成后，先执行 OA fast；OA fast 只接受真实公开 PDF URL，下载后必须通过 `%PDF`、最小大小、非 HTML、可读页数验证。OA fast 剩余条目进入 Generic CDP 前必须先做预下载登录门控：若剩余 DOI 中存在 `strategy=generic` 且 `requires_auth != none` 的登录敏感条目，并且当前会话没有 `pdf/article probe ok` 级别的可信访问证据，脚本必须先提示用户登录 / 跳过 / 稍后重试，不能直接进入逐篇下载循环。若显式使用 `--require-login-confirm`，则对所有登录敏感 Generic CDP 条目强制提示。用户确认后才按 publisher 分组进入 Generic CDP；若放行后仍出现 `manual_confirmation_required` / `login_required` / `login_wall` / `access_denied` / `pdf_probe_blocked` / `pdf_probe_unknown` 等登录类失败，再统一提示并只对这些失败 DOI 分组重试一次。
 
 **交互兼容规则：**
 
@@ -166,33 +166,38 @@ Phase 1:
 2. Sci-Hub 执行（免费，不需登录）
 
 Phase 2:
-3. 对英文 DOI 清单先做 OA hint 分层：`oa_candidate` / `no_oa_hint` / `unknown`，该分层只用于提示，不代表已验证可下载
-4. 对剩余英文论文先执行 OA fast
+1. 对英文 DOI 清单先做 OA hint 分层：`oa_candidate` / `no_oa_hint` / `unknown`，该分层只用于提示，不代表已验证可下载
+2. 对剩余英文论文先执行 OA fast
    ├─ Step 4 `oa_pdf_url` 或轻量 OA resolver 命中真实 PDF URL → 下载并验证 → `public_pdf_verified`
    ├─ HTML / 小文件 / 损坏 PDF / landing page → `invalid_pdf_candidate`，继续 Generic CDP
    └─ 无 OA 线索 / unknown → 继续 Generic CDP
-5. 对 OA fast 剩余论文按 publisher 分组执行 Generic CDP 下载
+3. 对 OA fast 剩余论文先做 English Generic CDP 预下载登录门控
+   ├─ 仅 OA / direct_http / skip / `requires_auth=none` → 不触发门控
+   ├─ Generic CDP + 登录敏感 + `pdf/article probe ok` → 直接放行
+   ├─ Generic CDP + 登录敏感 + cookie-only / unknown / blocked → 先提示登录、跳过或写 `login_checkpoint.json`
+   └─ 用户 skip → 只跳过登录敏感 DOI，继续保留 OA / direct_http / 已完成结果汇总
+4. 用户确认登录后，对放行的剩余论文按 publisher 分组执行 Generic CDP 下载
    ├─ pdf_probe_ok / 成功捕获 PDF bytes → 直接完成
    └─ 登录/权限/unknown probe 类失败 → 记录失败原因，继续跑完后续 publisher 组
    Agent 执行同样的交互式 CDP 启动，导航到对应出版社首页：
    "[Generic CDP]  elsevier (sciencedirect.com), ieee (ieeexplore.ieee.org),
     acs (pubs.acs.org), ..."
-6. 第一轮所有 English CDP publisher 组结束后，若存在登录类失败，统一触发英文登录门控
-7. 🚀 Agent 自动启动交互式 CDP 会话（同一条命令内）：
+5. 放行后的第一轮所有 English CDP publisher 组结束后，若仍存在登录类失败，统一触发英文登录重试门控
+6. 🚀 Agent 自动启动交互式 CDP 会话（同一条命令内）：
    a) 启动 exec_command：检查/启动 CDP Chrome → 导航到出版社首页
    b) 打印 === LOGIN_REQUIRED === → 用户登录后告知；如果用户没有机构账号，明确允许 `skip`，Agent 应继续后续 OA/已完成结果汇总，不得把整批任务视为失败
    c) 脚本确认 CDP 可用后退出
-8. 用户确认后，Agent 只对登录类失败 DOI 按 publisher 分组重试一次；仍失败则进入 final remaining 或 checkpoint
+7. 用户确认后，Agent 只对登录类失败 DOI 按 publisher 分组重试一次；仍失败则进入 final remaining 或 checkpoint
 
 Phase 3:
-9. 英文 DOI 路径完成后，才进入排序后的中文清单：CNKI → 万方
-10. 🔍 中文源 article/download probe
+1. 英文 DOI 路径完成后，才进入排序后的中文清单：CNKI → 万方
+2. 🔍 中文源 article/download probe
    ├─ pdf_probe_ok → 直接执行中文下载
    └─ pdf_probe_blocked / pdf_probe_unknown / carsi_required / login_required / access_denied → 显示中文登录门控
-11. 🚧 中文登录门控（仅 probe 需要时显示）
+3. 🚧 中文登录门控（仅 probe 需要时显示）
    "CNKI/万方需要 CARSI 机构登录。
     🚀 Agent 将自动启动交互式 CDP 会话（同一条命令内，不会断连）。"
-12. Agent 执行 Chinese CDP 下载（unified_download_router.py 连接同一 9223 端口）
+4. Agent 执行 Chinese CDP 下载（unified_download_router.py 连接同一 9223 端口）
 ```
 
 **强制要求：**
@@ -207,58 +212,33 @@ Phase 3:
 **命令示例：**
 
 ```bash
-# 子阶段 A：先 dry-run 查看需要登录的出版社
+# 示例 A：先 dry-run 查看路由和潜在登录型出版社
 python3 scripts/unified_download_router.py 检索文献表.md --dry-run
 
-# 子阶段 B：交互式启动 CDP + 登录（英文门控优先；中文在英文完成后才进入）
+# 示例 B：交互式启动 CDP + 登录（英文门控优先；中文在英文完成后才进入）
 #   Agent 启动长驻命令，等待用户登录后 write_stdin 继续
 python scripts/batch_chinese_search.py --login-only
 
-# 子阶段 C：用户确认后执行完整下载；脚本会先英文、后中文
+# 示例 C：用户确认后执行完整下载；脚本会先英文、后中文
 #   Agent 新开命令（CDP 端口仍然存活）
 python3 scripts/unified_download_router.py 检索文献表.md \
   --chinese-input 中文论文元数据.json \
   --output paper-temp/ --require-login-confirm
 
-# 完整下载流程（跳过交互式登录，仅 OA/免费来源时使用）
+# 完整下载流程（未显式强制登录；若 Generic CDP 登录信号不足，脚本仍会自动预门控）
 python3 scripts/unified_download_router.py 检索文献表.md --output paper-temp/
 
 # 单篇测试
 python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port 9223
 
 ```
-Phase 1 ──────────────────────────────────────────────────
-  获取 Step 5 下载锁
-  Sci-Hub 执行（免费，不需登录）
 
-Phase 2 ──────────────────────────────────────────────────
-  拿到英文清单时只标记 OA hint:
-    oa_candidate / no_oa_hint / unknown
-    该标记不等于已验证可下载
-  剩余英文论文先走 OA fast:
-    public PDF URL + verifier 通过 → 完成
-    invalid_pdf_candidate / 无 OA 线索 / unknown → Generic CDP
-  若仍有英文 CDP 论文（Generic，含 SD / IEEE 适配器）:
-    English CDP 按 publisher 分组启动
-       sd_elsevier → ieee → springer → wiley → acs → rsc → nature → 其它 → unknown
-       成功捕获 PDF bytes → 完成
-       登录/权限/unknown probe 类失败 → 记录后继续后续 publisher 组
-    第一轮全部 publisher 组完成后统一提示用户登录
-    用户确认后 → 仅对登录类失败条目按 publisher 分组重试一次
-    用户 skip → 不重试，保留已完成结果
-    EOF / 稍后 / 未识别输入 → 写 login_checkpoint.json，仅包含登录类失败 DOI
+**流程摘要：**
 
-Phase 3 ──────────────────────────────────────────────────
-  英文 DOI 路径完成或明确 skip 后，才进入排序后的中文清单:
-    CNKI 全部条目先跑，同库内部保留原输入顺序
-    万方全部条目后跑，同库内部保留原输入顺序
-    pdf_probe_ok → Chinese CDP 启动
-    pdf_probe_blocked / pdf_probe_unknown / carsi_required / login_required / access_denied → 用户确认 → Chinese CDP 启动
-
-Phase 4 ──────────────────────────────────────────────────
-  合并 Sci-Hub + Chinese CDP + English CDP 结果
-  → download_log.md + final summary
-```
+- Phase 1：获取下载锁；旧英文 DOI 先走 Sci-Hub 免费路径。
+- Phase 2：英文 DOI 先走 OA fast；OA fast 剩余项进入 Generic CDP 前先做预下载登录门控；用户确认后才按 publisher 分组下载；若放行后仍出现登录类失败，只重试这些失败 DOI。
+- Phase 3：英文路径完成、跳过或 checkpoint 挂起后，才进入排序后的中文清单（CNKI → 万方）；中文登录问题写 `chinese_login_checkpoint.json`。
+- Phase 4：合并 Sci-Hub、OA fast、English CDP、Chinese CDP 结果，生成 `download_log.md`、失败清单和 final summary。
 
 > **Sci-Hub 不受任何登录门控。** 英文门控先于中文门控；中文门控只在英文路径完成或明确跳过后触发。共享同一 CDP 端口 9223，并由 Step 5 下载锁防止多个进程同时冲击浏览器。
 

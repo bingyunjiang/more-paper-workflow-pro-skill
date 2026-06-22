@@ -4,6 +4,7 @@
 Produces:
   1. 检索文献表.md
   2. retrieval_index_manifest.json
+  3. step4-dashboard/ static review dashboard
 
 The generated Markdown is intentionally a display layer derived from the
 machine-source workflow JSON. It keeps traceability fields required by Step 4
@@ -34,6 +35,11 @@ from workflow_contracts import (
     load_search_records,
     write_retrieval_manifest,
 )
+
+try:
+    from export_step4_dashboard import export_dashboard
+except ImportError:
+    export_dashboard = None
 
 
 def _clean_text(value: str) -> str:
@@ -329,6 +335,16 @@ def main() -> None:
     parser.add_argument("--workflow-inputs", required=True, type=Path, help="Path to workflow_search_results.json")
     parser.add_argument("--output-md", required=True, type=Path, help="Output path for 检索文献表.md")
     parser.add_argument("--output-manifest", required=True, type=Path, help="Output path for retrieval_index_manifest.json")
+    parser.add_argument(
+        "--dashboard-dir",
+        type=Path,
+        help="Output directory for the Step 4 dashboard. Defaults to step4-dashboard beside --output-md.",
+    )
+    parser.add_argument(
+        "--skip-dashboard",
+        action="store_true",
+        help="Skip the default Step 4 dashboard export.",
+    )
     args = parser.parse_args()
 
     records = load_search_records(args.workflow_inputs)
@@ -343,6 +359,12 @@ def main() -> None:
 
     print(f"✅ Exported {args.output_md}")
     print(f"✅ Exported {args.output_manifest}")
+    if not args.skip_dashboard:
+        if export_dashboard is None:
+            raise SystemExit("export_step4_dashboard.py is unavailable; rerun with --skip-dashboard to export only table/manifest.")
+        dashboard_dir = args.dashboard_dir or (args.output_md.parent / "step4-dashboard")
+        export_dashboard(args.workflow_inputs, dashboard_dir)
+        print(f"✅ Exported {dashboard_dir}")
 
 
 if __name__ == "__main__":

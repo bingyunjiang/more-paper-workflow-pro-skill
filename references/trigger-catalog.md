@@ -109,6 +109,15 @@ This file keeps the long-form trigger vocabulary out of `SKILL.md` frontmatter w
 - `检索合规`
 - `检索透明度`
 - `search compliance`
+- `检索结果看板`
+- `检索结果可视化`
+- `文献检索看板`
+- `生成 Step 4 看板`
+- `检索结果审阅页`
+- `下载优先级看板`
+- `search results dashboard`
+- `visualize search results`
+- `Step 4 dashboard`
 
 ## Step 5: 下载
 

@@ -1419,6 +1419,43 @@ def _filter_login_required_dois(dois: list[str], failure_reasons: dict[str, str]
     ]
 
 
+def _english_login_candidate_dois(dois: list[str]) -> list[str]:
+    """Return remaining English DOI(s) whose route may require institution login."""
+    candidates: list[str] = []
+    for doi in dois:
+        c = classify_doi(doi)
+        if c["strategy"] not in ENGLISH_LOGIN_STRATEGIES:
+            continue
+        pub_cfg = c.get("publisher_config", {}) or {}
+        if pub_cfg.get("requires_auth", "institution") == "none":
+            continue
+        candidates.append(doi)
+    return candidates
+
+
+def _english_login_dois_without_trusted_session(dois: list[str], port: int) -> list[str]:
+    """Return login candidates lacking a trusted PDF/article probe signal.
+
+    Cookie presence is intentionally treated as weak. A publisher is trusted
+    only when its current access probe reports ``ok``.
+    """
+    pending: list[str] = []
+    session_cache: dict[str, bool] = {}
+    for doi in _english_login_candidate_dois(dois):
+        c = classify_doi(doi)
+        pub_cfg = c.get("publisher_config", {}) or {}
+        pub_key = c.get("publisher", "unknown")
+        if pub_key not in session_cache:
+            try:
+                signal = describe_publisher_session(port, pub_cfg)
+                session_cache[pub_key] = signal.get("probe_status") == "ok"
+            except Exception:
+                session_cache[pub_key] = False
+        if not session_cache[pub_key]:
+            pending.append(doi)
+    return pending
+
+
 def write_login_checkpoint(output_dir: str, stage: str, dois: list[str],
                            failure_reasons: dict[str, str]) -> str:
     """Write a re-runnable login checkpoint for remaining English CDP items."""
@@ -2140,17 +2177,34 @@ def main():
             print(f"  {sys.executable} scripts/start_cdp_browser.py --browser {args.browser} --port {args.port}")
             print("  macOS/Linux wrapper also supported: bash scripts/start_cdp_chrome.sh")
             sys.exit(1)
-        if args.require_login_confirm and has_cdp:
-            gate_result = show_english_login_gate(en_rem, skip_sd=args.skip_sd)
+        preflight_login_dois: list[str] = []
+        if has_cdp:
+            if args.require_login_confirm:
+                preflight_login_dois = _english_login_candidate_dois(en_rem)
+            else:
+                preflight_login_dois = _english_login_dois_without_trusted_session(en_rem, args.port)
+        if preflight_login_dois:
+            print(f"\n{WARN} English Generic CDP includes {len(preflight_login_dois)} login-sensitive item(s) without confirmed access.")
+            print("  Login is checked before the grouped download loop to avoid per-paper login-wall failures.")
+            gate_result = show_english_login_gate(preflight_login_dois, skip_sd=args.skip_sd)
+            non_login_dois = [doi for doi in en_rem if doi not in set(preflight_login_dois)]
             if gate_result is None:
-                en_failure_reasons.update({doi: "pending_user_login" for doi in en_rem})
+                en_failure_reasons.update({doi: "pending_user_login" for doi in preflight_login_dois})
                 checkpoint_path = write_login_checkpoint(
                     args.output,
                     stage="english_preflight_login",
-                    dois=en_rem,
+                    dois=preflight_login_dois,
                     failure_reasons=en_failure_reasons,
                 )
                 print(f"English CDP login checkpoint written: {checkpoint_path}")
+                if non_login_dois:
+                    en_dl, non_login_rem, en_results, non_login_reasons = run_english_cdp(
+                        non_login_dois, args.output, args.port,
+                        skip_sd=args.skip_sd, include_si=args.include_si,
+                        sd_browser=sd_browser
+                    )
+                    en_rem = preflight_login_dois + non_login_rem
+                    en_failure_reasons.update(non_login_reasons)
             elif gate_result:
                 en_dl, en_rem, en_results, en_failure_reasons = run_english_cdp(
                     en_rem, args.output, args.port,
@@ -2158,7 +2212,18 @@ def main():
                     sd_browser=sd_browser
                 )
             else:
-                print("English CDP skipped by user - Sci-Hub papers saved.")
+                print("English CDP login-sensitive items skipped by user - OA/direct/skipped paths are preserved.")
+                en_failure_reasons.update({doi: "login_skipped_by_user" for doi in preflight_login_dois})
+                if non_login_dois:
+                    en_dl, non_login_rem, en_results, non_login_reasons = run_english_cdp(
+                        non_login_dois, args.output, args.port,
+                        skip_sd=args.skip_sd, include_si=args.include_si,
+                        sd_browser=sd_browser
+                    )
+                    en_rem = preflight_login_dois + non_login_rem
+                    en_failure_reasons.update(non_login_reasons)
+                else:
+                    en_rem = preflight_login_dois
         else:
             en_dl, en_rem, en_results, en_failure_reasons = run_english_cdp(
                 en_rem, args.output, args.port,

@@ -962,6 +962,66 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(reasons["10.1021/demo"], "generic_failed")
         self.assertEqual(reasons["10.1002/demo"], "pending_user_login")
 
+    def test_english_login_candidate_dois_excludes_direct_http_skip_and_auth_none(self):
+        pub_map = {
+            "10.1007/demo": {
+                "strategy": "generic",
+                "_key": "springer",
+                "publisher_domain": "link.springer.com",
+                "requires_auth": "institution",
+            },
+            "10.3389/demo": {
+                "strategy": "direct_http",
+                "_key": "frontiers",
+                "publisher_domain": "www.frontiersin.org",
+                "requires_auth": "none",
+            },
+            "10.9999/oa-generic": {
+                "strategy": "generic",
+                "_key": "oa_generic",
+                "publisher_domain": "example.org",
+                "requires_auth": "none",
+            },
+            "10.3390/demo": {
+                "strategy": "skip",
+                "_key": "mdpi",
+                "publisher_domain": "www.mdpi.com",
+                "requires_auth": "none",
+            },
+        }
+
+        with patch.object(router, "resolve_publisher", side_effect=lambda doi: pub_map[doi]):
+            candidates = router._english_login_candidate_dois(list(pub_map))
+
+        self.assertEqual(candidates, ["10.1007/demo"])
+
+    def test_english_login_dois_without_trusted_session_uses_pdf_probe_not_cookie_only(self):
+        pub_map = {
+            "10.1007/demo": {
+                "strategy": "generic",
+                "_key": "springer",
+                "publisher_domain": "link.springer.com",
+                "requires_auth": "institution",
+            },
+            "10.1016/demo": {
+                "strategy": "generic",
+                "_key": "sd_elsevier",
+                "publisher_domain": "www.sciencedirect.com",
+                "requires_auth": "ip_or_sso",
+            },
+        }
+
+        def fake_session(_port, publisher):
+            if publisher["_key"] == "sd_elsevier":
+                return {"probe_status": "ok"}
+            return {"probe_status": "cookie_present", "has_session": True}
+
+        with patch.object(router, "resolve_publisher", side_effect=lambda doi: pub_map[doi]), \
+             patch.object(router, "describe_publisher_session", side_effect=fake_session):
+            pending = router._english_login_dois_without_trusted_session(list(pub_map), 9223)
+
+        self.assertEqual(pending, ["10.1007/demo"])
+
 
     def test_generate_download_log_includes_reason_column(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1318,6 +1378,7 @@ class Step5DownloadTest(unittest.TestCase):
                  patch.object(router, "_scihub_eligible_dois", return_value=["10.1007/demo"]), \
                  patch.object(router, "run_scihub_round", side_effect=fake_scihub), \
                  patch.object(router, "run_oa_fast_round", side_effect=fake_oa), \
+                 patch.object(router, "_english_login_dois_without_trusted_session", return_value=[]), \
                  patch.object(router, "run_english_cdp", side_effect=fake_english), \
                  patch.object(router, "run_chinese_round", side_effect=fake_chinese), \
                  patch.object(router, "generate_download_log", return_value=str(Path(tmp) / "download_log.md")), \
@@ -1360,6 +1421,84 @@ class Step5DownloadTest(unittest.TestCase):
 
         run_chinese.assert_not_called()
         self.assertIn("English login is still pending", stdout.getvalue())
+
+    def test_main_preflight_login_gate_writes_checkpoint_before_generic_loop(self):
+        pub_map = {
+            "10.1007/demo": {
+                "strategy": "generic",
+                "_key": "springer",
+                "publisher_domain": "link.springer.com",
+                "requires_auth": "institution",
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            lock_path = Path(tmp) / "step5.lock"
+            argv = [
+                "unified_download_router.py",
+                "--papers", "10.1007/demo",
+                "--output", tmp,
+            ]
+            with patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(lock_path)}), \
+                 patch.object(sys, "argv", argv), \
+                 patch.object(router, "resolve_publisher", side_effect=lambda doi: pub_map[doi]), \
+                 patch.object(router, "ensure_cdp_running", return_value=True), \
+                 patch.object(router, "check_required_deps", return_value=True), \
+                 patch.object(router, "_scihub_eligible_dois", return_value=[]), \
+                 patch.object(router, "run_oa_fast_round", return_value=([], ["10.1007/demo"], {})), \
+                 patch.object(router, "describe_publisher_session", return_value={"probe_status": "unknown"}), \
+                 patch.object(router, "show_english_login_gate", return_value=None) as login_gate, \
+                 patch.object(router, "run_english_cdp") as run_english, \
+                 patch.object(router, "generate_download_log", return_value=str(Path(tmp) / "download_log.md")), \
+                 patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                router.main()
+
+            checkpoint = json.loads((Path(tmp) / "login_checkpoint.json").read_text(encoding="utf-8"))
+
+        run_english.assert_not_called()
+        login_gate.assert_called_once_with(["10.1007/demo"], skip_sd=False)
+        self.assertEqual([item["doi"] for item in checkpoint["items"]], ["10.1007/demo"])
+        self.assertEqual(checkpoint["status"], "pending_user_login")
+        self.assertIn("before the grouped download loop", stdout.getvalue())
+
+    def test_main_preflight_login_skip_continues_non_login_remainder(self):
+        pub_map = {
+            "10.1007/demo": {
+                "strategy": "generic",
+                "_key": "springer",
+                "publisher_domain": "link.springer.com",
+                "requires_auth": "institution",
+            },
+            "10.9999/oa-generic": {
+                "strategy": "generic",
+                "_key": "oa_generic",
+                "publisher_domain": "example.org",
+                "requires_auth": "none",
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            lock_path = Path(tmp) / "step5.lock"
+            argv = [
+                "unified_download_router.py",
+                "--papers", "10.1007/demo,10.9999/oa-generic",
+                "--output", tmp,
+            ]
+            with patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(lock_path)}), \
+                 patch.object(sys, "argv", argv), \
+                 patch.object(router, "resolve_publisher", side_effect=lambda doi: pub_map[doi]), \
+                 patch.object(router, "ensure_cdp_running", return_value=True), \
+                 patch.object(router, "check_required_deps", return_value=True), \
+                 patch.object(router, "_scihub_eligible_dois", return_value=[]), \
+                 patch.object(router, "run_oa_fast_round", return_value=([], list(pub_map), {})), \
+                 patch.object(router, "describe_publisher_session", return_value={"probe_status": "unknown"}), \
+                 patch.object(router, "show_english_login_gate", return_value=False), \
+                 patch.object(router, "run_english_cdp", return_value=([], [], [{"round": "Generic CDP", "downloaded": []}], {})) as run_english, \
+                 patch.object(router, "generate_download_log", return_value=str(Path(tmp) / "download_log.md")):
+                router.main()
+
+        run_english.assert_called_once()
+        self.assertEqual(run_english.call_args.args[0], ["10.9999/oa-generic"])
 
     def test_main_writes_chinese_checkpoint_in_sorted_order(self):
         chinese_papers = [

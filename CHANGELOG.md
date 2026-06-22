@@ -15,6 +15,7 @@
 - **Step 5 英文优先并加下载锁**：统一下载顺序收紧为 Sci-Hub / OA fast / English Generic CDP 完成后才进入 CNKI/万方；`--parallel-phase1` 保留兼容但不再并发启动中文，并新增跨进程 `step5_download.lock` 防止多个下载进程同时冲击同一 CDP 浏览器。
 - **英文 OA 清单分层与 CDP 分组**：Step 5 拿到英文 DOI 后先标记 `oa_candidate` / `no_oa_hint` / `unknown`，真实下载仍由 OA fast 验证；OA fast 剩余条目进入 English CDP 时按 publisher 分组执行，减少不同出版社页面互相冲击。
 - **English CDP 登录门控与重试语义固定**：English CDP 第一轮按 publisher 分组全部探测完成后才统一触发机构登录 gate；用户确认后只对登录类失败 DOI 分组重试一次，非登录类失败不进入登录重试。
+- **English CDP 预下载登录门控前移**：OA fast 之后、Generic CDP 分组下载之前，若剩余 DOI 存在登录敏感 publisher 且当前会话没有可信 `pdf/article probe ok` 信号，脚本会先提示登录 / 跳过 / 写 `login_checkpoint.json`，避免未登录时逐篇撞登录墙；OA、direct_http、skip 和 `requires_auth=none` 条目不被拦截。
 - **英文登录门控三态对齐中文**：英文机构登录 gate 的 `3 / 稍后重试`、非交互输入失败和未识别输入统一写 `login_checkpoint.json`，不再误当作 skip 或继续。
 - **真实下载产物从仓库内容中清理**：实测过程中产生的 `paper-temp/` PDF、下载日志和失败 DOI 临时文件不再保留为版本内容，避免把一次性下载结果混进 skill 发布面。
 
@@ -29,9 +30,11 @@
 
 ### Step 4 / Step 5 契约、平台兼容与测试补强
 
+- **Step 4 默认生成本地可视化 Dashboard**：新增 `scripts/export_step4_dashboard.py`，`export_step4_table.py` 默认同步导出 `step4-dashboard/`，从 `workflow_search_results.json` 生成静态审阅页，展示 T1-T3 纳入项、T4 排除复核项、章节/检索任务挂接、下载准备度和 `reading_depth`，但仍明确只是展示层，不替代机器主工件。
+- **Step 4 dashboard 入口和触发词补齐**：`agents/step_4_search_score.md` 把 `step4-dashboard/index.html` 加入标准完成检查和用户提示；`references/trigger-catalog.md` 增加“检索结果看板 / 检索结果可视化 / 下载优先级看板 / search results dashboard”等触发词。
 - **Step 4 到 Step 5 的中文输入约定继续明确**：`agents/step_4_search_score.md` 和 `workflow_contracts.py` 补齐中文检索结果、中文元数据和 Step 5 下载清单之间的字段契约，减少 CNKI/万方 direct-entry 时的解析歧义。
 - **CDP 与平台兼容防线补强**：`cdp_utils.py`、`start_cdp_browser.py` 和平台兼容测试继续收口 Chrome/Edge 启动、Windows 路径、浏览器会话复用与下载落盘监视边界。
-- **回归测试补齐**：`tests/test_step5_download.py` 增加 CNKI 状态透传和入口优先级单元测试，避免后续把 CNKI 阻塞状态重新退化为 generic failed。
+- **回归测试补齐**：`tests/test_export_step4_dashboard.py`、`tests/test_export_step4_table.py`、`tests/test_public_docs.py` 与 `tests/test_step5_download.py` 增加覆盖，固定 dashboard 默认导出、公开文档可发现性、CNKI 状态透传、入口优先级、英文预登录门控和 checkpoint 行为。
 
 ## v1.0.16-20260621 (2026-06-21)
 

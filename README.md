@@ -118,7 +118,7 @@ python3 scripts/run_step8_ai_trace.py --project-root examples/demo/step8-ai-trac
 这个 skill 不只给“回答”，而是给文件化中间产物，方便你继续检索、下载、审阅和写作。
 
 - Step 1: `研究主题.md`
-- Step 4: `检索文献表.md/.xlsx/.pdf` + `文献库.bib`
+- Step 4: `检索文献表.md/.xlsx/.pdf` + `文献库.bib` + `step4-dashboard/`
 - Step 5: `download_manifest.json` / `unresolved_download_items.md` / PDF 附件池
 - Step 6: `文献-Zotero架构对照.md/json`、`capability_index.json/md`
 - Step 7: `section_blueprints.md/json`、`writing_rationale_matrix.md/json`、章节草稿或全文草稿
@@ -163,7 +163,7 @@ python3 scripts/run_step8_ai_trace.py --project-root examples/demo/step8-ai-trac
 Step 1: 交互式确定研究主题（v2.0 增强版）          → 研究主题.md
 Step 2: 生成论文大纲与关键词（含大纲评审+术语映射）  → 大纲关键词.md
 Step 3: 生成文献检索方案（T1→T2→T3 分级路由）      → 检索方案.md
-Step 4: 多渠道检索+评分筛选（4.2验证→4.9完成）    → 检索文献表.md / .xlsx / .pdf / .bib
+Step 4: 多渠道检索+评分筛选（4.2验证→4.9完成）    → 检索文献表.md / .xlsx / .pdf / .bib / step4-dashboard/
 Step 5: 统一下载路由（Sci-Hub→Generic CDP） → paper-temp/ PDFs
 Step 6: Zotero 文库管理（架构+BibTeX条目+PDF附件一致性） → zotero-架构.md + 文献-Zotero架构对照.md/json + pdf-附件池索引.json + Zotero
 Step 7: 论文写作（文献证据矩阵+目标体裁/文档风格+章节级候选证据层+图表+引用审计） → 文献证据矩阵.csv + 论文初稿或指定章节.md/.docx
@@ -599,7 +599,7 @@ python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
 
 完整的预检、用户可见筛选依据确认、饱和度分析、分级阈值和扩展检索规则见 [`agents/step_4_search_score.md`](agents/step_4_search_score.md)。
 
-**产出：** `workflow_search_results.json` + `检索文献表.md/.xlsx` + `检索报告.md/.pdf` + `文献库.bib` + `retrieval_index_manifest.json`，条件性产出 `saturation_snapshot.json` / `中文论文元数据.json`
+**产出：** `workflow_search_results.json` + `检索文献表.md/.xlsx` + `检索报告.md/.pdf` + `文献库.bib` + `retrieval_index_manifest.json` + `step4-dashboard/`，条件性产出 `saturation_snapshot.json` / `中文论文元数据.json`
 
 ### Step 5: 统一下载路由
 
@@ -800,7 +800,9 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
 ### v1.0.17-20260622 (2026-06-21 至 2026-06-22)
+- **Step 4 默认生成检索结果看板**：标准 Step 4 完成链路会同步输出 `step4-dashboard/`，用于本地审阅 T1-T3 文献、复核 T4 排除项、查看章节挂接、下载准备度和阅读深度。
 - **Step 5 下载顺序改为英文优先**：英文 DOI 路径先完成 Sci-Hub / OA fast / Generic CDP，再进入 CNKI / 万方，降低中英文共享浏览器会话互相干扰的概率。
+- **English CDP 登录门控前移**：OA fast 之后、Generic CDP 分组下载之前，登录敏感出版社会先检查可信访问信号；没有确认访问时先提示登录、跳过或写 checkpoint，避免逐篇撞登录墙。
 - **English CDP 改为按 publisher 分组**：OA fast 未完成的英文 DOI 会按出版社分组进入 CDP；第一轮全部探测完成后才统一触发机构登录，并只重试登录类失败条目。
 - **登录待处理统一写 checkpoint**：英文和中文登录门控都区分“已登录 / 跳过 / 稍后重试”；无法确认时写出 `login_checkpoint.json` 或 `chinese_login_checkpoint.json`，后续只恢复待登录条目。
 - **CNKI / 万方入口更保守**：CNKI 只自动点击明确 `PDF下载`，万方按期刊/学位论文区分下载入口；安全验证、章节下载、人工路径和未知 PDF probe 不再混成普通失败。
@@ -1192,7 +1194,7 @@ Qualitative       Quantitative      Quantitative  controls                  deci
 Step 1: Interactive research topic definition (v2.0 enhanced)    → research-topic.md
 Step 2: Outline & keyword generation (with review + term mapping) → outline-keywords.md
 Step 3: Search strategy design (T1→T2→T3 tiered routing)          → search-plan.md
-Step 4: Multi-source search + scoring (4.2 validation→4.9 complete) → literature-table.md / .xlsx / .pdf / .bib
+Step 4: Multi-source search + scoring (4.2 validation→4.9 complete) → literature-table.md / .xlsx / .pdf / .bib / step4-dashboard/
 Step 5: Unified download routing (Sci-Hub→Generic CDP)    → paper-temp/ PDFs
 Step 6: Zotero library management (architecture + BibTeX + PDF consistency) → zotero-architecture.md + Zotero mapping + Zotero
 Step 7: Paper writing (literature evidence matrix + target genre/document style + figures + audit) → evidence-matrix.csv + paper draft or selected chapter.md/.docx
@@ -1388,7 +1390,7 @@ python3 scripts/search_by_topic.py "cold plate liquid cooling optimization" \
 
 Complete preflight, saturation analysis, grading thresholds, and expansion-search rules live in [`agents/step_4_search_score.md`](agents/step_4_search_score.md).
 
-**Output:** `literature-table.md` + `literature-table.xlsx` + `search-report.md` + `search-report.pdf` + `library.bib` + `saturation_snapshot.json` + `chinese-paper-metadata.json`
+**Output:** `literature-table.md` + `literature-table.xlsx` + `search-report.md` + `search-report.pdf` + `library.bib` + `step4-dashboard/` + `saturation_snapshot.json` + `chinese-paper-metadata.json`
 
 ### Step 5: Unified Download Routing
 
@@ -1538,7 +1540,9 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
 
 ### v1.0.17-20260622 (2026-06-21 to 2026-06-22)
+- **Step 4 now exports a search-results dashboard by default**: the standard Step 4 completion flow also creates `step4-dashboard/` for local review of T1-T3 papers, T4 exclusions, chapter mapping, download readiness, and reading depth.
 - **Step 5 now runs English downloads first**: English DOI paths finish Sci-Hub / OA fast / Generic CDP before CNKI / Wanfang starts, reducing cross-language CDP session interference.
+- **English CDP login gating now happens before grouped downloads**: after OA fast and before Generic CDP, login-sensitive publishers are checked for trusted access; uncertain sessions prompt login, skip, or checkpoint before per-paper failures accumulate.
 - **English CDP is grouped by publisher**: remaining English DOI items enter CDP by publisher; institutional login is prompted only after the first full probe pass, and only login-related failures are retried.
 - **Login wait states now write checkpoints**: English and Chinese login gates distinguish confirmed login, skip, and retry-later states; uncertain states write `login_checkpoint.json` or `chinese_login_checkpoint.json` for targeted resume.
 - **CNKI / Wanfang clicking is more conservative**: CNKI only auto-clicks explicit PDF download entries, while Wanfang uses separate journal/thesis download allowlists; captcha, chapter-download, manual, and unknown probe states are no longer collapsed into generic failure.

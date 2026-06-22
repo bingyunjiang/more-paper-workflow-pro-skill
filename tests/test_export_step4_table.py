@@ -7,8 +7,8 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from export_step4_table import build_manifest, build_markdown_table  # noqa: E402
-from workflow_contracts import SearchResultRecord  # noqa: E402
+from export_step4_table import build_manifest, build_markdown_table, main  # noqa: E402
+from workflow_contracts import SearchResultRecord, write_workflow_json  # noqa: E402
 
 
 class ExportStep4TableTest(unittest.TestCase):
@@ -79,6 +79,43 @@ class ExportStep4TableTest(unittest.TestCase):
         self.assertIn("workflow_search_results.json", payload["source_artifacts"])
         self.assertIn("检索文献表.xlsx", payload["source_artifacts"])
         self.assertIn("t4_records_excluded_from_display_layer", payload["warnings"])
+
+    def test_cli_exports_dashboard_by_default(self):
+        records = [
+            SearchResultRecord.from_search_result({
+                "title": "V2G charging control",
+                "source": "openalex",
+                "doi": "10.1/v2g",
+                "_tier": "T1",
+                "search_task_id": "S1",
+            }),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workflow = root / "workflow_search_results.json"
+            output_md = root / "检索文献表.md"
+            manifest = root / "retrieval_index_manifest.json"
+            write_workflow_json(workflow, records, {"query": "V2G"})
+
+            old_argv = sys.argv
+            try:
+                sys.argv = [
+                    "export_step4_table.py",
+                    "--workflow-inputs",
+                    str(workflow),
+                    "--output-md",
+                    str(output_md),
+                    "--output-manifest",
+                    str(manifest),
+                ]
+                main()
+            finally:
+                sys.argv = old_argv
+
+            self.assertTrue(output_md.exists())
+            self.assertTrue(manifest.exists())
+            self.assertTrue((root / "step4-dashboard" / "index.html").exists())
+            self.assertTrue((root / "step4-dashboard" / "data" / "search-results.js").exists())
 
 
 if __name__ == "__main__":
