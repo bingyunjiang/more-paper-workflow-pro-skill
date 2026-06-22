@@ -23,6 +23,7 @@ strategy = "generic"
 requires_auth = "ip_or_sso"
 provider_label = "ScienceDirect / Elsevier"
 publisher_domain = "www.sciencedirect.com"
+login_url = "https://www.sciencedirect.com/"
 route_hint = "generic_cdp_sd_adapter"
 notes = "ScienceDirect adapter inside Generic CDP. Reuses PII → /pdfft → PDF capture path."
 
@@ -38,6 +39,7 @@ selectors = [
 ]
 requires_auth = "sso"
 publisher_domain = "ieeexplore.ieee.org"
+login_url = "https://ieeexplore.ieee.org/"
 provider_label = "IEEE Xplore"
 route_hint = "generic_cdp_with_referrer"
 notes = "Generic CDP via Strategy B (article page → stamp URL extraction → getPDF.jsp capture). Dedicated download_via_ieee.py available as fallback for interactive SSO login flow."
@@ -118,6 +120,7 @@ si_selectors = [
 ]
 requires_auth = "institution"
 publisher_domain = "onlinelibrary.wiley.com"
+login_url = "https://onlinelibrary.wiley.com/"
 known_issues = "cloud-reader captures empty via Fetch; prefer pdfdirect URL (strategy A)"
 
 # --- RSC (Royal Society of Chemistry) ---
@@ -139,6 +142,7 @@ si_selectors = [
 ]
 requires_auth = "institution"
 publisher_domain = "pubs.rsc.org"
+login_url = "https://pubs.rsc.org/"
 
 # --- Springer ---
 [publishers.springer]
@@ -160,6 +164,7 @@ si_selectors = [
 ]
 requires_auth = "institution"
 publisher_domain = "link.springer.com"
+login_url = "https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F"
 known_issues = "book chapters may need separate institutional purchase"
 
 # --- Nature (Springer Nature) ---
@@ -182,6 +187,7 @@ si_selectors = [
 ]
 requires_auth = "institution"
 publisher_domain = "www.nature.com"
+login_url = "https://www.nature.com/"
 notes = "Many Nature journals are OA. The {slug} in URL templates is derived from the DOI suffix (dots stripped). Non-OA papers need institutional auth."
 
 # --- Science (AAAS) ---
@@ -431,6 +437,7 @@ selectors = [
 ]
 requires_auth = "institution"
 publisher_domain = "kns.cnki.net"
+login_url = "https://kns.cnki.net/kns8s/"
 known_issues = "大多数中文论文无真实 DOI，需通过检索结果中的文章详情页链接直接下载。CDP 浏览器需已登录 CNKI（校园网 IP 直连或 CARSI SSO）。提供 PDF 和 CAJ 两种下载格式。"
 
 # --- Wanfang Data (万方数据) ---
@@ -450,6 +457,7 @@ selectors = [
 ]
 requires_auth = "institution"
 publisher_domain = "d.wanfangdata.com.cn"
+login_url = "https://www.wanfangdata.com.cn/"
 known_issues = "下载按钮为 JS onclick 无 href，需点击触发跳转到 f.wanfangdata.com.cn/download/ 中转页后捕获 PDF。需 CARSI SSO 或校园网 IP。"
 
 

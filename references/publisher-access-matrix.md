@@ -50,6 +50,8 @@ python3 scripts/download_via_scihub.py dois.txt --output paper-temp/
 
 ## 出版商矩阵
 
+English Generic CDP 登录门控会根据本轮待登录 DOI 去重 publisher，并读取 `config/publishers.toml` 的 `login_url` 在同一个 CDP Chrome 中自动打开所需 tab；没有 `login_url` 时回退到 `https://{publisher_domain}/`。常用登录入口包括 IEEE `https://ieeexplore.ieee.org/`、ScienceDirect `https://www.sciencedirect.com/`、Wiley `https://onlinelibrary.wiley.com/`、RSC `https://pubs.rsc.org/`、Nature `https://www.nature.com/`、Springer `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F`。Chinese CDP 登录门控同样按本轮 `source=cnki|wanfang` 去重，在同一个 CDP Chrome 中自动打开 CNKI `https://kns.cnki.net/kns8s/` 和/或 Wanfang `https://www.wanfangdata.com.cn/`。
+
 | 出版商 | DOI 前缀 | 访问方式 | 状态 | 策略 |
 |--------|----------|----------|------|------|
 | **Elsevier/SD** | `10.1016/` | CDP Chrome + Fetch | ✅ 已验证 | Layer 3: DOI→PII → 导航到 pdfft → 等待 PDF 重定向 → Fetch.reload → 原始字节 |

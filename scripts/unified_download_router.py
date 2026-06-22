@@ -41,6 +41,7 @@ from cdp_utils import (
     cdp_browser_matches,
     check_cdp,
     check_required_deps,
+    create_tab,
     get_cdp_browser_product,
     start_persistent_cdp_browser,
 )
@@ -1259,6 +1260,7 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
         gate_result = show_english_login_gate(
             login_retry_dois,
             skip_sd=skip_sd,
+            port=port,
             interactive=sys.stdin.isatty(),
         )
         if gate_result is None:
@@ -1456,6 +1458,102 @@ def _english_login_dois_without_trusted_session(dois: list[str], port: int) -> l
     return pending
 
 
+def _publisher_login_url(pub_cfg: dict) -> str:
+    """Return the configured login URL, falling back to the publisher domain."""
+    login_url = str(pub_cfg.get("login_url", "")).strip()
+    if login_url:
+        return login_url
+    domain = str(pub_cfg.get("publisher_domain", "")).strip()
+    if not domain:
+        return ""
+    if domain.startswith(("http://", "https://")):
+        return domain
+    return f"https://{domain}/"
+
+
+def _english_login_publishers(dois: list[str]) -> dict[str, dict]:
+    """Return unique Generic CDP publishers that need user login tabs."""
+    publishers: dict[str, dict] = {}
+    for doi in _english_login_candidate_dois(dois):
+        info = classify_doi(doi)
+        pub_key = info.get("publisher", "unknown")
+        pub_cfg = info.get("publisher_config", {}) or {}
+        if pub_key not in publishers:
+            publishers[pub_key] = pub_cfg
+    return publishers
+
+
+def open_english_login_tabs(port: int, dois: list[str]) -> dict[str, list[str]]:
+    """Open one login tab per publisher needed by the given English DOI list."""
+    opened: list[str] = []
+    failed: list[str] = []
+    publishers = _english_login_publishers(dois)
+
+    for pub_key, pub_cfg in sorted(publishers.items()):
+        url = _publisher_login_url(pub_cfg)
+        domain = pub_cfg.get("publisher_domain", "?")
+        if not url:
+            failed.append(f"{pub_key} ({domain}) - missing login_url/publisher_domain")
+            continue
+        try:
+            _, tab_id = create_tab(port, url)
+        except Exception as exc:
+            failed.append(f"{pub_key} ({url}) - {exc}")
+            continue
+        if not tab_id:
+            failed.append(f"{pub_key} ({url}) - CDP did not return a tab id")
+            continue
+        opened.append(f"{pub_key} ({url})")
+
+    return {"opened": opened, "failed": failed}
+
+
+def _chinese_login_publishers(chinese_papers: list[dict]) -> dict[str, dict]:
+    """Return unique CNKI/Wanfang publishers needed by the Chinese paper list."""
+    publishers: dict[str, dict] = {}
+    for paper in chinese_papers:
+        source = str(paper.get("source", "")).strip().lower()
+        if source not in CHINESE_PUBLISHERS or source in publishers:
+            continue
+        publishers[source] = _PUBLISHER_CONFIGS.get(source, {})
+    return publishers
+
+
+def open_chinese_login_tabs(port: int, chinese_papers: list[dict]) -> dict[str, list[str]]:
+    """Open one login tab per Chinese literature source needed by this batch."""
+    opened: list[str] = []
+    failed: list[str] = []
+    publishers = _chinese_login_publishers(chinese_papers)
+
+    for source, pub_cfg in sorted(publishers.items(), key=lambda item: CHINESE_SOURCE_PRIORITY.get(item[0], 99)):
+        url = _publisher_login_url(pub_cfg)
+        domain = pub_cfg.get("publisher_domain", "?")
+        if not url:
+            failed.append(f"{source} ({domain}) - missing login_url/publisher_domain")
+            continue
+        try:
+            _, tab_id = create_tab(port, url)
+        except Exception as exc:
+            failed.append(f"{source} ({url}) - {exc}")
+            continue
+        if not tab_id:
+            failed.append(f"{source} ({url}) - CDP did not return a tab id")
+            continue
+        opened.append(f"{source} ({url})")
+
+    return {"opened": opened, "failed": failed}
+
+
+def _print_opened_login_tabs(tab_result: dict[str, list[str]]) -> None:
+    if not (tab_result.get("opened") or tab_result.get("failed")):
+        return
+    print("CDP Chrome opened the login tabs needed for this batch:")
+    for item in tab_result.get("opened", []):
+        print(f"  {OK} {item}")
+    for item in tab_result.get("failed", []):
+        print(f"  {WARN} {item}")
+
+
 def write_login_checkpoint(output_dir: str, stage: str, dois: list[str],
                            failure_reasons: dict[str, str]) -> str:
     """Write a re-runnable login checkpoint for remaining English CDP items."""
@@ -1525,7 +1623,7 @@ def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
     if not papers:
         return [], []
 
-    gate = show_chinese_login_gate(papers)
+    gate = show_chinese_login_gate(papers, port=port)
     if gate is True:
         return run_chinese_round(papers, output_dir, port)
     if gate is False:
@@ -1537,9 +1635,10 @@ def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
     return [], [paper.get("doi") or paper.get("title", "") for paper in papers]
 
 
-def prepare_chinese_round_with_login_gate(papers: list[dict], output_dir: str) -> bool:
+def prepare_chinese_round_with_login_gate(papers: list[dict], output_dir: str,
+                                          port: int = CDP_PORT) -> bool:
     """Return True only when Chinese login was explicitly confirmed."""
-    gate = show_chinese_login_gate(papers)
+    gate = show_chinese_login_gate(papers, port=port)
     if gate is True:
         return True
     if gate is False:
@@ -1565,6 +1664,7 @@ def resume_from_login_checkpoint(checkpoint_path: str, output_dir: str, port: in
     if not dois:
         return [], [], [], {}
 
+    _print_opened_login_tabs(open_english_login_tabs(port, dois))
     downloaded, remaining, failure_reasons = run_generic_round(
         dois, output_dir, port, include_si=include_si
     )
@@ -1587,7 +1687,8 @@ def resume_from_login_checkpoint(checkpoint_path: str, output_dir: str, port: in
     return downloaded, remaining, round_results, failure_reasons
 
 
-def show_chinese_login_gate(chinese_papers: list[dict]) -> Optional[bool]:
+def show_chinese_login_gate(chinese_papers: list[dict],
+                            port: int = CDP_PORT) -> Optional[bool]:
     """Display Chinese login gate.
 
     Returns:
@@ -1608,6 +1709,7 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> Optional[bool]:
             pubs.append(f"  - {source} ({domain})")
     if not pubs:
         return True
+    tab_result = open_chinese_login_tabs(port, chinese_papers)
 
     print(f"\n{'='*60}")
     print("Chinese Login Gate - CNKI / Wanfang")
@@ -1622,8 +1724,7 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> Optional[bool]:
     for p in sorted(set(pubs)):
         print(p)
     print()
-    print("  CNKI:  https://kns.cnki.net/")
-    print("  Wanfang: https://www.wanfangdata.com.cn/")
+    _print_opened_login_tabs(tab_result)
     print()
     raw_resp = _safe_gate_input("Enter 1/2/3: ")
     if raw_resp is None:
@@ -1644,6 +1745,7 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> Optional[bool]:
 
 
 def show_english_login_gate(dois: list[str], skip_sd: bool = False,
+                            port: int = CDP_PORT,
                             interactive: bool = True) -> Optional[bool]:
     """Display English publisher login gate for remaining CDP papers.
 
@@ -1674,6 +1776,8 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False,
         print(f"\n{OK} No English publishers requiring institutional login.")
         return True
 
+    tab_result = open_english_login_tabs(port, dois)
+
     print(f"\n{'='*60}")
     print("English Login Gate - Institutional Access Required")
     print(f"{'='*60}")
@@ -1686,6 +1790,8 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False,
         for p in sorted(pubs):
             print(f"    - {p}")
         print()
+    _print_opened_login_tabs(tab_result)
+    print()
     print("Please complete these steps BEFORE continuing.")
     print("If you do not have an institutional account for some or all of these")
     print("publishers, type 'skip' and the workflow will continue with OA/direct paths")
@@ -1695,10 +1801,9 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False,
     print("  2) 没有账号，跳过并继续")
     print("  3) 稍后重试（写 checkpoint，稍后恢复）")
     print()
-    print("  1. Open CDP Chrome at http://127.0.0.1:9223")
-    print("  2. Navigate to each publisher's homepage (domains listed above)")
-    print("  3. Complete institutional SSO login for each publisher")
-    print("  4. Verify the login persists (check for 'Access provided by...' badges)")
+    print("  1. Use the opened tabs in the CDP Chrome window")
+    print("  2. Complete institutional SSO login for each opened publisher")
+    print("  3. Verify the login persists (check for 'Access provided by...' badges)")
     print()
     print(f"{'='*60}")
     if not interactive:
@@ -2186,7 +2291,11 @@ def main():
         if preflight_login_dois:
             print(f"\n{WARN} English Generic CDP includes {len(preflight_login_dois)} login-sensitive item(s) without confirmed access.")
             print("  Login is checked before the grouped download loop to avoid per-paper login-wall failures.")
-            gate_result = show_english_login_gate(preflight_login_dois, skip_sd=args.skip_sd)
+            gate_result = show_english_login_gate(
+                preflight_login_dois,
+                skip_sd=args.skip_sd,
+                port=args.port,
+            )
             non_login_dois = [doi for doi in en_rem if doi not in set(preflight_login_dois)]
             if gate_result is None:
                 en_failure_reasons.update({doi: "pending_user_login" for doi in preflight_login_dois})
@@ -2255,7 +2364,7 @@ def main():
                 print("  macOS/Linux wrapper also supported: bash scripts/start_cdp_chrome.sh")
                 sys.exit(1)
             if args.require_login_confirm:
-                if prepare_chinese_round_with_login_gate(chinese_papers, args.output):
+                if prepare_chinese_round_with_login_gate(chinese_papers, args.output, port=args.port):
                     ch_dl, ch_rem = run_chinese_round(chinese_papers, args.output, args.port)
             else:
                 ch_dl, ch_rem = run_chinese_round(chinese_papers, args.output, args.port)

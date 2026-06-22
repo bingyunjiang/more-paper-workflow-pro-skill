@@ -16,6 +16,7 @@
 - **英文 OA 清单分层与 CDP 分组**：Step 5 拿到英文 DOI 后先标记 `oa_candidate` / `no_oa_hint` / `unknown`，真实下载仍由 OA fast 验证；OA fast 剩余条目进入 English CDP 时按 publisher 分组执行，减少不同出版社页面互相冲击。
 - **English CDP 登录门控与重试语义固定**：English CDP 第一轮按 publisher 分组全部探测完成后才统一触发机构登录 gate；用户确认后只对登录类失败 DOI 分组重试一次，非登录类失败不进入登录重试。
 - **English CDP 预下载登录门控前移**：OA fast 之后、Generic CDP 分组下载之前，若剩余 DOI 存在登录敏感 publisher 且当前会话没有可信 `pdf/article probe ok` 信号，脚本会先提示登录 / 跳过 / 写 `login_checkpoint.json`，避免未登录时逐篇撞登录墙；OA、direct_http、skip 和 `requires_auth=none` 条目不被拦截。
+- **English CDP 登录 tab 按需自动打开**：英文登录门控会根据本轮待登录 DOI 或 `login_checkpoint.json` 去重 publisher，并在同一个 CDP Chrome 中自动打开对应 `login_url` / publisher 首页；不会固定打开未参与本轮下载的常用出版社。
 - **英文登录门控三态对齐中文**：英文机构登录 gate 的 `3 / 稍后重试`、非交互输入失败和未识别输入统一写 `login_checkpoint.json`，不再误当作 skip 或继续。
 - **真实下载产物从仓库内容中清理**：实测过程中产生的 `paper-temp/` PDF、下载日志和失败 DOI 临时文件不再保留为版本内容，避免把一次性下载结果混进 skill 发布面。
 
@@ -25,6 +26,7 @@
 - **CNKI 自动点击入口收紧为 PDF 白名单**：期刊论文和学位论文详情页都只允许自动点击明确的 `PDF下载` / `PDF 下载` / `#pdfDown`；`AI阅读`、`原版阅读`、`CAJ下载`、`章节下载`、`分页下载`、`我是作者`、`免费下载`、`在线阅读`、`整本下载` 一律不自动点击。
 - **万方自动点击入口按类型收紧**：期刊论文详情页只点击 `下载`，不点 `在线阅读` / `评审材料`；学位论文详情页只点击 `整篇下载`，不点 `在线阅读` / `分章下载`，并兼容 `d.wanfangdata.com.cn/...` 与 `details/detail.do` 两类 URL。
 - **中文登录门控改为 checkpoint 语义**：CNKI/万方登录确认变为三态；未收到明确“已登录”或用户选择“稍后重试”时写出 `chinese_login_checkpoint.json`，不再误判为 skip 并跳到后续数据库。
+- **中文登录门控按需自动打开入口**：CNKI/万方门控会根据本轮中文清单或 `chinese_login_checkpoint.json` 的 `source` 去重，并在同一个 CDP Chrome 中自动打开 CNKI / 万方入口；同一文库每轮只开一次。
 - **中文下载清单稳定排序**：Step 5 拿到中文清单后先按 source 排序为 CNKI → 万方，同一数据库内部保留原顺序；排序后的清单贯穿路由 summary、登录门控、checkpoint、下载和 download log。
 - **Step 5 运行契约补充 Windows/CNKI 协作经验**：`agents/step_5_download.md` 和 `references/download-readiness-states.md` 写入安全验证、已验证详情页复用、独立中文 CDP 会话、人工点击下载 + Agent 监视落盘等规则。
 

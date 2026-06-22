@@ -446,16 +446,52 @@ class Step5DownloadTest(unittest.TestCase):
             "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
         }]
 
-        with patch("builtins.input", return_value="已登录"):
+        with patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}) as open_tabs, \
+             patch("builtins.input", return_value="已登录"):
             self.assertTrue(router.show_chinese_login_gate(papers))
+        open_tabs.assert_called_once_with(router.CDP_PORT, papers)
 
     def test_show_chinese_login_gate_skip_is_explicit_false(self):
-        with patch("builtins.input", return_value="2"):
-            self.assertFalse(router.show_chinese_login_gate([{
+        papers = [{
+            "title": "CNKI demo",
+            "source": "cnki",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+        }]
+        with patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}), \
+             patch("builtins.input", return_value="2"):
+            self.assertFalse(router.show_chinese_login_gate(papers))
+
+    def test_open_chinese_login_tabs_deduplicates_sources(self):
+        papers = [
+            {
                 "title": "CNKI demo",
                 "source": "cnki",
                 "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
-            }]))
+            },
+            {
+                "title": "CNKI demo 2",
+                "source": "cnki",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=test2",
+            },
+            {
+                "title": "Wanfang demo",
+                "source": "wanfang",
+                "article_url": "https://d.wanfangdata.com.cn/periodical/demo",
+            },
+        ]
+        with patch.object(router, "create_tab", return_value=(None, "tab-1")) as create_tab:
+            result = router.open_chinese_login_tabs(9223, papers)
+
+        self.assertEqual(result["failed"], [])
+        self.assertEqual(result["opened"], [
+            "cnki (https://kns.cnki.net/kns8s/)",
+            "wanfang (https://www.wanfangdata.com.cn/)",
+        ])
+        opened_urls = [call.args[1] for call in create_tab.call_args_list]
+        self.assertEqual(opened_urls, [
+            "https://kns.cnki.net/kns8s/",
+            "https://www.wanfangdata.com.cn/",
+        ])
 
     def test_show_chinese_login_gate_defer_and_eof_return_none(self):
         papers = [{
@@ -463,9 +499,11 @@ class Step5DownloadTest(unittest.TestCase):
             "source": "cnki",
             "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
         }]
-        with patch("builtins.input", return_value="3"):
+        with patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}), \
+             patch("builtins.input", return_value="3"):
             self.assertIsNone(router.show_chinese_login_gate(papers))
-        with patch("builtins.input", side_effect=EOFError):
+        with patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}), \
+             patch("builtins.input", side_effect=EOFError):
             self.assertIsNone(router.show_chinese_login_gate(papers))
 
     def test_show_english_login_gate_lists_cdp_publishers(self):
@@ -474,20 +512,101 @@ class Step5DownloadTest(unittest.TestCase):
             "10.1038/s41467-2024-00001",
         ]
 
-        with patch("builtins.input", return_value="已登录"):
+        with patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}) as open_tabs, \
+             patch("builtins.input", return_value="已登录"):
             self.assertTrue(router.show_english_login_gate(dois))
+        open_tabs.assert_called_once_with(router.CDP_PORT, dois)
 
     def test_show_english_login_gate_noninteractive_returns_none(self):
-        self.assertIsNone(
-            router.show_english_login_gate(
-                ["10.1016/j.test.2024.01.001"],
-                interactive=False,
+        with patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}) as open_tabs:
+            self.assertIsNone(
+                router.show_english_login_gate(
+                    ["10.1016/j.test.2024.01.001"],
+                    port=9444,
+                    interactive=False,
+                )
             )
-        )
+        open_tabs.assert_called_once_with(9444, ["10.1016/j.test.2024.01.001"])
 
     def test_show_english_login_gate_eoferror_returns_none(self):
-        with patch("builtins.input", side_effect=EOFError):
+        with patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}), \
+             patch("builtins.input", side_effect=EOFError):
             self.assertIsNone(router.show_english_login_gate(["10.1016/j.test.2024.01.001"]))
+
+    def test_open_english_login_tabs_deduplicates_publishers(self):
+        dois = [
+            "10.1016/j.demo.2026.01.001",
+            "10.1016/j.demo.2026.01.002",
+            "10.1109/demo.2026.001",
+        ]
+        with patch.object(router, "create_tab", return_value=(None, "tab-1")) as create_tab:
+            result = router.open_english_login_tabs(9223, dois)
+
+        self.assertEqual(result["failed"], [])
+        self.assertEqual(len(result["opened"]), 2)
+        opened_urls = [call.args[1] for call in create_tab.call_args_list]
+        self.assertEqual(opened_urls, [
+            "https://ieeexplore.ieee.org/",
+            "https://www.sciencedirect.com/",
+        ])
+
+    def test_open_english_login_tabs_only_uses_login_candidate_dois(self):
+        pub_map = {
+            "10.1007/demo": {
+                "strategy": "generic",
+                "_key": "springer",
+                "publisher_domain": "link.springer.com",
+                "login_url": "https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F",
+                "requires_auth": "institution",
+            },
+            "10.3389/demo": {
+                "strategy": "direct_http",
+                "_key": "frontiers",
+                "publisher_domain": "www.frontiersin.org",
+                "requires_auth": "none",
+            },
+            "10.3390/demo": {
+                "strategy": "skip",
+                "_key": "mdpi",
+                "requires_auth": "none",
+            },
+        }
+        with patch.object(router, "resolve_publisher", side_effect=lambda doi: pub_map[doi]), \
+             patch.object(router, "create_tab", return_value=(None, "tab-1")) as create_tab:
+            result = router.open_english_login_tabs(9223, list(pub_map))
+
+        self.assertEqual(result["failed"], [])
+        self.assertEqual(result["opened"], [
+            "springer (https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F)"
+        ])
+        create_tab.assert_called_once_with(
+            9223,
+            "https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F",
+        )
+
+    def test_open_english_login_tabs_falls_back_to_publisher_domain(self):
+        with patch.object(router, "resolve_publisher", return_value={
+            "strategy": "generic",
+            "_key": "custom",
+            "publisher_domain": "example.org",
+            "requires_auth": "institution",
+        }), patch.object(router, "create_tab", return_value=(None, "tab-1")) as create_tab:
+            result = router.open_english_login_tabs(9223, ["10.5555/demo"])
+
+        self.assertEqual(result["opened"], ["custom (https://example.org/)"])
+        create_tab.assert_called_once_with(9223, "https://example.org/")
+
+    def test_open_english_login_tabs_records_create_tab_failures(self):
+        with patch.object(router, "resolve_publisher", return_value={
+            "strategy": "generic",
+            "_key": "custom",
+            "publisher_domain": "example.org",
+            "requires_auth": "institution",
+        }), patch.object(router, "create_tab", side_effect=RuntimeError("cdp down")):
+            result = router.open_english_login_tabs(9223, ["10.5555/demo"])
+
+        self.assertEqual(result["opened"], [])
+        self.assertIn("custom (https://example.org/) - cdp down", result["failed"])
 
     def test_ensure_cdp_running_reuses_existing_browser(self):
         with patch.object(router, "check_cdp", return_value=True), \
@@ -752,20 +871,25 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertIn("若宿主支持弹窗/结构化选项", step5)
 
     def test_login_gates_allow_skip_without_fatal_stop(self):
-        with patch("builtins.input", return_value="2"):
+        with patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}), \
+             patch("builtins.input", return_value="2"):
             self.assertFalse(router.show_english_login_gate(["10.1007/demo"]))
 
     def test_show_english_login_gate_defer_returns_none_like_chinese_gate(self):
         for value in ("3", "later", "retry", "稍后", "重试", "稍后重试"):
-            with self.subTest(value=value), patch("builtins.input", return_value=value):
+            with self.subTest(value=value), \
+                 patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}), \
+                 patch("builtins.input", return_value=value):
                 self.assertIsNone(router.show_english_login_gate(["10.1007/demo"]))
 
     def test_show_english_login_gate_unrecognized_returns_none(self):
-        with patch("builtins.input", return_value="maybe tomorrow"):
+        with patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}), \
+             patch("builtins.input", return_value="maybe tomorrow"):
             self.assertIsNone(router.show_english_login_gate(["10.1007/demo"]))
 
     def test_login_gate_prompts_offer_three_choices(self):
-        with patch("builtins.input", return_value="3") as inp:
+        with patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}), \
+             patch("builtins.input", return_value="3") as inp:
             self.assertIsNone(router.show_chinese_login_gate([{"source": "cnki", "article_url": "https://kns.cnki.net", "title": "x"}]))
         self.assertTrue(inp.called)
 
@@ -874,7 +998,7 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(downloaded, ["10.1007/demo"])
         self.assertEqual(remaining, ["10.1021/demo"])
         self.assertEqual(reasons, {"10.1021/demo": "generic_failed"})
-        login_gate.assert_called_once_with(["10.1007/demo"], skip_sd=False, interactive=False)
+        login_gate.assert_called_once_with(["10.1007/demo"], skip_sd=False, port=9223, interactive=False)
         self.assertEqual(run_generic.call_args_list[1].args[0], ["10.1007/demo"])
         self.assertEqual(results[-1]["round"], "Generic CDP (after login)")
 
@@ -901,7 +1025,12 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(run_generic.call_count, 2)
         self.assertEqual(run_generic.call_args_list[0].args[0], dois)
         self.assertEqual(run_generic.call_args_list[1].args[0], ["10.1016/j.sd-one", "10.1002/wiley-one"])
-        login_gate.assert_called_once_with(["10.1016/j.sd-one", "10.1002/wiley-one"], skip_sd=False, interactive=False)
+        login_gate.assert_called_once_with(
+            ["10.1016/j.sd-one", "10.1002/wiley-one"],
+            skip_sd=False,
+            port=9223,
+            interactive=False,
+        )
         self.assertIn("First grouped English CDP pass completed", stdout.getvalue())
         self.assertEqual(results[-1]["round"], "Generic CDP (after login)")
 
@@ -1256,7 +1385,7 @@ class Step5DownloadTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             checkpoint_path = Path(tmp) / "chinese_login_checkpoint.json"
             checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
-            with patch.object(router, "show_chinese_login_gate", return_value=True), \
+            with patch.object(router, "show_chinese_login_gate", return_value=True) as gate, \
                  patch.object(router, "run_chinese_round", return_value=(["wanfang.demo"], [])) as run_chinese:
                 downloaded, remaining = router.resume_from_chinese_login_checkpoint(
                     str(checkpoint_path), tmp, 9223
@@ -1264,6 +1393,8 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(downloaded, ["wanfang.demo"])
         self.assertEqual(remaining, [])
+        gate.assert_called_once()
+        self.assertEqual(gate.call_args.kwargs["port"], 9223)
         run_chinese.assert_called_once()
         self.assertEqual(run_chinese.call_args.args[0][0]["source"], "wanfang")
 
@@ -1305,10 +1436,12 @@ class Step5DownloadTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             checkpoint_path = Path(tmp) / "chinese_login_checkpoint.json"
             checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
-            with patch.object(router, "show_chinese_login_gate", return_value=True), \
+            with patch.object(router, "show_chinese_login_gate", return_value=True) as gate, \
                  patch.object(router, "run_chinese_round", return_value=(["cnki.1"], [])) as run_chinese:
                 router.resume_from_chinese_login_checkpoint(str(checkpoint_path), tmp, 9223)
 
+        gate.assert_called_once()
+        self.assertEqual(gate.call_args.kwargs["port"], 9223)
         self.assertEqual(
             [paper["doi"] for paper in run_chinese.call_args.args[0]],
             ["cnki.1", "cnki.2", "wanfang.1", "wanfang.2"],
@@ -1456,7 +1589,7 @@ class Step5DownloadTest(unittest.TestCase):
             checkpoint = json.loads((Path(tmp) / "login_checkpoint.json").read_text(encoding="utf-8"))
 
         run_english.assert_not_called()
-        login_gate.assert_called_once_with(["10.1007/demo"], skip_sd=False)
+        login_gate.assert_called_once_with(["10.1007/demo"], skip_sd=False, port=9223)
         self.assertEqual([item["doi"] for item in checkpoint["items"]], ["10.1007/demo"])
         self.assertEqual(checkpoint["status"], "pending_user_login")
         self.assertIn("before the grouped download loop", stdout.getvalue())
@@ -1540,7 +1673,7 @@ class Step5DownloadTest(unittest.TestCase):
                  patch.object(router, "parse_chinese_papers", return_value=chinese_papers), \
                  patch.object(router, "ensure_cdp_running", return_value=True), \
                  patch.object(router, "check_required_deps", return_value=True), \
-                 patch.object(router, "show_chinese_login_gate", return_value=None), \
+                 patch.object(router, "show_chinese_login_gate", return_value=None) as gate, \
                  patch.object(router, "generate_download_log", return_value=str(Path(tmp) / "download_log.md")):
                 router.main()
 
@@ -1550,6 +1683,8 @@ class Step5DownloadTest(unittest.TestCase):
             [item["doi"] for item in checkpoint["items"]],
             ["cnki.1", "cnki.2", "wanfang.1", "wanfang.2"],
         )
+        gate.assert_called_once()
+        self.assertEqual(gate.call_args.kwargs["port"], 9223)
 
     def test_resume_from_login_checkpoint_retries_only_pending_english_dois(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1568,7 +1703,8 @@ class Step5DownloadTest(unittest.TestCase):
                 "10.1016/j.demo.2026.01.001": "generic_failed",
             })
 
-            with patch.object(router, "run_generic_round", return_value=resumed) as run_generic:
+            with patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}) as open_tabs, \
+                 patch.object(router, "run_generic_round", return_value=resumed) as run_generic:
                 downloaded, remaining, results, reasons = router.resume_from_login_checkpoint(
                     str(checkpoint_path), tmp, 9223
                 )
@@ -1579,6 +1715,9 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(results[-1]["round"], "Generic CDP (resume login checkpoint)")
         run_generic.assert_called_once_with(
             ["10.1007/demo", "10.1016/j.demo.2026.01.001"], tmp, 9223, include_si=False
+        )
+        open_tabs.assert_called_once_with(
+            9223, ["10.1007/demo", "10.1016/j.demo.2026.01.001"]
         )
 
     def test_check_all_sessions_reports_weak_cookie_probe(self):

@@ -615,7 +615,7 @@ python3 scripts/unified_download_router.py 检索文献表.md -o paper-temp/
 python3 scripts/unified_download_router.py --papers "10.1021/x,10.1002/y" -o paper-temp/
 ```
 
-**产出：** `download_log.md` 和 PDF 附件池；直达模式会额外生成 `direct_download_manifest.md/json`，无法唯一解析的标题进入 `unresolved_download_items.md`。出版商路由、CDP 登录门控、失败回退和 Cloudflare 应对详见 [`agents/step_5_download.md`](agents/step_5_download.md) 与 [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md)。
+**产出：** `download_log.md` 和 PDF 附件池；直达模式会额外生成 `direct_download_manifest.md/json`，无法唯一解析的标题进入 `unresolved_download_items.md`。英文机构登录门控会按本轮待登录 DOI 自动打开所需出版社 tab，中文 CNKI/万方门控会按本轮 source 自动打开对应文库入口。出版商路由、CDP 登录门控、失败回退和 Cloudflare 应对详见 [`agents/step_5_download.md`](agents/step_5_download.md) 与 [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md)。
 
 ### Step 6: Zotero 文库管理
 
