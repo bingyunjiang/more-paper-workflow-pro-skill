@@ -154,9 +154,16 @@
   - `3` = 稍后重试
 - 运行语义必须一致：`2` 不能终止整批流程，只能跳过当前登录型路径并继续 OA / direct_http / 已完成结果汇总。
 - **英文 checkpoint 特殊规则：** 如果宿主无法继续 `stdin` 交互、`input()` 抛出 `EOFError / KeyboardInterrupt`、用户选择 `3 / 稍后重试`，或输入无法识别，必须视为“当前宿主无法确认登录”，不是“用户主动 skip”。此时写出 `paper-temp/login_checkpoint.json`，把相关 DOI 标记为 `pending_user_login`，等待后续恢复。
-- **恢复入口：** 用户完成机构登录后，应优先运行 `python3 scripts/unified_download_router.py --resume-login-checkpoint paper-temp/login_checkpoint.json --output paper-temp/`，脚本会只读取 checkpoint 内 DOI、只打开 checkpoint 涉及的 publisher tab，并只重跑待登录 DOI，不整批重来。
+- **恢复入口：** 用户完成机构登录后，应优先运行 `python3 scripts/unified_download_router.py --resume-login-checkpoint paper-temp/login_checkpoint.json --output paper-temp/ --confirmed`，脚本会只读取 checkpoint 内 DOI、只打开 checkpoint 涉及的 publisher tab，并只重跑待登录 DOI，不整批重来。`--confirmed` / `--assume-login-confirmed` 表示外层宿主或用户已经确认登录完成；确认后仍失败的条目必须转为真实策略失败（如 `generic_failed` / `access_denied` / `pdf_probe_unknown`），不得继续写回 `pending_user_login`。
 - **中文非交互特殊规则：** 如果 CNKI/万方门控无法读取用户输入，或用户选择 `3 / 稍后重试`，必须视为“中文登录待确认”，不是用户主动 skip。此时写出 `paper-temp/chinese_login_checkpoint.json`，把中文条目标记为 `pending_user_login`，不得继续误判为跳过。
 - **中文恢复入口：** 用户完成 CNKI/万方机构登录后，应运行 `python3 scripts/unified_download_router.py --resume-chinese-login-checkpoint paper-temp/chinese_login_checkpoint.json --output paper-temp/ --require-login-confirm`，脚本会只读取 checkpoint 内 source，按需打开 CNKI/万方入口，并只重跑 checkpoint 内的中文条目。
+
+**GUI / agent 宿主推荐流程：**
+
+1. 先运行 `--check-session` 或正常下载，让脚本自动打开本轮 publisher 登录页。
+2. 如果宿主无法读取 `input()`，保留 `login_checkpoint.json`，不要把该状态视为用户 skip。
+3. 用户在 CDP 浏览器完成机构登录后，由 agent 使用 `--resume-login-checkpoint ... --confirmed` 续跑。
+4. 续跑后只保留真实待登录项到 checkpoint；已确认登录仍失败的条目进入 `failed_dois.json`，用于区分“继续登录”与“修下载策略/手动下载”。
 
 **执行流程：**
 

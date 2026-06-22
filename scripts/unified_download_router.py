@@ -1575,7 +1575,7 @@ def write_login_checkpoint(output_dir: str, stage: str, dois: list[str],
         "stage": stage,
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "items": items,
-        "rerun_hint": "python3 scripts/unified_download_router.py --resume-login-checkpoint paper-temp/login_checkpoint.json --output paper-temp/",
+        "rerun_hint": "python3 scripts/unified_download_router.py --resume-login-checkpoint paper-temp/login_checkpoint.json --output paper-temp/ --confirmed",
     }
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -1650,8 +1650,24 @@ def prepare_chinese_round_with_login_gate(papers: list[dict], output_dir: str,
     return False
 
 
+def _post_confirmed_login_failure_reason(reason: str) -> str:
+    """Collapse login-gate reasons after the user already confirmed login."""
+    if reason in {
+        "manual_confirmation_required",
+        "manual_required",
+        "login_required",
+        "login_wall",
+        "pdf_probe_blocked",
+        "pdf_probe_unknown",
+    }:
+        return "generic_failed"
+    return reason
+
+
 def resume_from_login_checkpoint(checkpoint_path: str, output_dir: str, port: int,
-                                 include_si: bool = False) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
+                                 include_si: bool = False,
+                                 confirmed_login: bool = False
+                                 ) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
     """Resume only the English DOI subset stored in a login checkpoint."""
     with open(checkpoint_path, "r", encoding="utf-8") as f:
         payload = json.load(f)
@@ -1669,6 +1685,13 @@ def resume_from_login_checkpoint(checkpoint_path: str, output_dir: str, port: in
         dois, output_dir, port, include_si=include_si
     )
     round_results = [{"round": "Generic CDP (resume login checkpoint)", "downloaded": downloaded}]
+
+    if confirmed_login:
+        failure_reasons = {
+            doi: _post_confirmed_login_failure_reason(reason)
+            for doi, reason in failure_reasons.items()
+        }
+        return downloaded, remaining, round_results, failure_reasons
 
     login_retry_dois = _filter_login_required_dois(remaining, failure_reasons)
     if login_retry_dois:
@@ -1897,6 +1920,9 @@ def main():
     parser.add_argument("--test-wanfang", help="Test single Wanfang paper download (provide article URL)")
     parser.add_argument("--resume-login-checkpoint", nargs="?", const="AUTO",
                         help="Resume English DOI download from login_checkpoint.json (default: <output>/login_checkpoint.json)")
+    parser.add_argument("--confirmed", "--assume-login-confirmed", "--confirmed-login",
+                        dest="confirmed_login", action="store_true",
+                        help="With --resume-login-checkpoint, skip script-side login prompts because the outer host/user already confirmed login")
     parser.add_argument("--resume-chinese-login-checkpoint", nargs="?", const="AUTO",
                         help="Resume CNKI/Wanfang download from chinese_login_checkpoint.json (default: <output>/chinese_login_checkpoint.json)")
 
@@ -1928,6 +1954,7 @@ def main():
                 args.output,
                 args.port,
                 include_si=args.include_si,
+                confirmed_login=args.confirmed_login,
             )
             with open(checkpoint_path, "r", encoding="utf-8") as f:
                 payload = json.load(f)
@@ -1937,6 +1964,16 @@ def main():
                 if item.get("doi", "").strip()
             ]
             generate_download_log(args.output, all_dois, round_results, failure_reasons)
+            if remaining:
+                failed_path = os.path.join(args.output, "failed_dois.txt")
+                with open(failed_path, "w", encoding="utf-8") as f:
+                    for doi in remaining:
+                        pub = resolve_publisher(doi)
+                        pub_name = pub.get("_key", "unknown") if pub else "unknown"
+                        reason = failure_reasons.get(doi, "")
+                        suffix = f" | {reason}" if reason else ""
+                        f.write(f"{doi}  # {pub_name}{suffix}\n")
+                write_failed_doi_sidecar(args.output, remaining, failure_reasons)
             print(f"\n{DONE} Resume complete - {OK} {len(downloaded)}/{len(all_dois)}, {FAIL} {len(remaining)} remaining")
         finally:
             release_step5_download_lock(lock_path)

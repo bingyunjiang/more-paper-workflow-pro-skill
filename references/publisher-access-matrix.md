@@ -26,7 +26,7 @@
 | sci-hub.box | 🔴 拦截 | ✅ 可用 | |
 | sci-hub.red | 🔴 拦截 | ✅ 可用 | |
 | sci-hub.ren | 🔴 拦截 | ✅ 可用 | |
-| sci-hub.se | 🔴 拦截 | 🔴 不可用 | 跳转 Chrome 错误页 |
+| sci-hub.se | 🔴 DNS 失败 | 🔴 已移除 | DNS 无法解析，已从默认镜像列表移除 |
 | sci-hub.wf | 🔴 拦截 | 🔴 不可用 | 跳转到首页 |
 | sci-hub.ee | 🔴 拦截 | 🔴 不可用 | Cloudflare Turnstile |
 | sci-hub.mk | 🔴 拦截 | 🔴 不可用 | 跳转到首页 |

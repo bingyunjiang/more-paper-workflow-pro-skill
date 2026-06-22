@@ -34,7 +34,7 @@ DEFAULT_MIRRORS = [
     "https://sci-hub.st", "https://sci-hub.ru", "https://sci-hub.shop",
     "https://sci-hub.vg", "https://sci-hub.in", "https://sci-hub.al",
     "https://sci-hub.box", "https://sci-hub.red", "https://sci-hub.ren",
-    "https://sci-hub.se", "https://sci-hub.wf", "https://sci-hub.ee",
+    "https://sci-hub.wf", "https://sci-hub.ee",
     "https://sci-hub.mk",
 ]
 
@@ -256,13 +256,37 @@ def _extract_pdf_url_from_scihub(port, tid):
     return pdf_url
 
 
-def _fetch_pdf_via_navigate(port, pdf_url, pdf_tab=None):
+def _extract_content_type(headers):
+    """Return the lowercase Content-Type value from CDP response headers."""
+    for h in headers or []:
+        if h.get("name", "").lower() == "content-type":
+            return h.get("value", "").lower()
+    return ""
+
+
+def _is_obvious_non_pdf_response(content_type):
+    """Return True for response types that should not be probed as PDF bytes."""
+    if not content_type:
+        return False
+    non_pdf_prefixes = (
+        "text/html",
+        "text/css",
+        "text/javascript",
+        "application/javascript",
+        "application/json",
+        "image/",
+        "font/",
+    )
+    return any(content_type.startswith(prefix) for prefix in non_pdf_prefixes)
+
+
+def _fetch_pdf_via_navigate(port, pdf_url, pdf_tab=None, timeout=45, body_timeout=30):
     """复用或创建标签页导航到 PDF URL，用 Fetch 域捕获响应体。
 
-    返回 PDF 字节数据或 None。
+    返回 (PDF 字节数据或 None, 状态码)。
     """
     if not check_cdp(port):
-        return None
+        return None, "cdp_unavailable"
 
     tid2 = pdf_tab
     created_here = False
@@ -271,7 +295,7 @@ def _fetch_pdf_via_navigate(port, pdf_url, pdf_tab=None):
             _, tid2 = create_tab(port, "about:blank")
             created_here = True
         except Exception:
-            return None
+            return None, "tab_unavailable"
 
     time.sleep(0.5)
 
@@ -281,9 +305,12 @@ def _fetch_pdf_via_navigate(port, pdf_url, pdf_tab=None):
     if not pwu2:
         if created_here:
             close_tab(port, tid2)
-        return None
+        return None, "tab_unavailable"
 
     pdf_data = None
+    status = "timeout_no_pdf_response"
+    saw_non_pdf = False
+    saw_invalid_pdf_like = False
     try:
         pws2 = websocket.create_connection(pwu2, timeout=10)
 
@@ -310,7 +337,7 @@ def _fetch_pdf_via_navigate(port, pdf_url, pdf_tab=None):
         # 导航到 PDF URL
         pws2.send(json.dumps({"id":11,"method":"Page.navigate","params":{"url":pdf_url}}))
 
-        dl = time.time() + 20
+        dl = time.time() + timeout
         while time.time() < dl:
             try:
                 pws2.settimeout(1)
@@ -319,22 +346,52 @@ def _fetch_pdf_via_navigate(port, pdf_url, pdf_tab=None):
                 continue
             if msg.get("method") == "Fetch.requestPaused":
                 rid = msg["params"]["requestId"]
-                pws2.send(json.dumps({"id":20,"method":"Fetch.getResponseBody",
-                                     "params":{"requestId":rid}}))
+                req_url = msg["params"].get("request", {}).get("url", "").lower()
+                content_type = _extract_content_type(msg["params"].get("responseHeaders", []))
+                is_pdf_candidate = (
+                    "application/pdf" in content_type
+                    or req_url.endswith(".pdf")
+                    or ".pdf" in req_url
+                    or "pdf" in req_url
+                )
+                should_probe_body = is_pdf_candidate or not _is_obvious_non_pdf_response(content_type)
                 try:
-                    pws2.settimeout(5)
-                    r2 = json.loads(pws2.recv())
-                    body = r2.get("result",{}).get("body","")
-                    b64 = r2.get("result",{}).get("base64Encoded",False)
-                    if body:
-                        d = base64.b64decode(body) if b64 else body.encode("latin-1",errors="ignore")
-                        if d[:4] == b"%PDF" and len(d) > 20000:
-                            pdf_data = d
+                    if should_probe_body:
+                        pws2.send(json.dumps({"id":20,"method":"Fetch.getResponseBody",
+                                             "params":{"requestId":rid}}))
+                        try:
+                            pws2.settimeout(body_timeout)
+                            r2 = json.loads(pws2.recv())
+                            body = r2.get("result",{}).get("body","")
+                            b64 = r2.get("result",{}).get("base64Encoded",False)
+                            if body:
+                                d = base64.b64decode(body) if b64 else body.encode("latin-1",errors="ignore")
+                                if d[:4] == b"%PDF" and len(d) > 20000:
+                                    pdf_data = d
+                                    status = "ok_pdf_captured"
+                                else:
+                                    saw_invalid_pdf_like = True
+                        except Exception:
+                            saw_invalid_pdf_like = True
+                    else:
+                        saw_non_pdf = True
                 except Exception:
                     pass
-                pws2.send(json.dumps({"id":21,"method":"Fetch.continueRequest",
-                                     "params":{"requestId":rid}}))
-                break
+                finally:
+                    try:
+                        pws2.send(json.dumps({"id":21,"method":"Fetch.continueRequest",
+                                             "params":{"requestId":rid}}))
+                    except Exception:
+                        pass
+
+                if pdf_data:
+                    break
+
+        if not pdf_data:
+            if saw_invalid_pdf_like:
+                status = "pdf_like_response_invalid_body"
+            elif saw_non_pdf:
+                status = "non_pdf_response_seen"
         try:
             pws2.send(json.dumps({"id":22,"method":"Fetch.disable"}))
         except Exception:
@@ -345,7 +402,7 @@ def _fetch_pdf_via_navigate(port, pdf_url, pdf_tab=None):
 
     if created_here:
         close_tab(port, tid2)
-    return pdf_data
+    return pdf_data, status
 
 
 def cdp_download(doi, output_dir, mirror, article_tab=None, pdf_tab=None):
@@ -392,13 +449,20 @@ def cdp_download(doi, output_dir, mirror, article_tab=None, pdf_tab=None):
         return None, "未找到 PDF 链接"
 
     # Step 3: 通过 Fetch 域捕获 PDF
-    pdf_data = _fetch_pdf_via_navigate(CDP_PORT, pdf_url, pdf_tab=pdf_tab)
+    pdf_data, fetch_status = _fetch_pdf_via_navigate(CDP_PORT, pdf_url, pdf_tab=pdf_tab)
 
     if pdf_data:
         with open(fpath, "wb") as f:
             f.write(pdf_data)
         return fpath, f"{mirror.split('/')[-1]} {len(pdf_data)//1024}KB"
-    return None, "无法捕获 PDF 数据"
+    failure_messages = {
+        "timeout_no_pdf_response": "超时未捕获 PDF 响应",
+        "non_pdf_response_seen": "检测到非 PDF 页面，可能 Sci-Hub 未收录该 DOI",
+        "pdf_like_response_invalid_body": "PDF 候选响应不是有效 PDF",
+        "cdp_unavailable": "CDP Chrome 未运行",
+        "tab_unavailable": "PDF 捕获标签页不可用",
+    }
+    return None, failure_messages.get(fetch_status, f"无法捕获 PDF 数据: {fetch_status}")
 
 
 # ===== 主流程 =====

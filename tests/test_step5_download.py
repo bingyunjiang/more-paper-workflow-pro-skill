@@ -19,11 +19,150 @@ import cdp_utils  # noqa: E402
 import sd_download  # noqa: E402
 import batch_resolve_pii  # noqa: E402
 import console_compat  # noqa: E402
+import download_via_scihub as scihub  # noqa: E402
 
 
 class Step5DownloadTest(unittest.TestCase):
     def _valid_pdf_bytes(self):
         return b"%PDF-1.4\n1 0 obj\n<< /Type /Page >>\nendobj\n" + b"x" * 6000
+
+    def _valid_scihub_pdf_bytes(self):
+        return b"%PDF-1.4\n1 0 obj\n<< /Type /Page >>\nendobj\n" + b"x" * 25000
+
+    class _FakeScihubWs:
+        def __init__(self, events, bodies):
+            self.events = list(events)
+            self.bodies = list(bodies)
+            self.sent = []
+
+        def send(self, payload):
+            self.sent.append(json.loads(payload))
+
+        def settimeout(self, _timeout):
+            pass
+
+        def recv(self):
+            if self.sent and self.sent[-1].get("method") == "Fetch.getResponseBody":
+                if not self.bodies:
+                    raise TimeoutError("no body")
+                return json.dumps(self.bodies.pop(0))
+            if self.sent and self.sent[-1].get("method") in {"Fetch.disable", "Fetch.enable"}:
+                return json.dumps({"id": self.sent[-1].get("id"), "result": {}})
+            if self.events:
+                return json.dumps(self.events.pop(0))
+            raise TimeoutError("no event")
+
+        def close(self):
+            pass
+
+    def _run_scihub_fetch_with_events(self, events, bodies, ticks):
+        fake_ws = self._FakeScihubWs(events, bodies)
+        with patch.object(scihub, "check_cdp", return_value=True), \
+             patch.object(scihub, "get_tab_ws_url", return_value="ws://tab"), \
+             patch.object(scihub.websocket, "create_connection", return_value=fake_ws), \
+             patch.object(scihub.time, "sleep", return_value=None), \
+             patch.object(scihub.time, "time", side_effect=ticks):
+            pdf, status = scihub._fetch_pdf_via_navigate(
+                9223, "https://sci-hub.test/paper.pdf", pdf_tab="tab-1", timeout=3
+            )
+        return pdf, status, fake_ws
+
+    def test_scihub_fetch_continues_after_html_then_captures_pdf(self):
+        pdf_bytes = self._valid_scihub_pdf_bytes()
+        events = [
+            {
+                "method": "Fetch.requestPaused",
+                "params": {
+                    "requestId": "html-1",
+                    "request": {"url": "https://sci-hub.test/landing"},
+                    "responseHeaders": [{"name": "content-type", "value": "text/html"}],
+                },
+            },
+            {
+                "method": "Fetch.requestPaused",
+                "params": {
+                    "requestId": "pdf-1",
+                    "request": {"url": "https://sci-hub.test/files/paper.pdf"},
+                    "responseHeaders": [{"name": "content-type", "value": "application/pdf"}],
+                },
+            },
+        ]
+        bodies = [{"result": {"body": pdf_bytes.decode("latin-1"), "base64Encoded": False}}]
+
+        pdf, status, fake_ws = self._run_scihub_fetch_with_events(
+            events, bodies, ticks=[0, 0.5, 1.0]
+        )
+
+        self.assertEqual(status, "ok_pdf_captured")
+        self.assertEqual(pdf, pdf_bytes)
+        continue_requests = [m for m in fake_ws.sent if m.get("method") == "Fetch.continueRequest"]
+        self.assertEqual(len(continue_requests), 2)
+
+    def test_scihub_fetch_only_html_returns_non_pdf_seen(self):
+        events = [
+            {
+                "method": "Fetch.requestPaused",
+                "params": {
+                    "requestId": "html-1",
+                    "request": {"url": "https://sci-hub.test/landing"},
+                    "responseHeaders": [{"name": "content-type", "value": "text/html"}],
+                },
+            }
+        ]
+
+        pdf, status, fake_ws = self._run_scihub_fetch_with_events(
+            events, [], ticks=[0, 0.5, 1.0, 2.0, 4.0]
+        )
+
+        self.assertIsNone(pdf)
+        self.assertEqual(status, "non_pdf_response_seen")
+        continue_requests = [m for m in fake_ws.sent if m.get("method") == "Fetch.continueRequest"]
+        self.assertEqual(len(continue_requests), 1)
+
+    def test_scihub_fetch_invalid_pdf_like_body_does_not_succeed(self):
+        events = [
+            {
+                "method": "Fetch.requestPaused",
+                "params": {
+                    "requestId": "pdf-1",
+                    "request": {"url": "https://sci-hub.test/files/paper.pdf"},
+                    "responseHeaders": [{"name": "content-type", "value": "application/pdf"}],
+                },
+            }
+        ]
+        bodies = [{"result": {"body": "<html>not a pdf</html>", "base64Encoded": False}}]
+
+        pdf, status, fake_ws = self._run_scihub_fetch_with_events(
+            events, bodies, ticks=[0, 0.5, 1.0, 2.0, 4.0]
+        )
+
+        self.assertIsNone(pdf)
+        self.assertEqual(status, "pdf_like_response_invalid_body")
+        continue_requests = [m for m in fake_ws.sent if m.get("method") == "Fetch.continueRequest"]
+        self.assertEqual(len(continue_requests), 1)
+
+    def test_scihub_fetch_probes_unknown_binary_content_type(self):
+        pdf_bytes = self._valid_scihub_pdf_bytes()
+        events = [
+            {
+                "method": "Fetch.requestPaused",
+                "params": {
+                    "requestId": "bin-1",
+                    "request": {"url": "https://sci-hub.test/download?id=123"},
+                    "responseHeaders": [{"name": "content-type", "value": "application/octet-stream"}],
+                },
+            }
+        ]
+        bodies = [{"result": {"body": pdf_bytes.decode("latin-1"), "base64Encoded": False}}]
+
+        pdf, status, fake_ws = self._run_scihub_fetch_with_events(
+            events, bodies, ticks=[0, 0.5, 1.0]
+        )
+
+        self.assertEqual(status, "ok_pdf_captured")
+        self.assertEqual(pdf, pdf_bytes)
+        get_body_requests = [m for m in fake_ws.sent if m.get("method") == "Fetch.getResponseBody"]
+        self.assertEqual(len(get_body_requests), 1)
 
     def test_auto_sd_loader_reads_pii_map_as_utf8(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -818,6 +957,15 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(pub, "sd_elsevier")
         self.assertTrue(result_path.endswith("paper.pdf"))
         sd_adapter.assert_called_once_with(9223, "10.1016/j.demo.2026.01.001", tmp)
+
+    def test_rsc_config_builds_direct_articlepdf_url(self):
+        publisher = gpd.resolve_publisher("10.1039/d5ra02870a")
+
+        self.assertEqual(publisher["_key"], "rsc")
+        self.assertEqual(
+            gpd._build_pdf_url("10.1039/d5ra02870a", publisher),
+            "https://pubs.rsc.org/en/content/articlepdf/10.1039/d5ra02870a",
+        )
 
     def test_article_page_login_wall_keeps_tab_open_for_manual_login(self):
         publisher = {
@@ -1719,6 +1867,35 @@ class Step5DownloadTest(unittest.TestCase):
         open_tabs.assert_called_once_with(
             9223, ["10.1007/demo", "10.1016/j.demo.2026.01.001"]
         )
+
+    def test_resume_from_login_checkpoint_confirmed_does_not_refresh_pending_login(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = {
+                "checkpoint_type": "publisher_login",
+                "status": "pending_user_login",
+                "stage": "english_cdp_retry",
+                "items": [
+                    {"doi": "10.1039/d5ra02870a", "failure_reason": "pending_user_login"},
+                ],
+            }
+            checkpoint_path = Path(tmp) / "login_checkpoint.json"
+            checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
+            resumed = ([], ["10.1039/d5ra02870a"], {
+                "10.1039/d5ra02870a": "pdf_probe_unknown",
+            })
+
+            with patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}), \
+                 patch.object(router, "run_generic_round", return_value=resumed), \
+                 patch.object(router, "write_login_checkpoint") as write_checkpoint:
+                downloaded, remaining, results, reasons = router.resume_from_login_checkpoint(
+                    str(checkpoint_path), tmp, 9223, confirmed_login=True
+                )
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["10.1039/d5ra02870a"])
+        self.assertEqual(reasons, {"10.1039/d5ra02870a": "generic_failed"})
+        self.assertEqual(results[-1]["round"], "Generic CDP (resume login checkpoint)")
+        write_checkpoint.assert_not_called()
 
     def test_check_all_sessions_reports_weak_cookie_probe(self):
         with patch.object(router, "_PUBLISHER_CONFIGS", {"sd_elsevier": {"publisher_domain": "www.sciencedirect.com", "strategy": "generic", "_key": "sd_elsevier"}}), \
