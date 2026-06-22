@@ -1,6 +1,6 @@
 # Step 5: 统一批量下载 (Unified Download Router)
 
-> **英文优先串行可靠：** 英文默认顺序为 `2021 年及以前：Sci-Hub → OA fast → Generic CDP grouped by publisher`，`2022 年及以后/年份未知：OA fast → Generic CDP grouped by publisher`。拿到 Step 5 下载清单后，英文 DOI 只做 `oa_candidate / no_oa_hint / unknown` 提示分层，真实 OA 仍必须由 OA fast 验证；中文条目先稳定排序为 CNKI → 万方，再在英文 DOI 路径完成或被明确跳过后执行，避免共享浏览器状态互相干扰。ScienceDirect / Elsevier 与 IEEE 都归入 Generic CDP，专用脚本只作为内部适配器或手动 fallback。
+> **默认串行可靠 / 英文优先串行可靠：** 英文默认顺序为 `2021 年及以前：Sci-Hub → OA fast → Generic CDP grouped by publisher`，`2022 年及以后/年份未知：OA fast → Generic CDP grouped by publisher`。拿到 Step 5 下载清单后，英文 DOI 只做 `oa_candidate / no_oa_hint / unknown` 提示分层，真实 OA 仍必须由 OA fast 验证；中文条目先稳定排序为 CNKI → 万方，再在英文 DOI 路径完成或被明确跳过后执行，避免共享浏览器状态互相干扰。ScienceDirect / Elsevier 与 IEEE 都归入 Generic CDP，专用脚本只作为内部适配器或手动 fallback。
 
 ---
 
@@ -146,12 +146,14 @@
 
 - 若宿主支持弹窗/结构化选项（如 Codex），优先显示三选一：
   - `已登录，继续`
-  - `没有账号，跳过并继续`
+  - `跳过登录`
   - `稍后重试`
 - 若宿主不支持弹窗，则退化为文本编号输入：
   - `1` = 已登录，继续
-  - `2` = 没有账号，跳过并继续
+  - `2` = 跳过登录
   - `3` = 稍后重试
+- 三选项前必须显示短说明：`已打开本轮需要登录的网站。` 与 `只有部分权限也选 1；无权限论文会在下载结果中单独记录。`
+- `1` 表示“已完成能完成的登录”，不承诺所有论文都有订阅；部分机构权限也选 `1`，后续由真实下载结果分流。
 - 运行语义必须一致：`2` 不能终止整批流程，只能跳过当前登录型路径并继续 OA / direct_http / 已完成结果汇总。
 - **英文 checkpoint 特殊规则：** 如果宿主无法继续 `stdin` 交互、`input()` 抛出 `EOFError / KeyboardInterrupt`、用户选择 `3 / 稍后重试`，或输入无法识别，必须视为“当前宿主无法确认登录”，不是“用户主动 skip”。此时写出 `paper-temp/login_checkpoint.json`，把相关 DOI 标记为 `pending_user_login`，等待后续恢复。
 - **恢复入口：** 用户完成机构登录后，应优先运行 `python3 scripts/unified_download_router.py --resume-login-checkpoint paper-temp/login_checkpoint.json --output paper-temp/ --confirmed`，脚本会只读取 checkpoint 内 DOI、只打开 checkpoint 涉及的 publisher tab，并只重跑待登录 DOI，不整批重来。`--confirmed` / `--assume-login-confirmed` 表示外层宿主或用户已经确认登录完成；确认后仍失败的条目必须转为真实策略失败（如 `generic_failed` / `access_denied` / `pdf_probe_unknown`），不得继续写回 `pending_user_login`。
@@ -274,7 +276,7 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 | | `10.3762/` | Beilstein | 直连 OA | 开源 |
 | | `10.31635/` | CCS Chem | 文章页选择器提取 | Cloudflare风险 |
 | | `10.3389/` | Frontiers | 直连 HTTP（OA） | 无需认证 |
-| | `10.3390/` | MDPI | **SKIP** | Akamai封锁 |
+| | `10.3390/` | MDPI | Generic CDP（OA） | HTTP 直连可能 Akamai 403；真实浏览器详情页提取 `Download PDF`，失败则人工点击兜底 |
 | | `10.2139/` | SSRN | 文章页选择器提取 | 预印本 |
 
 ### 5.4. 中文路由矩阵（source 字段驱动）🆕

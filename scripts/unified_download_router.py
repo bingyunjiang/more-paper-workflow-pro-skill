@@ -990,7 +990,7 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
 
     if not generic_dois:
         if skip_dois:
-            print(f"\n{SKIP} Round 2 (Generic CDP): {len(skip_dois)} papers skipped (MDPI/unavailable), 0 eligible.")
+            print(f"\n{SKIP} Round 2 (Generic CDP): {len(skip_dois)} unavailable papers skipped, 0 eligible.")
         else:
             print(f"\n{SKIP} Round 2 (Generic CDP): No remaining papers.")
         return [], dois, {}
@@ -1043,7 +1043,10 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
                 "login_required",
             ):
                 print(f"{WARN} manual confirmation needed ({elapsed:.1f}s)")
-                print(f"  {ARROW} {pub_name} 需要你现在去可见 Chrome 完成机构登录/验证；完成后可继续重跑剩余列表。")
+                if pub_name == "mdpi":
+                    print(f"  {ARROW} MDPI 已打开详情页；请在可见 Chrome 点击 Download PDF，完成后可继续重跑剩余列表。")
+                else:
+                    print(f"  {ARROW} {pub_name} 需要你现在去可见 Chrome 完成机构登录/验证；完成后可继续重跑剩余列表。")
                 remaining.append(doi)
                 fail += 1
                 failure_reasons[doi] = status
@@ -1554,6 +1557,15 @@ def _print_opened_login_tabs(tab_result: dict[str, list[str]]) -> None:
         print(f"  {WARN} {item}")
 
 
+def _print_login_choice_prompt() -> None:
+    print("已打开本轮需要登录的网站。")
+    print("只有部分权限也选 1；无权限论文会在下载结果中单独记录。")
+    print("Choose one option:")
+    print("  1) 已登录，继续")
+    print("  2) 跳过登录")
+    print("  3) 稍后重试")
+
+
 def write_login_checkpoint(output_dir: str, stage: str, dois: list[str],
                            failure_reasons: dict[str, str]) -> str:
     """Write a re-runnable login checkpoint for remaining English CDP items."""
@@ -1739,15 +1751,13 @@ def show_chinese_login_gate(chinese_papers: list[dict],
     print(f"{'='*60}")
     print()
     print("Please verify CNKI/Wanfang login in the CDP browser.")
-    print("Choose one option:")
-    print("  1) 已登录，继续")
-    print("  2) 没有账号，跳过并继续")
-    print("  3) 稍后重试（写 checkpoint，稍后恢复）")
     print()
     for p in sorted(set(pubs)):
         print(p)
     print()
     _print_opened_login_tabs(tab_result)
+    print()
+    _print_login_choice_prompt()
     print()
     raw_resp = _safe_gate_input("Enter 1/2/3: ")
     if raw_resp is None:
@@ -1815,18 +1825,11 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False,
         print()
     _print_opened_login_tabs(tab_result)
     print()
-    print("Please complete these steps BEFORE continuing.")
-    print("If you do not have an institutional account for some or all of these")
-    print("publishers, type 'skip' and the workflow will continue with OA/direct paths")
-    print("plus any already-completed downloads, without treating this as a fatal stop.")
-    print("Choose one option:")
-    print("  1) 已登录，继续")
-    print("  2) 没有账号，跳过并继续")
-    print("  3) 稍后重试（写 checkpoint，稍后恢复）")
-    print()
     print("  1. Use the opened tabs in the CDP Chrome window")
     print("  2. Complete institutional SSO login for each opened publisher")
     print("  3. Verify the login persists (check for 'Access provided by...' badges)")
+    print()
+    _print_login_choice_prompt()
     print()
     print(f"{'='*60}")
     if not interactive:

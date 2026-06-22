@@ -586,9 +586,16 @@ class Step5DownloadTest(unittest.TestCase):
         }]
 
         with patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}) as open_tabs, \
-             patch("builtins.input", return_value="已登录"):
+             patch("builtins.input", return_value="已登录"), \
+             patch("sys.stdout", new_callable=io.StringIO) as stdout:
             self.assertTrue(router.show_chinese_login_gate(papers))
         open_tabs.assert_called_once_with(router.CDP_PORT, papers)
+        text = stdout.getvalue()
+        self.assertIn("只有部分权限也选 1", text)
+        self.assertIn("  2) 跳过登录", text)
+        self.assertIn("  3) 稍后重试", text)
+        self.assertNotIn("没有账号，跳过并继续", text)
+        self.assertNotIn("稍后重试（写 checkpoint", text)
 
     def test_show_chinese_login_gate_skip_is_explicit_false(self):
         papers = [{
@@ -652,9 +659,16 @@ class Step5DownloadTest(unittest.TestCase):
         ]
 
         with patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}) as open_tabs, \
-             patch("builtins.input", return_value="已登录"):
+             patch("builtins.input", return_value="已登录"), \
+             patch("sys.stdout", new_callable=io.StringIO) as stdout:
             self.assertTrue(router.show_english_login_gate(dois))
         open_tabs.assert_called_once_with(router.CDP_PORT, dois)
+        text = stdout.getvalue()
+        self.assertIn("只有部分权限也选 1", text)
+        self.assertIn("  2) 跳过登录", text)
+        self.assertIn("  3) 稍后重试", text)
+        self.assertNotIn("没有账号，跳过并继续", text)
+        self.assertNotIn("稍后重试（写 checkpoint", text)
 
     def test_show_english_login_gate_noninteractive_returns_none(self):
         with patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}) as open_tabs:
@@ -705,8 +719,9 @@ class Step5DownloadTest(unittest.TestCase):
                 "requires_auth": "none",
             },
             "10.3390/demo": {
-                "strategy": "skip",
+                "strategy": "generic",
                 "_key": "mdpi",
+                "publisher_domain": "www.mdpi.com",
                 "requires_auth": "none",
             },
         }
@@ -967,6 +982,98 @@ class Step5DownloadTest(unittest.TestCase):
             "https://pubs.rsc.org/en/content/articlepdf/10.1039/d5ra02870a",
         )
 
+    def test_mdpi_config_routes_through_generic_cdp_without_direct_template(self):
+        publisher = gpd.resolve_publisher("10.3390/microorganisms17060118")
+
+        self.assertEqual(publisher["_key"], "mdpi")
+        self.assertEqual(publisher["strategy"], "generic")
+        self.assertEqual(publisher["requires_auth"], "none")
+        self.assertIsNone(gpd._build_pdf_url("10.3390/microorganisms17060118", publisher))
+        self.assertIn("a.UD_ArticlePDF", publisher["selectors"])
+
+    def test_mdpi_selector_extracts_versioned_pdf_url(self):
+        class FakeWs:
+            def __init__(self):
+                self.sent = []
+
+            def send(self, payload):
+                self.sent.append(json.loads(payload))
+
+            def settimeout(self, _timeout):
+                return None
+
+            def recv(self):
+                return json.dumps({
+                    "id": 1,
+                    "result": {
+                        "result": {
+                            "value": "PDF_URL:https://www.mdpi.com/2036-7481/17/6/118/pdf?version=1782145976"
+                        }
+                    },
+                })
+
+            def close(self):
+                return None
+
+        fake_ws = FakeWs()
+
+        with patch.object(gpd, "get_tab_ws_url", return_value="ws://tab"), \
+             patch.object(gpd.websocket, "create_connection", return_value=fake_ws):
+            result = gpd._extract_pdf_url_from_dom(9223, "tab-1", [
+                "a.UD_ArticlePDF",
+                "a[href*=\"/pdf?version=\"]",
+            ])
+
+        self.assertEqual(
+            result,
+            "https://www.mdpi.com/2036-7481/17/6/118/pdf?version=1782145976",
+        )
+        js_expr = fake_ws.sent[0]["params"]["expression"]
+        self.assertIn("a.UD_ArticlePDF", js_expr)
+
+    def test_mdpi_download_one_uses_article_page_pdf_capture(self):
+        publisher = {
+            "strategy": "generic",
+            "_key": "mdpi",
+            "requires_auth": "none",
+            "publisher_domain": "www.mdpi.com",
+            "selectors": ["a.UD_ArticlePDF"],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(gpd, "resolve_publisher", return_value=publisher), \
+                 patch.object(gpd, "_strategy_direct_pdf", return_value=None), \
+                 patch.object(gpd, "_strategy_article_page", return_value=self._valid_pdf_bytes()) as article_page:
+                path, status, pub = gpd.download_one(
+                    9223, "10.3390/microorganisms17060118", tmp
+                )
+
+            self.assertEqual(status, "ok")
+            self.assertEqual(pub, "mdpi")
+            self.assertTrue(Path(path).exists())
+            article_page.assert_called_once()
+
+    def test_mdpi_capture_failure_returns_manual_required(self):
+        publisher = {
+            "_key": "mdpi",
+            "publisher_domain": "www.mdpi.com",
+            "selectors": ["a.UD_ArticlePDF"],
+        }
+
+        with patch.object(gpd, "_build_article_url", return_value="https://www.mdpi.com/2036-7481/17/6/118"), \
+             patch.object(gpd, "create_tab", side_effect=[(None, "article-tab"), (None, "manual-tab")]) as create_tab, \
+             patch.object(gpd, "_detect_access_barrier", return_value=(None, "")), \
+             patch.object(gpd, "_extract_pdf_url_from_dom", return_value="https://www.mdpi.com/2036-7481/17/6/118/pdf?version=1782145976"), \
+             patch.object(gpd, "_navigate_and_capture_pdf", return_value=None), \
+             patch.object(gpd, "close_tab") as close_tab, \
+             patch.object(gpd.time, "sleep"):
+            result = gpd._strategy_article_page(
+                9223, "10.3390/microorganisms17060118", publisher, timeout=1
+            )
+
+        self.assertEqual(result, "MANUAL_REQUIRED")
+        self.assertEqual(create_tab.call_count, 2)
+        close_tab.assert_called_once_with(9223, "article-tab")
+
     def test_article_page_login_wall_keeps_tab_open_for_manual_login(self):
         publisher = {
             "_key": "springer",
@@ -1017,6 +1124,8 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertIn("skip", step5)
         self.assertIn("支持弹窗/结构化交互", matrix)
         self.assertIn("若宿主支持弹窗/结构化选项", step5)
+        self.assertIn("跳过登录", step5)
+        self.assertIn("只有部分权限也选 1", step5)
 
     def test_login_gates_allow_skip_without_fatal_stop(self):
         with patch.object(router, "open_english_login_tabs", return_value={"opened": [], "failed": []}), \
@@ -1059,6 +1168,23 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(downloaded, [])
         self.assertEqual(remaining, ["10.1007/demo"])
         self.assertEqual(reasons["10.1007/demo"], "manual_required")
+
+    def test_generic_round_attempts_mdpi_instead_of_skipping(self):
+        with patch.object(router, "resolve_publisher", return_value={
+                "strategy": "generic",
+                "_key": "mdpi",
+                "publisher_domain": "www.mdpi.com",
+                "requires_auth": "none",
+             }), \
+             patch.object(router, "generic_download_one", return_value=(None, "manual_required", "mdpi")) as download_one:
+            downloaded, remaining, reasons = router.run_generic_round(
+                ["10.3390/microorganisms17060118"], "paper-temp", 9223
+            )
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["10.3390/microorganisms17060118"])
+        self.assertEqual(reasons["10.3390/microorganisms17060118"], "manual_required")
+        download_one.assert_called_once()
 
     def test_generic_round_keeps_captcha_reason_for_rerun(self):
         with patch.object(router, "resolve_publisher", return_value={"strategy": "generic", "_key": "wiley", "publisher_domain": "onlinelibrary.wiley.com"}), \
@@ -1260,7 +1386,7 @@ class Step5DownloadTest(unittest.TestCase):
                 "requires_auth": "none",
             },
             "10.3390/demo": {
-                "strategy": "skip",
+                "strategy": "generic",
                 "_key": "mdpi",
                 "publisher_domain": "www.mdpi.com",
                 "requires_auth": "none",

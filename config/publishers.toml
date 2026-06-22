@@ -46,16 +46,23 @@ notes = "Generic CDP via Strategy B (article page → stamp URL extraction → g
 
 
 # =============================================================================
-# SKIP PUBLISHERS (known impossible to automate)
+# OA VIA GENERIC CDP (direct HTTP may be blocked)
 # =============================================================================
 
 [publishers.mdpi]
 doi_prefixes = ["10.3390/"]
-strategy = "skip"
+strategy = "generic"
 requires_auth = "none"
+publisher_domain = "www.mdpi.com"
 provider_label = "MDPI"
 manual_required = true
-notes = "MDPI: Akamai Bot Manager on CDN blocks all automation. Manual browser download only."
+selectors = [
+    "a.UD_ArticlePDF",
+    "a[href*=\"/pdf?version=\"]",
+    "a[href$=\"/pdf\"]",
+    "a[href*=\"/pdf\"]",
+]
+notes = "Open Access. Direct HTTP may return Akamai 403; use CDP article page extraction and fall back to manual browser click."
 
 
 # =============================================================================

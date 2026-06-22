@@ -8,6 +8,13 @@
 
 ---
 
+## Unreleased
+
+### Step 5 MDPI Generic CDP 下载路径
+
+- **MDPI 从跳过改为 CDP 尝试**：`10.3390/` DOI 不再直接 `skip`；路由进入 Generic CDP，通过真实浏览器打开 DOI 详情页并提取 `Download PDF` / `a.UD_ArticlePDF`，普通 HTTP 被 Akamai 403 或 CDP 捕获失败时保留人工点击兜底。
+- **MDPI 不触发机构登录门控**：MDPI 标记为 Open Access / `requires_auth=none`，纳入 English CDP 下载但不进入 institutional-login gate。
+
 ## v1.0.17-20260622 (2026-06-21 至 2026-06-22)
 
 ### Step 5 真实下载链路、英文优先顺序与登录 checkpoint 收口
@@ -585,7 +592,7 @@
 - **新增 `config/publishers.toml`**：24 家出版社集中式知识库（DOI 前缀 + URL 模板 + CSS 选择器 + 屏障检测规则）
 - **增强 `cdp_utils.py`**：新增 15 个反检测 Chrome flag + `warmup_profile()` 预热函数，借鉴 ref-downloader 反机器人验证策略
 - **IEEE 切换为 Generic CDP 引擎**，`download_via_ieee.py` 保留作为 SSO 交互备用
-- 可自动下载 **23 家出版社**文献；MDPI（Akamai Bot Manager 封锁）暂无自动化方案
+- 可自动下载 **23 家出版社**文献；MDPI 走 Generic CDP 详情页提取 PDF，HTTP 直连被 Akamai 拦截时保留人工点击兜底
 - 用户 Zotero 文库 9 篇真实论文实测全部通过（Sci-Hub 2 篇 + Generic CDP 7 篇）
 
 ### 检索方案全面升级 — T1→T2→T3 路由 + 检索后验证

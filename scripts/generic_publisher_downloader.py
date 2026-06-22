@@ -548,7 +548,20 @@ def _strategy_article_page(port: int, doi: str, publisher: dict,
         referrer = article_url
 
     # Capture the PDF
-    return _navigate_and_capture_pdf(port, pdf_url, referrer=referrer, timeout=timeout)
+    pdf_data = _navigate_and_capture_pdf(port, pdf_url, referrer=referrer, timeout=timeout)
+    if pdf_data:
+        return pdf_data
+
+    if pub_key == "mdpi":
+        print("  ⚠ MDPI PDF link found but CDP capture failed — leaving tab open for manual Download PDF click")
+        try:
+            _, manual_tid = create_tab(port, article_url)
+            time.sleep(ARTICLE_RENDER_WAIT)
+        except Exception:
+            pass
+        return "MANUAL_REQUIRED"
+
+    return None
 
 
 # ── Wanfang Download ─────────────────────────────────────────────────────────

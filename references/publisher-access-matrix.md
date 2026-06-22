@@ -55,7 +55,7 @@ English Generic CDP 登录门控会根据本轮待登录 DOI 去重 publisher，
 | 出版商 | DOI 前缀 | 访问方式 | 状态 | 策略 |
 |--------|----------|----------|------|------|
 | **Elsevier/SD** | `10.1016/` | CDP Chrome + Fetch | ✅ 已验证 | Layer 3: DOI→PII → 导航到 pdfft → 等待 PDF 重定向 → Fetch.reload → 原始字节 |
-| **MDPI** | `10.3390/` | 手动浏览器 | 🔴 被拦截 | Akamai Bot Manager 在 CDN。**手动方案：** 打开文章页 → 点 Download PDF |
+| **MDPI** | `10.3390/` | Generic CDP + 手动兜底 | ⚠️ CDP可尝试 | Open Access；普通 HTTP/PDF 直连可能被 Akamai 403。真实浏览器打开详情页后提取 `Download PDF` / `a.UD_ArticlePDF`，CDP 捕获失败时保留 tab 让用户手动点击。 |
 | **IEEE** | `10.1109/` | CDP Chrome + SSO 登录 | ✅ 已验证（6/6，必须 SSO） | `ieeexplore.ieee.org` — **关键前提：IEEE 不支持纯 IP 认证，必须通过 SSO/Shibboleth 登录。** 两步走策略 v1.0.1（已固化为 `scripts/download_via_ieee.py`）：`[Step A]` 导航到文章页(`/document/{arnumber}`) → 等待 8s → 提取 PDF 按钮的 stamp URL（分层选择器，只读不点击）→ 关闭文章页 → 创建新标签页 → 先启用 `Fetch.enable` → 再 `Page.navigate` 到 stamp URL（带文章页 URL 作为 Referrer）→ 捕获。`[Step B, A失败时回退]` 直接导航到 `stamp/stamp.jsp` 或 `stampPDF/getPDF.jsp`（都带 Referrer）→ 相同捕获流程。**3 个关键修复：** v1.1 旧方案用 `Fetch.enable + Page.reload`，PDF 已被 Chrome 查看器消费，`getResponseBody` 返回空 → 改为 **先启用 Fetch 再导航**。直接从 `about:blank` 导航到 stamp URL 缺失 Referrer → IEEE 返回 `denyReason=-501` → **Page.navigate 带 `referrer` 参数**。大 PDF（TPEL 6.7MB）`getResponseBody` 5s 不足 → **增至 30s**。**实测 6/6 全部成功（2026-06-02 测试）：** PDF 0.8–8.9MB。无机构会话时 Step A 返回 `NO_BUTTON`（PDF 按钮 `href=javascript:void()`），登录后恢复正常。 |
 | **ASME** | `10.1115/` | CDP Chrome | ⚠️ 页面可加载，PDF按钮不可见 | `asmedigitalcollection.asme.org` — 无直接PDF链接/按钮在初始DOM中（可能需会话渲染），HTTP直连SSL错误 |
 | **AIP** | `10.1063/` | CDP Chrome | ⚠️ 页面可加载，无PDF按钮 | `pubs.aip.org` — 无直接PDF链接，HTTP直连SSL `UNEXPECTED_EOF`。需机构认证 |
@@ -74,7 +74,7 @@ English Generic CDP 登录门控会根据本轮待登录 DOI 去重 publisher，
 | 出版商 | 尝试数 | 成功 | 无PDF/需会话 | 成功率 |
 |--------|--------|------|-------------|--------|
 | **Elsevier/SD** | 185 | 180 | 5 | **96%** |
-| **MDPI** | 30 | 0（自动化） | 30 | **0%** |
+| **MDPI** | 待复测 | 待复测 | HTTP直连403时转 CDP/人工兜底 | 待复测 |
 | **Sci-Hub（2022+论文）** | 16 | 0 | 16（未收录） | **0%** |
 | **多出版商CDP测试（无会话）** | 6 | 1（Nature OA） | 5（需机构会话） | **17%** |
 | — IEEE (`10.1109/`) | 1 | 0 | PDF按钮需登录 | — |
@@ -99,7 +99,7 @@ English Generic CDP 登录门控会根据本轮待登录 DOI 去重 publisher，
 ```
 论文 DOI
 ├── 10.1016/ → Elsevier/SD → CDP Layer 3+4（已验证 96%）
-├── 10.3390/ → MDPI        → 手动下载（Akamai）
+├── 10.3390/ → MDPI        → Generic CDP（详情页提取PDF，失败则手动）
 ├── 10.2139/ → SSRN        → 浏览器直连（超时则手动）
 ├── 10.3389/ → Frontiers   → 直连 HTTP 下载
 ├── 10.1038/ → Nature      → 尝试 `articles/XXXX.pdf` 直连（OA期刊可下）
@@ -244,7 +244,7 @@ else:
 DOI
  ├─ 2021年前 → Sci-Hub CDP (download_via_scihub.py)
  ├─ 10.1016/ → SD CDP (auto_sd_downloader.py, 96%)
- ├─ 10.3390/ → SKIP (MDPI: Akamai 封锁)
+ ├─ 10.3390/ → MDPI Generic CDP (OA; HTTP直连403时详情页提取/手动兜底)
  ├─ 10.3389/ → Direct HTTP (Frontiers OA)
  └─ 其他    → Generic CDP (generic_publisher_downloader.py)
      ├─ 10.1109/ → IEEE: 策略B 文章页 stamp URL 提取 + getPDF.jsp

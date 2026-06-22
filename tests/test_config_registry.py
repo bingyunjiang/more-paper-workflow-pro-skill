@@ -63,7 +63,8 @@ class ConfigRegistryTest(unittest.TestCase):
         self.assertEqual(sd["provider_label"], "ScienceDirect / Elsevier")
         self.assertEqual(ieee["strategy"], "generic")
         self.assertEqual(ieee["provider_label"], "IEEE Xplore")
-        self.assertEqual(mdpi["strategy"], "skip")
+        self.assertEqual(mdpi["strategy"], "generic")
+        self.assertEqual(mdpi["requires_auth"], "none")
         self.assertTrue(mdpi["manual_required"])
 
     def test_generate_search_report_uses_registry_labels(self):
