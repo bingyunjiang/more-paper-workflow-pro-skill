@@ -39,6 +39,25 @@ def get_cdp_ws_url(port=9223):
     return json.loads(resp.read())["webSocketDebuggerUrl"]
 
 
+def get_cdp_browser_product(port=9223):
+    """Return the CDP Browser product string, e.g. Chrome/... or Microsoft Edge/..."""
+    resp = urllib.request.urlopen(
+        f"http://127.0.0.1:{port}/json/version", timeout=5)
+    return json.loads(resp.read()).get("Browser", "")
+
+
+def cdp_browser_matches(port=9223, browser="chrome"):
+    """Return True only when the CDP port is backed by the requested browser."""
+    expected = (browser or "chrome").lower()
+    product = get_cdp_browser_product(port).lower()
+    if expected == "edge":
+        return "edge" in product or "edg/" in product
+    if expected == "chrome":
+        is_edge = "edge" in product or "edg/" in product
+        return not is_edge and ("chrome" in product or "chromium" in product)
+    return False
+
+
 def check_cdp(port=9223):
     """Return True if a CDP browser is listening on the given port."""
     try:
@@ -842,9 +861,7 @@ def wait_for_cloudflare(port, tid, timeout=60):
 def _get_browser_name(port):
     """Get a human-readable browser name from a CDP port."""
     try:
-        data = json.loads(urllib.request.urlopen(
-            f"http://127.0.0.1:{port}/json/version", timeout=3).read())
-        browser = data.get("Browser", "")
+        browser = get_cdp_browser_product(port)
         if "Chrome" in browser and "Edg" not in browser:
             return f"Chrome (端口 {port})"
         elif "Edg" in browser:

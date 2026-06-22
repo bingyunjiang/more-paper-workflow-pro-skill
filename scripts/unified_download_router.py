@@ -35,7 +35,13 @@ from typing import Optional
 SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from cdp_utils import check_cdp, check_required_deps, start_persistent_cdp_browser
+from cdp_utils import (
+    cdp_browser_matches,
+    check_cdp,
+    check_required_deps,
+    get_cdp_browser_product,
+    start_persistent_cdp_browser,
+)
 from console_compat import (
     ARROW,
     DONE,
@@ -77,17 +83,21 @@ CHINESE_PAPER_FIELDS = frozenset({"title", "source", "article_url"})
 
 
 def ensure_cdp_running(port: int, browser: str = "chrome") -> bool:
-    """Reuse an existing CDP browser or start one automatically."""
+    """Reuse an existing CDP browser only when it matches the requested browser."""
+    browser = (browser or "chrome").lower()
     if check_cdp(port):
-        return True
-
-    print(f"\nCDP {browser.title()} not detected on :{port}. Starting browser automatically...")
+        if cdp_browser_matches(port, browser):
+            return True
+        product = get_cdp_browser_product(port) or "unknown browser"
+        print(f"\nCDP port :{port} is {product}, but {browser.title()} was requested. Restarting {browser.title()}...")
+    else:
+        print(f"\nCDP {browser.title()} not detected on :{port}. Starting browser automatically...")
     start_persistent_cdp_browser(
         port=port,
         browser=browser,
         urls=["https://www.sciencedirect.com/"],
     )
-    ok = check_cdp(port)
+    ok = check_cdp(port) and cdp_browser_matches(port, browser)
     if not ok:
         print(f"  {FAIL} CDP browser failed to start.")
         print("     Windows: set CHROME_PATH or EDGE_PATH if browser auto-detection fails.")
@@ -878,16 +888,24 @@ def run_english_cdp(dois: list[str], output_dir: str, port: int,
     login_retry_dois = _filter_login_required_dois(remaining, generic_failures)
     if login_retry_dois:
         print(f"\n{WARN} Institutional login required for {len(login_retry_dois)} publisher item(s).")
-        interactive_gate = sys.stdin.isatty()
-        if not interactive_gate:
+        gate_result = show_english_login_gate(
+            login_retry_dois,
+            skip_sd=skip_sd,
+            interactive=sys.stdin.isatty(),
+        )
+        if gate_result is None:
+            failure_reasons.update({
+                doi: "pending_user_login"
+                for doi in login_retry_dois
+            })
             checkpoint_path = write_login_checkpoint(
                 output_dir,
                 stage="english_cdp_retry",
                 dois=login_retry_dois,
-                failure_reasons=generic_failures,
+                failure_reasons=failure_reasons,
             )
-            print(f"  {ARROW} Non-interactive login checkpoint written: {checkpoint_path}")
-        if show_english_login_gate(login_retry_dois, skip_sd=skip_sd, interactive=interactive_gate):
+            print(f"  {ARROW} Login checkpoint written; resume after manual login: {checkpoint_path}")
+        elif gate_result:
             retry_downloaded, retry_remaining, retry_failures = run_generic_round(
                 login_retry_dois, output_dir, port, include_si=include_si
             )
@@ -1013,6 +1031,18 @@ ENGLISH_LOGIN_REQUIRED_REASONS = {
 }
 
 
+def _safe_gate_input(prompt: str) -> Optional[str]:
+    """Read gate input without collapsing host IO failures into explicit skip."""
+    try:
+        return input(prompt)
+    except EOFError:
+        print(f"\n{WARN} Interactive input unavailable in current host.")
+        return None
+    except KeyboardInterrupt:
+        print(f"\n{WARN} Login confirmation interrupted.")
+        return None
+
+
 def _filter_login_required_dois(dois: list[str], failure_reasons: dict[str, str]) -> list[str]:
     """Return failed DOIs that should prompt an institutional-login retry."""
     return [
@@ -1042,11 +1072,47 @@ def write_login_checkpoint(output_dir: str, stage: str, dois: list[str],
         "stage": stage,
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "items": items,
-        "rerun_hint": "python3 scripts/unified_download_router.py --papers \"DOI1,DOI2\" --output paper-temp/",
+        "rerun_hint": "python3 scripts/unified_download_router.py --resume-login-checkpoint paper-temp/login_checkpoint.json --output paper-temp/",
     }
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     return path
+
+
+def resume_from_login_checkpoint(checkpoint_path: str, output_dir: str, port: int,
+                                 include_si: bool = False) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
+    """Resume only the English DOI subset stored in a login checkpoint."""
+    with open(checkpoint_path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    dois = [
+        item.get("doi", "").strip()
+        for item in payload.get("items", [])
+        if item.get("doi", "").strip()
+    ]
+    if not dois:
+        return [], [], [], {}
+
+    downloaded, remaining, failure_reasons = run_generic_round(
+        dois, output_dir, port, include_si=include_si
+    )
+    round_results = [{"round": "Generic CDP (resume login checkpoint)", "downloaded": downloaded}]
+
+    login_retry_dois = _filter_login_required_dois(remaining, failure_reasons)
+    if login_retry_dois:
+        failure_reasons.update({
+            doi: "pending_user_login"
+            for doi in login_retry_dois
+        })
+        refreshed = write_login_checkpoint(
+            output_dir,
+            stage="english_cdp_retry_resume",
+            dois=login_retry_dois,
+            failure_reasons=failure_reasons,
+        )
+        print(f"{WARN} Some resumed DOI(s) still require login; checkpoint refreshed: {refreshed}")
+
+    return downloaded, remaining, round_results, failure_reasons
 
 
 def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
@@ -1097,12 +1163,15 @@ def show_chinese_login_gate(chinese_papers: list[dict]) -> bool:
 
 
 def show_english_login_gate(dois: list[str], skip_sd: bool = False,
-                            interactive: bool = True) -> bool:
+                            interactive: bool = True) -> Optional[bool]:
     """Display English publisher login gate for remaining CDP papers.
 
     Only triggers for papers needing Generic CDP strategy.
     Sci-Hub and Chinese are excluded (handled separately).
-    Returns True if confirmed, False to abort English CDP.
+    Returns:
+      True  -> user explicitly confirmed login
+      False -> user explicitly skipped or deferred
+      None  -> host cannot continue interactive input
     """
     # Classify remaining DOIs to find CDP-dependent publishers
     login_publishers: dict[str, set[str]] = {}  # strategy -> set of publisher keys
@@ -1153,12 +1222,12 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False,
     print(f"{'='*60}")
     if not interactive:
         print(f"{WARN} Non-interactive mode: login checkpoint required before rerun.\n")
-        return False
-    try:
-        resp = input("\nEnter 1/2/3: ").strip().lower()
-    except (EOFError, KeyboardInterrupt):
-        print("\n\nEnglish CDP skipped.")
-        return False
+        return None
+    raw_resp = _safe_gate_input("\nEnter 1/2/3: ")
+    if raw_resp is None:
+        print("\nEnglish login requires checkpoint/resume rather than treating this as skip.")
+        return None
+    resp = raw_resp.strip().lower()
     if resp in ("1", "已登录", "y", "yes", "done", "logged in", "继续", "go"):
         print(f"{OK} Login confirmed - proceeding with English CDP.\n")
         return True
@@ -1239,6 +1308,8 @@ def main():
                         help="Opt in to running Sci-Hub and Chinese CDP concurrently. Default is serial for CDP reliability.")
     parser.add_argument("--test-cnki", help="Test single CNKI paper download (provide article URL)")
     parser.add_argument("--test-wanfang", help="Test single Wanfang paper download (provide article URL)")
+    parser.add_argument("--resume-login-checkpoint", nargs="?", const="AUTO",
+                        help="Resume English DOI download from login_checkpoint.json (default: <output>/login_checkpoint.json)")
 
     args = parser.parse_args()
     sd_browser = args.sd_browser or args.browser
@@ -1246,6 +1317,36 @@ def main():
     # --check-session
     if args.check_session:
         check_all_sessions(args.port)
+        return
+
+    if args.resume_login_checkpoint:
+        checkpoint_path = args.resume_login_checkpoint
+        if checkpoint_path == "AUTO":
+            checkpoint_path = os.path.join(args.output, "login_checkpoint.json")
+        if not os.path.exists(checkpoint_path):
+            print(f"ERROR: login checkpoint not found: {checkpoint_path}")
+            sys.exit(1)
+        if not ensure_cdp_running(args.port, browser=args.browser):
+            print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
+            sys.exit(1)
+        if not check_required_deps():
+            sys.exit(1)
+
+        downloaded, remaining, round_results, failure_reasons = resume_from_login_checkpoint(
+            checkpoint_path,
+            args.output,
+            args.port,
+            include_si=args.include_si,
+        )
+        with open(checkpoint_path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        all_dois = [
+            item.get("doi", "").strip()
+            for item in payload.get("items", [])
+            if item.get("doi", "").strip()
+        ]
+        generate_download_log(args.output, all_dois, round_results, failure_reasons)
+        print(f"\n{DONE} Resume complete - {OK} {len(downloaded)}/{len(all_dois)}, {FAIL} {len(remaining)} remaining")
         return
 
     # --test
@@ -1280,8 +1381,8 @@ def main():
             return
 
         # Actual download attempt
-        if not ensure_cdp_running(args.port):
-            print(f"\nERROR: CDP Chrome not running on port {args.port}.")
+        if not ensure_cdp_running(args.port, browser=args.browser):
+            print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
             sys.exit(1)
 
         print(f"\nDownloading via {info['strategy']} strategy...")
@@ -1305,8 +1406,8 @@ def main():
             sys.exit(1)
         print("=== Chinese Download - Test Mode (CNKI) ===")
         print(f"URL: {article_url}")
-        if not ensure_cdp_running(args.port):
-            print(f"\nERROR: CDP Chrome not running on port {args.port}.")
+        if not ensure_cdp_running(args.port, browser=args.browser):
+            print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
             sys.exit(1)
         print(f"\nDownloading via CNKI CDP...")
         result_path, status, pub = generic_download_one(
@@ -1328,8 +1429,8 @@ def main():
             sys.exit(1)
         print("=== Chinese Download - Test Mode (Wanfang) ===")
         print(f"URL: {article_url}")
-        if not ensure_cdp_running(args.port):
-            print(f"\nERROR: CDP Chrome not running on port {args.port}.")
+        if not ensure_cdp_running(args.port, browser=args.browser):
+            print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
             sys.exit(1)
         print(f"\nDownloading via Wanfang CDP...")
         result_path, status, pub = generic_download_one(
@@ -1548,7 +1649,16 @@ def main():
             for d in en_rem
         )
         if args.require_login_confirm and has_cdp:
-            if show_english_login_gate(en_rem, skip_sd=args.skip_sd):
+            gate_result = show_english_login_gate(en_rem, skip_sd=args.skip_sd)
+            if gate_result is None:
+                checkpoint_path = write_login_checkpoint(
+                    args.output,
+                    stage="english_preflight_login",
+                    dois=en_rem,
+                    failure_reasons={doi: "pending_user_login" for doi in en_rem},
+                )
+                print(f"English CDP login checkpoint written: {checkpoint_path}")
+            elif gate_result:
                 en_dl, en_rem, en_results, en_failure_reasons = run_english_cdp(
                     en_rem, args.output, args.port,
                     skip_sd=args.skip_sd, include_si=args.include_si,

@@ -54,6 +54,7 @@
 |------|------|------|
 | 下载的 PDF | .pdf | 保存到 paper-temp/ |
 | 下载记录 | paper-temp/download_log.md | 逐篇追踪状态 |
+| 英文登录恢复点 | paper-temp/login_checkpoint.json | 英文 CDP 登录未完成或宿主无法继续交互时生成，只包含待登录 DOI |
 | direct_download_manifest.md/json | .md/.json | 直达下载模式的临时归一化清单 |
 | unresolved_download_items.md | .md | 标题无法唯一解析、缺少 URL 或需要人工确认的条目 |
 
@@ -151,6 +152,8 @@
   - `2` = 没有账号，跳过并继续
   - `3` = 稍后重试
 - 运行语义必须一致：`2` 不能终止整批流程，只能跳过当前登录型路径并继续 OA / direct_http / 已完成结果汇总。
+- **英文非交互特殊规则：** 如果宿主无法继续 `stdin` 交互，或 `input()` 抛出 `EOFError / KeyboardInterrupt`，必须视为“当前宿主无法确认登录”，不是“用户主动 skip”。此时写出 `paper-temp/login_checkpoint.json`，把相关 DOI 标记为 `pending_user_login`，等待后续恢复。
+- **恢复入口：** 用户完成机构登录后，应优先运行 `python3 scripts/unified_download_router.py --resume-login-checkpoint paper-temp/login_checkpoint.json --output paper-temp/`，只重跑待登录 DOI，不整批重来。
 
 **执行流程：**
 
@@ -252,7 +255,7 @@ Phase 3 ────────────────────────
 |------|----------|--------|------|--------|
 | **R1: Sci-Hub** | 不限（2021年前） | 全部 | Sci-Hub CDP | 9/13 镜像可用 |
 | **R2: Generic CDP** | `10.1016/` | Elsevier / ScienceDirect | Generic CDP 内部 SD 适配器（DOI→PII→pdfft） | 复用 SD 成熟路径 |
-| | `10.1109/` | IEEE | Generic CDP 策略 B（文章页 stamp URL 提取） | 需 SSO |
+| | `10.1109/` | IEEE | Generic CDP 策略 A/B 失败后自动走 `arnumber -> stamp/getPDF` fallback | 需 SSO |
 | | `10.1002/` | Wiley | pdfdirect URL → 文章页选择器 | 策略A优先 |
 | | `10.1021/` | ACS | 直连 PDF URL → 文章页选择器 | 策略A优先 |
 | | `10.1039/` | RSC | 文章页 articlepdf 选择器 | 策略B为主 |
@@ -369,6 +372,8 @@ python3 scripts/unified_download_router.py dois.txt --browser edge
 python3 scripts/auto_sd_downloader.py --browser edge --pii-map sd_pii_map.json
 ```
 
+**浏览器一致性规则：** 用户在哪个浏览器完成机构认证，下载命令就必须使用同一个 `--browser`。统一路由会检查 9223 端口背后的浏览器产品；例如请求 `--browser chrome` 但端口实际是 Edge 时，会重启 Chrome，而不是复用 Edge 的未登录会话。
+
 ### 5.9. 核心设计原则
 
 1. **默认所有论文都有访问权限** — 下不到是策略问题，不是权限问题
@@ -379,7 +384,7 @@ python3 scripts/auto_sd_downloader.py --browser edge --pii-map sd_pii_map.json
 6. **ScienceDirect / Elsevier 与 IEEE 已归入 Generic CDP**，`auto_sd_downloader.py` 和 `download_via_ieee.py` 保留作为专用调试 / 手动 fallback
 7. **直达下载先归一化、再下载** — DOI 可直接路由，标题必须先解析为 DOI/URL/中文 article_url
 8. **checkpoint 不是入口锁** — `CP-DOWNLOAD-LOGIN` 只阻塞需要登录态的下载执行，不阻塞 manifest 生成、dry-run、OA/Sci-Hub/direct_http 路径
-9. **SD 默认跟随 Generic CDP 浏览器选择** — `--browser edge` 则 ScienceDirect 也用 Edge；`--browser chrome` 则 ScienceDirect 也用 Chrome；不在统一路由里默认启动双浏览器。
+9. **SD 默认跟随 Generic CDP 浏览器选择** — `--browser edge` 则 ScienceDirect 也用 Edge；`--browser chrome` 则 ScienceDirect 也用 Chrome；统一路由会校验端口上的浏览器类型，不在统一路由里默认启动双浏览器。
 
 ---
 
@@ -389,7 +394,7 @@ python3 scripts/auto_sd_downloader.py --browser edge --pii-map sd_pii_map.json
 - [ ] 如含标题：已生成 `direct_download_manifest.md/json`，且仅下载 `status=ready` 条目
 - [ ] 如有无法唯一解析条目：已写入 `unresolved_download_items.md`，未擅自猜 DOI
 - [ ] CDP 登录门控已执行：Agent 已提示用户完成机构登录，用户已确认"已登录" 🆕
-- [ ] CDP 浏览器已启动且端口可访问（`python scripts/start_cdp_browser.py --port 9223` 可启动/复用；也可用 Python urllib 检查 `/json/version`）
+- [ ] CDP 浏览器已启动且端口可访问，并且与下载命令的 `--browser` 一致（`python scripts/start_cdp_browser.py --browser chrome --port 9223` 可启动/复用；也可用 `/json/version` 检查 `Browser` 字段）
 - [ ] 会话状态已检查（`--check-session`）
 - [ ] 下载已通过 `--require-login-confirm` 门控参数启动（或 Agent 已手动确认登录） 🆕
 - [ ] 下载记录完整追踪每篇论文状态

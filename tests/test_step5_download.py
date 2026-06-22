@@ -299,23 +299,58 @@ class Step5DownloadTest(unittest.TestCase):
         with patch("builtins.input", return_value="已登录"):
             self.assertTrue(router.show_english_login_gate(dois))
 
-    def test_show_english_login_gate_noninteractive_returns_false(self):
-        self.assertFalse(
+    def test_show_english_login_gate_noninteractive_returns_none(self):
+        self.assertIsNone(
             router.show_english_login_gate(
                 ["10.1016/j.test.2024.01.001"],
                 interactive=False,
             )
         )
 
+    def test_show_english_login_gate_eoferror_returns_none(self):
+        with patch("builtins.input", side_effect=EOFError):
+            self.assertIsNone(router.show_english_login_gate(["10.1016/j.test.2024.01.001"]))
+
     def test_ensure_cdp_running_reuses_existing_browser(self):
-        with patch.object(router, "check_cdp", return_value=True):
+        with patch.object(router, "check_cdp", return_value=True), \
+             patch.object(router, "cdp_browser_matches", return_value=True):
             self.assertTrue(router.ensure_cdp_running(9223))
 
     def test_ensure_cdp_running_auto_starts_browser(self):
         with patch.object(router, "check_cdp", side_effect=[False, True]), \
+             patch.object(router, "cdp_browser_matches", return_value=True), \
              patch.object(router, "start_persistent_cdp_browser") as starter:
             self.assertTrue(router.ensure_cdp_running(9223))
         starter.assert_called_once()
+
+    def test_ensure_cdp_running_restarts_when_existing_browser_mismatches(self):
+        with patch.object(router, "check_cdp", side_effect=[True, True]), \
+             patch.object(router, "cdp_browser_matches", side_effect=[False, True]), \
+             patch.object(router, "get_cdp_browser_product", return_value="Microsoft Edge/125.0"), \
+             patch.object(router, "start_persistent_cdp_browser") as starter:
+            self.assertTrue(router.ensure_cdp_running(9223, browser="chrome"))
+
+        starter.assert_called_once_with(
+            port=9223,
+            browser="chrome",
+            urls=["https://www.sciencedirect.com/"],
+        )
+
+    def test_cdp_browser_matches_distinguishes_chrome_from_edge(self):
+        class FakeResponse:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def read(self):
+                return self.payload.encode("utf-8")
+
+        with patch.object(cdp_utils.urllib.request, "urlopen", return_value=FakeResponse('{"Browser":"Microsoft Edge/125.0"}')):
+            self.assertTrue(cdp_utils.cdp_browser_matches(9223, "edge"))
+            self.assertFalse(cdp_utils.cdp_browser_matches(9223, "chrome"))
+
+        with patch.object(cdp_utils.urllib.request, "urlopen", return_value=FakeResponse('{"Browser":"Chrome/125.0"}')):
+            self.assertTrue(cdp_utils.cdp_browser_matches(9223, "chrome"))
+            self.assertFalse(cdp_utils.cdp_browser_matches(9223, "edge"))
 
     def test_dry_run_classification_includes_chinese_and_english_items(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -406,6 +441,19 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(status, "manual_required")
         self.assertEqual(pub, "springer")
 
+    def test_download_one_uses_ieee_generic_fallback_after_a_b_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(gpd, "resolve_publisher", return_value={"strategy": "generic", "_key": "ieee"}), \
+                 patch.object(gpd, "_strategy_direct_pdf", return_value=None), \
+                 patch.object(gpd, "_strategy_article_page", return_value=None), \
+                 patch.object(gpd, "_download_ieee_via_generic_fallback", return_value=str(Path(tmp) / "ieee.pdf")) as fallback:
+                path, status, pub = gpd.download_one(9223, "10.1109/tvt.2018.2880138", tmp)
+
+        self.assertEqual(status, "ok")
+        self.assertEqual(pub, "ieee")
+        self.assertTrue(path.endswith("ieee.pdf"))
+        fallback.assert_called_once()
+
     def test_springer_institutional_login_entry_is_documented(self):
         matrix = (ROOT / "references" / "publisher-access-matrix.md").read_text(encoding="utf-8")
         step5 = (ROOT / "agents" / "step_5_download.md").read_text(encoding="utf-8")
@@ -474,6 +522,28 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(run_generic.call_args_list[1].args[0], ["10.1007/demo"])
         self.assertEqual(results[-1]["round"], "Generic CDP (after login)")
 
+    def test_english_cdp_noninteractive_writes_login_checkpoint_and_marks_pending(self):
+        first = ([], ["10.1007/demo", "10.1021/demo"], {
+            "10.1007/demo": "manual_confirmation_required",
+            "10.1021/demo": "generic_failed",
+        })
+
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(router, "run_generic_round", return_value=first), \
+             patch.object(router, "show_english_login_gate", return_value=None):
+            downloaded, remaining, results, reasons = router.run_english_cdp(
+                ["10.1007/demo", "10.1021/demo"], tmp, 9223
+            )
+            checkpoint = json.loads((Path(tmp) / "login_checkpoint.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["10.1007/demo", "10.1021/demo"])
+        self.assertEqual(reasons["10.1007/demo"], "pending_user_login")
+        self.assertEqual(reasons["10.1021/demo"], "generic_failed")
+        self.assertEqual(checkpoint["status"], "pending_user_login")
+        self.assertEqual(checkpoint["items"][0]["doi"], "10.1007/demo")
+        self.assertEqual(results, [{"round": "Generic CDP", "downloaded": []}])
+
     def test_generate_download_log_includes_reason_column(self):
         with tempfile.TemporaryDirectory() as tmp:
             pdf_path = Path(tmp) / "10.1007_demo.pdf"
@@ -514,6 +584,37 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(data["status"], "pending_user_login")
         self.assertEqual(data["items"][0]["failure_reason"], "institution_login_required")
+        self.assertIn("--resume-login-checkpoint", data["rerun_hint"])
+
+    def test_resume_from_login_checkpoint_retries_only_pending_english_dois(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = {
+                "checkpoint_type": "publisher_login",
+                "status": "pending_user_login",
+                "stage": "english_cdp_retry",
+                "items": [
+                    {"doi": "10.1007/demo", "failure_reason": "pending_user_login"},
+                    {"doi": "10.1016/j.demo.2026.01.001", "failure_reason": "pending_user_login"},
+                ],
+            }
+            checkpoint_path = Path(tmp) / "login_checkpoint.json"
+            checkpoint_path.write_text(json.dumps(checkpoint), encoding="utf-8")
+            resumed = (["10.1007/demo"], ["10.1016/j.demo.2026.01.001"], {
+                "10.1016/j.demo.2026.01.001": "generic_failed",
+            })
+
+            with patch.object(router, "run_generic_round", return_value=resumed) as run_generic:
+                downloaded, remaining, results, reasons = router.resume_from_login_checkpoint(
+                    str(checkpoint_path), tmp, 9223
+                )
+
+        self.assertEqual(downloaded, ["10.1007/demo"])
+        self.assertEqual(remaining, ["10.1016/j.demo.2026.01.001"])
+        self.assertEqual(reasons, {"10.1016/j.demo.2026.01.001": "generic_failed"})
+        self.assertEqual(results[-1]["round"], "Generic CDP (resume login checkpoint)")
+        run_generic.assert_called_once_with(
+            ["10.1007/demo", "10.1016/j.demo.2026.01.001"], tmp, 9223, include_si=False
+        )
 
     def test_check_all_sessions_reports_weak_cookie_probe(self):
         with patch.object(router, "_PUBLISHER_CONFIGS", {"sd_elsevier": {"publisher_domain": "www.sciencedirect.com", "strategy": "generic", "_key": "sd_elsevier"}}), \

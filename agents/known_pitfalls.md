@@ -57,6 +57,10 @@ except:
 
 **Windows 不能依赖 macOS Chrome 启动命令：** 自动下载路径不要直接调用 `open -na "Google Chrome"` 或写死 `/Applications/...`。应使用 `scripts/start_cdp_browser.py` 或 `cdp_utils.start_persistent_cdp_browser()`，必要时通过 `CHROME_PATH` / `EDGE_PATH` 指定浏览器可执行文件。
 
+**登录在 Chrome，下载却连到 Edge：** 旧逻辑只判断 9223 端口是否有 CDP 服务，不检查背后的浏览器。排查时先打开 `http://127.0.0.1:9223/json/version` 看 `Browser` 字段；下载命令必须与登录浏览器一致，例如 Chrome 登录用 `--browser chrome`，Edge 登录用 `--browser edge`。
+
+**英文 Step 5 门控打印 `Enter 1/2/3:` 后立即结束，不等于用户跳过：** 在非交互宿主中，`input()` 可能抛 `EOFError` 或根本拿不到持续 stdin。此时应先检查 `paper-temp/login_checkpoint.json` 是否已生成，以及失败原因是否被写成 `pending_user_login`；不要把日志里的“等待恢复”误判为“用户选择了 skip”。
+
 ### SD 下载陷阱
 
 **论文无 PDF 可下：** 约 4% 的 SD 论文只提供摘要页。10 秒超时快速跳过。

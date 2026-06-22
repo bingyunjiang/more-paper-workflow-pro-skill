@@ -10,7 +10,9 @@ import argparse
 import sys
 
 from cdp_utils import (
+    cdp_browser_matches,
     check_cdp,
+    get_cdp_browser_product,
     get_launch_log_path,
     get_persistent_profile_dir,
     start_persistent_cdp_browser,
@@ -53,14 +55,22 @@ def main() -> int:
     urls = args.urls or ["https://www.sciencedirect.com/"]
 
     print(f"⏳ Waiting for CDP on port {args.port}...")
-    if not check_cdp(args.port):
+    if check_cdp(args.port) and not cdp_browser_matches(args.port, args.browser):
+        product = get_cdp_browser_product(args.port) or "unknown browser"
+        print(f"   Existing CDP is {product}; restarting {args.browser}.")
+        start_persistent_cdp_browser(
+            port=args.port,
+            browser=args.browser,
+            urls=urls,
+        )
+    elif not check_cdp(args.port):
         start_persistent_cdp_browser(
             port=args.port,
             browser=args.browser,
             urls=urls,
         )
 
-    if check_cdp(args.port):
+    if check_cdp(args.port) and cdp_browser_matches(args.port, args.browser):
         print(f"✅ CDP ready on :{args.port}")
         print(f"   Profile: {get_persistent_profile_dir(args.browser)}")
         print(f"   Launch log: {get_launch_log_path(args.browser)}")

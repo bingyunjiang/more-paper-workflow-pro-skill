@@ -72,9 +72,11 @@ Next Action:
 - DOI / article_url / source_id 是否可用
 - 当前 access route
 - 下载日志中的明确失败原因
+- 若英文 CDP 门控出现过：`login_checkpoint.json` 是否存在，失败原因是否为 `pending_user_login`
 
 **Next Action**
 - 先区分“元数据不足”与“权限不足”，不要一律归因为网络或反爬
+- 如果日志看起来像 “skip”，但用户没有明确跳过，先判定是不是宿主非交互 / `EOFError` 导致的英文登录 checkpoint，而不是直接要求整批重跑
 
 ### C. Zotero 故障
 

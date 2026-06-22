@@ -199,6 +199,13 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
     if pdf_data:
         return _save_pdf(pdf_data, dest), "ok", pub_name
 
+    if pub_name == "ieee":
+        ieee_path = _download_ieee_via_generic_fallback(
+            port, doi, output_dir, publisher, timeout
+        )
+        if ieee_path:
+            return ieee_path, "ok", pub_name
+
     # SI download (if requested and PDF failed)
     if include_si:
         si_paths = download_si(port, doi, publisher, output_dir)
@@ -1038,6 +1045,46 @@ def _build_article_url(doi: str) -> str:
     publisher page regardless of publisher-specific URL structures.
     """
     return f"https://doi.org/{doi}"
+
+
+def _resolve_ieee_arnumber(doi: str) -> tuple[Optional[str], str]:
+    """Resolve IEEE arnumber from doi.org redirect target."""
+    try:
+        req = urllib.request.Request(
+            f"https://doi.org/{doi}",
+            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                     "AppleWebKit/537.36"}
+        )
+        resp = urllib.request.urlopen(req, timeout=10)
+        final_url = resp.geturl()
+        match = re.search(r"/document/(\d+)", final_url)
+        if match:
+            return match.group(1), final_url
+        return None, final_url
+    except Exception as exc:
+        return None, str(exc)
+
+
+def _download_ieee_via_generic_fallback(port: int, doi: str, output_dir: str,
+                                        publisher: dict,
+                                        timeout: int = DEFAULT_TIMEOUT) -> Optional[str]:
+    """Fallback IEEE download path using arnumber -> stamp/getPDF URLs."""
+    arnumber, article_url = _resolve_ieee_arnumber(doi)
+    if not arnumber:
+        return None
+
+    dest = _doi_to_filename(doi, output_dir)
+    candidate_urls = [
+        f"https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber={arnumber}",
+        f"https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber={arnumber}",
+    ]
+    referrer = article_url if article_url.startswith("http") else _build_article_url(doi)
+
+    for url in candidate_urls:
+        pdf_data = _navigate_and_capture_pdf(port, url, referrer=referrer, timeout=timeout)
+        if pdf_data:
+            return _save_pdf(pdf_data, dest)
+    return None
 
 
 def _transform_pdf_url(url: str, publisher: dict) -> str:
