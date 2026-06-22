@@ -27,6 +27,8 @@ Usage:
 from __future__ import annotations
 
 import sys, os, time, re, json, argparse, subprocess, hashlib
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -70,6 +72,8 @@ from workflow_contracts import (
 CDP_PORT = 9223
 DEFAULT_OUTPUT = "paper-temp"
 SCI_HUB_CUTOFF_YEAR = 2021  # Sci-Hub has very few papers after 2020
+OA_FAST_MIN_BYTES = 5000
+OA_FAST_TIMEOUT = 15
 
 # Strategy routing table (for display and decisions)
 STRATEGY_ORDER = ["scihub", "ieee_cdp", "generic", "chinese_cdp", "direct_http", "skip"]
@@ -128,6 +132,13 @@ def estimate_year(doi: str) -> Optional[int]:
         if 1990 <= year <= 2026:
             return year
     return None
+
+
+def _scihub_eligible_dois(dois: list[str]) -> list[str]:
+    return [
+        doi for doi in dois
+        if (estimate_year(doi) is not None and estimate_year(doi) <= SCI_HUB_CUTOFF_YEAR)
+    ]
 
 
 # ── DOI Classification ──────────────────────────────────────────────────────
@@ -375,7 +386,7 @@ def parse_chinese_papers(input_path: str) -> list[dict]:
 # ── Round Executors ─────────────────────────────────────────────────────────
 
 def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str], list[str]]:
-    """Round 1: Try Sci-Hub for pre-2021 papers.
+    """Round 1: Try Sci-Hub for papers with estimated year <= 2021.
     Returns (downloaded_dois, remaining_dois)."""
     old_dois = []
     new_dois = []
@@ -387,11 +398,11 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
             new_dois.append(d)
 
     if not old_dois:
-        print(f"\n{SKIP} Round 1 (Sci-Hub): No pre-{SCI_HUB_CUTOFF_YEAR} papers to try ({len(new_dois)} papers are post-{SCI_HUB_CUTOFF_YEAR-1}).")
+        print(f"\n{SKIP} Round 1 (Sci-Hub): No <= {SCI_HUB_CUTOFF_YEAR} papers to try ({len(new_dois)} papers are > {SCI_HUB_CUTOFF_YEAR} or year unknown).")
         return [], dois
 
     print(f"\n{'='*60}")
-    print(f"Round 1: Sci-Hub CDP ({len(old_dois)} pre-{SCI_HUB_CUTOFF_YEAR} papers)")
+    print(f"Round 1: Sci-Hub CDP ({len(old_dois)} papers with year <= {SCI_HUB_CUTOFF_YEAR})")
     print(f"{'='*60}")
 
     # Write temp DOI list for scihub script
@@ -435,6 +446,154 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
         pass
 
     return downloaded, remaining
+
+
+def _normalise_oa_hints(oa_hints: Optional[dict[str, dict]]) -> dict[str, dict]:
+    if not oa_hints:
+        return {}
+    return {k.strip().lower(): v for k, v in oa_hints.items() if k and isinstance(v, dict)}
+
+
+def build_oa_hints_from_items(items: list) -> dict[str, dict]:
+    """Collect Step 4 OA hints keyed by normalized DOI."""
+    hints: dict[str, dict] = {}
+    for item in items:
+        doi = getattr(item, "doi", "") or ""
+        if not doi:
+            continue
+        hint = {
+            "oa_status": getattr(item, "oa_status", ""),
+            "oa_source": getattr(item, "oa_source", ""),
+            "oa_pdf_url": getattr(item, "oa_pdf_url", ""),
+            "oa_landing_url": getattr(item, "oa_landing_url", ""),
+            "oa_license": getattr(item, "oa_license", ""),
+            "oa_checked_at": getattr(item, "oa_checked_at", ""),
+        }
+        raw = getattr(item, "raw", {}) or {}
+        for key in list(hint):
+            if not hint[key]:
+                hint[key] = raw.get(key, "")
+        if any(hint.values()):
+            hints[doi.strip().lower()] = hint
+    return hints
+
+
+def _looks_like_pdf_url(url: str) -> bool:
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    haystack = f"{parsed.path}?{parsed.query}".lower()
+    return ".pdf" in haystack or "/pdf" in haystack or "download" in haystack
+
+
+def _fetch_url_bytes(url: str, timeout: int = OA_FAST_TIMEOUT) -> tuple[bytes, str]:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 more-paper-workflow/Step5 OA verifier",
+            "Accept": "application/pdf,*/*;q=0.8",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        content_type = response.headers.get("Content-Type", "")
+        data = response.read(50 * 1024 * 1024 + 1)
+    return data, content_type
+
+
+def verify_public_pdf_bytes(data: bytes, content_type: str = "",
+                            min_bytes: int = OA_FAST_MIN_BYTES) -> tuple[bool, str]:
+    """Validate that an OA candidate is a real PDF, not a landing/placeholder page."""
+    head = data[:2048].lstrip().lower()
+    if "html" in content_type.lower() or head.startswith((b"<!doctype html", b"<html")):
+        return False, "html_response"
+    if len(data) < min_bytes:
+        return False, "too_small"
+    if not data.lstrip().startswith(b"%PDF"):
+        return False, "missing_pdf_header"
+    if not re.search(rb"/Type\s*/Page\b", data):
+        return False, "no_readable_pages"
+    return True, "public_pdf_verified"
+
+
+def _save_oa_pdf(output_dir: str, doi: str, data: bytes) -> str:
+    os.makedirs(output_dir, exist_ok=True)
+    basename = doi.replace("/", "_").replace(":", "_")
+    path = os.path.join(output_dir, f"{basename}.pdf")
+    with open(path, "wb") as f:
+        f.write(data)
+    return path
+
+
+def _resolve_oa_pdf_url_lightweight(doi: str) -> Optional[str]:
+    """Best-effort OA resolver. Network failures never block the main flow."""
+    quoted = urllib.parse.quote(doi, safe="")
+    url = f"https://api.unpaywall.org/v2/{quoted}?email=more-paper-workflow@example.invalid"
+    try:
+        data, content_type = _fetch_url_bytes(url, timeout=4)
+        if "json" not in content_type.lower():
+            return None
+        payload = json.loads(data.decode("utf-8", errors="replace"))
+    except Exception:
+        return None
+    best = payload.get("best_oa_location") or {}
+    candidate = best.get("url_for_pdf") or ""
+    return candidate if _looks_like_pdf_url(candidate) else None
+
+
+def run_oa_fast_round(dois: list[str], output_dir: str,
+                      oa_hints: Optional[dict[str, dict]] = None,
+                      use_resolver: bool = True
+                      ) -> tuple[list[str], list[str], dict[str, str]]:
+    """Try public OA PDF URLs before institution CDP."""
+    hints = _normalise_oa_hints(oa_hints)
+    downloaded: list[str] = []
+    remaining: list[str] = []
+    failure_reasons: dict[str, str] = {}
+
+    if not dois:
+        return downloaded, remaining, failure_reasons
+
+    print(f"\n{'='*60}")
+    print(f"Round 2: OA Fast public PDF ({len(dois)} papers)")
+    print(f"{'='*60}")
+
+    for doi in dois:
+        hint = hints.get(doi.strip().lower(), {})
+        url = (hint.get("oa_pdf_url") or "").strip()
+        if not url and use_resolver:
+            url = _resolve_oa_pdf_url_lightweight(doi) or ""
+
+        if not url:
+            remaining.append(doi)
+            continue
+        if not _looks_like_pdf_url(url):
+            remaining.append(doi)
+            failure_reasons[doi] = "invalid_pdf_candidate"
+            print(f"  {FAIL} {doi[:50]} OA candidate is not a PDF URL")
+            continue
+
+        try:
+            data, content_type = _fetch_url_bytes(url)
+            ok, reason = verify_public_pdf_bytes(data, content_type)
+        except Exception as exc:
+            ok, reason = False, f"oa_fetch_failed:{type(exc).__name__}"
+            data = b""
+
+        if ok:
+            path = _save_oa_pdf(output_dir, doi, data)
+            size_kb = os.path.getsize(path) // 1024
+            print(f"  {OK} {doi[:50]} public_pdf_verified ({size_kb}KB)")
+            downloaded.append(doi)
+        else:
+            print(f"  {FAIL} {doi[:50]} invalid OA PDF candidate ({reason})")
+            remaining.append(doi)
+            failure_reasons[doi] = "invalid_pdf_candidate"
+
+    print(f"  OA fast result: {OK} {len(downloaded)} downloaded, {ARROW} {len(remaining)} remaining for CDP")
+    return downloaded, remaining, failure_reasons
 
 
 def run_sd_round(dois: list[str], output_dir: str, port: int,
@@ -812,8 +971,11 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
 def run_english_pipeline(dois: list[str], output_dir: str, port: int,
                          skip_scihub: bool = False, skip_sd: bool = False,
                          include_si: bool = False,
-                         sd_browser: str = "chrome") -> tuple[list[str], list[str], list[dict], dict[str, str]]:
-    """Run English download pipeline: R1 Sci-Hub -> R2 Generic CDP.
+                         sd_browser: str = "chrome",
+                         skip_oa_fast: bool = False,
+                         oa_hints: Optional[dict[str, dict]] = None,
+                         ) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
+    """Run English download pipeline: Sci-Hub (<=2021) -> OA fast -> Generic CDP.
 
     Designed to be called in parallel with run_chinese_round() via
     ThreadPoolExecutor, sharing the same CDP port.
@@ -825,6 +987,8 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
         skip_scihub: Skip Sci-Hub round.
         skip_sd: Backward-compatible no-op; ScienceDirect now flows through Generic CDP.
         include_si: Download supplementary info where available.
+        skip_oa_fast: Skip public OA PDF candidates.
+        oa_hints: Step 4 OA candidate metadata keyed by DOI.
 
     Returns:
         (downloaded, remaining, round_results) tuple.
@@ -835,12 +999,14 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
     failure_reasons: dict[str, str] = {}
 
     # Round 1: Sci-Hub
-    if not skip_scihub:
+    if not skip_scihub and _scihub_eligible_dois(remaining):
         downloaded, remaining = run_scihub_round(remaining, output_dir, port)
         all_downloaded.extend(downloaded)
         round_results.append({"round": "Sci-Hub", "downloaded": downloaded})
-    else:
+    elif skip_scihub:
         print(f"\n{SKIP} Round 1 (Sci-Hub): Skipped (--skip-scihub)")
+    else:
+        print(f"\n{SKIP} Round 1 (Sci-Hub): No <= {SCI_HUB_CUTOFF_YEAR} papers to try.")
 
     if not remaining:
         print(f"\n{DONE} English pipeline complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
@@ -849,7 +1015,22 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
     if skip_sd:
         print(f"\n{SKIP} --skip-sd ignored: ScienceDirect is handled inside Generic CDP.")
 
-    # Round 2: Generic CDP (ScienceDirect and IEEE included here)
+    # Round 2: OA fast (public PDF only)
+    if not skip_oa_fast:
+        downloaded, remaining, oa_failures = run_oa_fast_round(
+            remaining, output_dir, oa_hints=oa_hints
+        )
+        all_downloaded.extend(downloaded)
+        round_results.append({"round": "OA fast (public_pdf_verified)", "downloaded": downloaded})
+        failure_reasons.update(oa_failures)
+    else:
+        print(f"\n{SKIP} Round 2 (OA fast): Skipped (--skip-oa-fast)")
+
+    if not remaining:
+        print(f"\n{DONE} English pipeline complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
+        return all_downloaded, remaining, round_results, failure_reasons
+
+    # Round 3: Generic CDP (ScienceDirect and IEEE included here)
     downloaded, remaining, generic_failures = run_generic_round(
         remaining, output_dir, port, include_si=include_si
     )
@@ -1294,6 +1475,7 @@ def main():
     parser.add_argument("--test", help="Test a single DOI (show routing decision + download)")
     parser.add_argument("--check-session", action="store_true", help="Check publisher sessions and exit")
     parser.add_argument("--skip-scihub", action="store_true", help="Skip Sci-Hub round (post-2021 papers)")
+    parser.add_argument("--skip-oa-fast", action="store_true", help="Skip public OA fast round and go directly to CDP")
     parser.add_argument("--skip-sd", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--skip-ieee", action="store_true", help="Skip IEEE round")
     parser.add_argument("--include-si", action="store_true", help="Download supplementary info where available")
@@ -1452,6 +1634,7 @@ def main():
 
     workflow_dois = dois_from_download_items(workflow_items)
     workflow_chinese_papers = as_chinese_papers(workflow_items)
+    oa_hints = build_oa_hints_from_items(workflow_items)
 
     # Batch mode
     bibtex_chinese_papers: list[dict] = []
@@ -1548,7 +1731,7 @@ def main():
 
     print("Routing summary:")
     strategy_labels = {
-        "scihub_only": "Sci-Hub (pre-2021)",
+        "scihub_only": "Sci-Hub (<=2021)",
         "ieee_cdp": "IEEE CDP",
         "generic": "Generic CDP",
         "chinese_cdp": "Chinese CDP (CNKI/Wanfang)",
@@ -1567,10 +1750,11 @@ def main():
               f"({sum(1 for c in classified if c['strategy']=='chinese_cdp')} Chinese)")
         return
 
-    # Check CDP (required for all rounds except Sci-Hub only)
-    has_cdp_rounds = any(c["strategy"] in ("generic", "chinese_cdp")
-                         for c in classified) or bool(chinese_papers)
-    if has_cdp_rounds and not ensure_cdp_running(args.port, browser=args.browser):
+    # Check CDP only for phase-1 CDP work. English Generic CDP is checked after
+    # OA fast so public PDFs do not get blocked by institutional browser setup.
+    has_scihub_round = bool(dois) and not args.skip_scihub and bool(_scihub_eligible_dois(dois))
+    has_chinese_cdp = bool(chinese_papers and not args.skip_chinese)
+    if (has_scihub_round or has_chinese_cdp) and not ensure_cdp_running(args.port, browser=args.browser):
         print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
         print(f"Start {args.browser.title()} with:")
         print(f"  {sys.executable} scripts/start_cdp_browser.py --browser {args.browser} --port {args.port}")
@@ -1596,8 +1780,12 @@ def main():
 
         scihub_future = None
         ch_future = None
+        if dois and args.skip_scihub:
+            print(f"\n{SKIP} Round 1 (Sci-Hub): Skipped (--skip-scihub)")
+        elif dois and not has_scihub_round:
+            print(f"\n{SKIP} Round 1 (Sci-Hub): No <= {SCI_HUB_CUTOFF_YEAR} papers to try.")
         with ThreadPoolExecutor(max_workers=2) as phase1:
-            if dois and not args.skip_scihub:
+            if has_scihub_round:
                 scihub_future = phase1.submit(
                     run_scihub_round, list(dois), args.output, args.port
                 )
@@ -1620,8 +1808,12 @@ def main():
         if ch_future:
             ch_dl, ch_rem = ch_future.result()
     else:
-        if dois and not args.skip_scihub:
+        if has_scihub_round:
             scihub_dl, scihub_rem = run_scihub_round(list(dois), args.output, args.port)
+        elif dois and args.skip_scihub:
+            print(f"\n{SKIP} Round 1 (Sci-Hub): Skipped (--skip-scihub)")
+        elif dois:
+            print(f"\n{SKIP} Round 1 (Sci-Hub): No <= {SCI_HUB_CUTOFF_YEAR} papers to try.")
 
         if chinese_papers and not args.skip_chinese:
             if args.require_login_confirm:
@@ -1641,6 +1833,20 @@ def main():
     en_rem = list(scihub_rem)
     en_results: list[dict] = []
     en_failure_reasons: dict[str, str] = {}
+    oa_dl: list[str] = []
+    oa_results: list[dict] = []
+    oa_failure_reasons: dict[str, str] = {}
+
+    if en_rem:
+        if args.skip_oa_fast:
+            print(f"\n{SKIP} Round 2 (OA fast): Skipped (--skip-oa-fast)")
+        else:
+            oa_dl, en_rem, oa_failure_reasons = run_oa_fast_round(
+                en_rem,
+                args.output,
+                oa_hints=oa_hints,
+            )
+            oa_results.append({"round": "OA fast (public_pdf_verified)", "downloaded": oa_dl})
 
     if en_rem:
         # Check if remaining papers actually need CDP
@@ -1648,14 +1854,21 @@ def main():
             classify_doi(d)["strategy"] == "generic"
             for d in en_rem
         )
+        if has_cdp and not ensure_cdp_running(args.port, browser=args.browser):
+            print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
+            print(f"Start {args.browser.title()} with:")
+            print(f"  {sys.executable} scripts/start_cdp_browser.py --browser {args.browser} --port {args.port}")
+            print("  macOS/Linux wrapper also supported: bash scripts/start_cdp_chrome.sh")
+            sys.exit(1)
         if args.require_login_confirm and has_cdp:
             gate_result = show_english_login_gate(en_rem, skip_sd=args.skip_sd)
             if gate_result is None:
+                en_failure_reasons.update({doi: "pending_user_login" for doi in en_rem})
                 checkpoint_path = write_login_checkpoint(
                     args.output,
                     stage="english_preflight_login",
                     dois=en_rem,
-                    failure_reasons={doi: "pending_user_login" for doi in en_rem},
+                    failure_reasons=en_failure_reasons,
                 )
                 print(f"English CDP login checkpoint written: {checkpoint_path}")
             elif gate_result:
@@ -1674,6 +1887,10 @@ def main():
             )
     elif not scihub_rem:
         print(f"\n{DONE} Sci-Hub downloaded all papers! ({len(scihub_dl)}/{len(dois)})")
+
+    en_dl = oa_dl + en_dl
+    en_results = oa_results + en_results
+    en_failure_reasons = {**oa_failure_reasons, **en_failure_reasons}
 
     # ═══════════════════════════════════════════════════════════════════
     # Phase 3: Merge results from all phases

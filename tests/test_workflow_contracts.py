@@ -72,6 +72,25 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(record.verification_confidence, "low")
         self.assertEqual(record.warn_class, "metadata_mismatch")
 
+    def test_oa_hint_fields_roundtrip_to_download_manifest(self):
+        record = SearchResultRecord.from_search_result({
+            "title": "OA paper",
+            "source": "openalex",
+            "doi": "10.5555/oa.demo",
+            "oa_status": "candidate",
+            "oa_source": "openalex",
+            "oa_pdf_url": "https://example.org/paper.pdf",
+            "oa_landing_url": "https://example.org/paper",
+            "oa_license": "cc-by",
+            "oa_checked_at": "2026-06-22T10:00:00",
+        })
+        item = DownloadManifestItem.from_search_record(record)
+
+        self.assertEqual(record.oa_status, "candidate")
+        self.assertEqual(item.oa_pdf_url, "https://example.org/paper.pdf")
+        self.assertEqual(item.oa_source, "openalex")
+        self.assertEqual(item.oa_license, "cc-by")
+
     def test_paper_card_normalization_and_outputs(self):
         card = PaperCard.from_value({
             "evidence_role": "method",

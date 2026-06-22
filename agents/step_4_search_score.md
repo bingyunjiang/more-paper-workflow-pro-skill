@@ -878,6 +878,25 @@ D. 仅补 T1
 3. `检索文献表.md/.xlsx`、`检索报告.md/.pdf` 才是展示层，可按版面截断。
 4. 禁止从已截断的 `检索文献表.md/.xlsx` 或 `检索报告.md/.pdf` 反向生成 `文献库.bib`、`中文论文元数据.json` 或 Step 6 对照 JSON。
 
+**4.9.3a OA 下载线索字段**
+
+Step 4 可在 `workflow_search_results.json` / workflow JSON 中为英文论文写入 OA 候选线索，供 Step 5 的 OA fast 轮次优先使用。该标记只是候选，不代表 PDF 已经下载或验证通过。
+
+| 字段 | 说明 |
+|------|------|
+| `oa_status` | `unknown / candidate / closed / no_oa` 等候选状态 |
+| `oa_source` | OA 线索来源，如 `openalex / semantic_scholar / unpaywall / arxiv` |
+| `oa_pdf_url` | 候选公开 PDF URL；不得写 landing page 冒充 PDF |
+| `oa_landing_url` | OA 论文落地页，可用于人工核验或二次解析 |
+| `oa_license` | 公开许可，如 `cc-by`；未知则留空 |
+| `oa_checked_at` | 线索查询时间 |
+
+边界：
+
+- Step 4 只负责标记候选线索，不声明 `oa_pdf_url` 已通过 PDF verifier。
+- Step 5 下载后必须重新验证 `%PDF`、最小大小、非 HTML、可读页数；通过后才可记录为 `public_pdf_verified`。
+- 缺少这些字段的旧 workflow JSON 仍然有效；Step 5 视为 `oa_status=unknown`。
+
 **4.9.4 更新 `retrieval_index_manifest.json`**
 
 Step 4 执行真实检索、导入已有文献表或更新 `workflow_search_results.json` 后，必须生成或更新 `retrieval_index_manifest.json`。

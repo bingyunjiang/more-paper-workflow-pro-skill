@@ -1,6 +1,6 @@
 # Step 5: 统一批量下载 (Unified Download Router)
 
-> **默认串行可靠：** 英文两轮顺序（Sci-Hub → Generic CDP），中文 CDP（CNKI/万方）与英文 CDP 默认串行执行，避免共享浏览器状态互相干扰。ScienceDirect / Elsevier 与 IEEE 都归入 Generic CDP，专用脚本只作为内部适配器或手动 fallback。
+> **默认串行可靠：** 英文默认顺序为 `2021 年及以前：Sci-Hub → OA fast → Generic CDP`，`2022 年及以后/年份未知：OA fast → Generic CDP`。中文 CDP（CNKI/万方）与英文 CDP 默认串行执行，避免共享浏览器状态互相干扰。ScienceDirect / Elsevier 与 IEEE 都归入 Generic CDP，专用脚本只作为内部适配器或手动 fallback。
 
 ---
 
@@ -83,6 +83,7 @@
 5. 直达模式只做“用户指定文献下载”，不生成 Step 4 的评分、Tier、饱和度或 PRISMA 报告。
 6. 直达模式只需要确认下载清单和登录状态；不得要求用户补跑 Step 1-4。
 7. 所有入口先归一化为 `DownloadManifestItem` 语义：`item_id`、`title`、`doi`、`source`、`source_id`、`article_url`、`route_key`、`status`、`confidence`。旧 `direct_download_manifest.md/json` 可继续使用，但内部语义以 workflow contract 为准。
+8. Step 4 workflow JSON 若包含 `oa_status`、`oa_source`、`oa_pdf_url`、`oa_landing_url`、`oa_license`、`oa_checked_at`，Step 5 只能把它们视为 OA 候选线索；真实成功以下载后的 PDF verifier 为准。
 
 **Direct-entry input contract：**
 
@@ -139,7 +140,7 @@
 
 **中文门控（Phase 1）：** 仅当 CNKI/万方 preflight 或 article/download probe 返回 `pdf_probe_blocked` / `pdf_probe_unknown` / `carsi_required` / `login_required` / `access_denied` 时触发。
 
-**英文门控（Phase 2）：** Sci-Hub 完成后，默认先执行 Generic CDP；第一次遇到 `manual_confirmation_required` / `login_required` / `login_wall` / `access_denied` / `pdf_probe_blocked` / `pdf_probe_unknown` 时，立即阻塞提醒用户完成机构登录，并只重试这些失败条目一次。若显式使用 `--require-login-confirm`，则在英文 CDP 开始前先强制确认登录。
+**英文门控（Phase 2）：** Sci-Hub（仅 `year <= 2021`）完成后，先执行 OA fast；OA fast 只接受真实公开 PDF URL，下载后必须通过 `%PDF`、最小大小、非 HTML、可读页数验证。剩余条目才进入 Generic CDP；第一次遇到 `manual_confirmation_required` / `login_required` / `login_wall` / `access_denied` / `pdf_probe_blocked` / `pdf_probe_unknown` 时，立即阻塞提醒用户完成机构登录，并只重试这些失败条目一次。若显式使用 `--require-login-confirm`，则在英文 CDP 开始前先强制确认登录。
 
 **交互兼容规则：**
 
@@ -181,17 +182,21 @@ Phase 1:
 
 Phase 2:
 6. 等待 Sci-Hub 完成
-7. 对剩余英文 CDP 论文先执行 Generic CDP 下载
-   ├─ direct_http / oa / pdf_probe_ok / 成功捕获 PDF bytes → 直接完成
+7. 对剩余英文论文先执行 OA fast
+   ├─ Step 4 `oa_pdf_url` 或轻量 OA resolver 命中真实 PDF URL → 下载并验证 → `public_pdf_verified`
+   ├─ HTML / 小文件 / 损坏 PDF / landing page → `invalid_pdf_candidate`，继续 Generic CDP
+   └─ 无 OA 线索 → 继续 Generic CDP
+8. 对 OA fast 剩余论文执行 Generic CDP 下载
+   ├─ pdf_probe_ok / 成功捕获 PDF bytes → 直接完成
    └─ 首次出现 pdf_probe_blocked / pdf_probe_unknown / login_required / access_denied / manual_confirmation_required → 🚧 英文登录门控，并重试这些条目一次
    Agent 执行同样的交互式 CDP 启动，导航到对应出版社首页：
    "[Generic CDP]  elsevier (sciencedirect.com), ieee (ieeexplore.ieee.org),
     acs (pubs.acs.org), ..."
-8. 🚀 Agent 自动启动交互式 CDP 会话（同一条命令内）：
+9. 🚀 Agent 自动启动交互式 CDP 会话（同一条命令内）：
    a) 启动 exec_command：检查/启动 CDP Chrome → 导航到出版社首页
    b) 打印 === LOGIN_REQUIRED === → 用户登录后告知；如果用户没有机构账号，明确允许 `skip`，Agent 应继续后续 OA/已完成结果汇总，不得把整批任务视为失败
    c) 脚本确认 CDP 可用后退出
-9. Agent 重试需要登录的 English CDP 条目（R2 Generic，含 SD / IEEE 适配器）
+10. Agent 重试需要登录的 English CDP 条目（Generic，含 SD / IEEE 适配器）
 ```
 
 **强制要求：**
@@ -236,8 +241,11 @@ Phase 1 ────────────────────────
 
 Phase 2 ──────────────────────────────────────────────────
   等待 Sci-Hub 完成
-  若剩余英文 CDP 论文（Generic，含 SD / IEEE 适配器）:
-    English CDP 启动（R2 Generic）
+  剩余英文论文先走 OA fast:
+    public PDF URL + verifier 通过 → 完成
+    invalid_pdf_candidate / 无 OA 线索 → Generic CDP
+  若仍有英文 CDP 论文（Generic，含 SD / IEEE 适配器）:
+    English CDP 启动
        成功捕获 PDF bytes → 完成
        首次出现登录/权限/unknown probe 类失败 → 用户确认机构登录
        → 仅重试这些失败条目一次
@@ -253,8 +261,9 @@ Phase 3 ────────────────────────
 
 | 轮次 | DOI 前缀 | 出版商 | 策略 | 成功率 |
 |------|----------|--------|------|--------|
-| **R1: Sci-Hub** | 不限（2021年前） | 全部 | Sci-Hub CDP | 9/13 镜像可用 |
-| **R2: Generic CDP** | `10.1016/` | Elsevier / ScienceDirect | Generic CDP 内部 SD 适配器（DOI→PII→pdfft） | 复用 SD 成熟路径 |
+| **R1: Sci-Hub** | 不限（`year <= 2021`） | 全部 | Sci-Hub CDP；`--skip-scihub` 可跳过 | 旧论文优先 |
+| **R2: OA fast** | 不限 | OpenAlex / Semantic Scholar / Unpaywall 等公开 PDF 线索 | `oa_pdf_url` / 轻量 resolver → PDF verifier；`--skip-oa-fast` 可跳过 | 仅公开 PDF |
+| **R3: Generic CDP** | `10.1016/` | Elsevier / ScienceDirect | Generic CDP 内部 SD 适配器（DOI→PII→pdfft） | 复用 SD 成熟路径 |
 | | `10.1109/` | IEEE | Generic CDP 策略 A/B 失败后自动走 `arnumber -> stamp/getPDF` fallback | 需 SSO |
 | | `10.1002/` | Wiley | pdfdirect URL → 文章页选择器 | 策略A优先 |
 | | `10.1021/` | ACS | 直连 PDF URL → 文章页选择器 | 策略A优先 |
@@ -314,7 +323,8 @@ python3 scripts/unified_download_router.py --test-cnki "https://kns.cnki.net/kcm
 python3 scripts/unified_download_router.py --test-wanfang "https://www.wanfangdata.com.cn/details/..." --port 9223
 
 # 跳过免费路径
-python3 scripts/unified_download_router.py 检索文献表.md --skip-scihub   # 全是新论文
+python3 scripts/unified_download_router.py 检索文献表.md --skip-scihub   # 旧论文也跳过 Sci-Hub，直接 OA fast
+python3 scripts/unified_download_router.py 检索文献表.md --skip-oa-fast  # 调试机构 CDP
 
 # 下载辅助材料（Supplementary Info）
 python3 scripts/unified_download_router.py 检索文献表.md --include-si
@@ -385,6 +395,7 @@ python3 scripts/auto_sd_downloader.py --browser edge --pii-map sd_pii_map.json
 7. **直达下载先归一化、再下载** — DOI 可直接路由，标题必须先解析为 DOI/URL/中文 article_url
 8. **checkpoint 不是入口锁** — `CP-DOWNLOAD-LOGIN` 只阻塞需要登录态的下载执行，不阻塞 manifest 生成、dry-run、OA/Sci-Hub/direct_http 路径
 9. **SD 默认跟随 Generic CDP 浏览器选择** — `--browser edge` 则 ScienceDirect 也用 Edge；`--browser chrome` 则 ScienceDirect 也用 Chrome；统一路由会校验端口上的浏览器类型，不在统一路由里默认启动双浏览器。
+10. **OA fast 是候选验证层** — Step 4 的 OA 字段只提供候选；Step 5 必须验证真实 PDF 后才记录 `public_pdf_verified`，无效候选记录 `invalid_pdf_candidate` 并继续 Generic CDP。
 
 ---
 

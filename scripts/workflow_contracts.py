@@ -253,6 +253,12 @@ class SearchResultRecord:
     evidence: str = ""
     download_hint: str = ""
     abstract: str = ""
+    oa_status: str = ""
+    oa_source: str = ""
+    oa_pdf_url: str = ""
+    oa_landing_url: str = ""
+    oa_license: str = ""
+    oa_checked_at: str = ""
     paper_card: PaperCard = field(default_factory=PaperCard)
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -301,6 +307,12 @@ class SearchResultRecord:
             evidence=_clean(row.get("evidence") or row.get("match_reason")),
             download_hint=infer_download_hint(doi, source, article_url),
             abstract=_clean(row.get("abstract") or row.get("摘要")),
+            oa_status=_clean(row.get("oa_status")),
+            oa_source=_clean(row.get("oa_source")),
+            oa_pdf_url=_clean(row.get("oa_pdf_url")),
+            oa_landing_url=_clean(row.get("oa_landing_url")),
+            oa_license=_clean(row.get("oa_license")),
+            oa_checked_at=_clean(row.get("oa_checked_at")),
             paper_card=PaperCard.from_value(row.get("paper_card")),
             raw=dict(row),
         )
@@ -324,6 +336,12 @@ class DownloadManifestItem:
     confidence: str = ""
     search_task_id: str = ""
     chapter_id: str = ""
+    oa_status: str = ""
+    oa_source: str = ""
+    oa_pdf_url: str = ""
+    oa_landing_url: str = ""
+    oa_license: str = ""
+    oa_checked_at: str = ""
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -341,6 +359,12 @@ class DownloadManifestItem:
             confidence="high" if (record.doi or record.article_url) else "low",
             search_task_id=record.search_task_id,
             chapter_id=record.chapter_id,
+            oa_status=record.oa_status,
+            oa_source=record.oa_source,
+            oa_pdf_url=record.oa_pdf_url,
+            oa_landing_url=record.oa_landing_url,
+            oa_license=record.oa_license,
+            oa_checked_at=record.oa_checked_at,
             raw=record.raw,
         )
 
@@ -1174,6 +1198,12 @@ def load_download_manifest(path: str | Path) -> list[DownloadManifestItem]:
                 confidence=_clean(row.get("confidence")),
                 search_task_id=_clean(row.get("search_task_id")),
                 chapter_id=_clean(row.get("chapter_id")),
+                oa_status=_clean(row.get("oa_status")),
+                oa_source=_clean(row.get("oa_source")),
+                oa_pdf_url=_clean(row.get("oa_pdf_url")),
+                oa_landing_url=_clean(row.get("oa_landing_url")),
+                oa_license=_clean(row.get("oa_license")),
+                oa_checked_at=_clean(row.get("oa_checked_at")),
                 raw=dict(row),
             )
         else:

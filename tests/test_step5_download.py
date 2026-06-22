@@ -22,6 +22,9 @@ import console_compat  # noqa: E402
 
 
 class Step5DownloadTest(unittest.TestCase):
+    def _valid_pdf_bytes(self):
+        return b"%PDF-1.4\n1 0 obj\n<< /Type /Page >>\nendobj\n" + b"x" * 6000
+
     def test_auto_sd_loader_reads_pii_map_as_utf8(self):
         with tempfile.TemporaryDirectory() as tmp:
             pii_map = Path(tmp) / "sd_pii_map.json"
@@ -113,6 +116,118 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(remaining, [])
         self.assertEqual(reasons, {})
         download.assert_called_once_with(9223, "10.1016/j.demo.2026.01.001", tmp, include_si=False)
+
+    def test_english_pipeline_old_doi_scihub_success_skips_oa_and_cdp(self):
+        with patch.object(router, "run_scihub_round", return_value=(["10.1016/j.demo.2020.01.001"], [])) as scihub, \
+             patch.object(router, "run_oa_fast_round") as oa_fast, \
+             patch.object(router, "run_generic_round") as generic:
+            downloaded, remaining, results, reasons = router.run_english_pipeline(
+                ["10.1016/j.demo.2020.01.001"], "paper-temp", 9223
+            )
+
+        self.assertEqual(downloaded, ["10.1016/j.demo.2020.01.001"])
+        self.assertEqual(remaining, [])
+        self.assertEqual(reasons, {})
+        self.assertEqual(results, [{"round": "Sci-Hub", "downloaded": ["10.1016/j.demo.2020.01.001"]}])
+        scihub.assert_called_once()
+        oa_fast.assert_not_called()
+        generic.assert_not_called()
+
+    def test_english_pipeline_old_doi_scihub_failure_then_oa_success_skips_cdp(self):
+        doi = "10.1016/j.demo.2020.01.001"
+        with patch.object(router, "run_scihub_round", return_value=([], [doi])) as scihub, \
+             patch.object(router, "run_oa_fast_round", return_value=([doi], [], {})) as oa_fast, \
+             patch.object(router, "run_generic_round") as generic:
+            downloaded, remaining, results, reasons = router.run_english_pipeline(
+                [doi], "paper-temp", 9223
+            )
+
+        self.assertEqual(downloaded, [doi])
+        self.assertEqual(remaining, [])
+        self.assertEqual(reasons, {})
+        self.assertEqual(results[-1]["round"], "OA fast (public_pdf_verified)")
+        scihub.assert_called_once()
+        oa_fast.assert_called_once()
+        generic.assert_not_called()
+
+    def test_english_pipeline_2024_doi_skips_scihub_and_starts_oa_fast(self):
+        doi = "10.1016/j.demo.2024.01.001"
+        with patch.object(router, "run_scihub_round") as scihub, \
+             patch.object(router, "run_oa_fast_round", return_value=([doi], [], {})) as oa_fast, \
+             patch.object(router, "run_generic_round") as generic:
+            downloaded, remaining, results, reasons = router.run_english_pipeline(
+                [doi], "paper-temp", 9223
+            )
+
+        self.assertEqual(downloaded, [doi])
+        self.assertEqual(remaining, [])
+        self.assertEqual(reasons, {})
+        scihub.assert_not_called()
+        oa_fast.assert_called_once()
+        generic.assert_not_called()
+
+    def test_english_pipeline_skip_scihub_sends_old_doi_to_oa_fast(self):
+        doi = "10.1016/j.demo.2020.01.001"
+        with patch.object(router, "run_scihub_round") as scihub, \
+             patch.object(router, "run_oa_fast_round", return_value=([doi], [], {})) as oa_fast:
+            downloaded, remaining, results, reasons = router.run_english_pipeline(
+                [doi], "paper-temp", 9223, skip_scihub=True
+            )
+
+        self.assertEqual(downloaded, [doi])
+        self.assertEqual(remaining, [])
+        self.assertEqual(reasons, {})
+        scihub.assert_not_called()
+        oa_fast.assert_called_once()
+
+    def test_english_pipeline_skip_oa_fast_goes_to_generic_cdp(self):
+        doi = "10.1016/j.demo.2024.01.001"
+        with patch.object(router, "run_scihub_round") as scihub, \
+             patch.object(router, "run_oa_fast_round") as oa_fast, \
+             patch.object(router, "run_generic_round", return_value=([doi], [], {})) as generic:
+            downloaded, remaining, results, reasons = router.run_english_pipeline(
+                [doi], "paper-temp", 9223, skip_oa_fast=True
+            )
+
+        self.assertEqual(downloaded, [doi])
+        self.assertEqual(remaining, [])
+        self.assertEqual(reasons, {})
+        scihub.assert_not_called()
+        oa_fast.assert_not_called()
+        generic.assert_called_once()
+
+    def test_oa_fast_invalid_html_candidate_continues_to_cdp(self):
+        doi = "10.1016/j.demo.2024.01.001"
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(router, "_fetch_url_bytes", return_value=(b"<html>not a pdf</html>" + b"x" * 6000, "text/html")):
+            downloaded, remaining, reasons = router.run_oa_fast_round(
+                [doi],
+                tmp,
+                oa_hints={doi: {"oa_pdf_url": "https://example.org/demo.pdf"}},
+                use_resolver=False,
+            )
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, [doi])
+        self.assertEqual(reasons[doi], "invalid_pdf_candidate")
+
+    def test_oa_fast_valid_public_pdf_downloads_and_marks_verified(self):
+        doi = "10.1016/j.demo.2024.01.001"
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(router, "_fetch_url_bytes", return_value=(self._valid_pdf_bytes(), "application/pdf")):
+            downloaded, remaining, reasons = router.run_oa_fast_round(
+                [doi],
+                tmp,
+                oa_hints={doi: {"oa_pdf_url": "https://example.org/demo.pdf"}},
+                use_resolver=False,
+            )
+            pdf_path = Path(tmp) / "10.1016_j.demo.2024.01.001.pdf"
+
+            self.assertTrue(pdf_path.exists())
+
+        self.assertEqual(downloaded, [doi])
+        self.assertEqual(remaining, [])
+        self.assertEqual(reasons, {})
 
     def test_sd_download_strategy_b_uses_timeout_for_article_page_wait(self):
         with patch.object(sd_download, "_extract_pdfft_url", return_value="https://example.com/pdfft?md5=abc") as mock_extract, \
