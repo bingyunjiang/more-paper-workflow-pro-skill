@@ -1075,6 +1075,57 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
 
 # ── Chinese Round ────────────────────────────────────────────────────────────
 
+CHINESE_MANUAL_RETRY_STATUSES = {
+    "manual_confirmation_required",
+    "manual_required",
+    "captcha_required",
+    "institution_login_required",
+    "pdf_probe_unknown",
+    "access_denied",
+    "login_required",
+    "chapter_download_mode",
+}
+
+
+def _confirm_chinese_manual_retry(title: str, source: str, status: str) -> bool:
+    """Pause on CNKI/Wanfang manual states so the current paper can be retried."""
+    print()
+    print(f"  {WARN} {source.upper()} 需要人工处理当前篇：{status}")
+    print(f"  {ARROW} 请在已打开的 CDP 浏览器里完成图形验证/机构验证，或手动点击当前篇下载。")
+    print("Choose one option:")
+    print("  1) 已处理，重试当前篇")
+    print("  2) 跳过当前篇，继续下一篇")
+    print("  3) 稍后重试（保留为失败项）")
+    resp = _safe_gate_input("Enter 1/2/3: ")
+    if resp is None:
+        return False
+    resp = resp.strip()
+    if resp == "1":
+        print(f"  {ARROW} Retrying current paper: {title[:45]}")
+        return True
+    return False
+
+
+def _download_chinese_paper_once(paper: dict, output_dir: str, port: int) -> tuple[Optional[str], str, str]:
+    title = paper.get("title", "")
+    source = paper.get("source", "").lower()
+    article_url = paper.get("article_url", "")
+    doi = paper.get("doi", "")
+    source_to_pub = {"cnki": "cnki", "wanfang": "wanfang"}
+
+    pub_key = source_to_pub.get(source, source)
+    publisher = resolve_publisher(doi) if doi else None
+    if publisher is None or publisher.get("strategy") != "chinese_cdp":
+        # Force publisher to Chinese config
+        from generic_publisher_downloader import _PUBLISHER_CONFIGS
+        publisher = _PUBLISHER_CONFIGS.get(pub_key, {"strategy": "chinese_cdp", "_key": pub_key})
+
+    return generic_download_one(
+        port, doi or f"{source}.{hashlib.md5(title.encode()).hexdigest()[:12]}",
+        output_dir, article_url=article_url
+    )
+
+
 def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[list[str], list[str]]:
     """Chinese CDP download round for CNKI and Wanfang papers.
 
@@ -1096,9 +1147,6 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
     print(f"\n{'='*60}")
     print(f"Chinese Round: CNKI / Wanfang CDP ({len(papers)} papers)")
     print(f"{'='*60}")
-
-    # Map source name to publisher config key
-    source_to_pub = {"cnki": "cnki", "wanfang": "wanfang"}
 
     ok, fail, skipped = 0, 0, 0
     downloaded = []
@@ -1123,19 +1171,16 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
 
         t0 = time.time()
 
-        # Override publisher resolution: map source to Chinese publisher config
-        pub_key = source_to_pub.get(source, source)
-        publisher = resolve_publisher(doi) if doi else None
-        if publisher is None or publisher.get("strategy") != "chinese_cdp":
-            # Force publisher to Chinese config
-            from generic_publisher_downloader import _PUBLISHER_CONFIGS
-            publisher = _PUBLISHER_CONFIGS.get(pub_key, {"strategy": "chinese_cdp", "_key": pub_key})
-
-        result_path, status, _ = generic_download_one(
-            port, doi or f"{source}.{hashlib.md5(title.encode()).hexdigest()[:12]}",
-            output_dir, article_url=article_url
-        )
+        result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
         elapsed = time.time() - t0
+
+        while not result_path and status in CHINESE_MANUAL_RETRY_STATUSES:
+            print(f"{WARN} ({status}, {elapsed:.1f}s)")
+            if not _confirm_chinese_manual_retry(title, source, status):
+                break
+            t0 = time.time()
+            result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
+            elapsed = time.time() - t0
 
         if result_path and status == "ok":
             size_kb = os.path.getsize(result_path) // 1024

@@ -645,6 +645,43 @@ def _wanfang_click_download_interstitial(port: int, tab_id: str) -> str:
     return str(resp.get("result", {}).get("result", {}).get("value", ""))
 
 
+def _wanfang_click_download_info_page(port: int) -> str:
+    """Click Wanfang's real download link on the generated download-info page."""
+    for tab in list_tabs(port):
+        tab_id = str(tab.get("id", ""))
+        url = str(tab.get("url", ""))
+        if "f.wanfangdata.com.cn/download/pc/" not in url:
+            continue
+        tab_ws_url = get_tab_ws_url(port, tab_id)
+        if not tab_ws_url:
+            continue
+        tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
+        js_click = '''
+(function(){
+  var direct = document.querySelector("#doDownload");
+  if (direct) {
+    direct.click();
+    return "clicked_doDownload";
+  }
+  var as = document.querySelectorAll("a");
+  for (var i = 0; i < as.length; i++) {
+    if ((as[i].innerText || '').indexOf("点击此处") >= 0) {
+      as[i].click();
+      return "clicked_text";
+    }
+  }
+  return "not_found";
+})()
+'''
+        tab_ws.send(json.dumps({"id": 3, "method": "Runtime.evaluate", "params": {"expression": js_click}}))
+        resp = json.loads(tab_ws.recv())
+        tab_ws.close()
+        result = str(resp.get("result", {}).get("result", {}).get("value", ""))
+        if result.startswith("clicked"):
+            return result
+    return "not_found"
+
+
 def _download_wanfang(port: int, article_url: str, publisher: dict,
                       timeout: int = DEFAULT_TIMEOUT,
                       output_dir: str = "") -> Optional[str]:
@@ -694,6 +731,7 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
     # Step 2: If Wanfang opens an interstitial download page, click "点击此处".
     time.sleep(10)
     _wanfang_click_download_interstitial(port, tid)
+    _wanfang_click_download_info_page(port)
 
     # Step 3: Wait for PDF in ~/Downloads (Browser.setDownloadBehavior path is unreliable)
     for i in range(timeout + 30):

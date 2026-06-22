@@ -865,6 +865,34 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertIn("分章下载", js)
         self.assertNotIn("allowed = '下载'", js)
 
+    def test_wanfang_download_info_page_clicks_do_download(self):
+        class FakeWs:
+            def __init__(self):
+                self.sent = []
+
+            def send(self, payload):
+                self.sent.append(json.loads(payload))
+
+            def recv(self):
+                return json.dumps({"result": {"result": {"value": "clicked_doDownload"}}})
+
+            def close(self):
+                pass
+
+        fake_ws = FakeWs()
+        with patch.object(gpd, "list_tabs", return_value=[
+            {"id": "tab-1", "url": "https://d.wanfangdata.com.cn/thesis/D03731170"},
+            {"id": "tab-2", "url": "https://f.wanfangdata.com.cn/download/pc/thesis/D03731170?transaction=x"},
+        ]), \
+             patch.object(gpd, "get_tab_ws_url", return_value="ws://tab-2"), \
+             patch.object(gpd.websocket, "create_connection", return_value=fake_ws):
+            result = gpd._wanfang_click_download_info_page(9223)
+
+        self.assertEqual(result, "clicked_doDownload")
+        expression = fake_ws.sent[0]["params"]["expression"]
+        self.assertIn("#doDownload", expression)
+        self.assertIn("点击此处", expression)
+
     def test_download_one_returns_wanfang_non_ok_status(self):
         with patch.object(gpd, "resolve_publisher", return_value=None), \
              patch.object(gpd, "_download_wanfang", return_value="pdf_probe_unknown"):
@@ -1720,6 +1748,30 @@ class Step5DownloadTest(unittest.TestCase):
             [paper["doi"] for paper in run_chinese.call_args.args[0]],
             ["cnki.1", "cnki.2", "wanfang.1", "wanfang.2"],
         )
+
+    def test_chinese_round_pauses_and_retries_current_paper_on_captcha(self):
+        paper = {
+            "title": "知网一",
+            "source": "cnki",
+            "doi": "cnki.1",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki1",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf_path = Path(tmp) / "cnki.1.pdf"
+            pdf_path.write_bytes(b"%PDF-1.4\n" + b"x" * 6000)
+            results = [
+                (None, "captcha_required", "cnki"),
+                (str(pdf_path), "ok", "cnki"),
+            ]
+            with patch.object(router, "_download_chinese_paper_once", side_effect=results) as download_one, \
+                 patch.object(router, "_safe_gate_input", return_value="1") as gate_input, \
+                 patch.object(router.time, "sleep", return_value=None):
+                downloaded, remaining = router.run_chinese_round([paper], tmp, 9223)
+
+        self.assertEqual(downloaded, ["cnki.1"])
+        self.assertEqual(remaining, [])
+        self.assertEqual(download_one.call_count, 2)
+        gate_input.assert_called_once_with("Enter 1/2/3: ")
 
     def test_parallel_phase1_is_ignored_and_chinese_runs_after_english(self):
         events = []
