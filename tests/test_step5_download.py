@@ -851,19 +851,18 @@ class Step5DownloadTest(unittest.TestCase):
     def test_wanfang_periodical_expression_clicks_download_only(self):
         js = gpd._wanfang_detail_click_expression("periodical")
 
-        self.assertIn("allowed = '下载'", js)
+        self.assertIn("allowed = ['下载']", js)
         self.assertIn("在线阅读", js)
         self.assertIn("评审材料", js)
-        self.assertNotIn("allowed = '整篇下载'", js)
+        self.assertNotIn("allowed = ['整篇下载', '下载']", js)
         self.assertNotIn("分章下载')", js)
 
     def test_wanfang_thesis_expression_clicks_whole_paper_only(self):
         js = gpd._wanfang_detail_click_expression("thesis")
 
-        self.assertIn("allowed = '整篇下载'", js)
+        self.assertIn("allowed = ['整篇下载', '下载']", js)
         self.assertIn("在线阅读", js)
         self.assertIn("分章下载", js)
-        self.assertNotIn("allowed = '下载'", js)
 
     def test_wanfang_download_info_page_clicks_do_download(self):
         class FakeWs:
@@ -892,6 +891,37 @@ class Step5DownloadTest(unittest.TestCase):
         expression = fake_ws.sent[0]["params"]["expression"]
         self.assertIn("#doDownload", expression)
         self.assertIn("点击此处", expression)
+
+    def test_wanfang_download_info_page_prefers_new_tab(self):
+        class FakeWs:
+            def __init__(self, value):
+                self.value = value
+
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return json.dumps({"result": {"result": {"value": self.value}}})
+
+            def close(self):
+                pass
+
+        opened = []
+
+        def fake_connection(ws_url, timeout=10):
+            opened.append(ws_url)
+            return FakeWs("clicked_doDownload")
+
+        with patch.object(gpd, "list_tabs", return_value=[
+            {"id": "old-tab", "url": "https://f.wanfangdata.com.cn/download/pc/thesis/old?transaction=x"},
+            {"id": "new-tab", "url": "https://f.wanfangdata.com.cn/download/pc/thesis/D03731170?transaction=y"},
+        ]), \
+             patch.object(gpd, "get_tab_ws_url", side_effect=lambda _port, tab_id: f"ws://{tab_id}"), \
+             patch.object(gpd.websocket, "create_connection", side_effect=fake_connection):
+            result = gpd._wanfang_click_download_info_page(9223, known_tab_ids={"old-tab"})
+
+        self.assertEqual(result, "clicked_doDownload")
+        self.assertEqual(opened, ["ws://new-tab"])
 
     def test_download_one_returns_wanfang_non_ok_status(self):
         with patch.object(gpd, "resolve_publisher", return_value=None), \

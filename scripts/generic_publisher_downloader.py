@@ -646,9 +646,13 @@ def _wanfang_click_download_interstitial(port: int, tab_id: str) -> str:
     return str(resp.get("result", {}).get("result", {}).get("value", ""))
 
 
-def _wanfang_click_download_info_page(port: int) -> str:
+def _wanfang_click_download_info_page(port: int, known_tab_ids: Optional[set[str]] = None) -> str:
     """Click Wanfang's real download link on the generated download-info page."""
-    for tab in list_tabs(port):
+    tabs = list_tabs(port)
+    if known_tab_ids:
+        new_tabs = [tab for tab in tabs if str(tab.get("id", "")) not in known_tab_ids]
+        tabs = new_tabs or tabs
+    for tab in tabs:
         tab_id = str(tab.get("id", ""))
         url = str(tab.get("url", ""))
         if "f.wanfangdata.com.cn/download/pc/" not in url:
@@ -713,6 +717,7 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
 
     downloads_dir = _os.path.expanduser("~/Downloads")
     before_dl = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
+    known_tab_ids = {str(tab.get("id", "")) for tab in list_tabs(port)}
 
     # Get tab WS for click operation
     tab_ws_url = get_tab_ws_url(port, tid)
@@ -732,16 +737,22 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
     # Step 2: If Wanfang opens an interstitial download page, click "点击此处".
     time.sleep(10)
     _wanfang_click_download_interstitial(port, tid)
-    _wanfang_click_download_info_page(port)
+    download_started_at = time.time()
+    _wanfang_click_download_info_page(port, known_tab_ids=known_tab_ids)
 
     # Step 3: Wait for PDF in ~/Downloads (Browser.setDownloadBehavior path is unreliable)
     for i in range(timeout + 30):
         time.sleep(1)
         current = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
         new_pdfs = current - before_dl
+        recent_pdfs = [
+            path for path in current
+            if _os.path.getmtime(path) >= download_started_at - 2
+        ]
         crdownloads = _glob.glob(_os.path.join(downloads_dir, "*.crdownload"))
-        if new_pdfs and not crdownloads:
-            dl_path = list(new_pdfs)[0]
+        candidates = list(new_pdfs) or recent_pdfs
+        if candidates and not crdownloads:
+            dl_path = max(candidates, key=_os.path.getmtime)
             if _os.path.getsize(dl_path) > MIN_PDF_SIZE:
                 # Copy to output_dir with hash name for router compatibility
                 dest = _os.path.join(output_dir,
