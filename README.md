@@ -809,6 +809,7 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 - **登录待处理统一写 checkpoint**：英文和中文登录门控都区分“已登录 / 跳过 / 稍后重试”；无法确认时写出 `login_checkpoint.json` 或 `chinese_login_checkpoint.json`，后续可用 `--resume-login-checkpoint ... --confirmed` 只恢复待登录条目。
 - **CNKI / 万方入口更保守**：CNKI 只自动点击明确 `PDF下载`，万方按期刊/学位论文区分下载入口；安全验证、章节下载、人工路径和未知 PDF probe 不再混成普通失败。
 - **CNKI 已验证详情页复用**：用户完成安全验证后，Step 5 优先复用当前 CNKI 详情页下载并监视落盘，减少重复触发验证。
+- **CNKI 验证后自动续跑当前篇**：命中图形验证时脚本会持续监控当前篇验证页；用户在已打开浏览器完成验证后，当前篇会自动重试；若等待超时则写 `chinese_login_checkpoint.json` 供后续恢复。
 - **RSC / MDPI 英文路由补齐**：RSC 增加 `articlepdf` 直链 fallback；MDPI 从直接跳过改为 Generic CDP 尝试，但仍不触发机构登录门控；IEEE 默认恢复独立 `download_via_ieee.py` 路径。
 - **Step 5 加入下载锁与中文稳定排序**：同一时间只允许一个真实下载进程使用 CDP；中文清单固定 CNKI 在前、万方在后，同库内部保留原输入顺序。
 - **Windows/CNKI 实测经验进入运行契约**：Step 5 文档补入安全验证、已验证详情页复用、独立中文 CDP 会话、人工点击下载和落盘监视等协作边界。

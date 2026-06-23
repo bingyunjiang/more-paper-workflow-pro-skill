@@ -56,7 +56,8 @@ from console_compat import (
 )
 from generic_publisher_downloader import (
     resolve_publisher, download_one as generic_download_one,
-    check_publisher_session, describe_publisher_session, _PUBLISHER_CONFIGS, extract_dois,
+    check_publisher_session, describe_publisher_session, _PUBLISHER_CONFIGS,
+    _find_reusable_cnki_tab, extract_dois,
 )
 from sd_download import diagnose_sd_pii
 from workflow_contracts import (
@@ -100,6 +101,8 @@ CHINESE_PUBLISHERS = {"cnki", "wanfang"}
 # Each entry: {"title": str, "source": "cnki"|"wanfang", "article_url": str, "doi": str}
 CHINESE_PAPER_FIELDS = frozenset({"title", "source", "article_url"})
 CHINESE_SOURCE_PRIORITY = {"cnki": 0, "wanfang": 1}
+CNKI_CAPTCHA_MONITOR_TIMEOUT = 600
+CNKI_CAPTCHA_MONITOR_INTERVAL = 2
 
 
 def step5_download_lock_path() -> Path:
@@ -1201,7 +1204,6 @@ def run_generic_round(dois: list[str], output_dir: str, port: int,
 CHINESE_MANUAL_RETRY_STATUSES = {
     "manual_confirmation_required",
     "manual_required",
-    "captcha_required",
     "institution_login_required",
     "pdf_probe_unknown",
     "access_denied",
@@ -1227,6 +1229,46 @@ def _confirm_chinese_manual_retry(title: str, source: str, status: str) -> bool:
         print(f"  {ARROW} Retrying current paper: {title[:45]}")
         return True
     return False
+
+
+def _wait_for_cnki_captcha_resolution(
+    paper: dict,
+    port: int,
+    timeout_seconds: int = CNKI_CAPTCHA_MONITOR_TIMEOUT,
+    poll_interval: int = CNKI_CAPTCHA_MONITOR_INTERVAL,
+) -> str:
+    """Wait for the current CNKI captcha page to return to the target detail tab."""
+    article_url = paper.get("article_url", "")
+    title = paper.get("title", "")
+    print(f"  {ARROW} 已开始监控当前篇 CNKI 验证页；请在已打开的浏览器里完成图形验证，完成后会自动继续。")
+    deadline = time.time() + timeout_seconds
+    last_progress_log = time.time()
+    while time.time() < deadline:
+        tab_id, status = _find_reusable_cnki_tab(port, article_url, title=title)
+        if tab_id and status != "captcha_required":
+            print(f"  {ARROW} 已检测到验证完成，正在自动重试当前篇。")
+            return "ready"
+        if not tab_id and status != "captcha_required":
+            print(f"  {WARN} 当前篇 CNKI 验证页已丢失或跳转到无关页面。")
+            return "page_lost"
+        now = time.time()
+        if now - last_progress_log >= 10:
+            print(f"  {ARROW} 仍在等待当前篇 CNKI 验证完成...")
+            last_progress_log = now
+        time.sleep(poll_interval)
+    print(f"  {WARN} 当前篇 CNKI 验证等待超时。")
+    return "timeout"
+
+
+def _checkpoint_pending_chinese_papers(
+    pending_papers: list[dict], output_dir: str
+) -> tuple[str, list[str], dict[str, str]]:
+    """Persist a resumable Chinese login checkpoint for the remaining papers."""
+    checkpoint_path = write_chinese_login_checkpoint(output_dir, pending_papers)
+    remaining = [paper.get("doi") or paper.get("title", "") for paper in pending_papers]
+    failure_reasons = {paper_id: "pending_user_login" for paper_id in remaining}
+    print(f"  {ARROW} 当前篇等待未完成，已写 checkpoint：{checkpoint_path}")
+    return checkpoint_path, remaining, failure_reasons
 
 
 def _download_chinese_paper_once(paper: dict, output_dir: str, port: int) -> tuple[Optional[str], str, str]:
@@ -1301,6 +1343,23 @@ def run_chinese_round_with_reasons(
 
         result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
         elapsed = time.time() - t0
+
+        if not result_path and status == "captcha_required" and source == "cnki":
+            print(f"{WARN} ({status}, {elapsed:.1f}s)")
+            monitor_status = _wait_for_cnki_captcha_resolution(paper, port)
+            if monitor_status == "ready":
+                t0 = time.time()
+                result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
+                elapsed = time.time() - t0
+            else:
+                pending_papers = papers[i:]
+                _checkpoint_path, checkpoint_remaining, checkpoint_reasons = _checkpoint_pending_chinese_papers(
+                    pending_papers, output_dir
+                )
+                remaining.extend(checkpoint_remaining)
+                failure_reasons.update(checkpoint_reasons)
+                fail += len(checkpoint_remaining)
+                break
 
         while not result_path and status in CHINESE_MANUAL_RETRY_STATUSES:
             print(f"{WARN} ({status}, {elapsed:.1f}s)")

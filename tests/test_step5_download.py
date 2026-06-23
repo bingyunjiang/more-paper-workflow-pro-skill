@@ -1094,12 +1094,12 @@ class Step5DownloadTest(unittest.TestCase):
              ]), \
              patch("os.path.getmtime", return_value=131.0), \
              patch("os.path.getsize", return_value=6001), \
-             patch("shutil.copy2") as copy2, \
+             patch.object(gpd, "_archive_browser_download", return_value=os.path.join(tmpdir, "wanfang.pdf")) as archive, \
              patch.object(gpd, "close_tab"):
             path = gpd._download_wanfang(9223, "https://d.wanfangdata.com.cn/thesis/D03731170", {}, output_dir=tmpdir)
 
         self.assertTrue(str(path).endswith(".pdf"))
-        copy2.assert_called_once()
+        archive.assert_called_once()
 
     def test_download_wanfang_prefers_primary_detail_download_before_fallback(self):
         class FakeBrowserWs:
@@ -1132,7 +1132,7 @@ class Step5DownloadTest(unittest.TestCase):
              patch.object(gpd, "_wait_for_downloaded_pdf", side_effect=[os.path.join(tmpdir, "paper.pdf")]) as wait_pdf, \
              patch.object(gpd, "_wait_for_wanfang_interstitial_click") as wait_interstitial, \
              patch.object(gpd, "_wait_for_wanfang_download_info_click") as wait_info, \
-             patch("shutil.copy2") as copy2, \
+             patch.object(gpd, "_archive_browser_download", return_value=os.path.join(tmpdir, "wanfang.pdf")) as archive, \
              patch.object(gpd, "close_tab"):
             path = gpd._download_wanfang(
                 9223,
@@ -1145,7 +1145,7 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(wait_pdf.call_count, 1)
         wait_interstitial.assert_not_called()
         wait_info.assert_not_called()
-        copy2.assert_called_once()
+        archive.assert_called_once()
 
     def test_download_wanfang_accepts_interstitial_click_without_info_page_click(self):
         class FakeBrowserWs:
@@ -1178,7 +1178,7 @@ class Step5DownloadTest(unittest.TestCase):
              patch.object(gpd, "_wait_for_downloaded_pdf", side_effect=[None, os.path.join(tmpdir, "paper.pdf")]), \
              patch.object(gpd, "_wait_for_wanfang_interstitial_click", return_value="clicked"), \
              patch.object(gpd, "_wait_for_wanfang_download_info_click", return_value="not_found"), \
-             patch("shutil.copy2") as copy2, \
+             patch.object(gpd, "_archive_browser_download", return_value=os.path.join(tmpdir, "wanfang.pdf")) as archive, \
              patch.object(gpd, "close_tab"):
             path = gpd._download_wanfang(
                 9223,
@@ -1188,7 +1188,84 @@ class Step5DownloadTest(unittest.TestCase):
             )
 
         self.assertTrue(str(path).endswith(".pdf"))
-        copy2.assert_called_once()
+        archive.assert_called_once()
+
+    def test_archive_browser_download_moves_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = os.path.join(tmpdir, "Downloads", "paper.pdf")
+            dest = os.path.join(tmpdir, "paper-temp", "paper.pdf")
+            os.makedirs(os.path.dirname(source), exist_ok=True)
+            with open(source, "wb") as f:
+                f.write(self._valid_pdf_bytes())
+
+            result = gpd._archive_browser_download(source, dest)
+
+            self.assertEqual(result, dest)
+            self.assertTrue(os.path.exists(dest))
+            self.assertFalse(os.path.exists(source))
+
+    def test_archive_browser_download_overwrites_existing_dest(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = os.path.join(tmpdir, "Downloads", "paper.pdf")
+            dest = os.path.join(tmpdir, "paper-temp", "paper.pdf")
+            os.makedirs(os.path.dirname(source), exist_ok=True)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(source, "wb") as f:
+                f.write(self._valid_pdf_bytes())
+            with open(dest, "wb") as f:
+                f.write(b"old")
+
+            result = gpd._archive_browser_download(source, dest)
+
+            self.assertEqual(result, dest)
+            with open(dest, "rb") as f:
+                self.assertEqual(f.read(), self._valid_pdf_bytes())
+            self.assertFalse(os.path.exists(source))
+
+    def test_archive_browser_download_falls_back_to_copy_then_delete(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = os.path.join(tmpdir, "Downloads", "paper.pdf")
+            dest = os.path.join(tmpdir, "paper-temp", "paper.pdf")
+            os.makedirs(os.path.dirname(source), exist_ok=True)
+            with open(source, "wb") as f:
+                f.write(self._valid_pdf_bytes())
+
+            def fail_replace(_src, _dest):
+                raise OSError("cross-device")
+
+            with patch.object(gpd.os, "replace", side_effect=fail_replace), \
+                 patch("shutil.move", side_effect=RuntimeError("move failed")), \
+                 patch("shutil.copy2", wraps=__import__("shutil").copy2) as copy2, \
+                 patch.object(gpd.os, "remove", wraps=gpd.os.remove) as remove:
+                result = gpd._archive_browser_download(source, dest)
+
+            self.assertEqual(result, dest)
+            self.assertTrue(os.path.exists(dest))
+            self.assertFalse(os.path.exists(source))
+            copy2.assert_called_once_with(source, dest)
+            remove.assert_called_once_with(source)
+
+    def test_archive_browser_download_keeps_source_when_copy_fails(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = os.path.join(tmpdir, "Downloads", "paper.pdf")
+            dest = os.path.join(tmpdir, "paper-temp", "paper.pdf")
+            os.makedirs(os.path.dirname(source), exist_ok=True)
+            with open(source, "wb") as f:
+                f.write(self._valid_pdf_bytes())
+
+            def fail_replace(_src, _dest):
+                raise OSError("cross-device")
+
+            with patch.object(gpd.os, "replace", side_effect=fail_replace), \
+                 patch("shutil.move", side_effect=RuntimeError("move failed")), \
+                 patch("shutil.copy2", side_effect=RuntimeError("copy failed")), \
+                 patch.object(gpd.os, "remove", wraps=gpd.os.remove) as remove:
+                with self.assertRaises(RuntimeError):
+                    gpd._archive_browser_download(source, dest)
+
+            self.assertTrue(os.path.exists(source))
+            self.assertFalse(os.path.exists(dest))
+            remove.assert_not_called()
 
     def test_download_wanfang_fetch_fallback_writes_pdf_when_download_page_has_no_actionable_control(self):
         class FakeBrowserWs:
@@ -1379,6 +1456,27 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(tab_id, "target-tab")
         self.assertIsNone(status)
+
+    def test_cnki_wait_for_download_archives_browser_pdf(self):
+        article_url = "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=demo"
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.object(gpd.time, "sleep", return_value=None), \
+             patch("glob.glob", side_effect=[
+                 [os.path.join(tmpdir, "paper.pdf")],
+                 [],
+             ]), \
+             patch("os.path.getsize", return_value=6001), \
+             patch.object(gpd, "_archive_browser_download", side_effect=lambda _src, dest: dest) as archive:
+            result = gpd._cnki_wait_for_download(
+                tmpdir,
+                set(),
+                "paper-temp",
+                article_url,
+                timeout=1,
+            )
+
+        self.assertTrue(result.startswith("paper-temp/cnki."))
+        archive.assert_called_once()
 
     def test_cnki_download_reuses_verified_detail_tab_without_creating_target(self):
         with patch.object(gpd, "_find_reusable_cnki_tab", return_value=("tab-1", None)), \
@@ -2315,14 +2413,107 @@ class Step5DownloadTest(unittest.TestCase):
                 (str(pdf_path), "ok", "cnki"),
             ]
             with patch.object(router, "_download_chinese_paper_once", side_effect=results) as download_one, \
-                 patch.object(router, "_safe_gate_input", return_value="1") as gate_input, \
-                 patch.object(router.time, "sleep", return_value=None):
+                 patch.object(router, "_wait_for_cnki_captcha_resolution", return_value="ready") as wait_captcha:
                 downloaded, remaining = router.run_chinese_round([paper], tmp, 9223)
 
         self.assertEqual(downloaded, ["cnki.1"])
         self.assertEqual(remaining, [])
         self.assertEqual(download_one.call_count, 2)
-        gate_input.assert_called_once_with("Enter 1/2/3: ")
+        wait_captcha.assert_called_once_with(paper, 9223)
+
+    def test_chinese_round_captcha_retry_keeps_precise_failure_reason(self):
+        paper = {
+            "title": "知网二",
+            "source": "cnki",
+            "doi": "cnki.2",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki2",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            results = [
+                (None, "captcha_required", "cnki"),
+                (None, "manual_required", "cnki"),
+            ]
+            with patch.object(router, "_download_chinese_paper_once", side_effect=results) as download_one, \
+                 patch.object(router, "_wait_for_cnki_captcha_resolution", return_value="ready"), \
+                 patch.object(router, "_confirm_chinese_manual_retry", return_value=False) as manual_retry:
+                downloaded, remaining, failure_reasons = router.run_chinese_round_with_reasons(
+                    [paper], tmp, 9223
+                )
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["cnki.2"])
+        self.assertEqual(failure_reasons["cnki.2"], "manual_required")
+        self.assertEqual(download_one.call_count, 2)
+        manual_retry.assert_called_once_with("知网二", "cnki", "manual_required")
+
+    def test_chinese_round_captcha_timeout_writes_checkpoint_for_remaining_items(self):
+        papers = [
+            {
+                "title": "知网一",
+                "source": "cnki",
+                "doi": "cnki.1",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki1",
+            },
+            {
+                "title": "万方一",
+                "source": "wanfang",
+                "doi": "wanfang.1",
+                "article_url": "https://d.wanfangdata.com.cn/periodical/wf1",
+            },
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint_path = Path(tmp) / "chinese_login_checkpoint.json"
+            with patch.object(
+                router,
+                "_download_chinese_paper_once",
+                return_value=(None, "captcha_required", "cnki"),
+            ) as download_one, \
+                 patch.object(router, "_wait_for_cnki_captcha_resolution", return_value="timeout"), \
+                 patch.object(router, "write_chinese_login_checkpoint", return_value=str(checkpoint_path)) as write_checkpoint:
+                downloaded, remaining, failure_reasons = router.run_chinese_round_with_reasons(
+                    papers, tmp, 9223
+                )
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["cnki.1", "wanfang.1"])
+        self.assertEqual(failure_reasons["cnki.1"], "pending_user_login")
+        self.assertEqual(failure_reasons["wanfang.1"], "pending_user_login")
+        download_one.assert_called_once_with(papers[0], tmp, 9223)
+        write_checkpoint.assert_called_once_with(tmp, papers)
+
+    def test_wait_for_cnki_captcha_resolution_retries_until_verified_tab_returns(self):
+        paper = {
+            "title": "CNKI demo",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=test",
+        }
+        probe_results = [
+            ("tab-1", "captcha_required"),
+            ("tab-1", "captcha_required"),
+            ("tab-1", None),
+        ]
+        time_points = [0, 0, 0, 2, 2, 4, 4]
+        with patch.object(router, "_find_reusable_cnki_tab", side_effect=probe_results) as reusable_tab, \
+             patch.object(router.time, "time", side_effect=time_points), \
+             patch.object(router.time, "sleep", return_value=None):
+            status = router._wait_for_cnki_captcha_resolution(
+                paper, 9223, timeout_seconds=10, poll_interval=2
+            )
+
+        self.assertEqual(status, "ready")
+        self.assertEqual(reusable_tab.call_count, 3)
+
+    def test_wait_for_cnki_captcha_resolution_stops_when_page_is_lost(self):
+        paper = {
+            "title": "CNKI demo",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=test",
+        }
+        with patch.object(router, "_find_reusable_cnki_tab", return_value=(None, None)), \
+             patch.object(router.time, "time", side_effect=[0, 0, 0]):
+            status = router._wait_for_cnki_captcha_resolution(
+                paper, 9223, timeout_seconds=10, poll_interval=2
+            )
+
+        self.assertEqual(status, "page_lost")
 
     def test_cnki_evaluate_tab_requests_return_by_value(self):
         class FakeWs:

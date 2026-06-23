@@ -975,15 +975,39 @@ def _wait_for_downloaded_pdf(
     return None
 
 
+def _archive_browser_download(source_path: str, dest_path: str) -> str:
+    """Move a browser-downloaded PDF into the workflow output directory."""
+    import os as _os, shutil as _shutil
+
+    _os.makedirs(_os.path.dirname(dest_path), exist_ok=True)
+    if _os.path.abspath(source_path) == _os.path.abspath(dest_path):
+        return dest_path
+
+    try:
+        _os.replace(source_path, dest_path)
+        return dest_path
+    except OSError:
+        pass
+
+    try:
+        _shutil.move(source_path, dest_path)
+        return dest_path
+    except Exception:
+        pass
+
+    _shutil.copy2(source_path, dest_path)
+    _os.remove(source_path)
+    return dest_path
+
+
 def _download_wanfang(port: int, article_url: str, publisher: dict,
                       timeout: int = DEFAULT_TIMEOUT,
                       output_dir: str = "") -> Optional[str]:
     """Download Wanfang paper to output_dir. Returns PDF path or None.
 
-    Downloads go to output_dir (no temp dirs, no deletions).
-    A duplicate copy also appears in ~/Downloads (Chrome CDP behavior).
+    Downloads go to output_dir and are archived out of ~/Downloads.
     """
-    import os as _os, glob as _glob, hashlib, shutil as _shutil
+    import os as _os, glob as _glob, hashlib
 
     # Download directly to output dir — don't use temp dir that gets deleted
     if not output_dir:
@@ -1080,12 +1104,12 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
         )
 
     if dl_path:
-        # Copy to output_dir with hash name for router compatibility
+        # Archive to output_dir with hash name for router compatibility.
         dest = _os.path.join(
             output_dir,
             f"wanfang.{hashlib.md5(article_url.encode()).hexdigest()[:16]}.pdf",
         )
-        _shutil.copy2(dl_path, dest)
+        _archive_browser_download(dl_path, dest)
         close_tab(port, tid)
         return dest
 
@@ -1341,7 +1365,7 @@ def _cnki_create_detail_tab(port: int, article_url: str) -> Optional[str]:
 def _cnki_wait_for_download(downloads_dir: str, before_dl: set[str],
                             output_dir: str, article_url: str,
                             timeout: int) -> Optional[str]:
-    import os as _os, glob as _glob, hashlib, shutil as _shutil
+    import os as _os, glob as _glob, hashlib
 
     for _ in range(timeout + 15):
         time.sleep(1)
@@ -1353,7 +1377,7 @@ def _cnki_wait_for_download(downloads_dir: str, before_dl: set[str],
             if _os.path.getsize(dl_path) > MIN_PDF_SIZE:
                 dest = _os.path.join(output_dir,
                     f"cnki.{hashlib.md5(article_url.encode()).hexdigest()[:16]}.pdf")
-                _shutil.copy2(dl_path, dest)
+                _archive_browser_download(dl_path, dest)
                 return dest
     return None
 
