@@ -400,6 +400,13 @@ def describe_publisher_session(port: int, publisher: dict) -> dict:
         result["probe_reason"] = reason
         if status == "ok":
             result["has_session"] = True
+    elif key == "wanfang":
+        status, reason = check_wanfang_access(port, publisher)
+        result["signal_strength"] = "page_probe"
+        result["probe_status"] = status
+        result["probe_reason"] = reason
+        if status == "ok":
+            result["has_session"] = True
     elif count == 0:
         result["probe_status"] = "unknown"
         result["probe_reason"] = "no matching cookies; manual verification may still succeed"
@@ -448,6 +455,78 @@ def check_wiley_access(port: int, publisher: dict, timeout: int = DEFAULT_TIMEOU
         if barrier:
             return "blocked", f"{barrier}: {barrier_detail}"
         return "unknown", "no_pdf_link_observed"
+    finally:
+        close_tab(port, tid)
+
+
+def check_wanfang_access(port: int, publisher: dict, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, str]:
+    """Probe whether Wanfang is still on CARSI/login rather than guessing from cookies.
+
+    Wanfang session cookies are not a reliable confirmation signal in every host.
+    Prefer page-state inspection and treat cookie count as advisory only.
+    """
+    if not check_cdp(port):
+        return "blocked", "CDP browser not running"
+
+    probe_url = str(publisher.get("login_url") or "https://www.wanfangdata.com.cn/").strip()
+    try:
+        _, tid = create_tab(port, probe_url)
+    except Exception:
+        return "error", "failed to create Wanfang probe tab"
+
+    try:
+        time.sleep(min(timeout, ARTICLE_RENDER_WAIT))
+        tws_url = get_tab_ws_url(port, tid)
+        if not tws_url:
+            return "error", "failed to attach Wanfang probe tab"
+
+        ws = websocket.create_connection(tws_url, timeout=5)
+        try:
+            ws.send(json.dumps({
+                "id": 1,
+                "method": "Runtime.evaluate",
+                "params": {"expression": r"""
+(() => {
+  const title = (document.title || '').trim();
+  const url = String(location.href || '');
+  const body = (document.body && document.body.innerText || '').trim();
+  const lowerUrl = url.toLowerCase();
+  const lowerBody = body.toLowerCase();
+  const isLogin = lowerUrl.includes('auth') ||
+                  lowerUrl.includes('carsi') ||
+                  lowerUrl.includes('fsso') ||
+                  body.includes('统一身份认证') ||
+                  body.includes('CARSI') ||
+                  body.includes('登录后可获取') ||
+                  body.includes('请登录') ||
+                  title.includes('统一身份认证');
+  const hasLoggedInMarker = body.includes('机构') ||
+                            body.includes('退出登录') ||
+                            body.includes('我的收藏') ||
+                            body.includes('我的下载') ||
+                            body.includes('欢迎您');
+  return JSON.stringify({
+    url,
+    title,
+    isLogin,
+    hasLoggedInMarker,
+  });
+})()
+                """, "returnByValue": True}
+            }))
+            resp = json.loads(ws.recv())
+        finally:
+            ws.close()
+
+        raw = resp.get("result", {}).get("result", {}).get("value", "{}")
+        probe = json.loads(raw) if isinstance(raw, str) else raw
+        if probe.get("isLogin"):
+            return "blocked", f"still_on_login_page: {probe.get('url', '')[:120]}"
+        if probe.get("hasLoggedInMarker"):
+            return "ok", f"logged_in_marker_present: {probe.get('url', '')[:120]}"
+        return "unknown", f"page_loaded_without_login_marker: {probe.get('url', '')[:120]}"
+    except Exception as exc:
+        return "error", f"probe error: {type(exc).__name__}"
     finally:
         close_tab(port, tid)
 

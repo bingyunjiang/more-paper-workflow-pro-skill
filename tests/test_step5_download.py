@@ -2552,6 +2552,21 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(signal["probe_status"], "ok")
         self.assertTrue(signal["has_session"])
 
+    def test_describe_publisher_session_uses_wanfang_page_probe_even_with_zero_cookies(self):
+        publisher = {
+            "_key": "wanfang",
+            "publisher_domain": "d.wanfangdata.com.cn",
+            "strategy": "chinese_cdp",
+            "login_url": "https://www.wanfangdata.com.cn/",
+        }
+        with patch.object(gpd, "check_publisher_session", return_value=(False, 0)), \
+             patch.object(gpd, "check_wanfang_access", return_value=("ok", "logged_in_marker_present")):
+            signal = gpd.describe_publisher_session(9223, publisher)
+
+        self.assertEqual(signal["signal_strength"], "page_probe")
+        self.assertEqual(signal["probe_status"], "ok")
+        self.assertTrue(signal["has_session"])
+
 
 if __name__ == "__main__":
     unittest.main()

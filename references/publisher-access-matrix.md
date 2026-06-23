@@ -141,8 +141,8 @@ SD CDP 方法理论上适用于任何满足以下条件的出版商：
 通过 `start_browser()` 或 `scripts/cdp_utils.py` 启动的 Chrome 使用独立的临时用户数据目录（如 `/tmp/chrome_scidownload`、`/tmp/chrome_sd_profile`），**与你日常使用的 Chrome 完全隔离**。
 
 这意味着：
-- 即使你在**日常 Chrome** 中登录了机构账号 → CDP Chrome **没有这些 Cookie**
-- CDP Chrome 的 Cookie 检查结果为 `0` → 需要**在 CDP Chrome 窗口中**单独完成机构登录
+- 即使你在**日常 Chrome** 中登录了机构账号，默认临时 Profile 启动的 CDP Chrome 也**通常**不会共享这些 Cookie
+- **但 `Cookie=0` 不是充分证据。** 它只说明当前 Cookie 信号不足，不能单独推出“你一定是在日常 Chrome 登录的”或“当前 CDP Chrome 一定未登录”；对万方/CARSI 这类中文源，优先结合页面状态判断
 
 **两种启动策略：**
 
@@ -153,7 +153,7 @@ SD CDP 方法理论上适用于任何满足以下条件的出版商：
 
 **从临时 Profile 切换到真实 Profile 的步骤：**
 
-当用户已在日常 Chrome 中完成机构登录，但 CDP Chrome Cookie=0 时：
+当用户已在日常 Chrome 中完成机构登录，但 CDP Chrome 仍表现为未获得可用访问状态时：
 
 ```
 1. 让用户关闭日常 Chrome
@@ -175,8 +175,8 @@ SD CDP 方法理论上适用于任何满足以下条件的出版商：
 ```
 ① 启动 Chrome + --remote-debugging-port
 ② 判断浏览器会话状态（见下方 CDP Cookie 诊断）
-③ 若 Cookie 为空 → 先尝试用真实 Profile 重启（见上方切换步骤）
-④ 若仍为空 → 在 CDP 浏览器窗口中手动完成机构登录
+③ 若 Cookie 信号为空或很弱 → 先结合页面状态判断是否仍停留在登录页 / 认证页
+④ 若页面仍在登录页或访问探测失败 → 再尝试用真实 Profile 重启（见上方切换步骤）或在 CDP 浏览器窗口中手动完成机构登录
 ⑤ 在文章页找到 PDF 链接/按钮
 ⑥ 导航到 PDF URL + Fetch.enable + Page.reload
 ⑦ 通过 Fetch.getResponseBody 捕获
