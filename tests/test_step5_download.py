@@ -892,6 +892,32 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertIn("generic", strategies)
         self.assertIn("chinese_cdp", strategies)
 
+    def test_main_defaults_output_to_input_sibling_paper_temp(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            input_path = Path(tmp) / "demo.bib"
+            input_path.write_text(
+                "@article{demo,\n"
+                "  title = {Demo},\n"
+                "  doi = {10.1007/demo}\n"
+                "}\n",
+                encoding="utf-8",
+            )
+            lock_path = Path(tmp) / "step5.lock"
+            argv = [
+                "unified_download_router.py",
+                str(input_path),
+                "--dry-run",
+            ]
+            with patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(lock_path)}), \
+                 patch.object(sys, "argv", argv), \
+                 patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                router.main()
+
+        self.assertIn(
+            f"Output directory:  {Path(tmp) / 'paper-temp'}/",
+            stdout.getvalue(),
+        )
+
     def test_wanfang_article_url_parser_supports_detail_and_d_urls(self):
         cases = [
             (

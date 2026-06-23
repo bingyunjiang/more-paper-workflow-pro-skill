@@ -513,6 +513,31 @@ def parse_chinese_papers(input_path: str) -> list[dict]:
     return papers
 
 
+def resolve_output_dir(args: argparse.Namespace) -> str:
+    """Resolve output directory with a file-local default.
+
+    When --output is omitted and the entrypoint includes a real input file,
+    default to a sibling paper-temp/ beside that file. This avoids sending
+    download artifacts into the skill repo or an unrelated cwd.
+    """
+    if args.output:
+        return args.output
+
+    for raw_path in (
+        args.input,
+        args.doi_file,
+        args.chinese_input,
+        args.workflow_results,
+        args.download_manifest,
+    ):
+        if not raw_path:
+            continue
+        candidate = Path(raw_path).expanduser()
+        if candidate.exists():
+            return str(candidate.resolve().parent / "paper-temp")
+    return DEFAULT_OUTPUT
+
+
 # ── Round Executors ─────────────────────────────────────────────────────────
 
 def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str], list[str]]:
@@ -2117,7 +2142,11 @@ def main():
                         help="CDP browser for single-browser rounds (default: chrome; use edge to reuse Edge login)")
     parser.add_argument("--sd-browser", choices=("chrome", "edge", "auto"),
                         help=argparse.SUPPRESS)
-    parser.add_argument("--output", "-o", default=DEFAULT_OUTPUT, help=f"Output directory (default: {DEFAULT_OUTPUT}/)")
+    parser.add_argument(
+        "--output",
+        "-o",
+        help="Output directory (default: input file sibling paper-temp/, or current working directory paper-temp/)",
+    )
     parser.add_argument("--test", help="Test a single DOI (show routing decision + download)")
     parser.add_argument("--check-session", action="store_true", help="Check publisher sessions and exit")
     parser.add_argument("--skip-scihub", action="store_true", help="Skip Sci-Hub round (post-2021 papers)")
@@ -2146,6 +2175,7 @@ def main():
 
     args = parser.parse_args()
     sd_browser = args.sd_browser or args.browser
+    args.output = resolve_output_dir(args)
 
     # --check-session
     if args.check_session:
