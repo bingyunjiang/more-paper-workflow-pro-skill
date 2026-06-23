@@ -766,12 +766,15 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
     # Step 2: If Wanfang opens an interstitial download page, click "点击此处".
     time.sleep(10)
     _wanfang_click_download_interstitial(port, tid)
-    download_started_at = time.time()
-    _wait_for_wanfang_download_info_click(
+    click_result = _wait_for_wanfang_download_info_click(
         port,
         known_tab_ids=known_tab_ids,
         timeout=min(max(timeout, 10), 30),
     )
+    if not click_result.startswith("clicked"):
+        close_tab(port, tid)
+        return None
+    download_started_at = time.time()
 
     # Step 3: Wait for PDF in ~/Downloads (Browser.setDownloadBehavior path is unreliable)
     for i in range(timeout + 30):

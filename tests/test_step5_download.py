@@ -1,6 +1,7 @@
 from pathlib import Path
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -962,6 +963,53 @@ class Step5DownloadTest(unittest.TestCase):
             result = gpd._wait_for_wanfang_download_info_click(9223, timeout=3)
 
         self.assertEqual(result, "clicked_doDownload")
+
+    def test_download_wanfang_starts_download_window_after_info_click(self):
+        class FakeBrowserWs:
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return json.dumps({"result": {"targetId": "detail-tab"}})
+
+            def close(self):
+                pass
+
+        class FakeTabWs:
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return json.dumps({"result": {"result": {"value": "clicked:下载"}}})
+
+            def close(self):
+                pass
+
+        time_points = iter([100.0, 130.0])
+
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.object(gpd, "_parse_wanfang_article_url", return_value=("thesis", "D03731170", "https://d.wanfangdata.com.cn/thesis/D03731170")), \
+             patch.object(gpd, "get_cdp_ws_url", return_value="ws://browser"), \
+             patch.object(gpd.websocket, "create_connection", side_effect=[FakeBrowserWs(), FakeTabWs()]), \
+             patch.object(gpd, "list_tabs", return_value=[]), \
+             patch.object(gpd, "get_tab_ws_url", return_value="ws://detail-tab"), \
+             patch.object(gpd, "_wanfang_click_download_interstitial", return_value="not_found"), \
+             patch.object(gpd, "_wait_for_wanfang_download_info_click", return_value="clicked_doDownload"), \
+             patch.object(gpd.time, "sleep", return_value=None), \
+             patch.object(gpd.time, "time", side_effect=lambda: next(time_points)), \
+             patch("glob.glob", side_effect=[
+                 [],
+                 [os.path.join(tmpdir, "paper.pdf")],
+                 [],
+             ]), \
+             patch("os.path.getmtime", return_value=131.0), \
+             patch("os.path.getsize", return_value=6001), \
+             patch("shutil.copy2") as copy2, \
+             patch.object(gpd, "close_tab"):
+            path = gpd._download_wanfang(9223, "https://d.wanfangdata.com.cn/thesis/D03731170", {}, output_dir=tmpdir)
+
+        self.assertTrue(str(path).endswith(".pdf"))
+        copy2.assert_called_once()
 
     def test_download_one_returns_wanfang_non_ok_status(self):
         with patch.object(gpd, "resolve_publisher", return_value=None), \
