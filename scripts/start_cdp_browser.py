@@ -72,6 +72,7 @@ def main() -> int:
 
     if check_cdp(args.port) and cdp_browser_matches(args.port, args.browser):
         print(f"✅ CDP ready on :{args.port}")
+        print("🔐 订阅制论文通常需要先在这个浏览器里完成机构登录（CARSI / Shibboleth / SSO）后，再回到 Step 5 下载。")
         print(f"   Profile: {get_persistent_profile_dir(args.browser)}")
         print(f"   Launch log: {get_launch_log_path(args.browser)}")
         return 0

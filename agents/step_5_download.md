@@ -162,10 +162,12 @@
 
 **GUI / agent 宿主推荐流程：**
 
-1. 先运行 `--check-session` 或正常下载，让脚本自动打开本轮 publisher 登录页。
-2. 如果宿主无法读取 `input()`，保留 `login_checkpoint.json`，不要把该状态视为用户 skip。
-3. 用户在 CDP 浏览器完成机构登录后，由 agent 使用 `--resume-login-checkpoint ... --confirmed` 续跑。
-4. 续跑后只保留真实待登录项到 checkpoint；已确认登录仍失败的条目进入 `failed_dois.json`，用于区分“继续登录”与“修下载策略/手动下载”。
+1. 首次使用 CDP 下载时，默认先运行 `--check-session` 或等价 article/PDF probe，先确认当前浏览器会话属于“可直接尝试下载 / 需要先人工登录或验证 / 信号不足，需实际下载验证”中的哪一类。
+2. 若 session 结论为“需要先人工登录/验证”或“信号不足，需实际下载验证”，agent 必须先提示用户在同一个 CDP 浏览器里完成机构登录，再进入真实下载；`--check-session` 只是诊断入口，不是下载成功证明。
+3. 也可以直接进入正常下载，让脚本自动打开本轮 publisher 登录页；真正放行仍以 Phase 2 / 中文 probe 与登录门控为准。
+4. 如果宿主无法读取 `input()`，保留 `login_checkpoint.json`，不要把该状态视为用户 skip。
+5. 用户在 CDP 浏览器完成机构登录后，由 agent 使用 `--resume-login-checkpoint ... --confirmed` 续跑。
+6. 续跑后只保留真实待登录项到 checkpoint；已确认登录仍失败的条目进入 `failed_dois.json`，用于区分“继续登录”与“修下载策略/手动下载”。
 
 **执行流程：**
 
@@ -212,6 +214,7 @@ Phase 3:
 **强制要求：**
 - Agent 禁止在用户确认登录前调用 `unified_download_router.py`（除 `--dry-run` 外）
 - Agent 必须先运行 `--dry-run` / `--test` / `--check-session` 或等价 article/PDF access probe，再提示登录
+- 首次使用 CDP 下载时，应优先用 `--check-session` 或等价 probe 暴露会话状态；但它不是唯一前置条件，也不是下载成功证明
 - 推荐使用 `--require-login-confirm` 参数启动路由器，由脚本层面再次门控
 - **CDP 启动和下载如果跨命令，必须在同一条 exec_command session 内完成**
 - 同一时间只允许一个 Step 5 真实下载进程使用 CDP 浏览器；另一个进程必须等待下载锁释放

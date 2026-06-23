@@ -83,6 +83,8 @@ README 首屏只给 3 个最短入口。运行规则和失败回退仍以 [`SKIL
 请直接进入 Step 5。根据这 3 个 DOI 生成下载清单并说明下载路由，不要回跑前面的检索步骤：10.1016/j.est.2024.113105; 10.1109/ACCESS.2024.3399912; 10.1016/j.energy.2022.125097
 ```
 
+⚠️ 订阅制出版社论文通常需要机构登录后才能下载。首次进入 Step 5 时，建议先启动 CDP 浏览器并在同一个 Chrome/Edge 窗口中完成机构 SSO 登录；登录后再执行直达下载，或让脚本进入现有登录门控。详见 [`agents/step_5_download.md`](agents/step_5_download.md)。
+
 - 适合：已经有 DOI、BibTeX、标题清单或参考文献列表
 - 触发：Step 5
 - 立刻会产出：`download_manifest.json` / 路由预览 / 未解析条目清单
