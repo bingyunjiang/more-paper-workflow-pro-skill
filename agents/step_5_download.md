@@ -296,7 +296,7 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 | `pdf_probe_unknown` | 已进入详情页但未证明存在可下载入口 | 触发人工确认或重试，不得声称论文不可下载 |
 | `manual_required` | 存在人工路径，或自动点击后未监视到 PDF 落盘 | 允许用户手动点击 `PDF下载`，Agent 只监视落盘并归档 |
 | `chapter_download_mode` | 未识别到 `PDF下载`，但页面出现「章节下载」「分页下载」 | 不自动点击章节/分页入口；单独列为人工判断状态 |
-| `fulltext_delivery_mode` | 万方详情页未出现直接 PDF/整篇下载，但出现「原文传递」 | 不声称 PDF 不存在；本轮跳过该条下载并记录原因，继续下一条 |
+| `fulltext_delivery_mode` | 万方详情页未出现直接 PDF/整篇下载，但出现「原文传递」 | 不声称 PDF 不存在；本轮跳过该条下载并记录原因，继续下一条；**不得自动转向其他数据库（如 CNKI）重新尝试该文献** |
 | `ok` | `PDF下载` 入口触发后 PDF 已落盘并通过大小检查 | 记录成功 PDF 路径 |
 
 **CNKI 自动点击白名单：** 期刊论文和学位论文的详情页使用同一规则：只允许自动点击明确的 `PDF下载` / `PDF 下载` / `#pdfDown`。不得自动点击 `AI阅读`、`原版阅读`、`CAJ下载`、`章节下载`、`分页下载`、`我是作者`、`免费下载`、`在线阅读`、`整本下载`，即使这些入口看起来可能免费或能进入阅读页。只有在未识别到 PDF 入口时，`章节下载/分页下载` 才标记为 `chapter_download_mode`，作为人工判断状态。其它非 PDF 入口由用户人工判断，Agent 只负责监视落盘并归档。
@@ -305,7 +305,7 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 
 **独立中文会话规则：** 当 CNKI/万方反复命中验证码、入口异常，或怀疑英文出版社页面污染 CDP 状态时，优先使用独立中文 CDP 端口或独立 profile（例如 `--port 9225`）重试。
 
-**万方自动点击白名单：** 万方与 CNKI 是两条不同入口策略。万方期刊论文详情页优先点击 `下载`，不得点击 `在线阅读`、`评审材料`。万方学位论文详情页优先点击 `整篇下载`，不得点击 `在线阅读`、`分章下载`。若详情页没有直接 PDF/整篇下载但出现 `原文传递`，脚本记录为 `fulltext_delivery_mode` 并跳过当前条，继续下一条，不再笼统归为 `pdf_probe_unknown`。点击白名单入口后，如进入 `f.wanfangdata.com.cn/download/...` 中转页，再点击 `点击此处` 并监视 PDF 落盘。
+**万方自动点击白名单：** 万方与 CNKI 是两条不同入口策略。万方期刊论文详情页优先点击 `下载`，不得点击 `在线阅读`、`评审材料`。万方学位论文详情页优先点击 `整篇下载`，不得点击 `在线阅读`、`分章下载`。若详情页没有直接 PDF/整篇下载但出现 `原文传递`，脚本记录为 `fulltext_delivery_mode` 并跳过当前条，继续下一条，不再笼统归为 `pdf_probe_unknown`。Agent **不得** 以该文献在其他数据库（如 CNKI）有收录为由，自行跳转尝试。点击白名单入口后，如进入 `f.wanfangdata.com.cn/download/...` 中转页，再点击 `点击此处` 并监视 PDF 落盘。
 
 ### 5.5. 命令参考
 
@@ -409,6 +409,7 @@ python3 scripts/auto_sd_downloader.py --browser edge --pii-map sd_pii_map.json
 8. **checkpoint 不是入口锁** — `CP-DOWNLOAD-LOGIN` 只阻塞需要登录态的下载执行，不阻塞 manifest 生成、dry-run、OA/Sci-Hub/direct_http 路径
 9. **SD 默认跟随 Generic CDP 浏览器选择** — `--browser edge` 则 ScienceDirect 也用 Edge；`--browser chrome` 则 ScienceDirect 也用 Chrome；统一路由会校验端口上的浏览器类型，不在统一路由里默认启动双浏览器。
 10. **OA fast 是候选验证层** — Step 4 的 OA 字段只提供候选；Step 5 必须验证真实 PDF 后才记录 `public_pdf_verified`，无效候选记录 `invalid_pdf_candidate` 并继续 Generic CDP。
+11. **Step 5 只做当前源站的下载尝试** — 当源站明确返回不可下载状态（`fulltext_delivery_mode`、`chapter_download_mode`、`access_denied` 等）时，Agent 不得自动转向其他数据库或数据源绕过。由用户自行决定是否从其他途径补下该文献。
 
 ---
 
@@ -457,8 +458,9 @@ python3 scripts/auto_sd_downloader.py --browser edge --pii-map sd_pii_map.json
 
 ### 失败分流
 - 下载失败：先按 `references/failure-triage.md` 判定是元数据层、登录权限层还是出版社策略层
-- 中文条目失败：先查 `article_url/source_id`，不要直接改走英文 DOI 路由
-- 会话问题：标为登录/会话层问题，而不是泛化成“网络错误”
+- 中文条目失败：先查 `article_url/source_id`，不要直接改走英文 DOI 路由，**更不得自动转向另一中文数据库（如万方→CNKI 或反之）重新尝试**
+- 同一篇文献如果原站明确返回「无法下载」状态（如 `fulltext_delivery_mode`），标记为「无法直接下载」交用户决定是否补查其他数据源，Agent 不替用户做转向决策
+- 会话问题：标为登录/会话层问题，而不是泛化成”网络错误”
 
 ---
 
