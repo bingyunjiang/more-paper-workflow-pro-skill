@@ -71,7 +71,7 @@ from workflow_contracts import (
 # ── Constants ───────────────────────────────────────────────────────────────
 
 CDP_PORT = 9223
-DEFAULT_OUTPUT = "paper-temp"
+DEFAULT_OUTPUT = os.path.join(os.getcwd(), "paper-temp")
 SCI_HUB_CUTOFF_YEAR = 2021  # Sci-Hub has very few papers after 2020
 OA_FAST_MIN_BYTES = 5000
 OA_FAST_TIMEOUT = 15
