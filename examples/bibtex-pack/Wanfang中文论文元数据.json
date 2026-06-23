@@ -1,0 +1,131 @@
+[
+  {
+    "title": "基于拓扑优化的车用锂离子电池液冷板结构设计及性能研究",
+    "source": "wanfang",
+    "source_id": "wanfang.57fa4e8e62d362514f18531676848f667528950279bb5b50",
+    "article_url": "https://d.wanfangdata.com.cn/thesis/D03731170",
+    "doi": "",
+    "authors": [
+      "袁, 继枫"
+    ],
+    "year": "2024",
+    "publication_title": "江苏大学",
+    "abstract": "基于拓扑优化结果，结合形状优化和尺寸优化并挖掘迭代过程中出现的标准形状结构，提取了结构更为简单的梯形流道和复合流道结构。随后以电池模组为研究对象分析了拓扑结构、矩形结构、梯形结构和复合结构的散热性能，并建立模组实验平台进行验证。",
+    "language": "zh-CN",
+    "tier": "",
+    "score": "19",
+    "record_id": "",
+    "citekey": "Wanfang2024_wf1b5545bd",
+    "zotero_item_key": "ZDKDKVZB",
+    "status": "ready"
+  },
+  {
+    "title": "电动汽车动力电池组液冷板拓扑优化设计及数值分析",
+    "source": "wanfang",
+    "source_id": "wanfang.753552a86c7d8f6652a8529b75356c607ec46db251b7677f",
+    "article_url": "https://d.wanfangdata.com.cn/periodical/dwycd202502007",
+    "doi": "",
+    "authors": [
+      "熊, 敏",
+      "林, 传开",
+      "丁, 晓红"
+    ],
+    "year": "2025",
+    "publication_title": "低温与超导",
+    "abstract": "为了提高动力电池组液冷板的冷却效果并降低系统能耗，以热流固耦合下的换热量和出入口压降为目标，对液冷板进行了多目标优化设计，获得了优化的流道分布。针对电动汽车的三种典型工况，考虑不同充放电状态下电池内阻不同引起的电池产热变化，对动力电池组液冷板进行数值分析。",
+    "language": "zh-CN",
+    "tier": "",
+    "score": "17",
+    "record_id": "",
+    "citekey": "Wanfang2025_wfb6abf25c",
+    "zotero_item_key": "SMSVGA35",
+    "status": "ready"
+  },
+  {
+    "title": "微电子封装用芯片散热界面材料研究进展",
+    "source": "wanfang",
+    "source_id": "wanfang.3a8f2c1b9e4d7f5a0c6b3e2d1f4a8c7b9e0d5f6a",
+    "article_url": "https://d.wanfangdata.com.cn/periodical/CihQZXJpb2RpY2FsQ0hJU29scjkyMDI2MDYxMDIwMjYwNjEwMTYxMjM4Eg1jbGRiMjAyNjA0MDI5Ggh1ODl6YjNpeg%3D%3D",
+    "doi": "10.11896/cldb.24100134",
+    "authors": [
+      "彭昊燕",
+      "薛云龙",
+      "王秀峰"
+    ],
+    "year": "2026",
+    "publication_title": "材料导报",
+    "abstract": "热界面材料是保证芯片正常工作必须采用的关键材料,其目的是高效导出芯片服役过程中不断产生的大量热量.本文详细介绍了热界面材料的分类和组成;分别归纳和评述了两类热界面材料的制备技术、核心性能和最新研究成果。",
+    "language": "zh-CN",
+    "tier": "",
+    "score": "",
+    "record_id": "",
+    "citekey": "Wanfang2026_wf3a8f2c1b",
+    "zotero_item_key": "",
+    "status": "ready"
+  },
+  {
+    "title": "大功率广域电磁发射机散热设计",
+    "source": "wanfang",
+    "source_id": "wanfang.8b4d6e2f1a9c3d5e7f0b2a4c6e8d0f1a3b5c7d9e",
+    "article_url": "https://d.wanfangdata.com.cn/periodical/CihQZXJpb2RpY2FsQ0hJU29scjkyMDI2MDYxMDIwMjYwNjEwMTYxMjM4EhF6Z3lzanN4YjIwMjYwMjAwOBoIdTg5emIzaXo%3D",
+    "doi": "10.11817/j.ysxb.1004.0609.2025-45612",
+    "authors": [
+      "张小萌",
+      "岳翀",
+      "蒋奇云",
+      "尹文斌",
+      "朱宇宸",
+      "宾亚新"
+    ],
+    "year": "2026",
+    "publication_title": "中国有色金属学报",
+    "abstract": "为提升广域电磁法在中深层矿产资源探测中的能力,需要提高发射机的工作功率与频率,以增强电磁场的穿透深度和探测精度,从而满足深部勘探对高分辨率与宽频带探测的需求。然而,大功率高频工况导致绝缘栅双极型晶体管（IGBT）模块面临严峻的热挑战,过热故障已成为限制发射机向更高功率与频率发展的核心瓶颈。",
+    "language": "zh-CN",
+    "tier": "",
+    "score": "",
+    "record_id": "",
+    "citekey": "Wanfang2026_wf8b4d6e2f",
+    "zotero_item_key": "",
+    "status": "ready"
+  },
+  {
+    "title": "复杂薄壁散热器零件数控加工工艺优化研究",
+    "source": "wanfang",
+    "source_id": "wanfang.5c7e3a1d9f2b4e6c8a0d5f7b9e1c3d5f7a9b2e4c6",
+    "article_url": "https://d.wanfangdata.com.cn/thesis/Ch1UaGVzaXNOZXdTb2xyOVMyMDI2MDUxMjA3Mjk0NxIJRDA0MDY3MDk1GghhY3o3Z28xZA%3D%3D",
+    "doi": "10.16731/j.cnki.1671-3133.2024.02.010",
+    "authors": [
+      "安泽西"
+    ],
+    "year": "2025",
+    "publication_title": "",
+    "abstract": "复杂薄壁散热器零件兼具轻量化、高强度及优异散热性能，广泛应用于电子、汽车及航空航天领域。然而，其结构复杂、薄壁区域多且精度要求高的特点，使得加工过程面临两大难题：不合理的工艺路线会显著降低加工效率，而切削用量的不当选择则直接影响加工质量。",
+    "language": "zh-CN",
+    "tier": "",
+    "score": "",
+    "record_id": "",
+    "citekey": "Wanfang2025_wf5c7e3a1d",
+    "zotero_item_key": "",
+    "status": "ready"
+  },
+  {
+    "title": "商用车齿轮传动系统多场耦合分析与强制润滑散热研究",
+    "source": "wanfang",
+    "source_id": "wanfang.9d1f3b5a7c9e2d4f6a8b0c2e4d6f8a0b2c4e6d8f",
+    "article_url": "https://d.wanfangdata.com.cn/thesis/Ch1UaGVzaXNOZXdTb2xyOVMyMDI2MDUxMjA3Mjk0NxIJRDA0MTEzNTQ0GghhY3o3Z28xZA%3D%3D",
+    "doi": "",
+    "authors": [
+      "潘军"
+    ],
+    "year": "2025",
+    "publication_title": "",
+    "abstract": "齿轮变速箱作为车辆传动系统的核心动力传递部件，其运行稳定性与服役寿命直接决定了车辆传动系统的动态响应特性及全生命周期可靠性。随着电动化转型的加速推进，商用车正朝着高功率密度、低能耗及长寿命方向快速发展，对齿轮传动系统的综合性能提出了更高要求。",
+    "language": "zh-CN",
+    "tier": "",
+    "score": "",
+    "record_id": "",
+    "citekey": "Wanfang2025_wf9d1f3b5a",
+    "zotero_item_key": "",
+    "status": "ready"
+  }
+]
