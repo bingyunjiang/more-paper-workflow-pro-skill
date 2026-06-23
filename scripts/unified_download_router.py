@@ -1559,7 +1559,7 @@ def write_failed_doi_sidecar(output_dir: str, remaining: list[str],
 # Publishers that typically require institutional login for CDP download.
 # OA publishers (direct_http strategy) are excluded.
 # Sci-Hub and Chinese publishers are handled separately.
-ENGLISH_LOGIN_STRATEGIES = {"generic"}
+ENGLISH_LOGIN_STRATEGIES = {"generic", "ieee_cdp"}
 ENGLISH_LOGIN_REQUIRED_REASONS = {
     "manual_confirmation_required",
     "manual_required",
@@ -1648,7 +1648,7 @@ def _publisher_login_url(pub_cfg: dict) -> str:
 
 
 def _english_login_publishers(dois: list[str]) -> dict[str, dict]:
-    """Return unique Generic CDP publishers that need user login tabs."""
+    """Return unique English-login publishers that need user login tabs."""
     publishers: dict[str, dict] = {}
     for doi in _english_login_candidate_dois(dois):
         info = classify_doi(doi)
@@ -1994,8 +1994,8 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False,
                             interactive: bool = True) -> Optional[bool]:
     """Display English publisher login gate for remaining CDP papers.
 
-    Only triggers for papers needing Generic CDP strategy.
-    Sci-Hub and Chinese are excluded (handled separately).
+    Only triggers for English routes that need institutional login.
+    Sci-Hub, OA/direct HTTP, and Chinese are excluded (handled separately).
     Returns:
       True  -> user explicitly confirmed login
       False -> user explicitly skipped or deferred
@@ -2030,7 +2030,10 @@ def show_english_login_gate(dois: list[str], skip_sd: bool = False,
     print("The following publishers require institutional login before download:")
     print()
     for strategy, pubs in sorted(login_publishers.items()):
-        label = {"generic": "Generic CDP"}.get(strategy, strategy)
+        label = {
+            "generic": "Generic CDP",
+            "ieee_cdp": "IEEE CDP",
+        }.get(strategy, strategy)
         print(f"  [{label}]")
         for p in sorted(pubs):
             print(f"    - {p}")
@@ -2526,24 +2529,10 @@ def main():
             )
             oa_results.append({"round": "OA fast (public_pdf_verified)", "downloaded": oa_dl})
 
-    if en_rem and not args.skip_ieee:
-        has_ieee = any(classify_doi(d)["strategy"] == "ieee_cdp" for d in en_rem)
-        if has_ieee:
-            if not ensure_cdp_running(args.port, browser=args.browser):
-                print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
-                print(f"Start {args.browser.title()} with:")
-                print(f"  {sys.executable} scripts/start_cdp_browser.py --browser {args.browser} --port {args.port}")
-                print("  macOS/Linux wrapper also supported: bash scripts/start_cdp_chrome.sh")
-                sys.exit(1)
-            ieee_dl, en_rem = run_ieee_round(en_rem, args.output, args.port)
-            ieee_results.append({"round": "IEEE CDP", "downloaded": ieee_dl})
-    elif en_rem and args.skip_ieee:
-        print(f"\n{SKIP} Round 3 (IEEE CDP): Skipped (--skip-ieee)")
-
     if en_rem:
         # Check if remaining papers actually need CDP
         has_cdp = any(
-            classify_doi(d)["strategy"] == "generic"
+            classify_doi(d)["strategy"] in ENGLISH_LOGIN_STRATEGIES
             for d in en_rem
         )
         if has_cdp and not ensure_cdp_running(args.port, browser=args.browser):
@@ -2561,8 +2550,8 @@ def main():
                     en_rem, args.port, oa_hints=oa_hints
                 )
         if preflight_login_dois:
-            print(f"\n{WARN} English Generic CDP includes {len(preflight_login_dois)} login-sensitive item(s) without confirmed access.")
-            print("  Login is checked before the grouped download loop to avoid per-paper login-wall failures.")
+            print(f"\n{WARN} English CDP includes {len(preflight_login_dois)} login-sensitive item(s) without confirmed access.")
+            print("  Login is checked before IEEE/Generic download loops to avoid per-paper login-wall failures.")
             if args.confirmed_login:
                 print(f"{OK} --confirmed supplied: skipping preflight login prompt and attempting English CDP directly.")
                 gate_result = True
@@ -2609,6 +2598,20 @@ def main():
                     en_failure_reasons.update(non_login_reasons)
                 else:
                     en_rem = preflight_login_dois
+
+    if en_rem and not args.skip_ieee:
+        has_ieee = any(classify_doi(d)["strategy"] == "ieee_cdp" for d in en_rem)
+        if has_ieee:
+            if not ensure_cdp_running(args.port, browser=args.browser):
+                print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
+                print(f"Start {args.browser.title()} with:")
+                print(f"  {sys.executable} scripts/start_cdp_browser.py --browser {args.browser} --port {args.port}")
+                print("  macOS/Linux wrapper also supported: bash scripts/start_cdp_chrome.sh")
+                sys.exit(1)
+            ieee_dl, en_rem = run_ieee_round(en_rem, args.output, args.port)
+            ieee_results.append({"round": "IEEE CDP", "downloaded": ieee_dl})
+    elif en_rem and args.skip_ieee:
+        print(f"\n{SKIP} Round 3 (IEEE CDP): Skipped (--skip-ieee)")
         else:
             en_dl, en_rem, en_results, en_failure_reasons = run_english_cdp(
                 en_rem, args.output, args.port,

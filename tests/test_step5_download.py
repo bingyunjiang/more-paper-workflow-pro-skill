@@ -709,6 +709,7 @@ class Step5DownloadTest(unittest.TestCase):
     def test_show_english_login_gate_lists_cdp_publishers(self):
         dois = [
             "10.1016/j.test.2024.01.001",
+            "10.1109/test.2024.00001",
             "10.1038/s41467-2024-00001",
         ]
 
@@ -718,6 +719,7 @@ class Step5DownloadTest(unittest.TestCase):
             self.assertTrue(router.show_english_login_gate(dois))
         open_tabs.assert_called_once_with(router.CDP_PORT, dois)
         text = stdout.getvalue()
+        self.assertIn("[IEEE CDP]", text)
         self.assertIn("只有部分权限也选 1", text)
         self.assertIn("  2) 跳过登录", text)
         self.assertIn("  3) 稍后重试", text)
@@ -750,12 +752,22 @@ class Step5DownloadTest(unittest.TestCase):
             result = router.open_english_login_tabs(9223, dois)
 
         self.assertEqual(result["failed"], [])
-        self.assertEqual(len(result["opened"]), 1)
+        self.assertEqual(len(result["opened"]), 2)
         opened_urls = [call.args[1] for call in create_tab.call_args_list]
-        self.assertEqual(opened_urls, ["https://www.sciencedirect.com/"])
+        self.assertEqual(
+            opened_urls,
+            ["https://ieeexplore.ieee.org/", "https://www.sciencedirect.com/"],
+        )
 
     def test_open_english_login_tabs_only_uses_login_candidate_dois(self):
         pub_map = {
+            "10.1109/demo": {
+                "strategy": "ieee_cdp",
+                "_key": "ieee",
+                "publisher_domain": "ieeexplore.ieee.org",
+                "login_url": "https://ieeexplore.ieee.org/",
+                "requires_auth": "sso",
+            },
             "10.1007/demo": {
                 "strategy": "generic",
                 "_key": "springer",
@@ -782,11 +794,15 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(result["failed"], [])
         self.assertEqual(result["opened"], [
-            "springer (https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F)"
+            "ieee (https://ieeexplore.ieee.org/)",
+            "springer (https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F)",
         ])
-        create_tab.assert_called_once_with(
-            9223,
-            "https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F",
+        self.assertEqual(
+            [call.args for call in create_tab.call_args_list],
+            [
+                (9223, "https://ieeexplore.ieee.org/"),
+                (9223, "https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F"),
+            ],
         )
 
     def test_open_english_login_tabs_falls_back_to_publisher_domain(self):
