@@ -586,14 +586,15 @@ class Step5DownloadTest(unittest.TestCase):
         }]
 
         with patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}) as open_tabs, \
-             patch("builtins.input", return_value="已登录"), \
+             patch("builtins.input", return_value="已登录继续"), \
              patch("sys.stdout", new_callable=io.StringIO) as stdout:
             self.assertTrue(router.show_chinese_login_gate(papers))
         open_tabs.assert_called_once_with(router.CDP_PORT, papers)
         text = stdout.getvalue()
-        self.assertIn("只有部分权限也选 1", text)
-        self.assertIn("  2) 跳过登录", text)
-        self.assertIn("  3) 稍后重试", text)
+        self.assertIn("不接受数字 1/2/3", text)
+        self.assertIn("  已登录继续", text)
+        self.assertIn("  跳过登录", text)
+        self.assertIn("  稍后重试", text)
         self.assertNotIn("没有账号，跳过并继续", text)
         self.assertNotIn("稍后重试（写 checkpoint", text)
 
@@ -604,7 +605,7 @@ class Step5DownloadTest(unittest.TestCase):
             "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
         }]
         with patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}), \
-             patch("builtins.input", return_value="2"):
+             patch("builtins.input", return_value="跳过登录"):
             self.assertFalse(router.show_chinese_login_gate(papers))
 
     def test_open_chinese_login_tabs_deduplicates_sources(self):
@@ -646,11 +647,23 @@ class Step5DownloadTest(unittest.TestCase):
             "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
         }]
         with patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}), \
-             patch("builtins.input", return_value="3"):
+             patch("builtins.input", return_value="稍后重试"):
             self.assertIsNone(router.show_chinese_login_gate(papers))
         with patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}), \
              patch("builtins.input", side_effect=EOFError):
             self.assertIsNone(router.show_chinese_login_gate(papers))
+
+    def test_show_chinese_login_gate_numeric_shortcuts_return_none(self):
+        papers = [{
+            "title": "CNKI demo",
+            "source": "cnki",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+        }]
+        for response in ("1", "2", "3"):
+            with self.subTest(response=response), \
+                 patch.object(router, "open_chinese_login_tabs", return_value={"opened": [], "failed": []}), \
+                 patch("builtins.input", return_value=response):
+                self.assertIsNone(router.show_chinese_login_gate(papers))
 
     def test_show_english_login_gate_lists_cdp_publishers(self):
         dois = [
@@ -1743,6 +1756,9 @@ class Step5DownloadTest(unittest.TestCase):
         text = stdout.getvalue()
         self.assertIn("上一进程下载中", text)
         self.assertIn("请等一等", text)
+        self.assertIn("Lock: /tmp/step5.lock", text)
+        self.assertIn("Running process: pid=12345", text)
+        self.assertIn("如确认没有 Step 5 下载进程仍在运行", text)
 
     def test_step5_download_lock_replaces_stale_lock(self):
         with tempfile.TemporaryDirectory() as tmp, \
@@ -1902,6 +1918,33 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(remaining, [])
         self.assertEqual(download_one.call_count, 2)
         gate_input.assert_called_once_with("Enter 1/2/3: ")
+
+    def test_cnki_evaluate_tab_requests_return_by_value(self):
+        class FakeWs:
+            def __init__(self):
+                self.sent = []
+
+            def send(self, payload):
+                self.sent.append(json.loads(payload))
+
+            def recv(self):
+                return json.dumps({
+                    "result": {
+                        "result": {
+                            "value": {"captcha": False, "pdfVisible": True}
+                        }
+                    }
+                })
+
+            def close(self):
+                pass
+
+        fake_ws = FakeWs()
+        with patch.object(gpd.websocket, "create_connection", return_value=fake_ws):
+            value = gpd._cnki_evaluate_tab("ws://tab", "({captcha:false})")
+
+        self.assertEqual(value, {"captcha": False, "pdfVisible": True})
+        self.assertTrue(fake_ws.sent[0]["params"]["returnByValue"])
 
     def test_wanfang_detail_click_expression_handles_fulltext_delivery(self):
         expression = gpd._wanfang_detail_click_expression("periodical")

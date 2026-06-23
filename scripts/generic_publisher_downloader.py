@@ -963,7 +963,7 @@ def _cnki_evaluate_tab(tab_ws_url: str, expression: str) -> object:
     tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
     try:
         tab_ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate",
-                                "params": {"expression": expression}}))
+                                "params": {"expression": expression, "returnByValue": True}}))
         result = json.loads(tab_ws.recv())
         return result.get("result", {}).get("result", {}).get("value")
     finally:

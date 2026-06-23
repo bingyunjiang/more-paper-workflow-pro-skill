@@ -189,6 +189,7 @@ def _print_download_lock_blocker(lock_path: Path, blocker: dict) -> None:
     started = blocker.get("started_at") or "unknown"
     print(f"  Lock: {lock_path}")
     print(f"  Running process: pid={pid}, mode={mode}, started_at={started}")
+    print("  Recovery: 如确认没有 Step 5 下载进程仍在运行，可手动删除该 lock 后重试；真实下载进行中不要删除。")
 
 
 def acquire_or_exit_step5_download_lock(mode: str, port: int) -> Path:
@@ -1624,6 +1625,16 @@ def _print_login_choice_prompt() -> None:
     print("  3) 稍后重试")
 
 
+def _print_chinese_login_choice_prompt() -> None:
+    print("已打开本轮需要登录的网站。")
+    print("只有部分权限也输入完整确认短语；无权限论文会在下载结果中单独记录。")
+    print("为避免宿主或 agent 误触发，中文 CNKI/万方门控不接受数字 1/2/3。")
+    print("Choose one option by typing the full phrase:")
+    print("  已登录继续")
+    print("  跳过登录")
+    print("  稍后重试")
+
+
 def write_login_checkpoint(output_dir: str, stage: str, dois: list[str],
                            failure_reasons: dict[str, str]) -> str:
     """Write a re-runnable login checkpoint for remaining English CDP items."""
@@ -1844,20 +1855,20 @@ def show_chinese_login_gate(chinese_papers: list[dict],
     print()
     _print_opened_login_tabs(tab_result)
     print()
-    _print_login_choice_prompt()
+    _print_chinese_login_choice_prompt()
     print()
-    raw_resp = _safe_gate_input("Enter 1/2/3: ")
+    raw_resp = _safe_gate_input("输入完整短语: ")
     if raw_resp is None:
         print("\nChinese login requires checkpoint/resume rather than treating this as skip.")
         return None
     resp = raw_resp.strip().lower()
-    if resp in ("1", "已登录", "y", "yes", "done", "继续", "go"):
+    if resp in ("已登录继续", "登录完成继续", "continue"):
         print(f"{OK} Chinese login confirmed - starting CNKI/Wanfang CDP.\n")
         return True
-    if resp in ("2", "skip", "q", "quit", "exit", "n", "no", "无账号", "没有账号"):
+    if resp in ("跳过登录", "skip"):
         print(f"{SKIP} Chinese login skipped - continuing with other download paths.\n")
         return False
-    if resp in ("3", "later", "retry", "稍后", "重试", "稍后重试"):
+    if resp in ("稍后重试", "写checkpoint", "checkpoint"):
         print("Chinese login deferred - checkpoint required before rerun.\n")
         return None
     print(f"{WARN} Unrecognized response - checkpoint required before rerun.\n")
