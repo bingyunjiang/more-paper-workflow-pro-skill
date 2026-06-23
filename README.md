@@ -799,17 +799,18 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
-### v1.0.17-20260622 (2026-06-21 至 2026-06-22)
+### v1.0.17-20260622 (2026-06-21 至 2026-06-23)
 - **Step 4 默认生成检索结果看板**：标准 Step 4 完成链路会同步输出 `step4-dashboard/`，用于本地审阅 T1-T3 文献、复核 T4 排除项、查看章节挂接、下载准备度和阅读深度。
 - **Step 5 下载顺序改为英文优先**：英文 DOI 路径先完成 Sci-Hub / OA fast / Generic CDP，再进入 CNKI / 万方，降低中英文共享浏览器会话互相干扰的概率。
 - **English CDP 登录门控前移**：OA fast 之后、Generic CDP 分组下载之前，登录敏感出版社会先检查可信访问信号；没有确认访问时先提示登录、跳过或写 checkpoint，避免逐篇撞登录墙。
 - **English CDP 改为按 publisher 分组**：OA fast 未完成的英文 DOI 会按出版社分组进入 CDP；第一轮全部探测完成后才统一触发机构登录，并只重试登录类失败条目。
-- **登录待处理统一写 checkpoint**：英文和中文登录门控都区分“已登录 / 跳过 / 稍后重试”；无法确认时写出 `login_checkpoint.json` 或 `chinese_login_checkpoint.json`，后续只恢复待登录条目。
+- **登录待处理统一写 checkpoint**：英文和中文登录门控都区分“已登录 / 跳过 / 稍后重试”；无法确认时写出 `login_checkpoint.json` 或 `chinese_login_checkpoint.json`，后续可用 `--resume-login-checkpoint ... --confirmed` 只恢复待登录条目。
 - **CNKI / 万方入口更保守**：CNKI 只自动点击明确 `PDF下载`，万方按期刊/学位论文区分下载入口；安全验证、章节下载、人工路径和未知 PDF probe 不再混成普通失败。
 - **CNKI 已验证详情页复用**：用户完成安全验证后，Step 5 优先复用当前 CNKI 详情页下载并监视落盘，减少重复触发验证。
+- **RSC / MDPI 英文路由补齐**：RSC 增加 `articlepdf` 直链 fallback；MDPI 从直接跳过改为 Generic CDP 尝试，但仍不触发机构登录门控。
 - **Step 5 加入下载锁与中文稳定排序**：同一时间只允许一个真实下载进程使用 CDP；中文清单固定 CNKI 在前、万方在后，同库内部保留原输入顺序。
 - **Windows/CNKI 实测经验进入运行契约**：Step 5 文档补入安全验证、已验证详情页复用、独立中文 CDP 会话、人工点击下载和落盘监视等协作边界。
-- **测试覆盖继续补齐**：新增和扩展 Step 5、平台兼容与 workflow contract 测试，固定入口白名单、checkpoint、下载锁和中文排序行为。
+- **测试覆盖继续补齐**：新增和扩展 Step 5、平台兼容与 workflow contract 测试，固定入口白名单、checkpoint、`confirmed` 恢复、下载锁和中文排序行为。
 
 ### v1.0.16-20260621 (2026-06-21)
 - **Step 8 与运行态状态源继续收口**：AI 味诊断、`.skill-state/ai_trace_diagnostics.json`、Step 8 demo、`artifact_passport` 对接与更新提醒协议一起落位，润色层更接近可验证、可追踪的发布状态。
@@ -1540,16 +1541,17 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
 
-### v1.0.17-20260622 (2026-06-21 to 2026-06-22)
+### v1.0.17-20260622 (2026-06-21 to 2026-06-23)
 - **Step 4 now exports a search-results dashboard by default**: the standard Step 4 completion flow also creates `step4-dashboard/` for local review of T1-T3 papers, T4 exclusions, chapter mapping, download readiness, and reading depth.
 - **Step 5 now runs English downloads first**: English DOI paths finish Sci-Hub / OA fast / Generic CDP before CNKI / Wanfang starts, reducing cross-language CDP session interference.
 - **English CDP login gating now happens before grouped downloads**: after OA fast and before Generic CDP, login-sensitive publishers are checked for trusted access; uncertain sessions prompt login, skip, or checkpoint before per-paper failures accumulate.
 - **English CDP is grouped by publisher**: remaining English DOI items enter CDP by publisher; institutional login is prompted only after the first full probe pass, and only login-related failures are retried.
-- **Login wait states now write checkpoints**: English and Chinese login gates distinguish confirmed login, skip, and retry-later states; uncertain states write `login_checkpoint.json` or `chinese_login_checkpoint.json` for targeted resume.
+- **Login wait states now write checkpoints**: English and Chinese login gates distinguish confirmed login, skip, and retry-later states; uncertain states write `login_checkpoint.json` or `chinese_login_checkpoint.json`, and `--resume-login-checkpoint ... --confirmed` resumes only the gated subset.
 - **CNKI / Wanfang clicking is more conservative**: CNKI only auto-clicks explicit PDF download entries, while Wanfang uses separate journal/thesis download allowlists; captcha, chapter-download, manual, and unknown probe states are no longer collapsed into generic failure.
+- **RSC and MDPI routing are more complete**: RSC now has an `articlepdf` direct-PDF fallback, and MDPI moves from hard skip to Generic CDP attempt while still staying outside institutional-login gating.
 - **Step 5 adds a download lock and stable Chinese ordering**: only one real download process can use CDP at a time; Chinese items are ordered CNKI first, then Wanfang, while preserving input order inside each source.
 - **Windows/CNKI field lessons moved into runtime docs**: Step 5 docs now record captcha handling, verified-detail-page reuse, independent Chinese CDP sessions, manual PDF clicking, and file-drop monitoring boundaries.
-- **Regression coverage was expanded**: Step 5, platform compatibility, and workflow-contract tests now cover entry allowlists, checkpoints, download locks, and Chinese ordering.
+- **Regression coverage was expanded**: Step 5, platform compatibility, and workflow-contract tests now cover entry allowlists, checkpoints, confirmed resume, download locks, and Chinese ordering.
 
 ### v1.0.16-20260621 (2026-06-21)
 - **Hero poster became a clickable video cover**: the top README poster now links to the Bilibili intro video as the public-facing entry point.
