@@ -936,6 +936,33 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(result, "clicked_doDownload")
         self.assertEqual(opened, ["ws://new-tab"])
 
+    def test_wait_for_wanfang_download_info_click_retries_until_tab_appears(self):
+        class FakeWs:
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return json.dumps({"result": {"result": {"value": "clicked_doDownload"}}})
+
+            def close(self):
+                pass
+
+        tab_snapshots = [
+            [{"id": "detail-tab", "url": "https://d.wanfangdata.com.cn/thesis/D03731170"}],
+            [{"id": "download-tab", "url": "https://f.wanfangdata.com.cn/download/pc/thesis/D03731170?transaction=x"}],
+        ]
+
+        time_points = iter([100.0, 100.5, 101.5, 102.0])
+
+        with patch.object(gpd, "list_tabs", side_effect=tab_snapshots), \
+             patch.object(gpd, "get_tab_ws_url", return_value="ws://download-tab"), \
+             patch.object(gpd.websocket, "create_connection", return_value=FakeWs()), \
+             patch.object(gpd.time, "sleep", return_value=None), \
+             patch.object(gpd.time, "time", side_effect=lambda: next(time_points)):
+            result = gpd._wait_for_wanfang_download_info_click(9223, timeout=3)
+
+        self.assertEqual(result, "clicked_doDownload")
+
     def test_download_one_returns_wanfang_non_ok_status(self):
         with patch.object(gpd, "resolve_publisher", return_value=None), \
              patch.object(gpd, "_download_wanfang", return_value="pdf_probe_unknown"):

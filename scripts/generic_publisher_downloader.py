@@ -695,6 +695,23 @@ def _wanfang_click_download_info_page(port: int, known_tab_ids: Optional[set[str
     return "not_found"
 
 
+def _wait_for_wanfang_download_info_click(
+    port: int,
+    known_tab_ids: Optional[set[str]] = None,
+    timeout: int = 20,
+) -> str:
+    """Wait for the Wanfang download-info page to appear, then click its real download control."""
+    deadline = time.time() + max(timeout, 1)
+    last_result = "not_found"
+    while time.time() < deadline:
+        result = _wanfang_click_download_info_page(port, known_tab_ids=known_tab_ids)
+        if result.startswith("clicked"):
+            return result
+        last_result = result
+        time.sleep(1)
+    return last_result
+
+
 def _download_wanfang(port: int, article_url: str, publisher: dict,
                       timeout: int = DEFAULT_TIMEOUT,
                       output_dir: str = "") -> Optional[str]:
@@ -750,7 +767,11 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
     time.sleep(10)
     _wanfang_click_download_interstitial(port, tid)
     download_started_at = time.time()
-    _wanfang_click_download_info_page(port, known_tab_ids=known_tab_ids)
+    _wait_for_wanfang_download_info_click(
+        port,
+        known_tab_ids=known_tab_ids,
+        timeout=min(max(timeout, 10), 30),
+    )
 
     # Step 3: Wait for PDF in ~/Downloads (Browser.setDownloadBehavior path is unreliable)
     for i in range(timeout + 30):
