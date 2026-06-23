@@ -162,7 +162,7 @@
 
 **中文门控（Phase 3）：** 仅在英文 DOI 路径全部完成或被用户明确跳过后触发。CNKI/万方 preflight 或 article/download probe 返回 `pdf_probe_blocked` / `pdf_probe_unknown` / `carsi_required` / `login_required` / `access_denied` 时，脚本必须先按本轮中文清单的 `source=cnki|wanfang` 去重，并在同一个 CDP Chrome 中自动打开对应中文文库入口（同一文库只开一次），再等待用户明确确认登录或写出中文 checkpoint。
 
-**英文门控（Phase 2）：** Sci-Hub（仅 `year <= 2021`）完成后，先执行 OA fast；OA fast 只接受真实公开 PDF URL，下载后必须通过 `%PDF`、最小大小、非 HTML、可读页数验证。OA fast 剩余条目进入 Generic CDP 前必须先做预下载登录门控：若剩余 DOI 中存在 `strategy=generic` 且 `requires_auth != none` 的登录敏感条目，并且当前会话没有 `pdf/article probe ok` 级别的可信访问证据，脚本必须先按本轮待登录 DOI 去重 publisher，并在同一个 CDP Chrome 中自动打开这些 publisher 的登录/首页 tab，再提示用户登录 / 跳过 / 稍后重试，不能只把网址列给用户复制，也不能固定打开未参与本轮下载的常用出版社。若显式使用 `--require-login-confirm`，则对所有登录敏感 Generic CDP 条目强制提示。用户确认后才按 publisher 分组进入 Generic CDP；若放行后仍出现 `manual_confirmation_required` / `login_required` / `login_wall` / `access_denied` / `pdf_probe_blocked` / `pdf_probe_unknown` 等登录类失败，再统一提示并只对这些失败 DOI 分组重试一次。
+**英文门控（Phase 2）：** Sci-Hub（仅 `year <= 2021`）完成后，先执行 OA fast；OA fast 只接受真实公开 PDF URL，下载后必须通过 `%PDF`、最小大小、非 HTML、可读页数验证。OA fast 剩余条目进入 English CDP 前必须先做预下载登录门控：若剩余 DOI 中存在 `strategy=generic` 或 `strategy=ieee_cdp` 且 `requires_auth != none` 的登录敏感条目，并且当前会话没有 `pdf/article probe ok` 级别的可信访问证据，脚本必须先按本轮待登录 DOI 去重 publisher，并在同一个 CDP Chrome 中自动打开这些 publisher 的登录/首页 tab（包括 IEEE 的 `https://ieeexplore.ieee.org/`），再提示用户登录 / 跳过 / 稍后重试，不能只把网址列给用户复制，也不能固定打开未参与本轮下载的常用出版社。若显式使用 `--require-login-confirm`，则对所有登录敏感 English CDP 条目强制提示。用户确认后才进入 IEEE CDP 与 Generic CDP 下载；若放行后仍出现 `manual_confirmation_required` / `login_required` / `login_wall` / `access_denied` / `pdf_probe_blocked` / `pdf_probe_unknown` 等登录类失败，再统一提示并只对这些失败 DOI 分组重试一次。
 
 **交互兼容规则：**
 
@@ -204,12 +204,12 @@ Phase 2:
    ├─ Step 4 `oa_pdf_url` 或轻量 OA resolver 命中真实 PDF URL → 下载并验证 → `public_pdf_verified`
    ├─ HTML / 小文件 / 损坏 PDF / landing page → `invalid_oa_candidate`；已知 OA 白名单验证失败记为 `oa_whitelist_but_verification_failed`，继续后续英文路径
    └─ 无 OA 线索 / unknown → 继续 Generic CDP
-3. 对 OA fast 剩余论文先做 English Generic CDP 预下载登录门控
+3. 对 OA fast 剩余论文先做 English CDP 预下载登录门控
    ├─ 仅 OA / direct_http / skip / `requires_auth=none` → 不触发门控
-   ├─ Generic CDP + 登录敏感 + `pdf/article probe ok` → 直接放行
-   ├─ Generic CDP + 登录敏感 + cookie-only / unknown / blocked → 按本轮 DOI 自动打开所需 publisher tab，再提示登录、跳过或写 `login_checkpoint.json`
+   ├─ IEEE CDP / Generic CDP + 登录敏感 + `pdf/article probe ok` → 直接放行
+   ├─ IEEE CDP / Generic CDP + 登录敏感 + cookie-only / unknown / blocked → 按本轮 DOI 自动打开所需 publisher tab（包括 IEEE），再提示登录、跳过或写 `login_checkpoint.json`
    └─ 用户 skip → 只跳过登录敏感 DOI，继续保留 OA / direct_http / 已完成结果汇总
-4. 用户确认登录后，对放行的剩余论文按 publisher 分组执行 Generic CDP 下载
+4. 用户确认登录后，先执行 IEEE CDP，再对其余放行论文按 publisher 分组执行 Generic CDP 下载
    ├─ pdf_probe_ok / 成功捕获 PDF bytes → 直接完成
    └─ 登录/权限/unknown probe 类失败 → 记录失败原因，继续跑完后续 publisher 组
    Agent 执行同样的交互式 CDP 启动，并只为本轮待登录 DOI 涉及的 publisher 打开 tab：
@@ -271,7 +271,7 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 **流程摘要：**
 
 - Phase 1：获取下载锁；旧英文 DOI 先走 Sci-Hub 免费路径。
-- Phase 2：英文 DOI 先走 OA fast；IEEE 条目优先走独立 IEEE CDP；剩余 Generic CDP 项进入分组下载前先做预下载登录门控；用户确认后才按 publisher 分组下载；若放行后仍出现登录类失败，只重试这些失败 DOI。
+- Phase 2：英文 DOI 先走 OA fast；命中机构登录的 IEEE / Generic 条目统一先做预下载登录门控；用户确认后先跑独立 IEEE CDP，再跑剩余 Generic CDP；若放行后仍出现登录类失败，只重试这些失败 DOI。
 - Phase 3：英文路径完成、跳过或 checkpoint 挂起后，才进入排序后的中文清单（CNKI → 万方）；中文登录问题写 `chinese_login_checkpoint.json`。
 - Phase 4：合并 Sci-Hub、OA fast、English CDP、Chinese CDP 结果，生成 `download_log.md`、失败清单和 final summary。
 

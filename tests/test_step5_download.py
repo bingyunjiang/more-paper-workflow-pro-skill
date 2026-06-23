@@ -2706,6 +2706,12 @@ class Step5DownloadTest(unittest.TestCase):
 
     def test_main_preflight_login_confirmed_skips_prompt_and_runs_cdp(self):
         pub_map = {
+            "10.1109/demo": {
+                "strategy": "ieee_cdp",
+                "_key": "ieee",
+                "publisher_domain": "ieeexplore.ieee.org",
+                "requires_auth": "sso",
+            },
             "10.1007/demo": {
                 "strategy": "generic",
                 "_key": "springer",
@@ -2718,7 +2724,7 @@ class Step5DownloadTest(unittest.TestCase):
             lock_path = Path(tmp) / "step5.lock"
             argv = [
                 "unified_download_router.py",
-                "--papers", "10.1007/demo",
+                "--papers", "10.1109/demo,10.1007/demo",
                 "--output", tmp,
                 "--confirmed",
             ]
@@ -2728,18 +2734,66 @@ class Step5DownloadTest(unittest.TestCase):
                  patch.object(router, "ensure_cdp_running", return_value=True), \
                  patch.object(router, "check_required_deps", return_value=True), \
                  patch.object(router, "_scihub_eligible_dois", return_value=[]), \
-                 patch.object(router, "run_oa_fast_round", return_value=([], ["10.1007/demo"], {})), \
+                 patch.object(router, "run_oa_fast_round", return_value=([], ["10.1109/demo", "10.1007/demo"], {})), \
                  patch.object(router, "describe_publisher_session", return_value={"probe_status": "unknown"}), \
                  patch.object(router, "show_english_login_gate") as login_gate, \
+                 patch.object(router, "run_ieee_round", return_value=(["10.1109/demo"], ["10.1007/demo"])) as run_ieee, \
                  patch.object(router, "run_english_cdp", return_value=([], ["10.1007/demo"], [{"round": "Generic CDP", "downloaded": []}], {"10.1007/demo": "generic_failed"})) as run_english, \
                  patch.object(router, "generate_download_log", return_value=str(Path(tmp) / "download_log.md")), \
                  patch("sys.stdout", new_callable=io.StringIO) as stdout:
                 router.main()
 
         login_gate.assert_not_called()
+        run_ieee.assert_called_once()
         run_english.assert_called_once()
         self.assertEqual(run_english.call_args.args[0], ["10.1007/demo"])
         self.assertIn("--confirmed supplied", stdout.getvalue())
+
+    def test_main_preflight_login_checkpoint_includes_ieee_and_generic(self):
+        pub_map = {
+            "10.1109/demo": {
+                "strategy": "ieee_cdp",
+                "_key": "ieee",
+                "publisher_domain": "ieeexplore.ieee.org",
+                "requires_auth": "sso",
+            },
+            "10.1007/demo": {
+                "strategy": "generic",
+                "_key": "springer",
+                "publisher_domain": "link.springer.com",
+                "requires_auth": "institution",
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            lock_path = Path(tmp) / "step5.lock"
+            argv = [
+                "unified_download_router.py",
+                "--papers", "10.1109/demo,10.1007/demo",
+                "--output", tmp,
+                "--require-login-confirm",
+            ]
+            with patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(lock_path)}), \
+                 patch.object(sys, "argv", argv), \
+                 patch.object(router, "resolve_publisher", side_effect=lambda doi: pub_map[doi]), \
+                 patch.object(router, "ensure_cdp_running", return_value=True), \
+                 patch.object(router, "check_required_deps", return_value=True), \
+                 patch.object(router, "_scihub_eligible_dois", return_value=[]), \
+                 patch.object(router, "run_oa_fast_round", return_value=([], ["10.1109/demo", "10.1007/demo"], {})), \
+                 patch.object(router, "show_english_login_gate", return_value=None), \
+                 patch.object(router, "run_english_cdp", return_value=([], [], [{"round": "Generic CDP", "downloaded": []}], {})) as run_english, \
+                 patch.object(router, "run_ieee_round") as run_ieee, \
+                 patch.object(router, "generate_download_log", return_value=str(Path(tmp) / "download_log.md")):
+                router.main()
+
+            checkpoint = json.loads((Path(tmp) / "login_checkpoint.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            [item["doi"] for item in checkpoint["items"]],
+            ["10.1109/demo", "10.1007/demo"],
+        )
+        run_english.assert_not_called()
+        run_ieee.assert_not_called()
 
     def test_main_writes_chinese_checkpoint_in_sorted_order(self):
         chinese_papers = [

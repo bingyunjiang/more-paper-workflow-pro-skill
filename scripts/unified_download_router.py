@@ -2571,33 +2571,15 @@ def main():
                     failure_reasons=en_failure_reasons,
                 )
                 print(f"English CDP login checkpoint written: {checkpoint_path}")
-                if non_login_dois:
-                    en_dl, non_login_rem, en_results, non_login_reasons = run_english_cdp(
-                        non_login_dois, args.output, args.port,
-                        skip_sd=args.skip_sd, include_si=args.include_si,
-                        sd_browser=sd_browser
-                    )
-                    en_rem = preflight_login_dois + non_login_rem
-                    en_failure_reasons.update(non_login_reasons)
+                en_rem = non_login_dois
             elif gate_result:
-                en_dl, en_rem, en_results, en_failure_reasons = run_english_cdp(
-                    en_rem, args.output, args.port,
-                    skip_sd=args.skip_sd, include_si=args.include_si,
-                    sd_browser=sd_browser
-                )
+                # Login confirmed: keep IEEE + Generic items for their normal
+                # execution order below (IEEE first, then Generic CDP).
+                pass
             else:
                 print("English CDP login-sensitive items skipped by user - OA/direct/skipped paths are preserved.")
                 en_failure_reasons.update({doi: "login_skipped_by_user" for doi in preflight_login_dois})
-                if non_login_dois:
-                    en_dl, non_login_rem, en_results, non_login_reasons = run_english_cdp(
-                        non_login_dois, args.output, args.port,
-                        skip_sd=args.skip_sd, include_si=args.include_si,
-                        sd_browser=sd_browser
-                    )
-                    en_rem = preflight_login_dois + non_login_rem
-                    en_failure_reasons.update(non_login_reasons)
-                else:
-                    en_rem = preflight_login_dois
+                en_rem = non_login_dois
 
     if en_rem and not args.skip_ieee:
         has_ieee = any(classify_doi(d)["strategy"] == "ieee_cdp" for d in en_rem)
@@ -2612,14 +2594,18 @@ def main():
             ieee_results.append({"round": "IEEE CDP", "downloaded": ieee_dl})
     elif en_rem and args.skip_ieee:
         print(f"\n{SKIP} Round 3 (IEEE CDP): Skipped (--skip-ieee)")
-        else:
-            en_dl, en_rem, en_results, en_failure_reasons = run_english_cdp(
-                en_rem, args.output, args.port,
-                skip_sd=args.skip_sd, include_si=args.include_si,
-                sd_browser=sd_browser
-            )
     elif not scihub_rem:
         print(f"\n{DONE} Sci-Hub downloaded all papers! ({len(scihub_dl)}/{len(dois)})")
+
+    if en_rem:
+        generic_dl, en_rem, generic_results, generic_failure_reasons = run_english_cdp(
+            en_rem, args.output, args.port,
+            skip_sd=args.skip_sd, include_si=args.include_si,
+            sd_browser=sd_browser
+        )
+        en_dl.extend(generic_dl)
+        en_results.extend(generic_results)
+        en_failure_reasons.update(generic_failure_reasons)
 
     en_dl = oa_dl + ieee_dl + en_dl
     en_results = oa_results + ieee_results + en_results

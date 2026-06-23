@@ -803,7 +803,7 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 ### v1.0.17-20260622 (2026-06-21 至 2026-06-23)
 - **Step 4 默认生成检索结果看板**：标准 Step 4 完成链路会同步输出 `step4-dashboard/`，用于本地审阅 T1-T3 文献、复核 T4 排除项、查看章节挂接、下载准备度和阅读深度。
-- **Step 5 下载顺序改为英文优先**：英文 DOI 路径先完成 Sci-Hub / OA fast / IEEE CDP / Generic CDP，再进入 CNKI / 万方，降低中英文共享浏览器会话互相干扰的概率。
+- **Step 5 下载顺序改为英文优先**：英文 DOI 路径先完成 Sci-Hub / OA fast，并对 IEEE CDP + Generic CDP 统一做英文登录门控；用户确认后再进入 IEEE CDP / Generic CDP，最后才进入 CNKI / 万方，降低中英文共享浏览器会话互相干扰的概率。
 - **English CDP 登录门控前移**：OA fast 与 IEEE 专用路由之后、Generic CDP 分组下载之前，登录敏感出版社会先检查可信访问信号；没有确认访问时先提示登录、跳过或写 checkpoint，避免逐篇撞登录墙。
 - **English CDP 改为按 publisher 分组**：OA fast 未完成的英文 DOI 会按出版社分组进入 CDP；第一轮全部探测完成后才统一触发机构登录，并只重试登录类失败条目。
 - **登录待处理统一写 checkpoint**：英文和中文登录门控都区分“已登录 / 跳过 / 稍后重试”；无法确认时写出 `login_checkpoint.json` 或 `chinese_login_checkpoint.json`，后续可用 `--resume-login-checkpoint ... --confirmed` 只恢复待登录条目。
@@ -1545,7 +1545,7 @@ Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are hig
 
 ### v1.0.17-20260622 (2026-06-21 to 2026-06-23)
 - **Step 4 now exports a search-results dashboard by default**: the standard Step 4 completion flow also creates `step4-dashboard/` for local review of T1-T3 papers, T4 exclusions, chapter mapping, download readiness, and reading depth.
-- **Step 5 now runs English downloads first**: English DOI paths finish Sci-Hub / OA fast / IEEE CDP / Generic CDP before CNKI / Wanfang starts, reducing cross-language CDP session interference.
+- **Step 5 now runs English downloads first**: English DOI paths finish Sci-Hub / OA fast, then gate IEEE CDP + Generic CDP behind a shared English login prompt before CNKI / Wanfang starts, reducing cross-language CDP session interference.
 - **English CDP login gating now happens before grouped downloads**: after OA fast and the dedicated IEEE route, login-sensitive Generic CDP publishers are checked for trusted access; uncertain sessions prompt login, skip, or checkpoint before per-paper failures accumulate.
 - **English CDP is grouped by publisher**: remaining English DOI items enter CDP by publisher; institutional login is prompted only after the first full probe pass, and only login-related failures are retried.
 - **Login wait states now write checkpoints**: English and Chinese login gates distinguish confirmed login, skip, and retry-later states; uncertain states write `login_checkpoint.json` or `chinese_login_checkpoint.json`, and `--resume-login-checkpoint ... --confirmed` resumes only the gated subset.
