@@ -325,6 +325,7 @@ class Step5DownloadTest(unittest.TestCase):
         doi = "10.1016/j.demo.2024.01.001"
         with patch.object(router, "run_scihub_round") as scihub, \
              patch.object(router, "run_oa_fast_round") as oa_fast, \
+             patch.object(router, "run_ieee_round", return_value=([], [doi])) as ieee_round, \
              patch.object(router, "run_generic_round", return_value=([doi], [], {})) as generic:
             downloaded, remaining, results, reasons = router.run_english_pipeline(
                 [doi], "paper-temp", 9223, skip_oa_fast=True
@@ -335,7 +336,27 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(reasons, {})
         scihub.assert_not_called()
         oa_fast.assert_not_called()
+        ieee_round.assert_called_once()
         generic.assert_called_once()
+
+    def test_english_pipeline_routes_ieee_through_dedicated_round(self):
+        doi = "10.1109/demo.2024.123"
+        with patch.object(router, "run_scihub_round") as scihub, \
+             patch.object(router, "run_oa_fast_round", return_value=([], [doi], {})) as oa_fast, \
+             patch.object(router, "run_ieee_round", return_value=([doi], [])) as ieee_round, \
+             patch.object(router, "run_generic_round") as generic:
+            downloaded, remaining, results, reasons = router.run_english_pipeline(
+                [doi], "paper-temp", 9223
+            )
+
+        self.assertEqual(downloaded, [doi])
+        self.assertEqual(remaining, [])
+        self.assertEqual(reasons, {})
+        scihub.assert_not_called()
+        oa_fast.assert_called_once()
+        ieee_round.assert_called_once_with([doi], "paper-temp", 9223)
+        generic.assert_not_called()
+        self.assertEqual(results[-1]["round"], "IEEE CDP")
 
     def test_classify_english_oa_hints_marks_candidate_no_hint_and_unknown(self):
         dois = ["10.1016/j.demo.1", "10.1007/demo", "10.1021/demo"]
@@ -373,13 +394,30 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(downloaded, [])
         self.assertEqual(remaining, [doi])
-        self.assertEqual(reasons[doi], "invalid_pdf_candidate")
+        self.assertEqual(reasons[doi], "invalid_oa_candidate")
+
+    def test_oa_fast_uses_whitelist_reason_for_known_oa_failure(self):
+        doi = "10.3390/demo"
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(router, "_fetch_url_bytes", return_value=(b"<html>not a pdf</html>" + b"x" * 6000, "text/html")), \
+             patch.object(router, "resolve_publisher", return_value={"strategy": "generic", "_key": "mdpi", "requires_auth": "none"}):
+            downloaded, remaining, reasons = router.run_oa_fast_round(
+                [doi],
+                tmp,
+                oa_hints={doi: {"oa_pdf_url": "https://example.org/demo.pdf", "oa_status": "gold"}},
+                use_resolver=False,
+            )
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, [doi])
+        self.assertEqual(reasons[doi], "oa_whitelist_but_verification_failed")
 
     def test_oa_candidate_failed_verification_reaches_generic_cdp(self):
         doi = "10.1016/j.demo.2024.01.001"
         with tempfile.TemporaryDirectory() as tmp, \
              patch.object(router, "run_scihub_round") as scihub, \
              patch.object(router, "_fetch_url_bytes", return_value=(b"<html>not a pdf</html>" + b"x" * 6000, "text/html")), \
+             patch.object(router, "run_ieee_round", return_value=([], [doi])) as ieee_round, \
              patch.object(router, "run_generic_round", return_value=([doi], [], {})) as generic:
             downloaded, remaining, results, reasons = router.run_english_pipeline(
                 [doi],
@@ -393,6 +431,7 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertIn({"round": "OA fast (public_pdf_verified)", "downloaded": []}, results)
         self.assertEqual(results[-1]["round"], "Generic CDP")
         scihub.assert_not_called()
+        ieee_round.assert_called_once()
         generic.assert_called_once_with([doi], tmp, 9223, include_si=False)
 
 
@@ -1862,6 +1901,37 @@ class Step5DownloadTest(unittest.TestCase):
 
         with patch.object(router, "resolve_publisher", side_effect=lambda doi: pub_map[doi]):
             candidates = router._english_login_candidate_dois(list(pub_map))
+
+        self.assertEqual(candidates, ["10.1007/demo"])
+
+    def test_english_login_candidates_exclude_oa_whitelist_items(self):
+        pub_map = {
+            "10.1007/demo": {
+                "strategy": "generic",
+                "_key": "springer",
+                "publisher_domain": "link.springer.com",
+                "requires_auth": "institution",
+            },
+            "10.3390/demo": {
+                "strategy": "generic",
+                "_key": "mdpi",
+                "publisher_domain": "www.mdpi.com",
+                "requires_auth": "none",
+            },
+            "10.1109/demo": {
+                "strategy": "generic",
+                "_key": "ieee",
+                "publisher_domain": "ieeexplore.ieee.org",
+                "requires_auth": "sso",
+            },
+        }
+        oa_hints = {
+            "10.3390/demo": {"oa_status": "gold"},
+            "10.1109/demo": {"oa_status": "gold", "journal": "IEEE Access"},
+        }
+
+        with patch.object(router, "resolve_publisher", side_effect=lambda doi: pub_map[doi]):
+            candidates = router._english_login_candidate_dois(list(pub_map), oa_hints=oa_hints)
 
         self.assertEqual(candidates, ["10.1007/demo"])
 

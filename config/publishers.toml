@@ -29,7 +29,7 @@ notes = "ScienceDirect adapter inside Generic CDP. Reuses PII → /pdfft → PDF
 
 [publishers.ieee]
 doi_prefixes = ["10.1109/"]
-strategy = "generic"
+strategy = "ieee_cdp"
 pdf_url_requires_referrer = true
 selectors = [
     "a[href*=\"/stamp/\"]",

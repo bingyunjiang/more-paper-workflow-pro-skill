@@ -50,7 +50,7 @@ python3 scripts/download_via_scihub.py dois.txt --output paper-temp/
 
 ## 出版商矩阵
 
-English Generic CDP 登录门控会根据本轮待登录 DOI 去重 publisher，并读取 `config/publishers.toml` 的 `login_url` 在同一个 CDP Chrome 中自动打开所需 tab；没有 `login_url` 时回退到 `https://{publisher_domain}/`。常用登录入口包括 IEEE `https://ieeexplore.ieee.org/`、ScienceDirect `https://www.sciencedirect.com/`、Wiley `https://onlinelibrary.wiley.com/`、RSC `https://pubs.rsc.org/`、Nature `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Fwww.nature.com%2F`、Springer `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F`。Chinese CDP 登录门控同样按本轮 `source=cnki|wanfang` 去重，在同一个 CDP Chrome 中自动打开 CNKI `https://kns.cnki.net/kns8s/` 和/或 Wanfang `https://www.wanfangdata.com.cn/`。
+English Generic CDP 登录门控会根据本轮待登录 DOI 去重 publisher，并读取 `config/publishers.toml` 的 `login_url` 在同一个 CDP Chrome 中自动打开所需 tab；没有 `login_url` 时回退到 `https://{publisher_domain}/`。IEEE 默认走独立 `download_via_ieee.py`，因此不再是 Generic CDP 登录门控的默认成员。常用登录入口包括 ScienceDirect `https://www.sciencedirect.com/`、Wiley `https://onlinelibrary.wiley.com/`、RSC `https://pubs.rsc.org/`、Nature `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Fwww.nature.com%2F`、Springer `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F`。Chinese CDP 登录门控同样按本轮 `source=cnki|wanfang` 去重，在同一个 CDP Chrome 中自动打开 CNKI `https://kns.cnki.net/kns8s/` 和/或 Wanfang `https://www.wanfangdata.com.cn/`。
 
 | 出版商 | DOI 前缀 | 访问方式 | 状态 | 策略 |
 |--------|----------|----------|------|------|
@@ -244,15 +244,14 @@ else:
 DOI
  ├─ 2021年前 → Sci-Hub CDP (download_via_scihub.py)
  ├─ 10.1016/ → SD CDP (auto_sd_downloader.py, 96%)
+ ├─ 10.1109/ → IEEE 独立 CDP (download_via_ieee.py)
  ├─ 10.3390/ → MDPI Generic CDP (OA; HTTP直连403时详情页提取/手动兜底)
  ├─ 10.3389/ → Direct HTTP (Frontiers OA)
  └─ 其他    → Generic CDP (generic_publisher_downloader.py)
-     ├─ 10.1109/ → IEEE: 策略B 文章页 stamp URL 提取 + getPDF.jsp
-     │              download_via_ieee.py 作为交互式 SSO 备用
      ├─ 策略A: Direct PDF URL 模板 (最快)
      │  ACS/Wiley/Springer/Nature/Science/PNAS/IOP/APS
      └─ 策略B: 文章页 CSS 选择器提取 (策略A失败时或需 Referrer 校验)
-        IEEE/AIP/AVS/RSC/T&F/OSA/ECS/CCS 等
+        AIP/AVS/RSC/T&F/OSA/ECS/CCS 等
 ```
 
 ### Generic CDP 核心实现

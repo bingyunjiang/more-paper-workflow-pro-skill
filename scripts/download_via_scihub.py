@@ -418,7 +418,7 @@ def cdp_download(doi, output_dir, mirror, article_tab=None, pdf_tab=None):
     fname = doi_to_filename(doi)
     fpath = os.path.join(output_dir, fname)
     if os.path.exists(fpath) and os.path.getsize(fpath) > 10000:
-        return fpath, "已存在"
+        return fpath, "已存在", "already_downloaded"
 
     url = f"{mirror}/{doi}"
 
@@ -430,12 +430,12 @@ def cdp_download(doi, output_dir, mirror, article_tab=None, pdf_tab=None):
             _, tid = create_tab(CDP_PORT, "about:blank")
             created_here = True
         except Exception:
-            return None, "创建标签页失败"
+            return None, "创建标签页失败", "mirror_request_failed"
 
     if not navigate_tab(CDP_PORT, tid, url):
         if created_here:
             close_tab(CDP_PORT, tid)
-        return None, "导航标签页失败"
+        return None, "导航标签页失败", "mirror_request_failed"
 
     time.sleep(5)
 
@@ -446,7 +446,7 @@ def cdp_download(doi, output_dir, mirror, article_tab=None, pdf_tab=None):
         close_tab(CDP_PORT, tid)
 
     if not pdf_url:
-        return None, "未找到 PDF 链接"
+        return None, "未找到 PDF 链接", "doi_not_available_on_mirror"
 
     # Step 3: 通过 Fetch 域捕获 PDF
     pdf_data, fetch_status = _fetch_pdf_via_navigate(CDP_PORT, pdf_url, pdf_tab=pdf_tab)
@@ -454,7 +454,7 @@ def cdp_download(doi, output_dir, mirror, article_tab=None, pdf_tab=None):
     if pdf_data:
         with open(fpath, "wb") as f:
             f.write(pdf_data)
-        return fpath, f"{mirror.split('/')[-1]} {len(pdf_data)//1024}KB"
+        return fpath, f"{mirror.split('/')[-1]} {len(pdf_data)//1024}KB", "ok"
     failure_messages = {
         "timeout_no_pdf_response": "超时未捕获 PDF 响应",
         "non_pdf_response_seen": "检测到非 PDF 页面，可能 Sci-Hub 未收录该 DOI",
@@ -462,7 +462,14 @@ def cdp_download(doi, output_dir, mirror, article_tab=None, pdf_tab=None):
         "cdp_unavailable": "CDP Chrome 未运行",
         "tab_unavailable": "PDF 捕获标签页不可用",
     }
-    return None, failure_messages.get(fetch_status, f"无法捕获 PDF 数据: {fetch_status}")
+    failure_reasons = {
+        "timeout_no_pdf_response": "mirror_request_failed",
+        "non_pdf_response_seen": "doi_not_available_on_mirror",
+        "pdf_like_response_invalid_body": "invalid_pdf_candidate",
+        "cdp_unavailable": "cdp_unavailable",
+        "tab_unavailable": "mirror_request_failed",
+    }
+    return None, failure_messages.get(fetch_status, f"无法捕获 PDF 数据: {fetch_status}"), failure_reasons.get(fetch_status, "mirror_request_failed")
 
 
 # ===== 主流程 =====
@@ -475,6 +482,8 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=9223, help="CDP Chrome 端口")
     parser.add_argument("--skip-test", action="store_true", help="跳过镜像站可用性测试")
     parser.add_argument("--mirror", help="指定镜像站 URL（跳过测试，直接使用）")
+    parser.add_argument("--retry-mirrors", type=int, default=0,
+                        help="单篇失败后额外切换镜像站重试次数（默认: 0）")
     args = parser.parse_args()
 
     if not check_required_deps():
@@ -533,7 +542,7 @@ if __name__ == "__main__":
 
     # 逐篇下载。批次内固定复用 2 个标签页，避免每篇创建/关闭页面。
     ok, fail = 0, 0
-    failed_list = []
+    failed_records = []
     mirror_idx = 0  # 轮询镜像站
     article_tab = None
     pdf_tab = None
@@ -548,18 +557,28 @@ if __name__ == "__main__":
 
     try:
         for i, doi in enumerate(dois):
-            mirror = working_mirrors[mirror_idx % len(working_mirrors)]
+            first_mirror_idx = mirror_idx % len(working_mirrors)
             mirror_idx += 1
+            attempt_count = min(max(args.retry_mirrors, 0) + 1, len(working_mirrors))
 
-            print(f"[{i+1}/{len(dois)}] {doi[:45]} → {mirror.split('//')[-1]}...", end=" ", flush=True)
+            print(f"[{i+1}/{len(dois)}] {doi[:45]} → {working_mirrors[first_mirror_idx].split('//')[-1]}...", end=" ", flush=True)
             t0 = time.time()
+            fpath = None
+            msg = "（Chrome 未运行）"
+            failure_reason = "cdp_unavailable"
+            tried = []
 
             if cdp_available:
-                fpath, msg = cdp_download(doi, OUTPUT_DIR, mirror,
-                                          article_tab=article_tab, pdf_tab=pdf_tab)
-            else:
-                fpath, msg = "直连方式已禁用", "（Chrome 未运行）"
-
+                for attempt in range(attempt_count):
+                    mirror = working_mirrors[(first_mirror_idx + attempt) % len(working_mirrors)]
+                    tried.append(mirror.split("//")[-1])
+                    fpath, msg, failure_reason = cdp_download(
+                        doi, OUTPUT_DIR, mirror, article_tab=article_tab, pdf_tab=pdf_tab
+                    )
+                    if fpath and os.path.exists(fpath) and os.path.getsize(fpath) > 10000:
+                        break
+                    if failure_reason != "mirror_request_failed":
+                        break
             elapsed = time.time() - t0
 
             if fpath and os.path.exists(fpath) and os.path.getsize(fpath) > 10000:
@@ -567,8 +586,13 @@ if __name__ == "__main__":
                 print(f"✅ {msg} ({elapsed:.0f}s)", flush=True)
             else:
                 fail += 1
-                failed_list.append(doi)
-                print(f"❌ {msg} ({elapsed:.0f}s)", flush=True)
+                failed_records.append({
+                    "doi": doi,
+                    "reason": failure_reason,
+                    "tried_mirrors": tried,
+                })
+                tried_label = f" | mirrors={','.join(tried)}" if tried else ""
+                print(f"❌ {msg}{tried_label} ({elapsed:.0f}s)", flush=True)
 
             time.sleep(0.3)
     finally:
@@ -582,10 +606,14 @@ if __name__ == "__main__":
     print(f"完成: ✅ {ok} 成功, ❌ {fail} 失败", flush=True)
     print(f"总耗时: {(time.time()-t0)/60:.1f}分钟", flush=True)
 
-    if failed_list:
+    if failed_records:
         flist = os.path.join(OUTPUT_DIR, "scihub_failed_dois.txt")
         with open(flist, "w", encoding="utf-8") as f:
-            for d in failed_list:
-                f.write(d + "\n")
+            for record in failed_records:
+                tried_label = ",".join(record["tried_mirrors"])
+                suffix = f"  # {record['reason']}"
+                if tried_label:
+                    suffix += f" | mirrors={tried_label}"
+                f.write(record["doi"] + suffix + "\n")
         print(f"\n失败列表: {flist}", flush=True)
         print("提示: 失败论文可走 Generic CDP 下载", flush=True)

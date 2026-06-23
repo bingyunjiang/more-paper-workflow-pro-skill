@@ -1,6 +1,6 @@
 # Step 5: 统一批量下载 (Unified Download Router)
 
-> **默认串行可靠 / 英文优先串行可靠：** 英文默认顺序为 `2021 年及以前：Sci-Hub → OA fast → Generic CDP grouped by publisher`，`2022 年及以后/年份未知：OA fast → Generic CDP grouped by publisher`。拿到 Step 5 下载清单后，英文 DOI 只做 `oa_candidate / no_oa_hint / unknown` 提示分层，真实 OA 仍必须由 OA fast 验证；中文条目先稳定排序为 CNKI → 万方，再在英文 DOI 路径完成或被明确跳过后执行，避免共享浏览器状态互相干扰。ScienceDirect / Elsevier 与 IEEE 都归入 Generic CDP，专用脚本只作为内部适配器或手动 fallback。
+> **默认串行可靠 / 英文优先串行可靠：** 英文默认顺序为 `2021 年及以前：Sci-Hub → OA fast → IEEE CDP / Generic CDP grouped by publisher`，`2022 年及以后/年份未知：OA fast → IEEE CDP / Generic CDP grouped by publisher`。拿到 Step 5 下载清单后，英文 DOI 只做 `oa_candidate / no_oa_hint / unknown` 提示分层，真实 OA 仍必须由 OA fast 验证；中文条目先稳定排序为 CNKI → 万方，再在英文 DOI 路径完成或被明确跳过后执行，避免共享浏览器状态互相干扰。ScienceDirect / Elsevier 归入 Generic CDP；IEEE 默认走独立 `download_via_ieee.py`，Generic fallback 只保留为内部兜底。
 
 ---
 
@@ -189,7 +189,7 @@ Phase 2:
 1. 对英文 DOI 清单先做 OA hint 分层：`oa_candidate` / `no_oa_hint` / `unknown`，该分层只用于提示，不代表已验证可下载
 2. 对剩余英文论文先执行 OA fast
    ├─ Step 4 `oa_pdf_url` 或轻量 OA resolver 命中真实 PDF URL → 下载并验证 → `public_pdf_verified`
-   ├─ HTML / 小文件 / 损坏 PDF / landing page → `invalid_pdf_candidate`，继续 Generic CDP
+   ├─ HTML / 小文件 / 损坏 PDF / landing page → `invalid_oa_candidate`；已知 OA 白名单验证失败记为 `oa_whitelist_but_verification_failed`，继续后续英文路径
    └─ 无 OA 线索 / unknown → 继续 Generic CDP
 3. 对 OA fast 剩余论文先做 English Generic CDP 预下载登录门控
    ├─ 仅 OA / direct_http / skip / `requires_auth=none` → 不触发门控
@@ -258,7 +258,7 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 **流程摘要：**
 
 - Phase 1：获取下载锁；旧英文 DOI 先走 Sci-Hub 免费路径。
-- Phase 2：英文 DOI 先走 OA fast；OA fast 剩余项进入 Generic CDP 前先做预下载登录门控；用户确认后才按 publisher 分组下载；若放行后仍出现登录类失败，只重试这些失败 DOI。
+- Phase 2：英文 DOI 先走 OA fast；IEEE 条目优先走独立 IEEE CDP；剩余 Generic CDP 项进入分组下载前先做预下载登录门控；用户确认后才按 publisher 分组下载；若放行后仍出现登录类失败，只重试这些失败 DOI。
 - Phase 3：英文路径完成、跳过或 checkpoint 挂起后，才进入排序后的中文清单（CNKI → 万方）；中文登录问题写 `chinese_login_checkpoint.json`。
 - Phase 4：合并 Sci-Hub、OA fast、English CDP、Chinese CDP 结果，生成 `download_log.md`、失败清单和 final summary。
 
@@ -270,8 +270,8 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 |------|----------|--------|------|--------|
 | **R1: Sci-Hub** | 不限（`year <= 2021`） | 全部 | Sci-Hub CDP；`--skip-scihub` 可跳过 | 旧论文优先 |
 | **R2: OA fast** | 不限 | OpenAlex / Semantic Scholar / Unpaywall 等公开 PDF 线索 | `oa_pdf_url` / 轻量 resolver → PDF verifier；`--skip-oa-fast` 可跳过 | 仅公开 PDF |
-| **R3: Generic CDP** | `10.1016/` | Elsevier / ScienceDirect | Generic CDP 内部 SD 适配器（DOI→PII→pdfft） | 复用 SD 成熟路径 |
-| | `10.1109/` | IEEE | Generic CDP 策略 A/B 失败后自动走 `arnumber -> stamp/getPDF` fallback | 需 SSO |
+| **R3: IEEE CDP** | `10.1109/` | IEEE | 独立 `download_via_ieee.py`：文章页提取 stamp URL → `stamp/getPDF` 捕获 | 需 SSO |
+| **R4: Generic CDP** | `10.1016/` | Elsevier / ScienceDirect | Generic CDP 内部 SD 适配器（DOI→PII→pdfft） | 复用 SD 成熟路径 |
 | | `10.1002/` | Wiley | pdfdirect URL → 文章页选择器 | 策略A优先 |
 | | `10.1021/` | ACS | 直连 PDF URL → 文章页选择器 | 策略A优先 |
 | | `10.1039/` | RSC | 文章页 articlepdf 选择器 | 策略B为主 |
@@ -392,7 +392,7 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 | 脚本 | 用途 | 何时单独使用 |
 |------|------|-------------|
 | `download_via_scihub.py` | Sci-Hub 批量下载 | 只缺老论文时 |
-| `download_via_ieee.py` | IEEE CDP 下载 | 只下 IEEE 论文时 |
+| `download_via_ieee.py` | IEEE CDP 下载 | 默认 IEEE 路由；也可单独调试 |
 | `auto_sd_downloader.py` | SD 全自动下载 | 只下 Elsevier 论文、且需要独立批量调试时 |
 | `generic_publisher_downloader.py` | 通用CDP下载引擎 | 测试特定非SD/IEEE论文 |
 
@@ -418,11 +418,11 @@ python3 scripts/auto_sd_downloader.py --browser edge --pii-map sd_pii_map.json
 3. **英文按 DOI 前缀路由，中文按 source 字段路由** — 两条线泾渭分明，互不污染
 4. **`Fetch.enable` 必须在 `Page.navigate` 之前调用**（IEEE v1.0.1 验证）— 否则 Chrome PDF 查看器消费响应体
 5. **出版商知识库集中维护** — `config/publishers.toml`，新增出版商只需加一个 `[publishers.xxx]` 段落
-6. **ScienceDirect / Elsevier 与 IEEE 已归入 Generic CDP**，`auto_sd_downloader.py` 和 `download_via_ieee.py` 保留作为专用调试 / 手动 fallback
+6. **ScienceDirect / Elsevier 归入 Generic CDP，IEEE 默认走独立 CDP**，`auto_sd_downloader.py` 保留为 SD 专用调试，`download_via_ieee.py` 是 IEEE 默认实现，Generic IEEE fallback 只保留为内部兜底
 7. **直达下载先归一化、再下载** — DOI 可直接路由，标题必须先解析为 DOI/URL/中文 article_url
 8. **checkpoint 不是入口锁** — `CP-DOWNLOAD-LOGIN` 只阻塞需要登录态的下载执行，不阻塞 manifest 生成、dry-run、OA/Sci-Hub/direct_http 路径
 9. **SD 默认跟随 Generic CDP 浏览器选择** — `--browser edge` 则 ScienceDirect 也用 Edge；`--browser chrome` 则 ScienceDirect 也用 Chrome；统一路由会校验端口上的浏览器类型，不在统一路由里默认启动双浏览器。
-10. **OA fast 是候选验证层** — Step 4 的 OA 字段只提供候选；Step 5 必须验证真实 PDF 后才记录 `public_pdf_verified`，无效候选记录 `invalid_pdf_candidate` 并继续 Generic CDP。
+10. **OA fast 是候选验证层** — Step 4 的 OA 字段只提供候选；Step 5 必须验证真实 PDF 后才记录 `public_pdf_verified`，无效候选记录 `invalid_oa_candidate`，已知 OA 白名单验证失败记录 `oa_whitelist_but_verification_failed`，并继续后续英文路径。
 11. **Step 5 只做当前源站的下载尝试** — 当源站明确返回不可下载状态（`fulltext_delivery_mode`、`chapter_download_mode`、`access_denied` 等）时，Agent 不得自动转向其他数据库或数据源绕过。由用户自行决定是否从其他途径补下该文献。
 
 ---

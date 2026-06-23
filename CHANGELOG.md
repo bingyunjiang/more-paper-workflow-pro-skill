@@ -12,8 +12,11 @@
 
 ### Step 5 真实下载链路、英文优先顺序与登录 checkpoint 收口
 
-- **Step 5 英文优先并加下载锁**：统一下载顺序收紧为 Sci-Hub / OA fast / English Generic CDP 完成后才进入 CNKI/万方；`--parallel-phase1` 保留兼容但不再并发启动中文，并新增跨进程 `step5_download.lock` 防止多个下载进程同时冲击同一 CDP 浏览器。
+- **Step 5 英文优先并加下载锁**：统一下载顺序收紧为 Sci-Hub / OA fast / IEEE CDP / English Generic CDP 完成后才进入 CNKI/万方；`--parallel-phase1` 保留兼容但不再并发启动中文，并新增跨进程 `step5_download.lock` 防止多个下载进程同时冲击同一 CDP 浏览器。
+- **IEEE 默认恢复独立下载脚本**：`10.1109/` 路由重新切回 `download_via_ieee.py` 作为默认实现；Generic IEEE fallback 继续保留，但不再是主路径。
 - **英文 OA 清单分层与 CDP 分组**：Step 5 拿到英文 DOI 后先标记 `oa_candidate` / `no_oa_hint` / `unknown`，真实下载仍由 OA fast 验证；OA fast 剩余条目进入 English CDP 时按 publisher 分组执行，减少不同出版社页面互相冲击。
+- **OA Fast 增加多 resolver 与白名单判定**：OA fast 现在按 `Unpaywall -> OpenAlex -> Semantic Scholar` 依次解析公开 PDF；MDPI、IEEE Access、RSC Advances、Scientific Reports 与 Wiley OA 类条目可在登录门控前按白名单豁免进入 OA 验证。
+- **Sci-Hub 增加有限镜像重试**：`download_via_scihub.py` 新增 `--retry-mirrors`；统一路由默认给老论文追加 1 次换镜像重试，并把失败原因写入 `scihub_failed_dois.txt` 注释。
 - **English CDP 登录门控与重试语义固定**：English CDP 第一轮按 publisher 分组全部探测完成后才统一触发机构登录 gate；用户确认后只对登录类失败 DOI 分组重试一次，非登录类失败不进入登录重试。
 - **English CDP 预下载登录门控前移**：OA fast 之后、Generic CDP 分组下载之前，若剩余 DOI 存在登录敏感 publisher 且当前会话没有可信 `pdf/article probe ok` 信号，脚本会先提示登录 / 跳过 / 写 `login_checkpoint.json`，避免未登录时逐篇撞登录墙；OA、direct_http、skip 和 `requires_auth=none` 条目不被拦截。
 - **English CDP 登录 tab 按需自动打开**：英文登录门控会根据本轮待登录 DOI 或 `login_checkpoint.json` 去重 publisher，并在同一个 CDP Chrome 中自动打开对应 `login_url` / publisher 首页；不会固定打开未参与本轮下载的常用出版社。
@@ -594,7 +597,7 @@
 - **新增 `generic_publisher_downloader.py`**：CDP 通用下载引擎，策略 A（直连 PDF URL）→ 策略 B（文章页 CSS 选择器提取），支持补充材料下载（`--include-si`）
 - **新增 `config/publishers.toml`**：24 家出版社集中式知识库（DOI 前缀 + URL 模板 + CSS 选择器 + 屏障检测规则）
 - **增强 `cdp_utils.py`**：新增 15 个反检测 Chrome flag + `warmup_profile()` 预热函数，借鉴 ref-downloader 反机器人验证策略
-- **IEEE 切换为 Generic CDP 引擎**，`download_via_ieee.py` 保留作为 SSO 交互备用
+- **IEEE 独立 CDP 下载器**：`download_via_ieee.py` 固化两步走路径（文章页提取 stamp URL → `stamp/getPDF` 捕获），后续统一路由可直接复用
 - 可自动下载 **23 家出版社**文献；MDPI 走 Generic CDP 详情页提取 PDF，HTTP 直连被 Akamai 拦截时保留人工点击兜底
 - 用户 Zotero 文库 9 篇真实论文实测全部通过（Sci-Hub 2 篇 + Generic CDP 7 篇）
 

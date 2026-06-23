@@ -10,11 +10,10 @@ Routes each DOI to the optimal download strategy using the publisher
 routing matrix, then orchestrates download rounds:
 
   1. Sci-Hub CDP    -> pre-2021 papers (free, ~6s/paper)
-  2. Generic CDP    -> Elsevier/ScienceDirect, IEEE, and other publishers
+  2. OA Fast        -> public OA PDF verification (resolver + whitelist hints)
+  3. IEEE CDP       -> dedicated IEEE route via download_via_ieee.py
+  4. Generic CDP    -> Elsevier/ScienceDirect and other publishers
                      (Wiley, ACS, RSC, Nature, Springer, etc.)
-                     IEEE uses generic engine (strategy B: article page
-                     -> stamp URL extraction). Dedicated download_via_ieee.py
-                     available as fallback for interactive SSO login flow.
 
 Usage:
   python3 scripts/unified_download_router.py 检索文献表.md --output paper-temp/
@@ -76,14 +75,19 @@ SCI_HUB_CUTOFF_YEAR = 2021  # Sci-Hub has very few papers after 2020
 OA_FAST_MIN_BYTES = 5000
 OA_FAST_TIMEOUT = 15
 DOWNLOAD_LOCK_MESSAGE = "上一进程下载中，请等一等，下载完再运行中文下载。"
+OA_HINT_OPEN_STATUSES = {"oa", "open", "open_access", "green", "gold", "hybrid", "bronze"}
+OA_WHITELIST_JOURNAL_KEYWORDS = (
+    "rsc advances",
+    "scientific reports",
+    "ieee access",
+)
 ENGLISH_CDP_PUBLISHER_PRIORITY = {
     "sd_elsevier": 0,
-    "ieee": 1,
-    "springer": 2,
-    "wiley": 3,
-    "acs": 4,
-    "rsc": 5,
-    "nature": 6,
+    "springer": 1,
+    "wiley": 2,
+    "acs": 3,
+    "rsc": 4,
+    "nature": 5,
 }
 
 # Strategy routing table (for display and decisions)
@@ -546,7 +550,8 @@ def run_scihub_round(dois: list[str], output_dir: str, port: int) -> tuple[list[
     try:
         subprocess.run(
             [sys.executable, str(scihub_script), scihub_input,
-             "--output", output_dir, "--port", str(port)],
+             "--output", output_dir, "--port", str(port),
+             "--retry-mirrors", "1"],
             check=False, timeout=600, env=configure_child_python_utf8_env()
         )
     except subprocess.TimeoutExpired:
@@ -594,6 +599,8 @@ def build_oa_hints_from_items(items: list) -> dict[str, dict]:
             "oa_landing_url": getattr(item, "oa_landing_url", ""),
             "oa_license": getattr(item, "oa_license", ""),
             "oa_checked_at": getattr(item, "oa_checked_at", ""),
+            "journal": getattr(item, "journal", ""),
+            "title": getattr(item, "title", ""),
         }
         raw = getattr(item, "raw", {}) or {}
         for key in list(hint):
@@ -613,7 +620,7 @@ def classify_oa_hint(hint: Optional[dict]) -> str:
         return "oa_candidate" if _looks_like_pdf_url(pdf_url) else "unknown"
     status = str(hint.get("oa_status") or "").strip().lower()
     source = str(hint.get("oa_source") or "").strip().lower()
-    if status in {"oa", "open", "open_access", "green", "gold", "hybrid", "bronze"}:
+    if status in OA_HINT_OPEN_STATUSES:
         return "oa_candidate"
     if source in {"unpaywall", "openalex", "semantic_scholar", "pmc", "pubmed"} and status:
         return "oa_candidate"
@@ -731,6 +738,95 @@ def _resolve_oa_pdf_url_lightweight(doi: str) -> Optional[str]:
     return candidate if _looks_like_pdf_url(candidate) else None
 
 
+def _resolve_oa_pdf_url_openalex(doi: str) -> Optional[str]:
+    quoted = urllib.parse.quote(f"https://doi.org/{doi}", safe="")
+    url = f"https://api.openalex.org/works/{quoted}"
+    try:
+        data, content_type = _fetch_url_bytes(url, timeout=4)
+        if "json" not in content_type.lower():
+            return None
+        payload = json.loads(data.decode("utf-8", errors="replace"))
+    except Exception:
+        return None
+    open_access = payload.get("open_access") or {}
+    locations = payload.get("locations") or []
+    candidates = [
+        open_access.get("oa_url", ""),
+        open_access.get("any_repository_has_fulltext") and open_access.get("oa_url", ""),
+    ]
+    for location in locations:
+        if not isinstance(location, dict):
+            continue
+        candidates.extend([
+            location.get("pdf_url", ""),
+            location.get("landing_page_url", ""),
+        ])
+    for candidate in candidates:
+        if isinstance(candidate, str) and _looks_like_pdf_url(candidate.strip()):
+            return candidate.strip()
+    return None
+
+
+def _resolve_oa_pdf_url_semantic_scholar(doi: str) -> Optional[str]:
+    quoted = urllib.parse.quote(doi, safe="")
+    url = (
+        "https://api.semanticscholar.org/graph/v1/paper/"
+        f"DOI:{quoted}?fields=isOpenAccess,openAccessPdf"
+    )
+    try:
+        data, content_type = _fetch_url_bytes(url, timeout=4)
+        if "json" not in content_type.lower():
+            return None
+        payload = json.loads(data.decode("utf-8", errors="replace"))
+    except Exception:
+        return None
+    open_access_pdf = payload.get("openAccessPdf") or {}
+    candidate = open_access_pdf.get("url") or ""
+    return candidate.strip() if _looks_like_pdf_url(candidate.strip()) else None
+
+
+def _resolve_oa_pdf_url_multi_source(doi: str) -> tuple[str, str]:
+    resolvers = (
+        ("unpaywall", _resolve_oa_pdf_url_lightweight),
+        ("openalex", _resolve_oa_pdf_url_openalex),
+        ("semantic_scholar", _resolve_oa_pdf_url_semantic_scholar),
+    )
+    for source, resolver in resolvers:
+        try:
+            candidate = resolver(doi) or ""
+        except Exception:
+            candidate = ""
+        if candidate:
+            return candidate, source
+    return "", ""
+
+
+def _is_known_oa_whitelist(doi: str, hint: Optional[dict]) -> bool:
+    info = classify_doi(doi)
+    pub_key = info.get("publisher", "")
+    hint = hint or {}
+    status = str(hint.get("oa_status") or "").strip().lower()
+    journal_haystack = " ".join(
+        str(hint.get(field) or "").strip().lower()
+        for field in ("journal", "title", "oa_source")
+    )
+    if pub_key == "mdpi":
+        return True
+    if pub_key == "wiley" and status in OA_HINT_OPEN_STATUSES:
+        return True
+    if pub_key in {"rsc", "nature", "ieee"} and status in OA_HINT_OPEN_STATUSES:
+        return True
+    return any(keyword in journal_haystack for keyword in OA_WHITELIST_JOURNAL_KEYWORDS)
+
+
+def _is_oa_confirmed_or_whitelisted(doi: str, oa_hints: Optional[dict[str, dict]]) -> bool:
+    hint = _normalise_oa_hints(oa_hints).get(doi.strip().lower(), {})
+    status = str(hint.get("oa_status") or "").strip().lower()
+    if status == "public_pdf_verified":
+        return True
+    return _is_known_oa_whitelist(doi, hint)
+
+
 def run_oa_fast_round(dois: list[str], output_dir: str,
                       oa_hints: Optional[dict[str, dict]] = None,
                       use_resolver: bool = True
@@ -750,16 +846,20 @@ def run_oa_fast_round(dois: list[str], output_dir: str,
 
     for doi in dois:
         hint = hints.get(doi.strip().lower(), {})
+        is_whitelist = _is_known_oa_whitelist(doi, hint)
         url = (hint.get("oa_pdf_url") or "").strip()
+        resolver_source = ""
         if not url and use_resolver:
-            url = _resolve_oa_pdf_url_lightweight(doi) or ""
+            url, resolver_source = _resolve_oa_pdf_url_multi_source(doi)
 
         if not url:
             remaining.append(doi)
+            if is_whitelist:
+                failure_reasons[doi] = "oa_whitelist_but_verification_failed"
             continue
         if not _looks_like_pdf_url(url):
             remaining.append(doi)
-            failure_reasons[doi] = "invalid_pdf_candidate"
+            failure_reasons[doi] = "oa_whitelist_but_verification_failed" if is_whitelist else "invalid_oa_candidate"
             print(f"  {FAIL} {doi[:50]} OA candidate is not a PDF URL")
             continue
 
@@ -773,12 +873,15 @@ def run_oa_fast_round(dois: list[str], output_dir: str,
         if ok:
             path = _save_oa_pdf(output_dir, doi, data)
             size_kb = os.path.getsize(path) // 1024
-            print(f"  {OK} {doi[:50]} public_pdf_verified ({size_kb}KB)")
+            if resolver_source:
+                print(f"  {OK} {doi[:50]} public_pdf_verified via {resolver_source} ({size_kb}KB)")
+            else:
+                print(f"  {OK} {doi[:50]} public_pdf_verified ({size_kb}KB)")
             downloaded.append(doi)
         else:
             print(f"  {FAIL} {doi[:50]} invalid OA PDF candidate ({reason})")
             remaining.append(doi)
-            failure_reasons[doi] = "invalid_pdf_candidate"
+            failure_reasons[doi] = "oa_whitelist_but_verification_failed" if is_whitelist else "invalid_oa_candidate"
 
     print(f"  OA fast result: {OK} {len(downloaded)} downloaded, {ARROW} {len(remaining)} remaining for CDP")
     return downloaded, remaining, failure_reasons
@@ -897,13 +1000,7 @@ def run_sd_round(dois: list[str], output_dir: str, port: int,
 
 
 def run_ieee_round(dois: list[str], output_dir: str, port: int) -> tuple[list[str], list[str]]:
-    """Round 3 (fallback): IEEE CDP for 10.1109/ papers.
-
-    NOTE: IEEE is now handled by Round 2 (Generic CDP) via publishers.toml
-    strategy="generic". This round is a fallback that only triggers if
-    the publisher config is overridden to strategy="ieee_cdp" or when
-    download_via_ieee.py is invoked directly for interactive SSO login.
-    Returns (downloaded_dois, remaining_dois)."""
+    """Round 3: IEEE CDP for 10.1109/ papers via the dedicated IEEE downloader."""
     ieee_dois = []
     other_dois = []
     for d in dois:
@@ -1224,7 +1321,7 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
                          skip_oa_fast: bool = False,
                          oa_hints: Optional[dict[str, dict]] = None,
                          ) -> tuple[list[str], list[str], list[dict], dict[str, str]]:
-    """Run English download pipeline: Sci-Hub (<=2021) -> OA fast -> Generic CDP.
+    """Run English download pipeline: Sci-Hub (<=2021) -> OA fast -> IEEE -> Generic CDP.
 
     English paths must finish before CNKI/Wanfang CDP starts. This helper is
     retained for direct callers; main() now serializes English before Chinese.
@@ -1279,7 +1376,20 @@ def run_english_pipeline(dois: list[str], output_dir: str, port: int,
         print(f"\n{DONE} English pipeline complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
         return all_downloaded, remaining, round_results, failure_reasons
 
-    # Round 3: Generic CDP (ScienceDirect and IEEE included here)
+    if not remaining:
+        print(f"\n{DONE} English pipeline complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
+        return all_downloaded, remaining, round_results, failure_reasons
+
+    # Round 3: IEEE CDP (dedicated path)
+    downloaded, remaining = run_ieee_round(remaining, output_dir, port)
+    all_downloaded.extend(downloaded)
+    round_results.append({"round": "IEEE CDP", "downloaded": downloaded})
+
+    if not remaining:
+        print(f"\n{DONE} English pipeline complete - all {len(all_downloaded)}/{len(dois)} downloaded!")
+        return all_downloaded, remaining, round_results, failure_reasons
+
+    # Round 4: Generic CDP (ScienceDirect and other English publishers)
     downloaded, remaining, generic_failures = run_generic_round(
         remaining, output_dir, port, include_si=include_si
     )
@@ -1483,12 +1593,15 @@ def _filter_login_required_dois(dois: list[str], failure_reasons: dict[str, str]
     ]
 
 
-def _english_login_candidate_dois(dois: list[str]) -> list[str]:
+def _english_login_candidate_dois(dois: list[str],
+                                  oa_hints: Optional[dict[str, dict]] = None) -> list[str]:
     """Return remaining English DOI(s) whose route may require institution login."""
     candidates: list[str] = []
     for doi in dois:
         c = classify_doi(doi)
         if c["strategy"] not in ENGLISH_LOGIN_STRATEGIES:
+            continue
+        if _is_oa_confirmed_or_whitelisted(doi, oa_hints):
             continue
         pub_cfg = c.get("publisher_config", {}) or {}
         if pub_cfg.get("requires_auth", "institution") == "none":
@@ -1497,7 +1610,8 @@ def _english_login_candidate_dois(dois: list[str]) -> list[str]:
     return candidates
 
 
-def _english_login_dois_without_trusted_session(dois: list[str], port: int) -> list[str]:
+def _english_login_dois_without_trusted_session(dois: list[str], port: int,
+                                                oa_hints: Optional[dict[str, dict]] = None) -> list[str]:
     """Return login candidates lacking a trusted PDF/article probe signal.
 
     Cookie presence is intentionally treated as weak. A publisher is trusted
@@ -1505,7 +1619,7 @@ def _english_login_dois_without_trusted_session(dois: list[str], port: int) -> l
     """
     pending: list[str] = []
     session_cache: dict[str, bool] = {}
-    for doi in _english_login_candidate_dois(dois):
+    for doi in _english_login_candidate_dois(dois, oa_hints=oa_hints):
         c = classify_doi(doi)
         pub_cfg = c.get("publisher_config", {}) or {}
         pub_key = c.get("publisher", "unknown")
@@ -2398,6 +2512,8 @@ def main():
     oa_dl: list[str] = []
     oa_results: list[dict] = []
     oa_failure_reasons: dict[str, str] = {}
+    ieee_dl: list[str] = []
+    ieee_results: list[dict] = []
 
     if en_rem:
         if args.skip_oa_fast:
@@ -2409,6 +2525,20 @@ def main():
                 oa_hints=oa_hints,
             )
             oa_results.append({"round": "OA fast (public_pdf_verified)", "downloaded": oa_dl})
+
+    if en_rem and not args.skip_ieee:
+        has_ieee = any(classify_doi(d)["strategy"] == "ieee_cdp" for d in en_rem)
+        if has_ieee:
+            if not ensure_cdp_running(args.port, browser=args.browser):
+                print(f"\nERROR: CDP {args.browser.title()} not running on port {args.port}.")
+                print(f"Start {args.browser.title()} with:")
+                print(f"  {sys.executable} scripts/start_cdp_browser.py --browser {args.browser} --port {args.port}")
+                print("  macOS/Linux wrapper also supported: bash scripts/start_cdp_chrome.sh")
+                sys.exit(1)
+            ieee_dl, en_rem = run_ieee_round(en_rem, args.output, args.port)
+            ieee_results.append({"round": "IEEE CDP", "downloaded": ieee_dl})
+    elif en_rem and args.skip_ieee:
+        print(f"\n{SKIP} Round 3 (IEEE CDP): Skipped (--skip-ieee)")
 
     if en_rem:
         # Check if remaining papers actually need CDP
@@ -2425,9 +2555,11 @@ def main():
         preflight_login_dois: list[str] = []
         if has_cdp:
             if args.require_login_confirm:
-                preflight_login_dois = _english_login_candidate_dois(en_rem)
+                preflight_login_dois = _english_login_candidate_dois(en_rem, oa_hints=oa_hints)
             else:
-                preflight_login_dois = _english_login_dois_without_trusted_session(en_rem, args.port)
+                preflight_login_dois = _english_login_dois_without_trusted_session(
+                    en_rem, args.port, oa_hints=oa_hints
+                )
         if preflight_login_dois:
             print(f"\n{WARN} English Generic CDP includes {len(preflight_login_dois)} login-sensitive item(s) without confirmed access.")
             print("  Login is checked before the grouped download loop to avoid per-paper login-wall failures.")
@@ -2486,8 +2618,8 @@ def main():
     elif not scihub_rem:
         print(f"\n{DONE} Sci-Hub downloaded all papers! ({len(scihub_dl)}/{len(dois)})")
 
-    en_dl = oa_dl + en_dl
-    en_results = oa_results + en_results
+    en_dl = oa_dl + ieee_dl + en_dl
+    en_results = oa_results + ieee_results + en_results
     en_failure_reasons = {**oa_failure_reasons, **en_failure_reasons}
 
     # ═══════════════════════════════════════════════════════════════════
