@@ -10,6 +10,11 @@
 
 ## Unreleased
 
+### Step 5 CNKI 已验证详情页复用
+
+- **CNKI 不绕过安全验证，只复用已验证状态**：CNKI 下载前会先扫描同一 CDP 浏览器中的已打开 CNKI 标签页，按详情页 URL 优先、题名匹配其次复用已验证详情页；匹配到安全验证页时返回 `captcha_required` 并保留页面，找不到可复用页时才新开详情页。
+- **CNKI 人工协作路径更稳**：自动点击仍只允许白名单 `PDF下载` / `#pdfDown`；`captcha_required` 与 `manual_required` 会保留当前页，方便用户完成图形验证或手动点击后由脚本监视 PDF 落盘并归档。
+
 ### Step 5 MDPI Generic CDP 下载路径
 
 - **MDPI 从跳过改为 CDP 尝试**：`10.3390/` DOI 不再直接 `skip`；路由进入 Generic CDP，通过真实浏览器打开 DOI 详情页并提取 `Download PDF` / `a.UD_ArticlePDF`，普通 HTTP 被 Akamai 403 或 CDP 捕获失败时保留人工点击兜底。

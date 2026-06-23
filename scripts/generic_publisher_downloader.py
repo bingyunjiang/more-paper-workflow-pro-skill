@@ -27,7 +27,7 @@ Usage (as CLI):
 
 from __future__ import annotations
 
-import sys, os, json, time, re, base64, urllib.request, urllib.error, tomllib, argparse
+import sys, os, json, time, re, base64, urllib.request, urllib.error, urllib.parse, tomllib, argparse
 from pathlib import Path
 from typing import Optional
 
@@ -67,6 +67,7 @@ CNKI_NON_OK_STATUSES = {
 WANFANG_NON_OK_STATUSES = {
     "manual_required",
     "pdf_probe_unknown",
+    "fulltext_delivery_mode",
     "no_url",
 }
 
@@ -113,7 +114,8 @@ def resolve_publisher(doi: str) -> dict | None:
 def download_one(port: int, doi: str, output_dir: str = "paper-temp",
                  include_si: bool = False,
                  timeout: int = DEFAULT_TIMEOUT,
-                 article_url: str = "") -> tuple[Optional[str], str, str]:
+                 article_url: str = "",
+                 title: str = "") -> tuple[Optional[str], str, str]:
     """Download one paper via generic CDP strategies.
 
     Args:
@@ -125,6 +127,7 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
         article_url: Direct article page URL override.
                      Required for chinese_cdp strategy (CNKI/Wanfang
                      papers lack standard DOI→URL mapping).
+        title: Optional paper title. Used only for CNKI reusable-tab matching.
 
     Returns: (pdf_path_or_None, status, publisher_name)
       status: "ok" | "failed" | "skipped" | "manual_required" | "no_url"
@@ -183,7 +186,7 @@ def download_one(port: int, doi: str, output_dir: str = "paper-temp",
         # CNKI: click-based download (requires Referrer from article page)
         elif pub_name == "cnki":
             cnki_result = _download_cnki(port, article_url, publisher, timeout,
-                                         output_dir=output_dir)
+                                         output_dir=output_dir, title=title)
             if cnki_result in CNKI_NON_OK_STATUSES:
                 return None, str(cnki_result), pub_name
             if cnki_result:
@@ -593,10 +596,12 @@ def _parse_wanfang_article_url(article_url: str) -> tuple[str, str, str] | None:
 def _wanfang_detail_click_expression(paper_type: str) -> str:
     """Build Wanfang detail-page JS with per-type download white-listing."""
     allowed = "['整篇下载', '下载']" if paper_type == "thesis" else "['下载']"
+    delivery = "['原文传递']"
     blocked = "['在线阅读', '评审材料', '分章下载']"
     return f'''
 (function(){{
   var allowed = {allowed};
+  var delivery = {delivery};
   var blocked = {blocked};
   function textOf(node) {{
     return ((node.innerText || node.textContent || node.getAttribute('title') || '') + '').trim();
@@ -616,6 +621,9 @@ def _wanfang_detail_click_expression(paper_type: str) -> str:
       if (nodes[i].removeAttribute) nodes[i].removeAttribute('target');
       nodes[i].click();
       return 'clicked:' + compact;
+    }}
+    if (delivery.indexOf(text) >= 0 || delivery.indexOf(compact) >= 0) {{
+      return 'delivery:' + compact;
     }}
   }}
   return 'pdf_probe_unknown';
@@ -730,9 +738,13 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
     click_resp = json.loads(tab_ws.recv())
     click_result = str(click_resp.get("result", {}).get("result", {}).get("value", ""))
     tab_ws.close()
-    if not click_result.startswith("clicked:"):
+    delivery_clicked = click_result.startswith("delivery:")
+    if not click_result.startswith("clicked:") and not delivery_clicked:
         close_tab(port, tid)
         return "pdf_probe_unknown"
+    if delivery_clicked:
+        close_tab(port, tid)
+        return "fulltext_delivery_mode"
 
     # Step 2: If Wanfang opens an interstitial download page, click "点击此处".
     time.sleep(10)
@@ -852,50 +864,170 @@ def _cnki_status_from_click_result(result_val: object) -> Optional[str]:
     return None
 
 
-def _download_cnki(port: int, article_url: str, publisher: dict,
-                   timeout: int = DEFAULT_TIMEOUT,
-                   output_dir: str = "") -> Optional[str]:
-    """Download CNKI paper by clicking PDF download on article detail page.
+def _cnki_normalize_title(value: str) -> str:
+    return re.sub(r"\s+", "", value or "").lower()
 
-    CNKI requires Referrer from the article page, so we must click from
-    the detail page rather than navigating directly to bar.cnki.net.
-    """
-    import os as _os, glob as _glob, hashlib, shutil as _shutil
 
-    # Step 1: Create tab and navigate to CNKI article detail page
-    browser_ws_url = get_cdp_ws_url(port)
-    bws = websocket.create_connection(browser_ws_url, timeout=10)
-    bws.send(json.dumps({"id": 1, "method": "Target.createTarget",
-                         "params": {"url": article_url}}))
-    tid = json.loads(bws.recv())["result"]["targetId"]
-    bws.close()
-    time.sleep(5)  # CNKI detail pages are heavy
+def _cnki_same_article_url(left: str, right: str) -> bool:
+    """Return True when two CNKI URLs identify the same detail page."""
+    if not left or not right:
+        return False
+    left_parts = urllib.parse.urlparse(left)
+    right_parts = urllib.parse.urlparse(right)
+    left_key = (left_parts.netloc.lower(), left_parts.path.lower())
+    right_key = (right_parts.netloc.lower(), right_parts.path.lower())
+    if left_key == right_key and left_parts.query == right_parts.query:
+        return True
 
-    # Get tab WS for click operation
-    tab_ws_url = get_tab_ws_url(port, tid)
+    left_q = urllib.parse.parse_qs(left_parts.query)
+    right_q = urllib.parse.parse_qs(right_parts.query)
+    for key in ("filename", "dbcode"):
+        left_val = (left_q.get(key) or left_q.get(key.upper()) or [""])[0].lower()
+        right_val = (right_q.get(key) or right_q.get(key.upper()) or [""])[0].lower()
+        if not left_val or not right_val or left_val != right_val:
+            return False
+    return True
+
+
+def _cnki_url_references_article(candidate_url: str, article_url: str) -> bool:
+    if not candidate_url or not article_url:
+        return False
+    candidate = urllib.parse.unquote(candidate_url).lower()
+    target = urllib.parse.unquote(article_url).lower()
+    if target and target in candidate:
+        return True
+
+    target_q = urllib.parse.parse_qs(urllib.parse.urlparse(article_url).query)
+    filename = (target_q.get("filename") or target_q.get("FILENAME") or [""])[0].lower()
+    dbcode = (target_q.get("dbcode") or target_q.get("DBCODE") or [""])[0].lower()
+    if filename and filename in candidate:
+        return not dbcode or dbcode in candidate
+    return False
+
+
+def _cnki_tab_probe_expression(target_title: str = "") -> str:
+    return r'''
+(function(targetTitle){
+  function textOf(node) {
+    return ((node.innerText || node.textContent || node.getAttribute('title') || '') + '').trim();
+  }
+  function hrefOf(node) {
+    return ((node.href || node.getAttribute('href') || '') + '').trim();
+  }
+  function hasAny(text, terms) {
+    for (var i = 0; i < terms.length; i++) {
+      if (text.indexOf(terms[i]) >= 0) return true;
+    }
+    return false;
+  }
+  function isBlockedEntry(node) {
+    var text = textOf(node);
+    return hasAny(text, ['AI阅读', '原版阅读', 'CAJ下载', '章节下载', '分页下载', '我是作者', '免费下载']);
+  }
+  function hasPdfDownload() {
+    var pdfDown = document.querySelector('#pdfDown');
+    if (pdfDown && !isBlockedEntry(pdfDown)) return true;
+    var nodes = document.querySelectorAll('a, button, span, div');
+    for (var i = 0; i < nodes.length; i++) {
+      if (isBlockedEntry(nodes[i])) continue;
+      var text = textOf(nodes[i]);
+      var href = hrefOf(nodes[i]).toLowerCase();
+      if ((text.indexOf('PDF下载') >= 0 || text.indexOf('PDF 下载') >= 0) &&
+          !hasAny(text, ['CAJ', '章节', '分页', 'AI阅读', '原版阅读', '我是作者', '免费'])) {
+        return true;
+      }
+      if (href.indexOf('bar.cnki.net/bar/download/order') >= 0 &&
+          (text.indexOf('PDF') >= 0 || href.indexOf('pdf') >= 0)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  var title = (document.title || '').trim();
+  var url = String(location.href || '');
+  var body = (document.body && document.body.innerText || '').trim();
+  return {
+    url: url,
+    title: title,
+    body: body.substring(0, 5000),
+    captcha: url.indexOf('/verify/home') >= 0 ||
+      title.indexOf('安全验证') >= 0 ||
+      body.indexOf('请完成安全验证') >= 0,
+    pdfVisible: hasPdfDownload()
+  };
+})(''' + json.dumps(target_title or "", ensure_ascii=False) + r''')
+'''
+
+
+def _cnki_evaluate_tab(tab_ws_url: str, expression: str) -> object:
+    tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
+    try:
+        tab_ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate",
+                                "params": {"expression": expression}}))
+        result = json.loads(tab_ws.recv())
+        return result.get("result", {}).get("result", {}).get("value")
+    finally:
+        tab_ws.close()
+
+
+def _cnki_probe_tab(port: int, tab_id: str, title: str = "") -> Optional[dict]:
+    tab_ws_url = get_tab_ws_url(port, tab_id)
     if not tab_ws_url:
         return None
-    tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
+    value = _cnki_evaluate_tab(tab_ws_url, _cnki_tab_probe_expression(title))
+    return value if isinstance(value, dict) else None
 
-    # Step 2: Click whole-paper download entries, or return a precise CNKI state.
-    downloads_dir = _os.path.expanduser("~/Downloads")
-    before_dl = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
-    js = _cnki_download_click_expression()
-    tab_ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate",
-                            "params": {"expression": js}}))
-    click_result = json.loads(tab_ws.recv())
-    result_val = click_result.get("result", {}).get("result", {}).get("value", "")
-    tab_ws.close()
 
-    status = _cnki_status_from_click_result(result_val)
-    if status:
-        # Leave captcha/manual tabs open so the user can verify or click manually.
-        if status not in ("captcha_required", "manual_required", "chapter_download_mode"):
-            close_tab(port, tid)
-        return status
+def _find_reusable_cnki_tab(port: int, article_url: str,
+                            title: str = "") -> tuple[Optional[str], Optional[str]]:
+    """Find an already-open CNKI detail tab for the target paper.
 
-    # Step 3: Wait for PDF in ~/Downloads
-    for i in range(timeout + 15):
+    Returns (tab_id, status). status is "captcha_required" when the matching
+    tab is a CNKI verification page that should be left open for the user.
+    """
+    target_title = _cnki_normalize_title(title)
+    for tab in list_tabs(port):
+        tab_id = tab.get("id", "")
+        tab_url = tab.get("url", "")
+        if not tab_id or "cnki.net" not in tab_url.lower():
+            continue
+        probe = _cnki_probe_tab(port, tab_id, title)
+        if not probe:
+            continue
+        probe_url = str(probe.get("url") or tab_url)
+        haystack = _cnki_normalize_title(
+            f"{probe.get('title', '')} {probe.get('body', '')}"
+        )
+        same_url = _cnki_same_article_url(probe_url, article_url)
+        title_match = bool(target_title and target_title in haystack)
+        if probe.get("captcha") and (
+            same_url or title_match or _cnki_url_references_article(probe_url, article_url)
+        ):
+            return tab_id, "captcha_required"
+        if same_url:
+            return tab_id, None
+        if title_match and probe.get("pdfVisible"):
+            return tab_id, None
+    return None, None
+
+
+def _cnki_create_detail_tab(port: int, article_url: str) -> Optional[str]:
+    browser_ws_url = get_cdp_ws_url(port)
+    bws = websocket.create_connection(browser_ws_url, timeout=10)
+    try:
+        bws.send(json.dumps({"id": 1, "method": "Target.createTarget",
+                             "params": {"url": article_url}}))
+        return json.loads(bws.recv())["result"]["targetId"]
+    finally:
+        bws.close()
+
+
+def _cnki_wait_for_download(downloads_dir: str, before_dl: set[str],
+                            output_dir: str, article_url: str,
+                            timeout: int) -> Optional[str]:
+    import os as _os, glob as _glob, hashlib, shutil as _shutil
+
+    for _ in range(timeout + 15):
         time.sleep(1)
         current = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
         new_pdfs = current - before_dl
@@ -906,10 +1038,61 @@ def _download_cnki(port: int, article_url: str, publisher: dict,
                 dest = _os.path.join(output_dir,
                     f"cnki.{hashlib.md5(article_url.encode()).hexdigest()[:16]}.pdf")
                 _shutil.copy2(dl_path, dest)
-                close_tab(port, tid)
                 return dest
+    return None
 
-    close_tab(port, tid)
+
+def _download_cnki(port: int, article_url: str, publisher: dict,
+                   timeout: int = DEFAULT_TIMEOUT,
+                   output_dir: str = "",
+                   title: str = "") -> Optional[str]:
+    """Download CNKI paper by clicking PDF download on article detail page.
+
+    CNKI requires Referrer from the article page, so we must click from
+    the detail page rather than navigating directly to bar.cnki.net.
+    """
+    import os as _os, glob as _glob
+
+    # Step 1: Prefer a user-verified CNKI detail tab before opening the URL
+    # again, because revisiting the URL can trigger CNKI verification loops.
+    tid, reusable_status = _find_reusable_cnki_tab(port, article_url, title=title)
+    should_close_tab = False
+    if reusable_status:
+        return reusable_status
+    if not tid:
+        tid = _cnki_create_detail_tab(port, article_url)
+        should_close_tab = True
+        time.sleep(5)  # CNKI detail pages are heavy
+    if not tid:
+        return None
+
+    # Get tab WS for click operation
+    tab_ws_url = get_tab_ws_url(port, tid)
+    if not tab_ws_url:
+        return None
+
+    # Step 2: Click whole-paper download entries, or return a precise CNKI state.
+    downloads_dir = _os.path.expanduser("~/Downloads")
+    before_dl = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
+    js = _cnki_download_click_expression()
+    result_val = _cnki_evaluate_tab(tab_ws_url, js)
+
+    status = _cnki_status_from_click_result(result_val)
+    if status:
+        # Leave captcha/manual tabs open so the user can verify or click manually.
+        if should_close_tab and status not in ("captcha_required", "manual_required", "chapter_download_mode"):
+            close_tab(port, tid)
+        return status
+
+    # Step 3: Wait for PDF in ~/Downloads
+    pdf_path = _cnki_wait_for_download(
+        downloads_dir, before_dl, output_dir, article_url, timeout
+    )
+    if pdf_path:
+        if should_close_tab:
+            close_tab(port, tid)
+        return pdf_path
+
     return "manual_required"
 
 

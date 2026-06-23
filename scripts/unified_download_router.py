@@ -1122,11 +1122,13 @@ def _download_chinese_paper_once(paper: dict, output_dir: str, port: int) -> tup
 
     return generic_download_one(
         port, doi or f"{source}.{hashlib.md5(title.encode()).hexdigest()[:12]}",
-        output_dir, article_url=article_url
+        output_dir, article_url=article_url, title=title
     )
 
 
-def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[list[str], list[str]]:
+def run_chinese_round_with_reasons(
+    papers: list[dict], output_dir: str, port: int
+) -> tuple[list[str], list[str], dict[str, str]]:
     """Chinese CDP download round for CNKI and Wanfang papers.
 
     Each paper dict must have: title, source (cnki|wanfang), article_url.
@@ -1138,11 +1140,11 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
         output_dir: Directory to save downloaded PDFs.
         port: CDP Chrome debug port.
 
-    Returns: (downloaded_dois, remaining_dois).
+    Returns: (downloaded_dois, remaining_dois, failure_reasons).
     """
     if not papers:
         print(f"\n{SKIP} Chinese Round: No Chinese papers to download.")
-        return [], []
+        return [], [], {}
 
     print(f"\n{'='*60}")
     print(f"Chinese Round: CNKI / Wanfang CDP ({len(papers)} papers)")
@@ -1151,12 +1153,14 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
     ok, fail, skipped = 0, 0, 0
     downloaded = []
     remaining = []
+    failure_reasons: dict[str, str] = {}
 
     for i, paper in enumerate(papers):
         title = paper.get("title", f"paper_{i+1}")
         source = paper.get("source", "").lower()
         article_url = paper.get("article_url", "")
         doi = paper.get("doi", "")
+        paper_id = doi or title
 
         # Shorten title for display
         display_title = title[:45] + ("..." if len(title) > 45 else "")
@@ -1165,7 +1169,8 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
 
         if not article_url:
             print(f"{FAIL} (no article URL - cannot download)")
-            remaining.append(doi or title)
+            remaining.append(paper_id)
+            failure_reasons[paper_id] = "no_url"
             skipped += 1
             continue
 
@@ -1185,19 +1190,27 @@ def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[l
         if result_path and status == "ok":
             size_kb = os.path.getsize(result_path) // 1024
             print(f"{OK} ({size_kb}KB, {elapsed:.1f}s)")
-            downloaded.append(doi or title)
+            downloaded.append(paper_id)
             ok += 1
         elif status == "no_url":
             print(f"{FAIL} (no article URL)")
-            remaining.append(doi or title)
+            remaining.append(paper_id)
+            failure_reasons[paper_id] = status
             skipped += 1
         else:
             print(f"{FAIL} ({elapsed:.1f}s)")
-            remaining.append(doi or title)
+            remaining.append(paper_id)
+            failure_reasons[paper_id] = status or "chinese_cdp_failed"
             fail += 1
 
     print(f"  Chinese result: {OK} {ok} downloaded, {FAIL} {fail} failed, {SKIP} {skipped} skipped (no URL)")
 
+    return downloaded, remaining, failure_reasons
+
+
+def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[list[str], list[str]]:
+    """Backward-compatible wrapper for callers that do not need failure reasons."""
+    downloaded, remaining, _failure_reasons = run_chinese_round_with_reasons(papers, output_dir, port)
     return downloaded, remaining
 
 
@@ -1668,7 +1681,7 @@ def write_chinese_login_checkpoint(output_dir: str, papers: list[dict]) -> str:
 
 def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
                                          port: int) -> tuple[list[str], list[str]]:
-    """Resume only the CNKI/Wanfang papers stored in a Chinese login checkpoint."""
+    """Backward-compatible checkpoint resume without failure-reason sidecar."""
     with open(checkpoint_path, "r", encoding="utf-8") as f:
         payload = json.load(f)
 
@@ -1690,6 +1703,35 @@ def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
     refreshed = write_chinese_login_checkpoint(output_dir, papers)
     print(f"{WARN} Chinese login still pending; checkpoint refreshed: {refreshed}")
     return [], [paper.get("doi") or paper.get("title", "") for paper in papers]
+
+
+def resume_from_chinese_login_checkpoint_with_reasons(
+    checkpoint_path: str, output_dir: str, port: int
+) -> tuple[list[str], list[str], dict[str, str]]:
+    """Resume only the CNKI/Wanfang papers stored in a Chinese login checkpoint."""
+    with open(checkpoint_path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    papers = [
+        item for item in payload.get("items", [])
+        if item.get("source") in {"cnki", "wanfang"} and item.get("article_url")
+    ]
+    papers = sort_chinese_papers_for_download(papers)
+    if not papers:
+        return [], [], {}
+
+    gate = show_chinese_login_gate(papers, port=port)
+    if gate is True:
+        return run_chinese_round_with_reasons(papers, output_dir, port)
+    if gate is False:
+        print("Chinese download skipped by user.")
+        remaining = [paper.get("doi") or paper.get("title", "") for paper in papers]
+        return [], remaining, {paper_id: "login_skipped_by_user" for paper_id in remaining}
+
+    refreshed = write_chinese_login_checkpoint(output_dir, papers)
+    print(f"{WARN} Chinese login still pending; checkpoint refreshed: {refreshed}")
+    remaining = [paper.get("doi") or paper.get("title", "") for paper in papers]
+    return [], remaining, {paper_id: "pending_user_login" for paper_id in remaining}
 
 
 def prepare_chinese_round_with_login_gate(papers: list[dict], output_dir: str,
@@ -2042,7 +2084,7 @@ def main():
             sys.exit(1)
 
         try:
-            downloaded, remaining = resume_from_chinese_login_checkpoint(
+            downloaded, remaining, failure_reasons = resume_from_chinese_login_checkpoint_with_reasons(
                 checkpoint_path,
                 args.output,
                 args.port,
@@ -2058,6 +2100,7 @@ def main():
                 args.output,
                 all_items,
                 [{"round": "Chinese CDP (resume login checkpoint)", "downloaded": downloaded}],
+                failure_reasons,
             )
             print(f"\n{DONE} Chinese resume complete - {OK} {len(downloaded)}/{len(all_items)}, {FAIL} {len(remaining)} remaining")
         finally:
@@ -2323,6 +2366,7 @@ def main():
     scihub_rem = list(dois)
     ch_dl: list[str] = []
     ch_rem: list[str] = []
+    ch_failure_reasons: dict[str, str] = {}
 
     if has_scihub_round:
         scihub_dl, scihub_rem = run_scihub_round(list(dois), args.output, args.port)
@@ -2450,9 +2494,13 @@ def main():
                 sys.exit(1)
             if args.require_login_confirm:
                 if prepare_chinese_round_with_login_gate(chinese_papers, args.output, port=args.port):
-                    ch_dl, ch_rem = run_chinese_round(chinese_papers, args.output, args.port)
+                    ch_dl, ch_rem, ch_failure_reasons = run_chinese_round_with_reasons(
+                        chinese_papers, args.output, args.port
+                    )
             else:
-                ch_dl, ch_rem = run_chinese_round(chinese_papers, args.output, args.port)
+                ch_dl, ch_rem, ch_failure_reasons = run_chinese_round_with_reasons(
+                    chinese_papers, args.output, args.port
+                )
 
     # ═══════════════════════════════════════════════════════════════════
     # Phase 4: Merge results from all phases
@@ -2472,7 +2520,8 @@ def main():
         dois = dois + ch_dois
 
     # ── Final summary ─────────────────────────────────────────────────
-    log_path = generate_download_log(args.output, dois, round_results, en_failure_reasons)
+    failure_reasons = {**en_failure_reasons, **ch_failure_reasons}
+    log_path = generate_download_log(args.output, dois, round_results, failure_reasons)
 
     total_all = len(dois)
     print(f"\n{'='*60}")
@@ -2488,10 +2537,10 @@ def main():
             for d in remaining:
                 pub = resolve_publisher(d)
                 pub_name = pub.get("_key", "unknown") if pub else "unknown"
-                reason = en_failure_reasons.get(d, "")
+                reason = failure_reasons.get(d, "")
                 suffix = f" | {reason}" if reason else ""
                 f.write(f"{d}  # {pub_name}{suffix}\n")
-        sidecar_path = write_failed_doi_sidecar(args.output, remaining, en_failure_reasons)
+        sidecar_path = write_failed_doi_sidecar(args.output, remaining, failure_reasons)
         print(f"  Failed list:     {failed_path}")
         print(f"  Failed sidecar:  {sidecar_path}")
 

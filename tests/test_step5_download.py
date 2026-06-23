@@ -963,6 +963,92 @@ class Step5DownloadTest(unittest.TestCase):
         )
         self.assertIsNone(gpd._cnki_status_from_click_result("clicked:PDF下载:https://x"))
 
+    def test_find_reusable_cnki_tab_ignores_unrelated_verify_page(self):
+        target_url = "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=target"
+        tabs = [
+            {"id": "old-verify", "url": "https://kns.cnki.net/verify/home?filename=other"},
+            {"id": "target-tab", "url": target_url},
+        ]
+
+        def fake_probe(_port, tab_id, _title=""):
+            if tab_id == "old-verify":
+                return {
+                    "url": "https://kns.cnki.net/verify/home?filename=other",
+                    "title": "安全验证",
+                    "body": "请完成安全验证",
+                    "captcha": True,
+                    "pdfVisible": False,
+                }
+            return {
+                "url": target_url,
+                "title": "CNKI demo",
+                "body": "CNKI demo PDF下载",
+                "captcha": False,
+                "pdfVisible": True,
+            }
+
+        with patch.object(gpd, "list_tabs", return_value=tabs), \
+             patch.object(gpd, "_cnki_probe_tab", side_effect=fake_probe):
+            tab_id, status = gpd._find_reusable_cnki_tab(9223, target_url, title="CNKI demo")
+
+        self.assertEqual(tab_id, "target-tab")
+        self.assertIsNone(status)
+
+    def test_cnki_download_reuses_verified_detail_tab_without_creating_target(self):
+        with patch.object(gpd, "_find_reusable_cnki_tab", return_value=("tab-1", None)), \
+             patch.object(gpd, "_cnki_create_detail_tab") as create_tab, \
+             patch.object(gpd, "get_tab_ws_url", return_value="ws://tab-1"), \
+             patch.object(gpd, "_cnki_evaluate_tab", return_value="clicked:PDF下载:https://bar.cnki.net/x"), \
+             patch.object(gpd, "_cnki_wait_for_download", return_value="paper-temp/cnki.demo.pdf"), \
+             patch.object(gpd, "close_tab") as close_tab:
+            result = gpd._download_cnki(
+                9223,
+                "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+                {"strategy": "chinese_cdp"},
+                output_dir="paper-temp",
+                title="CNKI demo",
+            )
+
+        self.assertEqual(result, "paper-temp/cnki.demo.pdf")
+        create_tab.assert_not_called()
+        close_tab.assert_not_called()
+
+    def test_cnki_download_keeps_matching_captcha_tab_open(self):
+        with patch.object(gpd, "_find_reusable_cnki_tab", return_value=("tab-verify", "captcha_required")), \
+             patch.object(gpd, "_cnki_create_detail_tab") as create_tab, \
+             patch.object(gpd, "close_tab") as close_tab:
+            result = gpd._download_cnki(
+                9223,
+                "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+                {"strategy": "chinese_cdp"},
+                output_dir="paper-temp",
+                title="CNKI demo",
+            )
+
+        self.assertEqual(result, "captcha_required")
+        create_tab.assert_not_called()
+        close_tab.assert_not_called()
+
+    def test_cnki_download_falls_back_to_new_detail_tab_when_no_reusable_tab(self):
+        with patch.object(gpd, "_find_reusable_cnki_tab", return_value=(None, None)), \
+             patch.object(gpd, "_cnki_create_detail_tab", return_value="new-tab") as create_tab, \
+             patch.object(gpd, "get_tab_ws_url", return_value="ws://new-tab"), \
+             patch.object(gpd, "_cnki_evaluate_tab", return_value="clicked:PDF下载:https://bar.cnki.net/x"), \
+             patch.object(gpd, "_cnki_wait_for_download", return_value=None), \
+             patch.object(gpd, "close_tab") as close_tab, \
+             patch.object(gpd.time, "sleep", return_value=None):
+            result = gpd._download_cnki(
+                9223,
+                "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+                {"strategy": "chinese_cdp"},
+                output_dir="paper-temp",
+                title="CNKI demo",
+            )
+
+        self.assertEqual(result, "manual_required")
+        create_tab.assert_called_once()
+        close_tab.assert_not_called()
+
     def test_download_one_returns_cnki_captcha_required(self):
         with patch.object(gpd, "resolve_publisher", return_value=None), \
              patch.object(gpd, "_download_cnki", return_value="captcha_required"):
@@ -990,6 +1076,20 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertIsNone(path)
         self.assertEqual(status, "chapter_download_mode")
         self.assertEqual(pub, "cnki")
+
+    def test_chinese_paper_once_passes_title_for_cnki_reusable_tab_matching(self):
+        paper = {
+            "title": "CNKI demo title",
+            "source": "cnki",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+            "doi": "cnki.demo",
+        }
+        with patch.object(router, "resolve_publisher", return_value=None), \
+             patch.object(router, "generic_download_one", return_value=("paper-temp/cnki.demo.pdf", "ok", "cnki")) as download_one:
+            result = router._download_chinese_paper_once(paper, "paper-temp", 9223)
+
+        self.assertEqual(result, ("paper-temp/cnki.demo.pdf", "ok", "cnki"))
+        self.assertEqual(download_one.call_args.kwargs["title"], "CNKI demo title")
 
     def test_sciencedirect_generic_adapter_downloads_via_generic_capture(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1803,6 +1903,43 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(download_one.call_count, 2)
         gate_input.assert_called_once_with("Enter 1/2/3: ")
 
+    def test_wanfang_detail_click_expression_handles_fulltext_delivery(self):
+        expression = gpd._wanfang_detail_click_expression("periodical")
+
+        self.assertIn("原文传递", expression)
+        self.assertIn("delivery:", expression)
+        delivery_block = expression.split("if (delivery.indexOf", 1)[1]
+        delivery_block = delivery_block.split("return 'pdf_probe_unknown'", 1)[0]
+        self.assertNotIn(".click()", delivery_block)
+
+    def test_wanfang_fulltext_delivery_is_non_ok_skip_status(self):
+        self.assertIn("fulltext_delivery_mode", gpd.WANFANG_NON_OK_STATUSES)
+        self.assertNotIn("fulltext_delivery_mode", router.CHINESE_MANUAL_RETRY_STATUSES)
+
+    def test_chinese_round_records_fulltext_delivery_mode_reason(self):
+        paper = {
+            "title": "万方原文传递",
+            "source": "wanfang",
+            "doi": "wanfang.delivery",
+            "article_url": "https://d.wanfangdata.com.cn/periodical/wf-delivery",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(
+                router,
+                "_download_chinese_paper_once",
+                return_value=(None, "fulltext_delivery_mode", "wanfang"),
+            ) as download_one, \
+                 patch.object(router, "_safe_gate_input") as gate_input:
+                downloaded, remaining, failure_reasons = router.run_chinese_round_with_reasons(
+                    [paper], tmp, 9223
+                )
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["wanfang.delivery"])
+        self.assertEqual(failure_reasons["wanfang.delivery"], "fulltext_delivery_mode")
+        download_one.assert_called_once()
+        gate_input.assert_not_called()
+
     def test_parallel_phase1_is_ignored_and_chinese_runs_after_english(self):
         events = []
         chinese_papers = [
@@ -1848,7 +1985,7 @@ class Step5DownloadTest(unittest.TestCase):
         def fake_chinese(papers, output, port):
             events.append("chinese")
             received_chinese_order.extend(paper["doi"] for paper in papers)
-            return ["cnki.demo"], []
+            return ["cnki.demo"], [], {}
 
         with tempfile.TemporaryDirectory() as tmp:
             lock_path = Path(tmp) / "step5.lock"
@@ -1869,7 +2006,7 @@ class Step5DownloadTest(unittest.TestCase):
                  patch.object(router, "run_oa_fast_round", side_effect=fake_oa), \
                  patch.object(router, "_english_login_dois_without_trusted_session", return_value=[]), \
                  patch.object(router, "run_english_cdp", side_effect=fake_english), \
-                 patch.object(router, "run_chinese_round", side_effect=fake_chinese), \
+                 patch.object(router, "run_chinese_round_with_reasons", side_effect=fake_chinese), \
                  patch.object(router, "generate_download_log", return_value=str(Path(tmp) / "download_log.md")), \
                  patch("sys.stdout", new_callable=io.StringIO) as stdout:
                 router.main()
