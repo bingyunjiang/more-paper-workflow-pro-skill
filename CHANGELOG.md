@@ -30,6 +30,9 @@
 - **CNKI 失败状态拆分**：`generic_publisher_downloader.py` 对 CNKI 安全验证页返回 `captcha_required`，对详情页未证明下载入口返回 `pdf_probe_unknown`，对人工路径返回 `manual_required`，对未识别到 PDF 但出现章节/分页入口的页面返回 `chapter_download_mode`，不再统一压成 `failed`。
 - **CNKI 自动点击入口收紧为 PDF 白名单**：期刊论文和学位论文详情页都只允许自动点击明确的 `PDF下载` / `PDF 下载` / `#pdfDown`；`AI阅读`、`原版阅读`、`CAJ下载`、`章节下载`、`分页下载`、`我是作者`、`免费下载`、`在线阅读`、`整本下载` 一律不自动点击。
 - **万方自动点击入口按类型收紧**：期刊论文详情页只点击 `下载`，不点 `在线阅读` / `评审材料`；学位论文详情页只点击 `整篇下载`，不点 `在线阅读` / `分章下载`，并兼容 `d.wanfangdata.com.cn/...` 与 `details/detail.do` 两类 URL。
+- **万方详情页加入真实鼠标点击尝试**：命中白名单按钮后优先通过 CDP `Input.dispatchMouseEvent` 做真实点击，坐标不可用时再退回 DOM `.click()`，减少“按钮存在但脚本点不动”的 `pdf_probe_unknown`。
+- **万方下载页识别补齐 OSS / NewFulltext 并增加 Fetch fallback 预研**：下载信息页不再只识别 `f.wanfangdata.com.cn/download/pc/`；新增 `oss.wanfangdata.com.cn/...Fulltext/Download...` 与 `NewFulltext` 识别，并在下载页无可执行控件时尝试复用 `_navigate_and_capture_pdf()` 抓取 PDF。
+- **万方失败原因再细化**：新增 `detail_click_no_effect` 与 `download_page_no_actionable_control`，用于区分“详情页按钮命中但未触发下载”与“下载页已出现但没有可执行下载控件”；两者保留为非 OK 诊断状态，不改变中文登录门控 / checkpoint 语义。
 - **中文登录门控改为 checkpoint 语义**：CNKI/万方登录确认变为三态；未收到明确“已登录”或用户选择“稍后重试”时写出 `chinese_login_checkpoint.json`，不再误判为 skip 并跳到后续数据库。
 - **中文登录门控按需自动打开入口**：CNKI/万方门控会根据本轮中文清单或 `chinese_login_checkpoint.json` 的 `source` 去重，并在同一个 CDP Chrome 中自动打开 CNKI / 万方入口；同一文库每轮只开一次。
 - **中文下载清单稳定排序**：Step 5 拿到中文清单后先按 source 排序为 CNKI → 万方，同一数据库内部保留原顺序；排序后的清单贯穿路由 summary、登录门控、checkpoint、下载和 download log。

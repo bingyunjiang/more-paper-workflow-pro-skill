@@ -70,6 +70,8 @@ WANFANG_NON_OK_STATUSES = {
     "pdf_probe_unknown",
     "fulltext_delivery_mode",
     "no_url",
+    "detail_click_no_effect",
+    "download_page_no_actionable_control",
 }
 
 # ── Config Loading ──────────────────────────────────────────────────────────
@@ -702,6 +704,122 @@ def _wanfang_detail_click_expression(paper_type: str) -> str:
 '''
 
 
+def _wanfang_detail_target_expression(paper_type: str) -> str:
+    """Return element metadata for the Wanfang detail-page download target."""
+    allowed = "['整篇下载', '下载']" if paper_type == "thesis" else "['下载']"
+    delivery = "['原文传递']"
+    blocked = "['在线阅读', '评审材料', '分章下载']"
+    return f'''
+(function(){{
+  var allowed = {allowed};
+  var delivery = {delivery};
+  var blocked = {blocked};
+  function textOf(node) {{
+    return ((node.innerText || node.textContent || node.getAttribute('title') || '') + '').trim();
+  }}
+  function hasAny(text, terms) {{
+    for (var i = 0; i < terms.length; i++) {{
+      if (text.indexOf(terms[i]) >= 0) return true;
+    }}
+    return false;
+  }}
+  var nodes = document.querySelectorAll('a, button, span, div');
+  for (var i = 0; i < nodes.length; i++) {{
+    var text = textOf(nodes[i]);
+    if (hasAny(text, blocked)) continue;
+    var compact = text.replace(/\\s+/g, '');
+    if (allowed.indexOf(text) >= 0 || allowed.indexOf(compact) >= 0) {{
+      var rect = nodes[i].getBoundingClientRect();
+      return JSON.stringify({{
+        status: 'click_target',
+        text: compact,
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+        width: rect.width,
+        height: rect.height,
+        visible: rect.width > 0 && rect.height > 0,
+      }});
+    }}
+    if (delivery.indexOf(text) >= 0 || delivery.indexOf(compact) >= 0) {{
+      return JSON.stringify({{
+        status: 'delivery',
+        text: compact,
+      }});
+    }}
+  }}
+  return JSON.stringify({{status: 'pdf_probe_unknown'}});
+}})()
+'''
+
+
+def _evaluate_tab_json(tab_ws, expression: str) -> dict:
+    """Evaluate JS and parse a JSON-string payload from Runtime.evaluate."""
+    tab_ws.send(json.dumps({
+        "id": 2,
+        "method": "Runtime.evaluate",
+        "params": {"expression": expression, "returnByValue": True},
+    }))
+    resp = json.loads(tab_ws.recv())
+    value = resp.get("result", {}).get("result", {}).get("value", "{}")
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except Exception:
+            return {"status": str(value)}
+    if isinstance(value, dict):
+        return value
+    return {"status": str(value)}
+
+
+def _dispatch_mouse_click(tab_ws, x: float, y: float) -> bool:
+    """Send a real mouse click to the current tab via CDP."""
+    try:
+        for idx, evt_type in enumerate(("mousePressed", "mouseReleased"), start=10):
+            tab_ws.send(json.dumps({
+                "id": idx,
+                "method": "Input.dispatchMouseEvent",
+                "params": {
+                    "type": evt_type,
+                    "x": x,
+                    "y": y,
+                    "button": "left",
+                    "clickCount": 1,
+                },
+            }))
+            try:
+                tab_ws.recv()
+            except Exception:
+                pass
+        return True
+    except Exception:
+        return False
+
+
+def _wanfang_real_click_target(tab_ws, paper_type: str) -> str:
+    """Try a real mouse click first, then fall back to the legacy DOM click."""
+    target = _evaluate_tab_json(tab_ws, _wanfang_detail_target_expression(paper_type))
+    status = str(target.get("status", ""))
+    if status == "delivery":
+        return f"delivery:{target.get('text', '')}"
+    if status != "click_target":
+        return "pdf_probe_unknown"
+
+    x = target.get("x")
+    y = target.get("y")
+    visible = bool(target.get("visible"))
+    if visible and isinstance(x, (int, float)) and isinstance(y, (int, float)):
+        if _dispatch_mouse_click(tab_ws, float(x), float(y)):
+            return f"clicked_real:{target.get('text', '')}"
+
+    fallback = _evaluate_tab_json(tab_ws, _wanfang_detail_click_expression(paper_type))
+    fb_status = str(fallback.get("status", "")) if "status" in fallback else ""
+    if fb_status and fb_status != "pdf_probe_unknown":
+        if fb_status == "delivery":
+            return f"delivery:{fallback.get('text', '')}"
+        return f"clicked_dom:{fallback.get('text', '')}"
+    return "detail_click_no_effect"
+
+
 def _wanfang_click_download_interstitial(port: int, tab_id: str) -> str:
     tab_ws_url = get_tab_ws_url(port, tab_id)
     if not tab_ws_url:
@@ -751,7 +869,7 @@ def _wanfang_click_download_info_page(port: int, known_tab_ids: Optional[set[str
     for tab in tabs:
         tab_id = str(tab.get("id", ""))
         url = str(tab.get("url", ""))
-        if "f.wanfangdata.com.cn/download/pc/" not in url:
+        if _classify_wanfang_download_page_url(url) == "not_download_page":
             continue
         tab_ws_url = get_tab_ws_url(port, tab_id)
         if not tab_ws_url:
@@ -780,7 +898,38 @@ def _wanfang_click_download_info_page(port: int, known_tab_ids: Optional[set[str
         result = str(resp.get("result", {}).get("result", {}).get("value", ""))
         if result.startswith("clicked"):
             return result
-    return "not_found"
+    return "download_page_no_actionable_control" if tabs else "not_found"
+
+
+def _classify_wanfang_download_page_url(url: str) -> str:
+    """Classify Wanfang download/info pages produced after detail-page clicks."""
+    lower_url = str(url or "").lower()
+    if "f.wanfangdata.com.cn/download/pc/" in lower_url:
+        return "pc_download_page"
+    if "oss.wanfangdata.com.cn" in lower_url and "fulltext/download" in lower_url:
+        return "oss_fulltext_download"
+    if "newfulltext" in lower_url:
+        return "newfulltext_download"
+    return "not_download_page"
+
+
+def _wanfang_capture_fetch_from_download_page(
+    port: int,
+    known_tab_ids: Optional[set[str]] = None,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> Optional[bytes]:
+    """Try reusing generic Fetch capture against a newly opened Wanfang download page."""
+    tabs = list_tabs(port)
+    if known_tab_ids:
+        new_tabs = [tab for tab in tabs if str(tab.get("id", "")) not in known_tab_ids]
+        tabs = new_tabs or tabs
+    for tab in tabs:
+        url = str(tab.get("url", ""))
+        kind = _classify_wanfang_download_page_url(url)
+        if kind == "not_download_page":
+            continue
+        return _navigate_and_capture_pdf(port, url, timeout=timeout)
+    return None
 
 
 def _wait_for_wanfang_download_info_click(
@@ -864,15 +1013,12 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
         return "pdf_probe_unknown"
     tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
 
-    tab_ws.send(json.dumps({"id": 2, "method": "Runtime.evaluate",
-                            "params": {"expression": _wanfang_detail_click_expression(paper_type)}}))
-    click_resp = json.loads(tab_ws.recv())
-    click_result = str(click_resp.get("result", {}).get("result", {}).get("value", ""))
+    click_result = _wanfang_real_click_target(tab_ws, paper_type)
     tab_ws.close()
     delivery_clicked = click_result.startswith("delivery:")
-    if not click_result.startswith("clicked:") and not delivery_clicked:
+    if not click_result.startswith("clicked") and not delivery_clicked:
         close_tab(port, tid)
-        return "pdf_probe_unknown"
+        return click_result if click_result in WANFANG_NON_OK_STATUSES else "pdf_probe_unknown"
     if delivery_clicked:
         close_tab(port, tid)
         return "fulltext_delivery_mode"
@@ -901,12 +1047,29 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
             known_tab_ids=known_tab_ids,
             timeout=retry_timeout,
         )
+        if info_click_result == "download_page_no_actionable_control":
+            pdf_data = _wanfang_capture_fetch_from_download_page(
+                port,
+                known_tab_ids=known_tab_ids,
+                timeout=retry_timeout,
+            )
+            if pdf_data and len(pdf_data) > MIN_PDF_SIZE:
+                dest = _os.path.join(
+                    output_dir,
+                    f"wanfang.{hashlib.md5(article_url.encode()).hexdigest()[:16]}.pdf",
+                )
+                with open(dest, "wb") as f:
+                    f.write(pdf_data)
+                close_tab(port, tid)
+                return dest
         if not (
             interstitial_result == "clicked"
             or info_click_result.startswith("clicked")
         ):
             close_tab(port, tid)
-            return None
+            if info_click_result == "download_page_no_actionable_control":
+                return info_click_result
+            return "detail_click_no_effect" if interstitial_result == "not_found" else None
 
         download_started_at = time.time()
         dl_path = _wait_for_downloaded_pdf(

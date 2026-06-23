@@ -1004,6 +1004,7 @@ class Step5DownloadTest(unittest.TestCase):
              patch.object(gpd.websocket, "create_connection", side_effect=[FakeBrowserWs(), FakeTabWs()]), \
              patch.object(gpd, "list_tabs", return_value=[]), \
              patch.object(gpd, "get_tab_ws_url", return_value="ws://detail-tab"), \
+             patch.object(gpd, "_wanfang_real_click_target", return_value="clicked_real:下载"), \
              patch.object(gpd, "_wait_for_wanfang_interstitial_click", return_value="not_found"), \
              patch.object(gpd, "_wait_for_wanfang_download_info_click", return_value="clicked_doDownload"), \
              patch.object(gpd.time, "sleep", return_value=None), \
@@ -1049,6 +1050,7 @@ class Step5DownloadTest(unittest.TestCase):
              patch.object(gpd.websocket, "create_connection", side_effect=[FakeBrowserWs(), FakeTabWs()]), \
              patch.object(gpd, "list_tabs", return_value=[]), \
              patch.object(gpd, "get_tab_ws_url", return_value="ws://detail-tab"), \
+             patch.object(gpd, "_wanfang_real_click_target", return_value="clicked_real:下载"), \
              patch.object(gpd, "_wait_for_downloaded_pdf", side_effect=[os.path.join(tmpdir, "paper.pdf")]) as wait_pdf, \
              patch.object(gpd, "_wait_for_wanfang_interstitial_click") as wait_interstitial, \
              patch.object(gpd, "_wait_for_wanfang_download_info_click") as wait_info, \
@@ -1094,6 +1096,7 @@ class Step5DownloadTest(unittest.TestCase):
              patch.object(gpd.websocket, "create_connection", side_effect=[FakeBrowserWs(), FakeTabWs()]), \
              patch.object(gpd, "list_tabs", return_value=[]), \
              patch.object(gpd, "get_tab_ws_url", return_value="ws://detail-tab"), \
+             patch.object(gpd, "_wanfang_real_click_target", return_value="clicked_real:下载"), \
              patch.object(gpd, "_wait_for_downloaded_pdf", side_effect=[None, os.path.join(tmpdir, "paper.pdf")]), \
              patch.object(gpd, "_wait_for_wanfang_interstitial_click", return_value="clicked"), \
              patch.object(gpd, "_wait_for_wanfang_download_info_click", return_value="not_found"), \
@@ -1108,6 +1111,125 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertTrue(str(path).endswith(".pdf"))
         copy2.assert_called_once()
+
+    def test_download_wanfang_fetch_fallback_writes_pdf_when_download_page_has_no_actionable_control(self):
+        class FakeBrowserWs:
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return json.dumps({"result": {"targetId": "detail-tab"}})
+
+            def close(self):
+                pass
+
+        class FakeTabWs:
+            def __init__(self):
+                self.responses = [
+                    json.dumps({"result": {"result": {"value": json.dumps({
+                        "status": "click_target",
+                        "text": "下载",
+                        "x": 50,
+                        "y": 60,
+                        "visible": True,
+                    })}}}),
+                    json.dumps({"result": {}}),
+                    json.dumps({"result": {}}),
+                ]
+
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return self.responses.pop(0)
+
+            def close(self):
+                pass
+
+        pdf_bytes = self._valid_pdf_bytes()
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.object(gpd, "_parse_wanfang_article_url", return_value=("periodical", "wf-demo", "https://d.wanfangdata.com.cn/periodical/wf-demo")), \
+             patch.object(gpd, "get_cdp_ws_url", return_value="ws://browser"), \
+             patch.object(gpd.websocket, "create_connection", side_effect=[FakeBrowserWs(), FakeTabWs()]), \
+             patch.object(gpd, "list_tabs", return_value=[{"id": "download-tab", "url": "https://oss.wanfangdata.com.cn/Fulltext/Download?filename=demo.pdf"}]), \
+             patch.object(gpd, "get_tab_ws_url", return_value="ws://detail-tab"), \
+             patch.object(gpd, "_wanfang_real_click_target", return_value="clicked_real:下载"), \
+             patch.object(gpd, "_wait_for_downloaded_pdf", side_effect=[None]), \
+             patch.object(gpd, "_wait_for_wanfang_interstitial_click", return_value="not_found"), \
+             patch.object(gpd, "_wait_for_wanfang_download_info_click", return_value="download_page_no_actionable_control"), \
+             patch.object(gpd, "_navigate_and_capture_pdf", return_value=pdf_bytes) as capture, \
+             patch.object(gpd.time, "sleep", return_value=None), \
+             patch.object(gpd, "close_tab"):
+            path = gpd._download_wanfang(
+                9223,
+                "https://d.wanfangdata.com.cn/periodical/wf-demo",
+                {},
+                output_dir=tmpdir,
+            )
+
+        self.assertTrue(str(path).endswith(".pdf"))
+        self.assertTrue(str(path).startswith(tmpdir))
+        capture.assert_called_once_with(
+            9223,
+            "https://oss.wanfangdata.com.cn/Fulltext/Download?filename=demo.pdf",
+            timeout=25,
+        )
+
+    def test_download_wanfang_returns_download_page_no_actionable_control_when_fetch_fallback_fails(self):
+        class FakeBrowserWs:
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return json.dumps({"result": {"targetId": "detail-tab"}})
+
+            def close(self):
+                pass
+
+        class FakeTabWs:
+            def __init__(self):
+                self.responses = [
+                    json.dumps({"result": {"result": {"value": json.dumps({
+                        "status": "click_target",
+                        "text": "下载",
+                        "x": 50,
+                        "y": 60,
+                        "visible": True,
+                    })}}}),
+                    json.dumps({"result": {}}),
+                    json.dumps({"result": {}}),
+                ]
+
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return self.responses.pop(0)
+
+            def close(self):
+                pass
+
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.object(gpd, "_parse_wanfang_article_url", return_value=("periodical", "wf-demo", "https://d.wanfangdata.com.cn/periodical/wf-demo")), \
+             patch.object(gpd, "get_cdp_ws_url", return_value="ws://browser"), \
+             patch.object(gpd.websocket, "create_connection", side_effect=[FakeBrowserWs(), FakeTabWs()]), \
+             patch.object(gpd, "list_tabs", return_value=[{"id": "download-tab", "url": "https://www.wanfangdata.com.cn/NewFulltext?download=1"}]), \
+             patch.object(gpd, "get_tab_ws_url", return_value="ws://detail-tab"), \
+             patch.object(gpd, "_wanfang_real_click_target", return_value="clicked_real:下载"), \
+             patch.object(gpd, "_wait_for_downloaded_pdf", side_effect=[None]), \
+             patch.object(gpd, "_wait_for_wanfang_interstitial_click", return_value="not_found"), \
+             patch.object(gpd, "_wait_for_wanfang_download_info_click", return_value="download_page_no_actionable_control"), \
+             patch.object(gpd, "_navigate_and_capture_pdf", return_value=None), \
+             patch.object(gpd.time, "sleep", return_value=None), \
+             patch.object(gpd, "close_tab"):
+            result = gpd._download_wanfang(
+                9223,
+                "https://d.wanfangdata.com.cn/periodical/wf-demo",
+                {},
+                output_dir=tmpdir,
+            )
+
+        self.assertEqual(result, "download_page_no_actionable_control")
 
     def test_download_one_returns_wanfang_non_ok_status(self):
         with patch.object(gpd, "resolve_publisher", return_value=None), \
@@ -2129,9 +2251,141 @@ class Step5DownloadTest(unittest.TestCase):
         delivery_block = delivery_block.split("return 'pdf_probe_unknown'", 1)[0]
         self.assertNotIn(".click()", delivery_block)
 
+    def test_wanfang_detail_target_expression_returns_click_target_metadata(self):
+        expression = gpd._wanfang_detail_target_expression("thesis")
+
+        self.assertIn('"status": \'click_target\''.replace('"', ''), expression.replace('"', "'"))
+        self.assertIn("rect.left + rect.width / 2", expression)
+        self.assertIn("visible: rect.width > 0 && rect.height > 0", expression)
+
+    def test_wanfang_classify_download_page_url_covers_known_variants(self):
+        self.assertEqual(
+            gpd._classify_wanfang_download_page_url(
+                "https://f.wanfangdata.com.cn/download/pc/thesis/D03731170?transaction=x"
+            ),
+            "pc_download_page",
+        )
+        self.assertEqual(
+            gpd._classify_wanfang_download_page_url(
+                "https://oss.wanfangdata.com.cn/Fulltext/Download?filename=test.pdf"
+            ),
+            "oss_fulltext_download",
+        )
+        self.assertEqual(
+            gpd._classify_wanfang_download_page_url(
+                "https://www.wanfangdata.com.cn/NewFulltext?download=1"
+            ),
+            "newfulltext_download",
+        )
+        self.assertEqual(
+            gpd._classify_wanfang_download_page_url("https://www.wanfangdata.com.cn/details/detail.do?id=demo"),
+            "not_download_page",
+        )
+
+    def test_dispatch_mouse_click_sends_pressed_and_released_events(self):
+        class FakeTabWs:
+            def __init__(self):
+                self.sent = []
+
+            def send(self, payload):
+                self.sent.append(json.loads(payload))
+
+            def recv(self):
+                return json.dumps({"result": {}})
+
+        fake_ws = FakeTabWs()
+        ok = gpd._dispatch_mouse_click(fake_ws, 12.5, 88.0)
+
+        self.assertTrue(ok)
+        methods = [item["method"] for item in fake_ws.sent]
+        self.assertEqual(methods, ["Input.dispatchMouseEvent", "Input.dispatchMouseEvent"])
+        self.assertEqual(fake_ws.sent[0]["params"]["type"], "mousePressed")
+        self.assertEqual(fake_ws.sent[1]["params"]["type"], "mouseReleased")
+
+    def test_wanfang_real_click_target_uses_mouse_click_when_coordinates_visible(self):
+        class FakeTabWs:
+            def __init__(self):
+                self.sent = []
+                self.responses = [
+                    json.dumps({"result": {"result": {"value": json.dumps({
+                        "status": "click_target",
+                        "text": "下载",
+                        "x": 100,
+                        "y": 80,
+                        "visible": True,
+                    })}}}),
+                    json.dumps({"result": {}}),
+                    json.dumps({"result": {}}),
+                ]
+
+            def send(self, payload):
+                self.sent.append(json.loads(payload))
+
+            def recv(self):
+                return self.responses.pop(0)
+
+        result = gpd._wanfang_real_click_target(FakeTabWs(), "periodical")
+        self.assertEqual(result, "clicked_real:下载")
+
+    def test_wanfang_real_click_target_falls_back_to_dom_click_when_target_not_visible(self):
+        class FakeTabWs:
+            def __init__(self):
+                self.sent = []
+                self.responses = [
+                    json.dumps({"result": {"result": {"value": json.dumps({
+                        "status": "click_target",
+                        "text": "整篇下载",
+                        "x": 0,
+                        "y": 0,
+                        "visible": False,
+                    })}}}),
+                    json.dumps({"result": {"result": {"value": json.dumps({
+                        "status": "clicked",
+                        "text": "整篇下载",
+                    })}}}),
+                ]
+
+            def send(self, payload):
+                self.sent.append(json.loads(payload))
+
+            def recv(self):
+                return self.responses.pop(0)
+
+        result = gpd._wanfang_real_click_target(FakeTabWs(), "thesis")
+        self.assertEqual(result, "clicked_dom:整篇下载")
+
+    def test_wanfang_real_click_target_returns_detail_click_no_effect_when_both_paths_fail(self):
+        class FakeTabWs:
+            def __init__(self):
+                self.responses = [
+                    json.dumps({"result": {"result": {"value": json.dumps({
+                        "status": "click_target",
+                        "text": "下载",
+                        "x": 1,
+                        "y": 1,
+                        "visible": False,
+                    })}}}),
+                    json.dumps({"result": {"result": {"value": json.dumps({
+                        "status": "pdf_probe_unknown",
+                    })}}}),
+                ]
+
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return self.responses.pop(0)
+
+        result = gpd._wanfang_real_click_target(FakeTabWs(), "periodical")
+        self.assertEqual(result, "detail_click_no_effect")
+
     def test_wanfang_fulltext_delivery_is_non_ok_skip_status(self):
         self.assertIn("fulltext_delivery_mode", gpd.WANFANG_NON_OK_STATUSES)
         self.assertNotIn("fulltext_delivery_mode", router.CHINESE_MANUAL_RETRY_STATUSES)
+        self.assertIn("detail_click_no_effect", gpd.WANFANG_NON_OK_STATUSES)
+        self.assertIn("download_page_no_actionable_control", gpd.WANFANG_NON_OK_STATUSES)
+        self.assertNotIn("detail_click_no_effect", router.CHINESE_MANUAL_RETRY_STATUSES)
+        self.assertNotIn("download_page_no_actionable_control", router.CHINESE_MANUAL_RETRY_STATUSES)
 
     def test_chinese_round_records_fulltext_delivery_mode_reason(self):
         paper = {
@@ -2154,6 +2408,30 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(downloaded, [])
         self.assertEqual(remaining, ["wanfang.delivery"])
         self.assertEqual(failure_reasons["wanfang.delivery"], "fulltext_delivery_mode")
+        download_one.assert_called_once()
+        gate_input.assert_not_called()
+
+    def test_chinese_round_records_new_wanfang_status_without_manual_retry_prompt(self):
+        paper = {
+            "title": "万方点击无效",
+            "source": "wanfang",
+            "doi": "wanfang.noeffect",
+            "article_url": "https://d.wanfangdata.com.cn/periodical/wf-noeffect",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(
+                router,
+                "_download_chinese_paper_once",
+                return_value=(None, "detail_click_no_effect", "wanfang"),
+            ) as download_one, \
+                 patch.object(router, "_safe_gate_input") as gate_input:
+                downloaded, remaining, failure_reasons = router.run_chinese_round_with_reasons(
+                    [paper], tmp, 9223
+                )
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, ["wanfang.noeffect"])
+        self.assertEqual(failure_reasons["wanfang.noeffect"], "detail_click_no_effect")
         download_one.assert_called_once()
         gate_input.assert_not_called()
 

@@ -46,6 +46,12 @@
 | 中文论文元数据 | Step 4 或 Step 5 生成 | 中文论文元数据.json | 中文下载必选 |
 | CDP Chrome 浏览器 | 用户启动 | 端口 9223 | ✅ |
 
+> **输入约束：** `中文论文元数据.json` 是 Step 4/Step 5 产出的**下载清单**，不是审计报告。
+> - 当条目 `status=ready` 时，表示该条目已满足 Step 5 下载前提，可直接进入下载流程。
+> - Step 5 **禁止** 因 `zotero_item_key` 去查询 Zotero 附件状态、元数据完整性或集合结构。
+> - `zotero_item_key` 不是 Step 5 的前置检查条件；若存在，只可作为下载记录关联字段或供后续步骤使用。
+> - Zotero 附件挂回、条目修补、集合调整属于 Step 6 职责，Step 5 不得因为看到 `zotero_item_key` 而跳转到 Zotero 审计流程。
+
 ---
 
 ## 标准输出 (Standard Outputs)
@@ -79,7 +85,10 @@
 1. DOI 是最高优先级下载键；能抽到 DOI 时，不再要求用户提供 Step 4 的检索文献表。
 2. 标题不能直接进入下载器，必须先解析为 DOI、OA PDF URL、出版社 article URL，或中文 `article_url`。
 3. 不得为了推进下载猜测 DOI。标题匹配到多个候选、年份/作者冲突或置信度不足时，写入 `unresolved_download_items.md` 并请用户确认。
-4. 中文论文多数没有真实 DOI，必须以 `source=cnki|wanfang` + `article_url` 或 `source_id` 路由，不把 `cnki.xxx` / `wanfang.xxx` 当作英文 DOI。
+4. 中文论文以 `source` 字段路由，不以 `doi` 字段路由。
+   - **路由键是 `source=cnki|wanfang`，不是 DOI。** 即使 CNKI/万方论文注册了真实 DOI，也只能走中文 `article_url` / `source_id` → `chinese_cdp` 路径，不得进入英文 DOI 路由器，不得尝试 OA fast / Sci-Hub / Generic CDP。
+   - `cnki.xxx` / `wanfang.xxx` 合成标识符自然更不进入英文 DOI 路由。
+   - 中文论文上的 DOI 在 Step 5 中仅作为元数据字段保留，用于引用/关联，不作为下载通道选择依据。
 5. 直达模式只做“用户指定文献下载”，不生成 Step 4 的评分、Tier、饱和度或 PRISMA 报告。
 6. 直达模式只需要确认下载清单和登录状态；不得要求用户补跑 Step 1-4。
 7. 所有入口先归一化为 `DownloadManifestItem` 语义：`item_id`、`title`、`doi`、`source`、`source_id`、`article_url`、`route_key`、`status`、`confidence`。旧 `direct_download_manifest.md/json` 可继续使用，但内部语义以 workflow contract 为准。
@@ -202,6 +211,7 @@ Phase 2:
 
 Phase 3:
 1. 英文 DOI 路径完成后，才进入排序后的中文清单：CNKI → 万方
+   ⚠️ **强制规则：** 中文清单中的条目不论是否含有真实 DOI，一律以 `article_url` + `source/source_id` 进入 `chinese_cdp`。不得因为某条中文论文带有 DOI，就将它提前到 Phase 1/2 的英文路由中执行。
 2. 🔍 中文源 article/download probe
    ├─ pdf_probe_ok → 直接执行中文下载
    └─ pdf_probe_blocked / pdf_probe_unknown / carsi_required / login_required / access_denied → 显示中文登录门控
@@ -289,12 +299,13 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 | 中国知网 (CNKI) | `source=cnki` + `文章链接` 列 | 文章详情页 → 只点击 `PDF下载` → 浏览器落盘监视 | 校园网 IP 或 CARSI SSO；安全验证单独标记 |
 | 万方数据 (Wanfang) | `source=wanfang` + `文章链接` 列 | 文章详情页 → 按类型点击白名单下载入口 → 浏览器落盘监视 | 校园网 IP 或 CARSI SSO |
 
-> **中文论文路由说明：** CNKI/万方论文多数无真实 DOI（使用 `cnki.{hash}` / `wanfang.{hash}` 合成标识符），不进入英文 DOI 路由器。**优先使用 Step 4 产出的 `中文论文元数据.json`**（字段显式、无 Markdown 解析歧义；旧名 `chinese_papers.json` / `chinese_metadata.json` 仍可作为兼容输入）。Step 5 拿到中文下载清单后先稳定排序：CNKI 条目在前、万方条目在后，同一数据库内部保留原输入顺序；排序后的清单用于路由 summary、登录门控、checkpoint、下载和 download log。中文 CDP 不与英文下载并发，必须等待英文 DOI 路径完成或明确跳过后再启动。若 JSON 缺失，回退到 Markdown 表格解析（`--chinese-input 检索文献表.md`）。缺少 `article_url` 的论文将被跳过。
+> **中文论文路由说明：** CNKI/万方论文多数无真实 DOI（使用 `cnki.{hash}` / `wanfang.{hash}` 合成标识符），但**即使条目带有真实 DOI，也仍然属于中文路由，不进入英文 DOI 路由器**。Step 5 对中文论文的路由键始终是 `source=cnki|wanfang` + `article_url/source_id`，不是 `doi`。**优先使用 Step 4 产出的 `中文论文元数据.json`**（字段显式、无 Markdown 解析歧义；旧名 `chinese_papers.json` / `chinese_metadata.json` 仍可作为兼容输入）。当该 JSON/manifest 条目标记 `status=ready` 时，表示该条目已具备下载前提，Step 5 直接下载，不因 `zotero_item_key` 再去查询 Zotero。Step 5 拿到中文下载清单后先稳定排序：CNKI 条目在前、万方条目在后，同一数据库内部保留原输入顺序；排序后的清单用于路由 summary、登录门控、checkpoint、下载和 download log。中文 CDP 不与英文下载并发，必须等待英文 DOI 路径完成或明确跳过后再启动。若 JSON 缺失，回退到 Markdown 表格解析（`--chinese-input 检索文献表.md`）。缺少 `article_url` 的论文将被跳过。
 
 **CNKI 实测状态分流（Windows/CARSI/CDP）：**
 
 | 状态 | 触发条件 | Agent 行为 |
 |------|----------|------------|
+| `status=ready` | `中文论文元数据.json` / direct manifest 条目已标记为可下载 | 直接进入 Step 5 下载流程；不额外查询 Zotero，不额外做附件审计 |
 | `captcha_required` | URL 命中 `/verify/home`、标题含「安全验证」或正文含「请完成安全验证」 | 不得记为普通失败；保留页面，请用户完成验证；不得尝试绕过图形验证 |
 | `pdf_probe_unknown` | 已进入详情页但未证明存在可下载入口 | 触发人工确认或重试，不得声称论文不可下载 |
 | `manual_required` | 存在人工路径，或自动点击后未监视到 PDF 落盘 | 允许用户手动点击 `PDF下载`，Agent 只监视落盘并归档 |
