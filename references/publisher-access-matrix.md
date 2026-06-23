@@ -50,7 +50,7 @@ python3 scripts/download_via_scihub.py dois.txt --output paper-temp/
 
 ## 出版商矩阵
 
-English Generic CDP 登录门控会根据本轮待登录 DOI 去重 publisher，并读取 `config/publishers.toml` 的 `login_url` 在同一个 CDP Chrome 中自动打开所需 tab；没有 `login_url` 时回退到 `https://{publisher_domain}/`。常用登录入口包括 IEEE `https://ieeexplore.ieee.org/`、ScienceDirect `https://www.sciencedirect.com/`、Wiley `https://onlinelibrary.wiley.com/`、RSC `https://pubs.rsc.org/`、Nature `https://www.nature.com/`、Springer `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F`。Chinese CDP 登录门控同样按本轮 `source=cnki|wanfang` 去重，在同一个 CDP Chrome 中自动打开 CNKI `https://kns.cnki.net/kns8s/` 和/或 Wanfang `https://www.wanfangdata.com.cn/`。
+English Generic CDP 登录门控会根据本轮待登录 DOI 去重 publisher，并读取 `config/publishers.toml` 的 `login_url` 在同一个 CDP Chrome 中自动打开所需 tab；没有 `login_url` 时回退到 `https://{publisher_domain}/`。常用登录入口包括 IEEE `https://ieeexplore.ieee.org/`、ScienceDirect `https://www.sciencedirect.com/`、Wiley `https://onlinelibrary.wiley.com/`、RSC `https://pubs.rsc.org/`、Nature `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Fwww.nature.com%2F`、Springer `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F`。Chinese CDP 登录门控同样按本轮 `source=cnki|wanfang` 去重，在同一个 CDP Chrome 中自动打开 CNKI `https://kns.cnki.net/kns8s/` 和/或 Wanfang `https://www.wanfangdata.com.cn/`。
 
 | 出版商 | DOI 前缀 | 访问方式 | 状态 | 策略 |
 |--------|----------|----------|------|------|
@@ -61,7 +61,7 @@ English Generic CDP 登录门控会根据本轮待登录 DOI 去重 publisher，
 | **AIP** | `10.1063/` | CDP Chrome | ⚠️ 页面可加载，无PDF按钮 | `pubs.aip.org` — 无直接PDF链接，HTTP直连SSL `UNEXPECTED_EOF`。需机构认证 |
 | **Wiley** | `10.1002/` | CDP Chrome | ⚠️ 有限成功 | `onlinelibrary.wiley.com` — **方式A:** 导航到 `doi/epdf/{doi}` + Fetch.enable + Page.reload可捕获（已验证 `ente.202301205` → 3.4MB）。**方式B:** DOM中有PDF下载按钮（`.pdf-download`）但需会话后可用。直接HTTP返回403。 |
 | **Springer** | `10.1007/` | CDP Chrome | ⚠️ 书章节需访问 | `link.springer.com` 2020s书章节，HTTP直接请求失败。**机构登录公共入口：** `https://idp.springer.com/authorize?response_type=cookie&client_id=springerlink&redirect_uri=https%3A%2F%2Flink.springer.com%2F`；**机构选择页：** `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Flink.springer.com%2F`。若首页不显示机构登录，优先直接打开这两个入口之一。 |
-| **Nature/Springer OA** | `10.1038/` | 直连HTTP | ✅ 已验证（OA期刊） | `nature.com/articles/XXXX.pdf` 可直连下载。测试: `10.1038/s41467-024-45578-4` → 3.1MB PDF ✓ |
+| **Nature/Springer OA** | `10.1038/` | 直连HTTP | ✅ 已验证（OA期刊） | `nature.com/articles/XXXX.pdf` 可直连下载。测试: `10.1038/s41467-024-45578-4` → 3.1MB PDF ✓。非 OA 条目若首页看不到机构登录，优先打开 `https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Fwww.nature.com%2F`。 |
 | **RSC** | `10.1039/` | CDP Chrome | ⚠️ 需会话 | `pubs.rsc.org` — HTTP直连失败，需浏览器会话 |
 | **SSRN** | `10.2139/` | 直连HTTP | ❌ 超时 | `papers.ssrn.com` — 预印本但HTTP直连超时 |
 | **Frontiers** | `10.3389/` | 直连 HTTP | ✅ 基本可行 | 开放获取 |

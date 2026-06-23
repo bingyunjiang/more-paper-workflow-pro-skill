@@ -2023,7 +2023,7 @@ def main():
                         help="Resume English DOI download from login_checkpoint.json (default: <output>/login_checkpoint.json)")
     parser.add_argument("--confirmed", "--assume-login-confirmed", "--confirmed-login",
                         dest="confirmed_login", action="store_true",
-                        help="With --resume-login-checkpoint, skip script-side login prompts because the outer host/user already confirmed login")
+                        help="Skip script-side English login prompts because the outer host/user already confirmed login; also applies to --resume-login-checkpoint")
     parser.add_argument("--resume-chinese-login-checkpoint", nargs="?", const="AUTO",
                         help="Resume CNKI/Wanfang download from chinese_login_checkpoint.json (default: <output>/chinese_login_checkpoint.json)")
 
@@ -2431,11 +2431,15 @@ def main():
         if preflight_login_dois:
             print(f"\n{WARN} English Generic CDP includes {len(preflight_login_dois)} login-sensitive item(s) without confirmed access.")
             print("  Login is checked before the grouped download loop to avoid per-paper login-wall failures.")
-            gate_result = show_english_login_gate(
-                preflight_login_dois,
-                skip_sd=args.skip_sd,
-                port=args.port,
-            )
+            if args.confirmed_login:
+                print(f"{OK} --confirmed supplied: skipping preflight login prompt and attempting English CDP directly.")
+                gate_result = True
+            else:
+                gate_result = show_english_login_gate(
+                    preflight_login_dois,
+                    skip_sd=args.skip_sd,
+                    port=args.port,
+                )
             non_login_dois = [doi for doi in en_rem if doi not in set(preflight_login_dois)]
             if gate_result is None:
                 en_failure_reasons.update({doi: "pending_user_login" for doi in preflight_login_dois})

@@ -195,7 +195,7 @@ si_selectors = [
 ]
 requires_auth = "institution"
 publisher_domain = "www.nature.com"
-login_url = "https://www.nature.com/"
+login_url = "https://wayf.springernature.com/?redirect_uri=https%3A%2F%2Fwww.nature.com%2F"
 notes = "Many Nature journals are OA. The {slug} in URL templates is derived from the DOI suffix (dots stripped). Non-OA papers need institutional auth."
 
 # --- Science (AAAS) ---

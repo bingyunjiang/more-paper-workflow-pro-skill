@@ -517,7 +517,8 @@ def _strategy_article_page(port: int, doi: str, publisher: dict,
     # Keep the tab open when the site wants human login/verification so the
     # user has time to complete it in the visible CDP browser.
     if pdf_url in ("LOGIN_REQUIRED", "ACCESS_DENIED"):
-        print(f"  ⚠ {pub_key or 'publisher'} requires manual access confirmation — leaving tab open")
+        print(f"  ⚠ {pub_key or 'publisher'} requires manual access confirmation")
+        close_tab(port, tid)
         return pdf_url
 
     # Close article tab
