@@ -131,6 +131,8 @@ This file keeps the long-form trigger vocabulary out of `SKILL.md` frontmatter w
 - `下载这些论文标题`
 - `从参考文献列表中下载 PDF`
 - `BibTeX 批量下载 PDF`
+- `根据这个 .bib 下载论文`
+- `按 BibTeX 下载，不要导入 Zotero`
 - `Sci-Hub 下载论文`
 - `Start batch downloading paper PDFs`
 - `Download all papers`
@@ -145,6 +147,8 @@ This file keeps the long-form trigger vocabulary out of `SKILL.md` frontmatter w
 - `doi:10.1109/*`
 
 ## Step 6: Zotero
+
+> 反歧义规则：只有明确出现 `导入 Zotero / 建条目 / 入库 / 建集合 / 关联附件` 这类动作词时，才因 BibTeX 进入 Step 6；不能只因看见 `.bib` 文件就从下载跳到 Zotero。
 
 - `Zotero 检查遗漏附件`
 - `Zotero 查找无附件条目`

@@ -750,12 +750,9 @@ class Step5DownloadTest(unittest.TestCase):
             result = router.open_english_login_tabs(9223, dois)
 
         self.assertEqual(result["failed"], [])
-        self.assertEqual(len(result["opened"]), 2)
+        self.assertEqual(len(result["opened"]), 1)
         opened_urls = [call.args[1] for call in create_tab.call_args_list]
-        self.assertEqual(opened_urls, [
-            "https://ieeexplore.ieee.org/",
-            "https://www.sciencedirect.com/",
-        ])
+        self.assertEqual(opened_urls, ["https://www.sciencedirect.com/"])
 
     def test_open_english_login_tabs_only_uses_login_candidate_dois(self):
         pub_map = {

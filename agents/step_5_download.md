@@ -1,5 +1,11 @@
 # Step 5: 统一批量下载 (Unified Download Router)
 
+> ⚠️ **前置提醒：**
+> 1. 进入真实下载前，如命中机构登录场景，agent 必须先提示用户在**同一个 CDP 浏览器**里完成机构登录，再继续执行下载。
+> 2. 如果宿主无法读取 `input()`，不得把下载脚本丢到后台硬跑；必须保留 `paper-temp/login_checkpoint.json`，并把该状态视为待用户确认登录，不是用户主动 skip。
+> 3. 用户完成机构登录后，恢复路径固定为 `python3 scripts/unified_download_router.py --resume-login-checkpoint paper-temp/login_checkpoint.json --output paper-temp/ --confirmed`。
+> 4. **未先问用户登录就直接启动真实下载是错误执行方式，不是 skill 缺陷。**
+>
 > **默认串行可靠 / 英文优先串行可靠：** 英文默认顺序为 `2021 年及以前：Sci-Hub → OA fast → IEEE CDP / Generic CDP grouped by publisher`，`2022 年及以后/年份未知：OA fast → IEEE CDP / Generic CDP grouped by publisher`。拿到 Step 5 下载清单后，英文 DOI 只做 `oa_candidate / no_oa_hint / unknown` 提示分层，真实 OA 仍必须由 OA fast 验证；中文条目先稳定排序为 CNKI → 万方，再在英文 DOI 路径完成或被明确跳过后执行，避免共享浏览器状态互相干扰。ScienceDirect / Elsevier 归入 Generic CDP；IEEE 默认走独立 `download_via_ieee.py`，Generic fallback 只保留为内部兜底。
 
 ---
@@ -72,6 +78,12 @@
 
 当用户没有经过 Step 1-4，直接发送 DOI、论文标题、URL、BibTeX 或参考文献列表时，不要求用户补跑完整检索流程。Agent 必须先把输入归一化为可下载清单，再进入原有下载路由。
 
+> **Step 5 / Step 6 分流强约束：**
+> - `.bib` / BibTeX 在 Step 5 中首先视为**下载输入载体**，不是 Zotero 写入指令。
+> - 当用户表达的是“下载 / 下 PDF / 批量下载 / 下载这些 BibTeX 条目”时，必须停留在 Step 5，先抽 DOI / URL / source 并执行下载。
+> - 只有用户明确表达“导入 Zotero / 建条目 / 入库 / 建集合 / 关联附件”时，才切换到 Step 6。
+> - 不得因为看见 `.bib` 文件就自动推断为“往 Zotero 建条目”。
+
 | 输入类型 | 识别方式 | 处理路径 | 是否需要用户确认 |
 |----------|----------|----------|------------------|
 | DOI 列表 | `10.xxxx/...`、`doi:`、`https://doi.org/...` | 归一化 DOI → `--papers` 或 DOI 文件 → 英文路由 | 不需要，除非 DOI 异常 |
@@ -93,6 +105,7 @@
 6. 直达模式只需要确认下载清单和登录状态；不得要求用户补跑 Step 1-4。
 7. 所有入口先归一化为 `DownloadManifestItem` 语义：`item_id`、`title`、`doi`、`source`、`source_id`、`article_url`、`route_key`、`status`、`confidence`。旧 `direct_download_manifest.md/json` 可继续使用，但内部语义以 workflow contract 为准。
 8. Step 4 workflow JSON 若包含 `oa_status`、`oa_source`、`oa_pdf_url`、`oa_landing_url`、`oa_license`、`oa_checked_at`，Step 5 只能把它们视为 OA 候选线索；真实成功以下载后的 PDF verifier 为准。
+9. BibTeX / `.bib` / 参考文献段落只要当前任务意图是“下载”，就只进入下载清单归一化和下载路由；不得提前跳到 Zotero 入库或条目创建。
 
 **Direct-entry input contract：**
 
