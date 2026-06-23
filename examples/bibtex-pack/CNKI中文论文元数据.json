@@ -68,7 +68,7 @@
     "title": "液冷式锂电池储能系统高倍率调频应用研究",
     "source": "cnki",
     "source_id": "10.14044/j.1674-1757.pcrpc.2024.03.020",
-    "article_url": "https://doi.org/10.14044/j.1674-1757.pcrpc.2024.03.020",
+    "article_url": "https://kns.cnki.net/kcms2/article/abstract?v=H26UkN0bSyQB3MldXV4VxFttoD7VU4Huo9vjaI1fZf3aQ0lDKIQ4hA0T80vpCwQHrc8AXI6RQKz0DSxMWLu_U4m5xfbgxKHgPl03d-f8jDFszEZqB_2DxYAAVAemt8bxmaCdmH0hpw2Q0vbKBDyKXB3t_hYy_jDaTS0YDAOJwKJdnZBmT9wdOA==&uniplatform=NZKPT&language=CHS",
     "doi": "10.14044/j.1674-1757.pcrpc.2024.03.020",
     "authors": [
       "雷, 博",
@@ -112,70 +112,6 @@
     "record_id": "",
     "citekey": "LiuHaoDianDongQiCheChongDianZhuangMianGaiMoJuSheJi2025",
     "zotero_item_key": "AX5588SA",
-    "status": "ready"
-  },
-  {
-    "title": "变负载高算力芯片液冷板拓扑优化设计",
-    "source": "wanfang",
-    "source_id": "wanfang.53d88d1f8f7d9ad87b97529b82af72476db251b7677f62d3",
-    "article_url": "https://d.wanfangdata.com.cn/periodical/dwycd202603008",
-    "doi": "",
-    "authors": [
-      "熊, 敏",
-      "李, 萌",
-      "丁, 晓红"
-    ],
-    "year": "2026",
-    "publication_title": "低温与超导",
-    "abstract": "面向高算力芯片“低负载为主、短时高负载突发”的运行特性，开展了变负载工况下液冷板结构优化设计研究。构建同时考虑低负载与高负载工况的多工况拓扑优化模型，以两种工况下的换热量加权最大化为目标，在体积分数约束下获得兼顾低、高工况的液冷板结构。",
-    "language": "zh-CN",
-    "tier": "",
-    "score": "17",
-    "record_id": "",
-    "citekey": "CNKI2026_cnki12110d70a",
-    "zotero_item_key": "PH2NX2EZ",
-    "status": "ready"
-  },
-  {
-    "title": "基于拓扑优化的车用锂离子电池液冷板结构设计及性能研究",
-    "source": "wanfang",
-    "source_id": "wanfang.57fa4e8e62d362514f18531676848f667528950279bb5b50",
-    "article_url": "https://d.wanfangdata.com.cn/thesis/D03731170",
-    "doi": "",
-    "authors": [
-      "袁, 继枫"
-    ],
-    "year": "2024",
-    "publication_title": "江苏大学",
-    "abstract": "基于拓扑优化结果，结合形状优化和尺寸优化并挖掘迭代过程中出现的标准形状结构，提取了结构更为简单的梯形流道和复合流道结构。随后以电池模组为研究对象分析了拓扑结构、矩形结构、梯形结构和复合结构的散热性能，并建立模组实验平台进行验证。",
-    "language": "zh-CN",
-    "tier": "",
-    "score": "19",
-    "record_id": "",
-    "citekey": "Wanfang2024_wf1b5545bd",
-    "zotero_item_key": "ZDKDKVZB",
-    "status": "ready"
-  },
-  {
-    "title": "电动汽车动力电池组液冷板拓扑优化设计及数值分析",
-    "source": "wanfang",
-    "source_id": "wanfang.753552a86c7d8f6652a8529b75356c607ec46db251b7677f",
-    "article_url": "https://d.wanfangdata.com.cn/periodical/dwycd202502007",
-    "doi": "",
-    "authors": [
-      "熊, 敏",
-      "林, 传开",
-      "丁, 晓红"
-    ],
-    "year": "2025",
-    "publication_title": "低温与超导",
-    "abstract": "为了提高动力电池组液冷板的冷却效果并降低系统能耗，以热流固耦合下的换热量和出入口压降为目标，对液冷板进行了多目标优化设计，获得了优化的流道分布。针对电动汽车的三种典型工况，考虑不同充放电状态下电池内阻不同引起的电池产热变化，对动力电池组液冷板进行数值分析。",
-    "language": "zh-CN",
-    "tier": "",
-    "score": "17",
-    "record_id": "",
-    "citekey": "Wanfang2025_wfb6abf25c",
-    "zotero_item_key": "SMSVGA35",
     "status": "ready"
   }
 ]
