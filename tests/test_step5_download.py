@@ -965,6 +965,16 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(result, "clicked_doDownload")
 
+    def test_wait_for_wanfang_interstitial_click_retries_until_link_appears(self):
+        time_points = iter([100.0, 100.5, 101.5, 102.0])
+
+        with patch.object(gpd, "_wanfang_click_download_interstitial", side_effect=["not_found", "clicked"]), \
+             patch.object(gpd.time, "sleep", return_value=None), \
+             patch.object(gpd.time, "time", side_effect=lambda: next(time_points)):
+            result = gpd._wait_for_wanfang_interstitial_click(9223, "detail-tab", timeout=3)
+
+        self.assertEqual(result, "clicked")
+
     def test_download_wanfang_starts_download_window_after_info_click(self):
         class FakeBrowserWs:
             def send(self, _payload):
@@ -994,7 +1004,7 @@ class Step5DownloadTest(unittest.TestCase):
              patch.object(gpd.websocket, "create_connection", side_effect=[FakeBrowserWs(), FakeTabWs()]), \
              patch.object(gpd, "list_tabs", return_value=[]), \
              patch.object(gpd, "get_tab_ws_url", return_value="ws://detail-tab"), \
-             patch.object(gpd, "_wanfang_click_download_interstitial", return_value="not_found"), \
+             patch.object(gpd, "_wait_for_wanfang_interstitial_click", return_value="not_found"), \
              patch.object(gpd, "_wait_for_wanfang_download_info_click", return_value="clicked_doDownload"), \
              patch.object(gpd.time, "sleep", return_value=None), \
              patch.object(gpd.time, "time", side_effect=lambda: next(time_points)), \
@@ -1008,6 +1018,93 @@ class Step5DownloadTest(unittest.TestCase):
              patch("shutil.copy2") as copy2, \
              patch.object(gpd, "close_tab"):
             path = gpd._download_wanfang(9223, "https://d.wanfangdata.com.cn/thesis/D03731170", {}, output_dir=tmpdir)
+
+        self.assertTrue(str(path).endswith(".pdf"))
+        copy2.assert_called_once()
+
+    def test_download_wanfang_prefers_primary_detail_download_before_fallback(self):
+        class FakeBrowserWs:
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return json.dumps({"result": {"targetId": "detail-tab"}})
+
+            def close(self):
+                pass
+
+        class FakeTabWs:
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return json.dumps({"result": {"result": {"value": "clicked:下载"}}})
+
+            def close(self):
+                pass
+
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.object(gpd, "_parse_wanfang_article_url", return_value=("periodical", "wf-demo", "https://d.wanfangdata.com.cn/periodical/wf-demo")), \
+             patch.object(gpd, "get_cdp_ws_url", return_value="ws://browser"), \
+             patch.object(gpd.websocket, "create_connection", side_effect=[FakeBrowserWs(), FakeTabWs()]), \
+             patch.object(gpd, "list_tabs", return_value=[]), \
+             patch.object(gpd, "get_tab_ws_url", return_value="ws://detail-tab"), \
+             patch.object(gpd, "_wait_for_downloaded_pdf", side_effect=[os.path.join(tmpdir, "paper.pdf")]) as wait_pdf, \
+             patch.object(gpd, "_wait_for_wanfang_interstitial_click") as wait_interstitial, \
+             patch.object(gpd, "_wait_for_wanfang_download_info_click") as wait_info, \
+             patch("shutil.copy2") as copy2, \
+             patch.object(gpd, "close_tab"):
+            path = gpd._download_wanfang(
+                9223,
+                "https://d.wanfangdata.com.cn/periodical/wf-demo",
+                {},
+                output_dir=tmpdir,
+            )
+
+        self.assertTrue(str(path).endswith(".pdf"))
+        self.assertEqual(wait_pdf.call_count, 1)
+        wait_interstitial.assert_not_called()
+        wait_info.assert_not_called()
+        copy2.assert_called_once()
+
+    def test_download_wanfang_accepts_interstitial_click_without_info_page_click(self):
+        class FakeBrowserWs:
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return json.dumps({"result": {"targetId": "detail-tab"}})
+
+            def close(self):
+                pass
+
+        class FakeTabWs:
+            def send(self, _payload):
+                pass
+
+            def recv(self):
+                return json.dumps({"result": {"result": {"value": "clicked:下载"}}})
+
+            def close(self):
+                pass
+
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.object(gpd, "_parse_wanfang_article_url", return_value=("periodical", "wf-demo", "https://d.wanfangdata.com.cn/periodical/wf-demo")), \
+             patch.object(gpd, "get_cdp_ws_url", return_value="ws://browser"), \
+             patch.object(gpd.websocket, "create_connection", side_effect=[FakeBrowserWs(), FakeTabWs()]), \
+             patch.object(gpd, "list_tabs", return_value=[]), \
+             patch.object(gpd, "get_tab_ws_url", return_value="ws://detail-tab"), \
+             patch.object(gpd, "_wait_for_downloaded_pdf", side_effect=[None, os.path.join(tmpdir, "paper.pdf")]), \
+             patch.object(gpd, "_wait_for_wanfang_interstitial_click", return_value="clicked"), \
+             patch.object(gpd, "_wait_for_wanfang_download_info_click", return_value="not_found"), \
+             patch("shutil.copy2") as copy2, \
+             patch.object(gpd, "close_tab"):
+            path = gpd._download_wanfang(
+                9223,
+                "https://d.wanfangdata.com.cn/periodical/wf-demo",
+                {},
+                output_dir=tmpdir,
+            )
 
         self.assertTrue(str(path).endswith(".pdf"))
         copy2.assert_called_once()

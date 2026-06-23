@@ -725,6 +725,23 @@ def _wanfang_click_download_interstitial(port: int, tab_id: str) -> str:
     return str(resp.get("result", {}).get("result", {}).get("value", ""))
 
 
+def _wait_for_wanfang_interstitial_click(
+    port: int,
+    tab_id: str,
+    timeout: int = 20,
+) -> str:
+    """Wait for Wanfang's interstitial ``点击此处`` link, then click it."""
+    deadline = time.time() + max(timeout, 1)
+    last_result = "not_found"
+    while time.time() < deadline:
+        result = _wanfang_click_download_interstitial(port, tab_id)
+        if result == "clicked":
+            return result
+        last_result = result
+        time.sleep(1)
+    return last_result
+
+
 def _wanfang_click_download_info_page(port: int, known_tab_ids: Optional[set[str]] = None) -> str:
     """Click Wanfang's real download link on the generated download-info page."""
     tabs = list_tabs(port)
@@ -783,6 +800,32 @@ def _wait_for_wanfang_download_info_click(
     return last_result
 
 
+def _wait_for_downloaded_pdf(
+    downloads_dir: str,
+    before_dl: set[str],
+    download_started_at: float,
+    timeout: int,
+) -> Optional[str]:
+    """Wait for a real downloaded PDF to land in ~/Downloads."""
+    import os as _os, glob as _glob
+
+    for _ in range(max(timeout, 1)):
+        time.sleep(1)
+        current = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
+        new_pdfs = current - before_dl
+        recent_pdfs = [
+            path for path in current
+            if _os.path.getmtime(path) >= download_started_at - 2
+        ]
+        crdownloads = _glob.glob(_os.path.join(downloads_dir, "*.crdownload"))
+        candidates = list(new_pdfs) or recent_pdfs
+        if candidates and not crdownloads:
+            dl_path = max(candidates, key=_os.path.getmtime)
+            if _os.path.getsize(dl_path) > MIN_PDF_SIZE:
+                return dl_path
+    return None
+
+
 def _download_wanfang(port: int, article_url: str, publisher: dict,
                       timeout: int = DEFAULT_TIMEOUT,
                       output_dir: str = "") -> Optional[str]:
@@ -834,39 +877,54 @@ def _download_wanfang(port: int, article_url: str, publisher: dict,
         close_tab(port, tid)
         return "fulltext_delivery_mode"
 
-    # Step 2: If Wanfang opens an interstitial download page, click "点击此处".
-    time.sleep(10)
-    _wanfang_click_download_interstitial(port, tid)
-    click_result = _wait_for_wanfang_download_info_click(
-        port,
-        known_tab_ids=known_tab_ids,
-        timeout=min(max(timeout, 10), 30),
-    )
-    if not click_result.startswith("clicked"):
-        close_tab(port, tid)
-        return None
+    # Step 2: Prefer the primary path first: after clicking detail-page
+    # "下载", wait for a real PDF download before falling back.
+    primary_wait = min(max(timeout, 8), 15)
     download_started_at = time.time()
+    dl_path = _wait_for_downloaded_pdf(
+        downloads_dir=downloads_dir,
+        before_dl=before_dl,
+        download_started_at=download_started_at,
+        timeout=primary_wait,
+    )
+    if not dl_path:
+        # Step 3: Fallback path — Wanfang sometimes routes through an
+        # interstitial page that needs "点击此处" before the real PDF starts.
+        retry_timeout = min(max(timeout, 10), 30)
+        interstitial_result = _wait_for_wanfang_interstitial_click(
+            port,
+            tid,
+            timeout=retry_timeout,
+        )
+        info_click_result = _wait_for_wanfang_download_info_click(
+            port,
+            known_tab_ids=known_tab_ids,
+            timeout=retry_timeout,
+        )
+        if not (
+            interstitial_result == "clicked"
+            or info_click_result.startswith("clicked")
+        ):
+            close_tab(port, tid)
+            return None
 
-    # Step 3: Wait for PDF in ~/Downloads (Browser.setDownloadBehavior path is unreliable)
-    for i in range(timeout + 30):
-        time.sleep(1)
-        current = set(_glob.glob(_os.path.join(downloads_dir, "*.pdf")))
-        new_pdfs = current - before_dl
-        recent_pdfs = [
-            path for path in current
-            if _os.path.getmtime(path) >= download_started_at - 2
-        ]
-        crdownloads = _glob.glob(_os.path.join(downloads_dir, "*.crdownload"))
-        candidates = list(new_pdfs) or recent_pdfs
-        if candidates and not crdownloads:
-            dl_path = max(candidates, key=_os.path.getmtime)
-            if _os.path.getsize(dl_path) > MIN_PDF_SIZE:
-                # Copy to output_dir with hash name for router compatibility
-                dest = _os.path.join(output_dir,
-                    f"wanfang.{hashlib.md5(article_url.encode()).hexdigest()[:16]}.pdf")
-                _shutil.copy2(dl_path, dest)
-                close_tab(port, tid)
-                return dest
+        download_started_at = time.time()
+        dl_path = _wait_for_downloaded_pdf(
+            downloads_dir=downloads_dir,
+            before_dl=before_dl,
+            download_started_at=download_started_at,
+            timeout=timeout + 30,
+        )
+
+    if dl_path:
+        # Copy to output_dir with hash name for router compatibility
+        dest = _os.path.join(
+            output_dir,
+            f"wanfang.{hashlib.md5(article_url.encode()).hexdigest()[:16]}.pdf",
+        )
+        _shutil.copy2(dl_path, dest)
+        close_tab(port, tid)
+        return dest
 
     close_tab(port, tid)
     return None
