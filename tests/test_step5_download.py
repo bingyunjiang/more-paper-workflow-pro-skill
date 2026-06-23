@@ -21,6 +21,7 @@ import sd_download  # noqa: E402
 import batch_resolve_pii  # noqa: E402
 import console_compat  # noqa: E402
 import download_via_scihub as scihub  # noqa: E402
+import download_via_ieee as ieee  # noqa: E402
 
 
 class Step5DownloadTest(unittest.TestCase):
@@ -2416,6 +2417,70 @@ class Step5DownloadTest(unittest.TestCase):
         text = stdout.getvalue()
         self.assertIn("可直接尝试下载", text)
         self.assertIn("信号不足，需实际下载验证", text)
+
+    def test_get_all_cookies_via_tab_uses_tab_scoped_network_domain(self):
+        class FakeWs:
+            def __init__(self):
+                self.sent = []
+
+            def send(self, payload):
+                self.sent.append(json.loads(payload))
+
+            def settimeout(self, _timeout):
+                pass
+
+            def recv(self):
+                last_id = self.sent[-1]["id"]
+                last_method = self.sent[-1]["method"]
+                if last_method == "Network.enable":
+                    return json.dumps({"id": last_id, "result": {}})
+                if last_method == "Network.getAllCookies":
+                    return json.dumps({
+                        "id": last_id,
+                        "result": {"cookies": [{"domain": ".ieee.org"}]},
+                    })
+                raise AssertionError(f"unexpected method {last_method}")
+
+            def close(self):
+                pass
+
+        fake_ws = FakeWs()
+        with patch.object(cdp_utils, "create_tab", return_value=(None, "tab-1")), \
+             patch.object(cdp_utils, "get_tab_ws_url", return_value="ws://tab-1"), \
+             patch.object(cdp_utils.websocket, "create_connection", return_value=fake_ws), \
+             patch.object(cdp_utils, "close_tab") as close_tab:
+            cookies = cdp_utils.get_all_cookies_via_tab(9223)
+
+        self.assertEqual(cookies, [{"domain": ".ieee.org"}])
+        self.assertEqual(
+            [msg["method"] for msg in fake_ws.sent],
+            ["Network.enable", "Network.getAllCookies"],
+        )
+        close_tab.assert_called_once_with(9223, "tab-1")
+
+    def test_check_publisher_session_uses_tab_cookie_probe(self):
+        publisher = {"publisher_domain": "ieee.org"}
+        cookies = [
+            {"domain": ".example.org"},
+            {"domain": ".ieee.org"},
+        ]
+        with patch.object(gpd, "get_all_cookies_via_tab", return_value=cookies):
+            has_session, count = gpd.check_publisher_session(9223, publisher)
+
+        self.assertTrue(has_session)
+        self.assertEqual(count, 1)
+
+    def test_download_via_ieee_check_session_uses_tab_cookie_probe(self):
+        cookies = [
+            {"domain": ".ieee.org"},
+            {"domain": ".sciencedirect.com"},
+        ]
+        with patch.object(ieee, "get_all_cookies_via_tab", return_value=cookies):
+            total_c, ieee_c, all_cookies = ieee.check_session(9223)
+
+        self.assertEqual(total_c, 2)
+        self.assertEqual(ieee_c, 1)
+        self.assertEqual(all_cookies, cookies)
 
     def test_check_wiley_access_reports_pdf_link_present(self):
         publisher = {

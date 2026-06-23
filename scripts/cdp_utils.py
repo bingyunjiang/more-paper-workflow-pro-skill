@@ -148,6 +148,37 @@ def get_tab_ws_url(port, target_id):
     return None
 
 
+def get_all_cookies_via_tab(port=9223, url="about:blank"):
+    """Read cookies through a tab-scoped CDP websocket.
+
+    Browser-scoped websocket probes can report zero cookies even when the
+    session is valid. Open a lightweight tab, enable Network on that tab, then
+    call Network.getAllCookies from the tab-scoped websocket instead.
+    """
+    target_id = None
+    ws = None
+    try:
+        _, target_id = create_tab(port, url)
+        tab_ws_url = get_tab_ws_url(port, target_id)
+        if not tab_ws_url:
+            return []
+
+        ws = websocket.create_connection(tab_ws_url, timeout=10)
+        send_cmd_and_wait(ws, "Network.enable")
+        result = send_cmd_and_wait(ws, "Network.getAllCookies") or {}
+        return result.get("cookies", [])
+    except Exception:
+        return []
+    finally:
+        if ws is not None:
+            try:
+                ws.close()
+            except Exception:
+                pass
+        if target_id is not None:
+            close_tab(port, target_id)
+
+
 def wait_for_tab_url(port, url_prefix, timeout=10):
     """Poll open tabs until one's URL starts with `url_prefix`.
 

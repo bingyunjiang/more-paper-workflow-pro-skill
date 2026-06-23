@@ -37,6 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cdp_utils import (
     check_cdp, get_cdp_ws_url, list_tabs, close_tab, create_tab,
     get_tab_ws_url, send_cmd_and_wait, check_required_deps,
+    get_all_cookies_via_tab,
 )
 from console_compat import configure_console_output
 
@@ -356,17 +357,7 @@ def check_publisher_session(port: int, publisher: dict) -> tuple[bool, int]:
         return False, 0
 
     try:
-        wu = get_cdp_ws_url(port)
-        ws = websocket.create_connection(wu, timeout=10)
-        ws.send(json.dumps({"id": 1, "method": "Network.getAllCookies"}))
-        cookies = []
-        while True:
-            msg = json.loads(ws.recv())
-            if msg.get("id") == 1:
-                cookies = msg.get("result", {}).get("cookies", [])
-                break
-        ws.close()
-
+        cookies = get_all_cookies_via_tab(port)
         matching = [c for c in cookies if domain in c.get("domain", "")]
         return len(matching) > 0, len(matching)
     except Exception:
