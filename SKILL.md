@@ -5,7 +5,7 @@ description: Use when the user asks for the more-paper academic workflow: resear
 
 ## Skill metadata
 
-version: v1.0.17-20260622 (2026-06-22)
+version: v1.0.17-20260624 (2026-06-24)
 author: Dr. Jiang Bingyun（江博士）
 wechat: Bingyunjiang
 category: research

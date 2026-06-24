@@ -8,19 +8,20 @@
 
 ---
 
-## v1.0.17-20260622 (2026-06-21 至 2026-06-23)
+## v1.0.17-20260624 (2026-06-21 至 2026-06-24)
 
 ### Step 5 真实下载链路、英文优先顺序与登录 checkpoint 收口
 
 - **Step 5 英文优先并加下载锁**：统一下载顺序收紧为 Sci-Hub / OA fast / IEEE CDP / English Generic CDP 完成后才进入 CNKI/万方；`--parallel-phase1` 保留兼容但不再并发启动中文，并新增跨进程 `step5_download.lock` 防止多个下载进程同时冲击同一 CDP 浏览器。
-- **IEEE 默认恢复独立下载脚本**：`10.1109/` 路由重新切回 `download_via_ieee.py` 作为默认实现；Generic IEEE fallback 继续保留，但不再是主路径。
+- **IEEE 默认恢复独立下载脚本，并纳入英文预登录门控**：`10.1109/` 路由重新切回 `download_via_ieee.py` 作为默认实现；同时 `strategy=ieee_cdp` 且 `requires_auth != none` 的条目现在和 Generic CDP 一起参与 preflight gate。没有可信 `pdf/article probe ok` 信号时，脚本先自动打开本轮真正涉及的 IEEE / Springer / Wiley 等入口页，再提示登录、跳过或写 checkpoint。
 - **英文 OA 清单分层与 CDP 分组**：Step 5 拿到英文 DOI 后先标记 `oa_candidate` / `no_oa_hint` / `unknown`，真实下载仍由 OA fast 验证；OA fast 剩余条目进入 English CDP 时按 publisher 分组执行，减少不同出版社页面互相冲击。
 - **OA Fast 增加多 resolver 与白名单判定**：OA fast 现在按 `Unpaywall -> OpenAlex -> Semantic Scholar` 依次解析公开 PDF；MDPI、IEEE Access、RSC Advances、Scientific Reports 与 Wiley OA 类条目可在登录门控前按白名单豁免进入 OA 验证。
 - **Sci-Hub 增加有限镜像重试**：`download_via_scihub.py` 新增 `--retry-mirrors`；统一路由默认给老论文追加 1 次换镜像重试，并把失败原因写入 `scihub_failed_dois.txt` 注释。
 - **English CDP 登录门控与重试语义固定**：English CDP 第一轮按 publisher 分组全部探测完成后才统一触发机构登录 gate；用户确认后只对登录类失败 DOI 分组重试一次，非登录类失败不进入登录重试。
-- **English CDP 预下载登录门控前移**：OA fast 之后、Generic CDP 分组下载之前，若剩余 DOI 存在登录敏感 publisher 且当前会话没有可信 `pdf/article probe ok` 信号，脚本会先提示登录 / 跳过 / 写 `login_checkpoint.json`，避免未登录时逐篇撞登录墙；OA、direct_http、skip 和 `requires_auth=none` 条目不被拦截。
+- **English CDP 预下载登录门控前移**：OA fast 之后、English CDP 下载之前，若剩余 DOI 存在登录敏感 publisher 且当前会话没有可信 `pdf/article probe ok` 信号，脚本会先提示登录 / 跳过 / 写 `login_checkpoint.json`，避免未登录时逐篇撞登录墙；OA、direct_http、skip 和 `requires_auth=none` 条目不被拦截。
 - **English CDP 登录 tab 按需自动打开**：英文登录门控会根据本轮待登录 DOI 或 `login_checkpoint.json` 去重 publisher，并在同一个 CDP Chrome 中自动打开对应 `login_url` / publisher 首页；不会固定打开未参与本轮下载的常用出版社。
 - **英文登录门控三态对齐中文**：英文机构登录 gate 的 `3 / 稍后重试`、非交互输入失败和未识别输入统一写 `login_checkpoint.json`，不再误当作 skip 或继续。
+- **英文 checkpoint 只记录待登录子集**：当预登录门控未确认放行时，`login_checkpoint.json` 只写当轮真正受门控影响的 DOI，避免恢复时把已完成的 OA / Sci-Hub / 非登录条目重新跑一遍。
 - **登录后恢复路径显式化**：新增 `--resume-login-checkpoint ... --confirmed` / `--assume-login-confirmed` 语义；用户完成机构登录后可只恢复 checkpoint 中待登录条目，不再重复走一次待确认门控。
 - **失败 sidecar 在确认恢复后刷新**：`failed_dois.json` / `failed_dois.txt` 在 `confirmed` 恢复路径中会按恢复后的真实失败原因重写，不再把登录前的 `manual_confirmation_required`、`login_wall` 等标签原样带到登录后失败结果里。
 - **RSC 直链 PDF fallback 补齐**：`config/publishers.toml` 为 RSC 加入 `articlepdf` 模板，优先走 `https://pubs.rsc.org/en/content/articlepdf/{doi}` 直链，再回退文章页抽取，减少登录后仍卡在文章页解析的情况。
@@ -28,10 +29,15 @@
 - **MDPI 不参与机构登录门控**：MDPI 标记为 Open Access / `requires_auth=none`，进入 English CDP 下载路径但不触发 institutional-login gate。
 - **真实下载产物从仓库内容中清理**：实测过程中产生的 `paper-temp/` PDF、下载日志和失败 DOI 临时文件不再保留为版本内容，避免把一次性下载结果混进 skill 发布面。
 
-### CNKI / 万方 Windows 实测反馈收口
+### CNKI / 万方 Windows 实测反馈与自动续跑收口
 
 - **CNKI 失败状态拆分**：`generic_publisher_downloader.py` 对 CNKI 安全验证页返回 `captcha_required`，对详情页未证明下载入口返回 `pdf_probe_unknown`，对人工路径返回 `manual_required`，对未识别到 PDF 但出现章节/分页入口的页面返回 `chapter_download_mode`，不再统一压成 `failed`。
 - **CNKI 自动点击入口收紧为 PDF 白名单**：期刊论文和学位论文详情页都只允许自动点击明确的 `PDF下载` / `PDF 下载` / `#pdfDown`；`AI阅读`、`原版阅读`、`CAJ下载`、`章节下载`、`分页下载`、`我是作者`、`免费下载`、`在线阅读`、`整本下载` 一律不自动点击。
+- **CNKI 验证页先监控再提问**：当当前篇返回 `captcha_required` 时，路由层先监控这一个 CNKI 标签页，等待用户完成图形验证并回到目标论文详情页。检测到验证完成后，会自动重试当前篇，不再默认要求额外输入“已验证继续”。
+- **CNKI 当前篇自动恢复加入重试窗口**：新增监控超时、轮询间隔与自动恢复次数控制；只有在验证页超时、标签页丢失、跳转到无关页面或自动恢复仍失败时，才回退到短语确认或写 `chinese_login_checkpoint.json`。
+- **中文 checkpoint 保留精确失败原因**：若 CNKI 验证等待超时或用户选择“稍后重试”，checkpoint 会把当前篇及后续未执行中文条目一起写入，但仍保留 `captcha_required` 等精确原因，而不是一律模糊成通用失败。
+- **CNKI 已验证详情页复用**：CNKI 下载前会优先复用同一 CDP 浏览器里已完成安全验证的详情页；匹配到安全验证页返回 `captcha_required` 并保留页面，避免重复开页、重复过验证；下载器内部也增加了可复用的 CNKI 工作 tab 缓存。
+- **CNKI 人工协作路径更稳**：自动点击仍只允许白名单 `PDF下载` / `#pdfDown`；`captcha_required` 与 `manual_required` 会保留当前页，方便用户先完成人工验证或点击，再由脚本继续监视 PDF 落盘和归档。
 - **万方自动点击入口按类型收紧**：期刊论文详情页只点击 `下载`，不点 `在线阅读` / `评审材料`；学位论文详情页只点击 `整篇下载`，不点 `在线阅读` / `分章下载`，并兼容 `d.wanfangdata.com.cn/...` 与 `details/detail.do` 两类 URL。
 - **万方详情页加入真实鼠标点击尝试**：命中白名单按钮后优先通过 CDP `Input.dispatchMouseEvent` 做真实点击，坐标不可用时再退回 DOM `.click()`，减少“按钮存在但脚本点不动”的 `pdf_probe_unknown`。
 - **万方下载页识别补齐 OSS / NewFulltext 并增加 Fetch fallback 预研**：下载信息页不再只识别 `f.wanfangdata.com.cn/download/pc/`；新增 `oss.wanfangdata.com.cn/...Fulltext/Download...` 与 `NewFulltext` 识别，并在下载页无可执行控件时尝试复用 `_navigate_and_capture_pdf()` 抓取 PDF。
@@ -39,9 +45,12 @@
 - **中文登录门控改为 checkpoint 语义**：CNKI/万方登录确认变为三态；未收到明确“已登录”或用户选择“稍后重试”时写出 `chinese_login_checkpoint.json`，不再误判为 skip 并跳到后续数据库。
 - **中文登录门控按需自动打开入口**：CNKI/万方门控会根据本轮中文清单或 `chinese_login_checkpoint.json` 的 `source` 去重，并在同一个 CDP Chrome 中自动打开 CNKI / 万方入口；同一文库每轮只开一次。
 - **中文下载清单稳定排序**：Step 5 拿到中文清单后先按 source 排序为 CNKI → 万方，同一数据库内部保留原顺序；排序后的清单贯穿路由 summary、登录门控、checkpoint、下载和 download log。
-- **CNKI 已验证详情页复用**：CNKI 下载前会优先复用同一 CDP 浏览器里已完成安全验证的详情页；匹配到安全验证页返回 `captcha_required` 并保留页面，避免重复开页、重复过验证。
-- **CNKI 人工协作路径更稳**：自动点击仍只允许白名单 `PDF下载` / `#pdfDown`；`captcha_required` 与 `manual_required` 会保留当前页，方便用户先完成人工验证或点击，再由脚本继续监视 PDF 落盘和归档。
-- **Step 5 运行契约补充 Windows/CNKI 协作经验**：`agents/step_5_download.md` 和 `references/download-readiness-states.md` 写入安全验证、已验证详情页复用、独立中文 CDP 会话、人工点击下载 + Agent 监视落盘等规则。
+
+### 真实文件落盘、输出目录与 Step 5/6 边界澄清
+
+- **浏览器下载 PDF 改为归档回 workflow 输出目录**：CNKI/万方经浏览器直接落到 `~/Downloads` 的 PDF，会通过 `_archive_browser_download()` 移回 `paper-temp/` 并覆盖同名目标，避免真实下载成功但工件散落在浏览器默认下载目录。
+- **默认输出目录改为“输入文件同级 `paper-temp/`”**：当用户未显式传 `--output` 且入口使用了真实输入文件时，路由器会优先把产物写到该输入文件同级目录下的 `paper-temp/`，避免把下载工件写进 skill 仓库自身目录。
+- **`.bib` 在 Step 5 仍默认代表下载输入**：`agents/step_5_download.md` 新增强约束：只要用户意图是“下载这些 BibTeX/参考文献”，就必须停留在 Step 5 做 DOI/URL/source 归一化和下载路由；只有明确表达“导入 Zotero / 建条目 / 建集合 / 关联附件”时才切到 Step 6。
 
 ### Step 4 / Step 5 契约、平台兼容与测试补强
 
@@ -49,7 +58,9 @@
 - **Step 4 dashboard 入口和触发词补齐**：`agents/step_4_search_score.md` 把 `step4-dashboard/index.html` 加入标准完成检查和用户提示；`references/trigger-catalog.md` 增加“检索结果看板 / 检索结果可视化 / 下载优先级看板 / search results dashboard”等触发词。
 - **Step 4 到 Step 5 的中文输入约定继续明确**：`agents/step_4_search_score.md` 和 `workflow_contracts.py` 补齐中文检索结果、中文元数据和 Step 5 下载清单之间的字段契约，减少 CNKI/万方 direct-entry 时的解析歧义。
 - **CDP 与平台兼容防线补强**：`cdp_utils.py`、`start_cdp_browser.py` 和平台兼容测试继续收口 Chrome/Edge 启动、Windows 路径、浏览器会话复用与下载落盘监视边界。
-- **回归测试补齐**：`tests/test_export_step4_dashboard.py`、`tests/test_export_step4_table.py`、`tests/test_public_docs.py` 与 `tests/test_step5_download.py` 增加覆盖，固定 dashboard 默认导出、公开文档可发现性、CNKI 状态透传、MDPI Generic CDP、英文预登录门控、`confirmed` 恢复路径和 checkpoint 行为。
+- **README 版本口径更新到 `v1.0.17-20260624`**：README 中文与英文版本号、版本历史要点同步改写为覆盖 6 月 21-24 日的对外摘要，继续保持 README 压缩、CHANGELOG 详细的分工。
+- **Step 5 运行文档补入 IEEE 预登录、CNKI 自动续跑和 BibTeX 分流规则**：`agents/step_5_download.md` 同步更新了英文预登录流程、中文验证码自动恢复、恢复命令、以及 Step 5 与 Step 6 的边界文本。
+- **回归测试补齐**：`tests/test_export_step4_dashboard.py`、`tests/test_export_step4_table.py`、`tests/test_public_docs.py` 与 `tests/test_step5_download.py` 增加覆盖，固定 dashboard 默认导出、公开文档可发现性、MDPI Generic CDP、英文预登录门控、`confirmed` 恢复路径、输出目录默认解析、浏览器下载归档、CNKI 自动续跑和 checkpoint 行为。
 
 ## v1.0.16-20260621 (2026-06-21)
 

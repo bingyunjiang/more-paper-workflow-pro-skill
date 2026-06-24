@@ -11,7 +11,7 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 more paper workflow pro skill `v1.0.17-20260622`
+# 📚 more paper workflow pro skill `v1.0.17-20260624`
 
 > 面向中文/双语论文写作的证据闭环学术工作流：从定题、检索、下载、Zotero 到写作与引用审计，全程基于真实文献，而不是模型记忆。
 
@@ -801,19 +801,16 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
-### v1.0.17-20260622 (2026-06-21 至 2026-06-23)
+### v1.0.17-20260624 (2026-06-21 至 2026-06-24)
 - **Step 4 默认生成检索结果看板**：标准 Step 4 完成链路会同步输出 `step4-dashboard/`，用于本地审阅 T1-T3 文献、复核 T4 排除项、查看章节挂接、下载准备度和阅读深度。
-- **Step 5 下载顺序改为英文优先**：英文 DOI 路径先完成 Sci-Hub / OA fast，并对 IEEE CDP + Generic CDP 统一做英文登录门控；用户确认后再进入 IEEE CDP / Generic CDP，最后才进入 CNKI / 万方，降低中英文共享浏览器会话互相干扰的概率。
-- **English CDP 登录门控前移**：OA fast 与 IEEE 专用路由之后、Generic CDP 分组下载之前，登录敏感出版社会先检查可信访问信号；没有确认访问时先提示登录、跳过或写 checkpoint，避免逐篇撞登录墙。
-- **English CDP 改为按 publisher 分组**：OA fast 未完成的英文 DOI 会按出版社分组进入 CDP；第一轮全部探测完成后才统一触发机构登录，并只重试登录类失败条目。
-- **登录待处理统一写 checkpoint**：英文和中文登录门控都区分“已登录 / 跳过 / 稍后重试”；无法确认时写出 `login_checkpoint.json` 或 `chinese_login_checkpoint.json`，后续可用 `--resume-login-checkpoint ... --confirmed` 只恢复待登录条目。
-- **CNKI / 万方入口更保守**：CNKI 只自动点击明确 `PDF下载`，万方按期刊/学位论文区分下载入口；安全验证、章节下载、人工路径和未知 PDF probe 不再混成普通失败。
-- **CNKI 已验证详情页复用**：用户完成安全验证后，Step 5 优先复用当前 CNKI 详情页下载并监视落盘，减少重复触发验证。
-- **CNKI 验证后自动续跑当前篇**：命中图形验证时脚本会持续监控当前篇验证页；用户在已打开浏览器完成验证后，当前篇会自动重试；若等待超时则写 `chinese_login_checkpoint.json` 供后续恢复。
-- **RSC / MDPI 英文路由补齐**：RSC 增加 `articlepdf` 直链 fallback；MDPI 从直接跳过改为 Generic CDP 尝试，但仍不触发机构登录门控；IEEE 默认恢复独立 `download_via_ieee.py` 路径。
-- **Step 5 加入下载锁与中文稳定排序**：同一时间只允许一个真实下载进程使用 CDP；中文清单固定 CNKI 在前、万方在后，同库内部保留原输入顺序。
-- **Windows/CNKI 实测经验进入运行契约**：Step 5 文档补入安全验证、已验证详情页复用、独立中文 CDP 会话、人工点击下载和落盘监视等协作边界。
-- **测试覆盖继续补齐**：新增和扩展 Step 5、平台兼容与 workflow contract 测试，固定入口白名单、checkpoint、`confirmed` 恢复、下载锁和中文排序行为。
+- **Step 5 下载主链改为英文优先**：英文 DOI 先走 Sci-Hub / OA fast / IEEE CDP / Generic CDP，再进入 CNKI / 万方，减少中英文共享浏览器会话互相干扰；其中英文 OA 先做 `oa_candidate / no_oa_hint / unknown` 提示分层，真实 OA 仍必须由 OA fast 验证。
+- **英文预登录门控继续前移并覆盖 IEEE**：命中登录敏感的 IEEE CDP 与 Generic CDP 条目会先统一检查会话、自动打开本轮真正需要的 publisher 登录页，再决定继续、写 `login_checkpoint.json` 或稍后恢复。
+- **中文验证码改为“当前篇自动续跑”**：CNKI 命中 `captcha_required` 后，脚本会先持续监控当前验证页；用户在已打开浏览器完成验证并回到论文详情页后，当前篇会自动重试，不再默认要求额外交互确认。
+- **中文下载更偏真实落盘与人工协作**：CNKI 继续只点击明确 `PDF下载`；万方细分为详情页点击无效、下载页无可执行控件等状态，并把浏览器实际下载的 PDF 归档回 `paper-temp/`，减少 `~/Downloads` 残留。
+- **RSC / MDPI / IEEE 路由补齐**：RSC 增加 `articlepdf` 直链 fallback；MDPI 从直接跳过改为 Generic CDP 尝试但不触发机构登录门控；IEEE 默认恢复独立 `download_via_ieee.py` 路径并纳入英文预登录判定。
+- **checkpoint / 恢复语义继续收口**：英文 `login_checkpoint.json` 和中文 `chinese_login_checkpoint.json` 都保持“待登录确认”而非“已跳过”；恢复路径固定为只重跑 checkpoint 中条目，确认后把失败原因刷新为真实策略失败。
+- **Step 5 文档边界更明确**：README 与 Step 5 运行文档补清了 `.bib` 在 Step 5 默认表示“下载输入”而不是“导入 Zotero 指令”，并强调真实下载前必须先在同一个 CDP 浏览器里完成必要登录。
+- **回归测试继续补齐**：本轮补入了 Step 4 看板默认导出、MDPI Generic CDP、checkpoint/`confirmed` 恢复、输出目录默认解析、浏览器下载归档、CNKI 验证自动续跑、IEEE+Generic 统一预登录门控等行为的测试。
 
 ### v1.0.16-20260621 (2026-06-21)
 - **Step 8 与运行态状态源继续收口**：AI 味诊断、`.skill-state/ai_trace_diagnostics.json`、Step 8 demo、`artifact_passport` 对接与更新提醒协议一起落位，润色层更接近可验证、可追踪的发布状态。
@@ -971,7 +968,7 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 ---
 
 <a id="english"></a>
-# 📚 more paper workflow pro skill `v1.0.17-20260622`
+# 📚 more paper workflow pro skill `v1.0.17-20260624`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
@@ -1544,17 +1541,16 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
 
-### v1.0.17-20260622 (2026-06-21 to 2026-06-23)
-- **Step 4 now exports a search-results dashboard by default**: the standard Step 4 completion flow also creates `step4-dashboard/` for local review of T1-T3 papers, T4 exclusions, chapter mapping, download readiness, and reading depth.
-- **Step 5 now runs English downloads first**: English DOI paths finish Sci-Hub / OA fast, then gate IEEE CDP + Generic CDP behind a shared English login prompt before CNKI / Wanfang starts, reducing cross-language CDP session interference.
-- **English CDP login gating now happens before grouped downloads**: after OA fast and the dedicated IEEE route, login-sensitive Generic CDP publishers are checked for trusted access; uncertain sessions prompt login, skip, or checkpoint before per-paper failures accumulate.
-- **English CDP is grouped by publisher**: remaining English DOI items enter CDP by publisher; institutional login is prompted only after the first full probe pass, and only login-related failures are retried.
-- **Login wait states now write checkpoints**: English and Chinese login gates distinguish confirmed login, skip, and retry-later states; uncertain states write `login_checkpoint.json` or `chinese_login_checkpoint.json`, and `--resume-login-checkpoint ... --confirmed` resumes only the gated subset.
-- **CNKI / Wanfang clicking is more conservative**: CNKI only auto-clicks explicit PDF download entries, while Wanfang uses separate journal/thesis download allowlists; captcha, chapter-download, manual, and unknown probe states are no longer collapsed into generic failure.
-- **RSC and MDPI routing are more complete**: RSC now has an `articlepdf` direct-PDF fallback, MDPI moves from hard skip to Generic CDP attempt while still staying outside institutional-login gating, and IEEE defaults back to the dedicated `download_via_ieee.py` path.
-- **Step 5 adds a download lock and stable Chinese ordering**: only one real download process can use CDP at a time; Chinese items are ordered CNKI first, then Wanfang, while preserving input order inside each source.
-- **Windows/CNKI field lessons moved into runtime docs**: Step 5 docs now record captcha handling, verified-detail-page reuse, independent Chinese CDP sessions, manual PDF clicking, and file-drop monitoring boundaries.
-- **Regression coverage was expanded**: Step 5, platform compatibility, and workflow-contract tests now cover entry allowlists, checkpoints, confirmed resume, download locks, and Chinese ordering.
+### v1.0.17-20260624 (2026-06-21 to 2026-06-24)
+- **Step 4 now exports a search-results dashboard by default**: the standard Step 4 finish path also creates `step4-dashboard/` for local review of T1-T3 papers, T4 exclusions, chapter mapping, download readiness, and reading depth.
+- **Step 5 now runs an English-first download chain**: English DOI items move through Sci-Hub / OA fast / IEEE CDP / Generic CDP before CNKI / Wanfang starts, reducing cross-language CDP session interference; OA hints are staged as `oa_candidate / no_oa_hint / unknown`, but real OA still has to be verified by OA fast.
+- **Pre-login gating is tighter and now includes IEEE**: login-sensitive IEEE CDP and Generic CDP items now share one preflight login decision, auto-open only the publishers needed for the current batch, and write `login_checkpoint.json` cleanly before repeated access-wall failures.
+- **CNKI captcha handling now auto-resumes the current paper**: when a paper hits `captcha_required`, the router watches the live CNKI tab first; once the user completes the captcha and returns to the target detail page, the current paper is retried automatically instead of requiring an extra confirmation loop by default.
+- **Chinese downloads lean further toward real file landing and manual collaboration**: CNKI still only auto-clicks explicit PDF entries; Wanfang now distinguishes detail-click-no-effect vs download-page-no-actionable-control, and browser-downloaded PDFs are archived back into `paper-temp/` instead of being left behind in `~/Downloads`.
+- **RSC / MDPI / IEEE routing is more complete**: RSC now has an `articlepdf` direct-PDF fallback, MDPI moved from hard skip to Generic CDP attempt without joining institutional-login gating, and IEEE is back on the dedicated `download_via_ieee.py` path while still participating in English preflight login checks.
+- **Checkpoint and resume semantics were tightened again**: `login_checkpoint.json` and `chinese_login_checkpoint.json` remain “waiting for confirmed login” states rather than “skipped” states, and confirmed resume paths rerun only the gated subset while refreshing failure reasons into real strategy outcomes.
+- **Step 5 boundary text is clearer**: README and runtime docs now state more explicitly that `.bib` means “download input” in Step 5 unless the user explicitly asks for Zotero import, and that real download runs must reuse the same visible CDP browser for login-gated sites.
+- **Regression coverage expanded again**: tests now cover default Step 4 dashboard export, MDPI Generic CDP, checkpoint/confirmed resume behavior, default output-dir resolution, browser-download archiving, CNKI captcha auto-resume, and the shared IEEE + Generic preflight login gate.
 
 ### v1.0.16-20260621 (2026-06-21)
 - **Hero poster became a clickable video cover**: the top README poster now links to the Bilibili intro video as the public-facing entry point.
