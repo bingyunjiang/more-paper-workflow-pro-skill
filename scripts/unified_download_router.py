@@ -42,6 +42,7 @@ from cdp_utils import (
     check_required_deps,
     create_tab,
     get_cdp_browser_product,
+    get_tab_ws_url,
     start_persistent_cdp_browser,
 )
 from console_compat import (
@@ -1212,7 +1213,7 @@ CHINESE_MANUAL_RETRY_STATUSES = {
 }
 
 
-def _confirm_cnki_captcha_resolution(title: str) -> str:
+def _confirm_cnki_captcha_resolution(title: str, confirmed_login: bool = False) -> str:
     """Ask the outer agent/user to confirm CNKI captcha completion."""
     print()
     print(f"  {WARN} CNKI 当前篇触发图形验证。")
@@ -1221,6 +1222,10 @@ def _confirm_cnki_captcha_resolution(title: str) -> str:
     print("Choose one option by typing the full phrase:")
     print("  已验证继续")
     print("  稍后重试")
+    if confirmed_login:
+        print(f"  {OK} --confirmed supplied: treating current CNKI captcha as verified and retrying.\n")
+        print(f"  {ARROW} Retrying current paper after captcha verification: {title[:45]}")
+        return "retry"
     resp = _safe_gate_input("输入完整短语: ")
     if resp is None:
         return "checkpoint"
@@ -1265,14 +1270,33 @@ def _wait_for_cnki_captcha_resolution(
     print(f"  {ARROW} 已开始监控当前篇 CNKI 验证页；请在已打开的浏览器里完成图形验证，完成后会自动继续。")
     deadline = time.time() + timeout_seconds
     last_progress_log = time.time()
+    watched_tab_id, watched_status = _find_reusable_cnki_tab(port, article_url, title=title)
+    lost_since: float | None = None
     while time.time() < deadline:
-        tab_id, status = _find_reusable_cnki_tab(port, article_url, title=title)
+        if watched_tab_id:
+            tab_id, status = _find_reusable_cnki_tab(port, article_url, title=title)
+            if tab_id != watched_tab_id:
+                if get_tab_ws_url(port, watched_tab_id):
+                    tab_id, status = watched_tab_id, "captcha_required"
+                else:
+                    watched_tab_id = None
+                    watched_status = None
+        else:
+            tab_id, status = _find_reusable_cnki_tab(port, article_url, title=title)
+            if tab_id:
+                watched_tab_id, watched_status = tab_id, status
         if tab_id and status != "captcha_required":
             print(f"  {ARROW} 已检测到验证完成，正在自动重试当前篇。")
             return "ready"
         if not tab_id and status != "captcha_required":
-            print(f"  {WARN} 当前篇 CNKI 验证页已丢失或跳转到无关页面。")
-            return "page_lost"
+            now = time.time()
+            if lost_since is None:
+                lost_since = now
+            elif now - lost_since >= max(8, poll_interval * 4):
+                print(f"  {WARN} 当前篇 CNKI 验证页已丢失或跳转到无关页面。")
+                return "page_lost"
+        else:
+            lost_since = None
         now = time.time()
         if now - last_progress_log >= 10:
             print(f"  {ARROW} 仍在等待当前篇 CNKI 验证完成...")
@@ -1317,7 +1341,8 @@ def _download_chinese_paper_once(paper: dict, output_dir: str, port: int) -> tup
 
 
 def run_chinese_round_with_reasons(
-    papers: list[dict], output_dir: str, port: int
+    papers: list[dict], output_dir: str, port: int,
+    confirmed_login: bool = False
 ) -> tuple[list[str], list[str], dict[str, str]]:
     """Chinese CDP download round for CNKI and Wanfang papers.
 
@@ -1379,7 +1404,10 @@ def run_chinese_round_with_reasons(
             else:
                 if captcha_wait_status == "page_lost":
                     print(f"  {WARN} 当前篇已离开目标详情页，回退到人工确认。")
-                    captcha_action = _confirm_cnki_captcha_resolution(title)
+                    captcha_action = _confirm_cnki_captcha_resolution(
+                        title,
+                        confirmed_login=confirmed_login,
+                    )
                     if captcha_action == "retry":
                         t0 = time.time()
                         result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
@@ -1427,9 +1455,15 @@ def run_chinese_round_with_reasons(
     return downloaded, remaining, failure_reasons
 
 
-def run_chinese_round(papers: list[dict], output_dir: str, port: int) -> tuple[list[str], list[str]]:
+def run_chinese_round(papers: list[dict], output_dir: str, port: int,
+                      confirmed_login: bool = False) -> tuple[list[str], list[str]]:
     """Backward-compatible wrapper for callers that do not need failure reasons."""
-    downloaded, remaining, _failure_reasons = run_chinese_round_with_reasons(papers, output_dir, port)
+    downloaded, remaining, _failure_reasons = run_chinese_round_with_reasons(
+        papers,
+        output_dir,
+        port,
+        confirmed_login=confirmed_login,
+    )
     return downloaded, remaining
 
 
@@ -1952,7 +1986,7 @@ def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
 
     gate = show_chinese_login_gate(papers, port=port, confirmed_login=confirmed_login)
     if gate is True:
-        return run_chinese_round(papers, output_dir, port)
+        return run_chinese_round(papers, output_dir, port, confirmed_login=confirmed_login)
     if gate is False:
         print("Chinese download skipped by user.")
         return [], [paper.get("doi") or paper.get("title", "") for paper in papers]
@@ -1980,7 +2014,12 @@ def resume_from_chinese_login_checkpoint_with_reasons(
 
     gate = show_chinese_login_gate(papers, port=port, confirmed_login=confirmed_login)
     if gate is True:
-        return run_chinese_round_with_reasons(papers, output_dir, port)
+        return run_chinese_round_with_reasons(
+            papers,
+            output_dir,
+            port,
+            confirmed_login=confirmed_login,
+        )
     if gate is False:
         print("Chinese download skipped by user.")
         remaining = [paper.get("doi") or paper.get("title", "") for paper in papers]
@@ -2773,13 +2812,24 @@ def main():
                 print("  macOS/Linux wrapper also supported: bash scripts/start_cdp_chrome.sh")
                 sys.exit(1)
             if args.require_login_confirm:
-                if prepare_chinese_round_with_login_gate(chinese_papers, args.output, port=args.port):
+                if prepare_chinese_round_with_login_gate(
+                    chinese_papers,
+                    args.output,
+                    port=args.port,
+                    confirmed_login=args.confirmed_login,
+                ):
                     ch_dl, ch_rem, ch_failure_reasons = run_chinese_round_with_reasons(
-                        chinese_papers, args.output, args.port
+                        chinese_papers,
+                        args.output,
+                        args.port,
+                        confirmed_login=args.confirmed_login,
                     )
             else:
                 ch_dl, ch_rem, ch_failure_reasons = run_chinese_round_with_reasons(
-                    chinese_papers, args.output, args.port
+                    chinese_papers,
+                    args.output,
+                    args.port,
+                    confirmed_login=args.confirmed_login,
                 )
 
     # ═══════════════════════════════════════════════════════════════════

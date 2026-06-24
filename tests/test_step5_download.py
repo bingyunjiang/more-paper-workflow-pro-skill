@@ -2564,6 +2564,46 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(download_one.call_count, 2)
         manual_retry.assert_called_once_with("知网二", "cnki", "manual_required")
 
+    def test_wait_for_cnki_captcha_resolution_keeps_watching_same_tab_during_transition(self):
+        paper = {
+            "title": "知网一",
+            "source": "cnki",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki1",
+        }
+        fake_times = iter([0, 0, 1, 1, 2, 2, 3, 3])
+        with patch.object(
+            router,
+            "_find_reusable_cnki_tab",
+            side_effect=[("tab-1", "captcha_required"), (None, None), ("tab-1", None)],
+        ), patch.object(router, "get_tab_ws_url", side_effect=["ws://tab-1"]), \
+             patch.object(router.time, "time", side_effect=lambda: next(fake_times)), \
+             patch.object(router.time, "sleep", return_value=None):
+            result = router._wait_for_cnki_captcha_resolution(
+                paper, 9223, timeout_seconds=10, poll_interval=1
+            )
+
+        self.assertEqual(result, "ready")
+
+    def test_wait_for_cnki_captcha_resolution_only_fails_after_tab_really_disappears(self):
+        paper = {
+            "title": "知网一",
+            "source": "cnki",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki1",
+        }
+        fake_times = iter([0, 0, 1, 1, 3, 3, 6, 6, 9, 9, 12, 12])
+        with patch.object(
+            router,
+            "_find_reusable_cnki_tab",
+            side_effect=[("tab-1", "captcha_required"), (None, None), (None, None), (None, None), (None, None)],
+        ), patch.object(router, "get_tab_ws_url", side_effect=["ws://tab-1", None, None, None]), \
+             patch.object(router.time, "time", side_effect=lambda: next(fake_times)), \
+             patch.object(router.time, "sleep", return_value=None):
+            result = router._wait_for_cnki_captcha_resolution(
+                paper, 9223, timeout_seconds=20, poll_interval=1
+            )
+
+        self.assertEqual(result, "page_lost")
+
     def test_chinese_round_captcha_timeout_writes_checkpoint_for_remaining_items(self):
         papers = [
             {
@@ -2628,10 +2668,15 @@ class Step5DownloadTest(unittest.TestCase):
             "title": "CNKI demo",
             "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=test",
         }
-        with patch.object(router, "_find_reusable_cnki_tab", return_value=(None, None)), \
-             patch.object(router.time, "time", side_effect=[0, 0, 0]):
+        with patch.object(
+            router,
+            "_find_reusable_cnki_tab",
+            side_effect=[("tab-1", "captcha_required"), (None, None), (None, None), (None, None), (None, None)],
+        ), patch.object(router, "get_tab_ws_url", side_effect=[None, None, None, None]), \
+             patch.object(router.time, "time", side_effect=[0, 0, 3, 3, 6, 6, 9, 9, 12, 12]), \
+             patch.object(router.time, "sleep", return_value=None):
             status = router._wait_for_cnki_captcha_resolution(
-                paper, 9223, timeout_seconds=10, poll_interval=2
+                paper, 9223, timeout_seconds=20, poll_interval=2
             )
 
         self.assertEqual(status, "page_lost")
