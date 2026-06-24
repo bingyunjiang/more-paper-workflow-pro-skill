@@ -2160,6 +2160,22 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(data["items"][0]["article_url"], papers[0]["article_url"])
         self.assertIn("--resume-chinese-login-checkpoint", data["rerun_hint"])
 
+    def test_write_chinese_login_checkpoint_preserves_captcha_reason(self):
+        papers = [{
+            "title": "中文论文",
+            "source": "cnki",
+            "doi": "cnki.demo",
+            "source_id": "cnki.demo",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+            "failure_reason": "captcha_required",
+        }]
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = router.write_chinese_login_checkpoint(tmp, papers)
+            data = json.loads(Path(checkpoint).read_text(encoding="utf-8"))
+
+        self.assertEqual(data["status"], "pending_captcha_verification")
+        self.assertEqual(data["items"][0]["failure_reason"], "captcha_required")
+
     def test_sort_chinese_papers_cnki_then_wanfang_stably(self):
         papers = [
             {"title": "wf-1", "source": "wanfang"},
@@ -2476,10 +2492,13 @@ class Step5DownloadTest(unittest.TestCase):
 
         self.assertEqual(downloaded, [])
         self.assertEqual(remaining, ["cnki.1", "wanfang.1"])
-        self.assertEqual(failure_reasons["cnki.1"], "pending_user_login")
-        self.assertEqual(failure_reasons["wanfang.1"], "pending_user_login")
+        self.assertEqual(failure_reasons["cnki.1"], "captcha_required")
+        self.assertEqual(failure_reasons["wanfang.1"], "captcha_required")
         download_one.assert_called_once_with(papers[0], tmp, 9223)
-        write_checkpoint.assert_called_once_with(tmp, papers)
+        write_checkpoint.assert_called_once()
+        checkpoint_papers = write_checkpoint.call_args.args[1]
+        self.assertEqual(checkpoint_papers[0]["failure_reason"], "captcha_required")
+        self.assertEqual(checkpoint_papers[1]["failure_reason"], "captcha_required")
 
     def test_wait_for_cnki_captcha_resolution_retries_until_verified_tab_returns(self):
         paper = {

@@ -1212,6 +1212,28 @@ CHINESE_MANUAL_RETRY_STATUSES = {
 }
 
 
+def _confirm_cnki_captcha_resolution(title: str) -> str:
+    """Ask the outer agent/user to confirm CNKI captcha completion."""
+    print()
+    print(f"  {WARN} CNKI 当前篇触发图形验证。")
+    print("  请在已打开的 CDP 浏览器里完成图形验证，并停留在该论文详情页。")
+    print("  完成后回到对话/终端输入完整短语。")
+    print("Choose one option by typing the full phrase:")
+    print("  已验证继续")
+    print("  稍后重试")
+    resp = _safe_gate_input("输入完整短语: ")
+    if resp is None:
+        return "checkpoint"
+    resp = resp.strip()
+    if resp == "已验证继续":
+        print(f"  {ARROW} Retrying current paper after captcha verification: {title[:45]}")
+        return "retry"
+    if resp == "稍后重试":
+        return "checkpoint"
+    print(f"  {WARN} 未识别输入，保留中文 checkpoint，稍后从 checkpoint 恢复。")
+    return "checkpoint"
+
+
 def _confirm_chinese_manual_retry(title: str, source: str, status: str) -> bool:
     """Pause on CNKI/Wanfang manual states so the current paper can be retried."""
     print()
@@ -1263,10 +1285,13 @@ def _wait_for_cnki_captcha_resolution(
 def _checkpoint_pending_chinese_papers(
     pending_papers: list[dict], output_dir: str
 ) -> tuple[str, list[str], dict[str, str]]:
-    """Persist a resumable Chinese login checkpoint for the remaining papers."""
-    checkpoint_path = write_chinese_login_checkpoint(output_dir, pending_papers)
-    remaining = [paper.get("doi") or paper.get("title", "") for paper in pending_papers]
-    failure_reasons = {paper_id: "pending_user_login" for paper_id in remaining}
+    """Persist a resumable Chinese checkpoint for the remaining papers."""
+    failure_reasons = {
+        (paper.get("doi") or paper.get("title", "")): paper.get("failure_reason") or "pending_user_login"
+        for paper in pending_papers
+    }
+    checkpoint_path = write_chinese_login_checkpoint(output_dir, pending_papers, failure_reasons)
+    remaining = list(failure_reasons)
     print(f"  {ARROW} 当前篇等待未完成，已写 checkpoint：{checkpoint_path}")
     return checkpoint_path, remaining, failure_reasons
 
@@ -1346,13 +1371,17 @@ def run_chinese_round_with_reasons(
 
         if not result_path and status == "captcha_required" and source == "cnki":
             print(f"{WARN} ({status}, {elapsed:.1f}s)")
-            monitor_status = _wait_for_cnki_captcha_resolution(paper, port)
-            if monitor_status == "ready":
+            captcha_action = _confirm_cnki_captcha_resolution(title)
+            if captcha_action == "retry":
                 t0 = time.time()
                 result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
                 elapsed = time.time() - t0
             else:
-                pending_papers = papers[i:]
+                pending_papers = []
+                for pending_paper in papers[i:]:
+                    pending_copy = dict(pending_paper)
+                    pending_copy["failure_reason"] = "captcha_required"
+                    pending_papers.append(pending_copy)
                 _checkpoint_path, checkpoint_remaining, checkpoint_reasons = _checkpoint_pending_chinese_papers(
                     pending_papers, output_dir
                 )
@@ -1861,23 +1890,33 @@ def write_login_checkpoint(output_dir: str, stage: str, dois: list[str],
     return path
 
 
-def write_chinese_login_checkpoint(output_dir: str, papers: list[dict]) -> str:
-    """Write a re-runnable login checkpoint for pending CNKI/Wanfang papers."""
+def write_chinese_login_checkpoint(
+    output_dir: str,
+    papers: list[dict],
+    failure_reasons: Optional[dict[str, str]] = None,
+) -> str:
+    """Write a re-runnable checkpoint for pending CNKI/Wanfang papers."""
     path = os.path.join(output_dir, "chinese_login_checkpoint.json")
     os.makedirs(output_dir, exist_ok=True)
+    failure_reasons = failure_reasons or {}
     items = []
     for idx, paper in enumerate(papers, start=1):
+        paper_id = paper.get("doi") or paper.get("source_id") or paper.get("title", f"paper_{idx}")
         items.append({
             "source": paper.get("source", ""),
             "title": paper.get("title", f"paper_{idx}"),
             "doi": paper.get("doi", paper.get("source_id", "")),
             "source_id": paper.get("source_id", ""),
             "article_url": paper.get("article_url", ""),
-            "failure_reason": "pending_user_login",
+            "failure_reason": paper.get("failure_reason") or failure_reasons.get(paper_id) or "pending_user_login",
         })
+    status = "pending_user_login"
+    item_reasons = {item.get("failure_reason", "") for item in items}
+    if item_reasons and item_reasons == {"captcha_required"}:
+        status = "pending_captcha_verification"
     payload = {
         "checkpoint_type": "chinese_publisher_login",
-        "status": "pending_user_login",
+        "status": status,
         "stage": "chinese_cdp_login",
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "items": items,
