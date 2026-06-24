@@ -734,7 +734,7 @@ class Step5DownloadTest(unittest.TestCase):
         wait_captcha.assert_called_once_with(paper, 9223)
         confirm_captcha.assert_not_called()
 
-    def test_chinese_round_cnki_captcha_page_lost_falls_back_to_manual_retry(self):
+    def test_chinese_round_cnki_captcha_page_lost_auto_recovers_before_prompt(self):
         paper = {
             "title": "CNKI demo",
             "source": "cnki",
@@ -745,22 +745,25 @@ class Step5DownloadTest(unittest.TestCase):
              patch.object(
                  router,
                  "_download_chinese_paper_once",
-                 side_effect=[
-                     (None, "captcha_required", "cnki"),
-                     (str(Path(tmp) / "cnki.demo.pdf"), "ok", "cnki"),
-                 ],
+                 return_value=(None, "captcha_required", "cnki"),
              ) as download_once, \
              patch.object(router, "_wait_for_cnki_captcha_resolution", return_value="page_lost") as wait_captcha, \
-             patch.object(router, "_confirm_cnki_captcha_resolution", return_value="retry") as confirm_captcha, \
+             patch.object(
+                 router,
+                 "_auto_retry_cnki_current_paper",
+                 return_value=(str(Path(tmp) / "cnki.demo.pdf"), "ok", 0.3),
+             ) as auto_retry, \
+             patch.object(router, "_confirm_cnki_captcha_resolution") as confirm_captcha, \
              patch.object(router.os.path, "getsize", return_value=6144):
             downloaded, remaining, reasons = router.run_chinese_round_with_reasons([paper], tmp, 9223)
 
         self.assertEqual(downloaded, ["cnki.demo"])
         self.assertEqual(remaining, [])
         self.assertEqual(reasons, {})
-        self.assertEqual(download_once.call_count, 2)
+        download_once.assert_called_once_with(paper, tmp, 9223)
         wait_captcha.assert_called_once_with(paper, 9223)
-        confirm_captcha.assert_called_once_with("CNKI demo")
+        auto_retry.assert_called_once_with(paper, tmp, 9223, "page_lost")
+        confirm_captcha.assert_not_called()
 
     def test_chinese_round_cnki_captcha_timeout_writes_checkpoint_for_remaining(self):
         papers = [
@@ -2553,6 +2556,11 @@ class Step5DownloadTest(unittest.TestCase):
             ]
             with patch.object(router, "_download_chinese_paper_once", side_effect=results) as download_one, \
                  patch.object(router, "_wait_for_cnki_captcha_resolution", return_value="ready"), \
+                 patch.object(
+                     router,
+                     "_auto_retry_cnki_current_paper",
+                     return_value=(None, "manual_required", 0.2),
+                 ) as auto_retry, \
                  patch.object(router, "_confirm_chinese_manual_retry", return_value=False) as manual_retry:
                 downloaded, remaining, failure_reasons = router.run_chinese_round_with_reasons(
                     [paper], tmp, 9223
@@ -2562,7 +2570,39 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(remaining, ["cnki.2"])
         self.assertEqual(failure_reasons["cnki.2"], "manual_required")
         self.assertEqual(download_one.call_count, 2)
+        auto_retry.assert_called_once_with(paper, tmp, 9223, "manual_required")
         manual_retry.assert_called_once_with("知网二", "cnki", "manual_required")
+
+    def test_chinese_round_cnki_manual_status_auto_recovers_before_prompt(self):
+        paper = {
+            "title": "知网三",
+            "source": "cnki",
+            "doi": "cnki.3",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?filename=cnki3",
+        }
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(
+                 router,
+                 "_download_chinese_paper_once",
+                 return_value=(None, "manual_required", "cnki"),
+             ) as download_one, \
+             patch.object(
+                 router,
+                 "_auto_retry_cnki_current_paper",
+                 return_value=(str(Path(tmp) / "cnki.3.pdf"), "ok", 0.4),
+             ) as auto_retry, \
+             patch.object(router, "_confirm_chinese_manual_retry") as manual_retry, \
+             patch.object(router.os.path, "getsize", return_value=6144):
+            downloaded, remaining, failure_reasons = router.run_chinese_round_with_reasons(
+                [paper], tmp, 9223
+            )
+
+        self.assertEqual(downloaded, ["cnki.3"])
+        self.assertEqual(remaining, [])
+        self.assertEqual(failure_reasons, {})
+        download_one.assert_called_once_with(paper, tmp, 9223)
+        auto_retry.assert_called_once_with(paper, tmp, 9223, "manual_required")
+        manual_retry.assert_not_called()
 
     def test_wait_for_cnki_captcha_resolution_keeps_watching_same_tab_during_transition(self):
         paper = {

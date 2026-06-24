@@ -104,6 +104,8 @@ CHINESE_PAPER_FIELDS = frozenset({"title", "source", "article_url"})
 CHINESE_SOURCE_PRIORITY = {"cnki": 0, "wanfang": 1}
 CNKI_CAPTCHA_MONITOR_TIMEOUT = 600
 CNKI_CAPTCHA_MONITOR_INTERVAL = 2
+CNKI_AUTO_RECOVERY_ATTEMPTS = 3
+CNKI_AUTO_RECOVERY_DELAY = 2
 
 
 def step5_download_lock_path() -> Path:
@@ -1320,6 +1322,46 @@ def _checkpoint_pending_chinese_papers(
     return checkpoint_path, remaining, failure_reasons
 
 
+def _auto_retry_cnki_current_paper(
+    paper: dict,
+    output_dir: str,
+    port: int,
+    reason: str,
+    *,
+    max_attempts: int = CNKI_AUTO_RECOVERY_ATTEMPTS,
+) -> tuple[Optional[str], str, float]:
+    """Try to recover the current CNKI paper without asking the outer host again."""
+    title = paper.get("title", "")
+    print(
+        f"  {ARROW} 当前篇触发 {reason}，先自动恢复并重试 "
+        f"({max_attempts} 次以内)，尽量不再要求人工确认。"
+    )
+    last_status = reason
+    last_elapsed = 0.0
+    for attempt in range(1, max_attempts + 1):
+        if attempt > 1 and CNKI_AUTO_RECOVERY_DELAY > 0:
+            time.sleep(CNKI_AUTO_RECOVERY_DELAY)
+        print(f"  {ARROW} 自动重试当前篇 ({attempt}/{max_attempts})：{title[:45]}")
+        t0 = time.time()
+        result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
+        last_elapsed = time.time() - t0
+        last_status = status or reason
+        if result_path and status == "ok":
+            return result_path, status, last_elapsed
+        if last_status == "captcha_required":
+            captcha_wait_status = _wait_for_cnki_captcha_resolution(paper, port)
+            if captcha_wait_status == "ready":
+                continue
+            if captcha_wait_status == "timeout":
+                return None, "captcha_required", last_elapsed
+            last_status = "captcha_required"
+            continue
+        if last_status in CHINESE_MANUAL_RETRY_STATUSES:
+            continue
+        return result_path, last_status, last_elapsed
+    return None, last_status, last_elapsed
+
+
 def _download_chinese_paper_once(paper: dict, output_dir: str, port: int) -> tuple[Optional[str], str, str]:
     title = paper.get("title", "")
     source = paper.get("source", "").lower()
@@ -1390,6 +1432,7 @@ def run_chinese_round_with_reasons(
             continue
 
         t0 = time.time()
+        manual_prompt_used = False
 
         result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
         elapsed = time.time() - t0
@@ -1403,7 +1446,18 @@ def run_chinese_round_with_reasons(
                 elapsed = time.time() - t0
             else:
                 if captcha_wait_status == "page_lost":
-                    print(f"  {WARN} 当前篇已离开目标详情页，回退到人工确认。")
+                    print(f"  {WARN} 当前篇已离开目标详情页，先尝试自动恢复。")
+                    result_path, status, elapsed = _auto_retry_cnki_current_paper(
+                        paper,
+                        output_dir,
+                        port,
+                        "page_lost",
+                    )
+                if (
+                    captcha_wait_status != "timeout"
+                    and not result_path
+                    and status == "captcha_required"
+                ):
                     captcha_action = _confirm_cnki_captcha_resolution(
                         title,
                         confirmed_login=confirmed_login,
@@ -1428,11 +1482,35 @@ def run_chinese_round_with_reasons(
 
         while not result_path and status in CHINESE_MANUAL_RETRY_STATUSES:
             print(f"{WARN} ({status}, {elapsed:.1f}s)")
-            if not _confirm_chinese_manual_retry(title, source, status):
+            if source == "cnki":
+                result_path, status, elapsed = _auto_retry_cnki_current_paper(
+                    paper,
+                    output_dir,
+                    port,
+                    status,
+                )
+                if result_path or status not in CHINESE_MANUAL_RETRY_STATUSES:
+                    continue
+            if manual_prompt_used or not _confirm_chinese_manual_retry(title, source, status):
                 break
+            manual_prompt_used = True
             t0 = time.time()
             result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
             elapsed = time.time() - t0
+
+        if not result_path and status == "captcha_required" and source == "cnki":
+            pending_papers = []
+            for pending_paper in papers[i:]:
+                pending_copy = dict(pending_paper)
+                pending_copy["failure_reason"] = "captcha_required"
+                pending_papers.append(pending_copy)
+            _checkpoint_path, checkpoint_remaining, checkpoint_reasons = _checkpoint_pending_chinese_papers(
+                pending_papers, output_dir
+            )
+            remaining.extend(checkpoint_remaining)
+            failure_reasons.update(checkpoint_reasons)
+            fail += len(checkpoint_remaining)
+            break
 
         if result_path and status == "ok":
             size_kb = os.path.getsize(result_path) // 1024
