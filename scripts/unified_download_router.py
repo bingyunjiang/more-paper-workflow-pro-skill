@@ -1936,7 +1936,8 @@ def write_chinese_login_checkpoint(
 
 
 def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
-                                         port: int) -> tuple[list[str], list[str]]:
+                                         port: int,
+                                         confirmed_login: bool = False) -> tuple[list[str], list[str]]:
     """Backward-compatible checkpoint resume without failure-reason sidecar."""
     with open(checkpoint_path, "r", encoding="utf-8") as f:
         payload = json.load(f)
@@ -1949,7 +1950,7 @@ def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
     if not papers:
         return [], []
 
-    gate = show_chinese_login_gate(papers, port=port)
+    gate = show_chinese_login_gate(papers, port=port, confirmed_login=confirmed_login)
     if gate is True:
         return run_chinese_round(papers, output_dir, port)
     if gate is False:
@@ -1962,7 +1963,8 @@ def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
 
 
 def resume_from_chinese_login_checkpoint_with_reasons(
-    checkpoint_path: str, output_dir: str, port: int
+    checkpoint_path: str, output_dir: str, port: int,
+    confirmed_login: bool = False
 ) -> tuple[list[str], list[str], dict[str, str]]:
     """Resume only the CNKI/Wanfang papers stored in a Chinese login checkpoint."""
     with open(checkpoint_path, "r", encoding="utf-8") as f:
@@ -1976,7 +1978,7 @@ def resume_from_chinese_login_checkpoint_with_reasons(
     if not papers:
         return [], [], {}
 
-    gate = show_chinese_login_gate(papers, port=port)
+    gate = show_chinese_login_gate(papers, port=port, confirmed_login=confirmed_login)
     if gate is True:
         return run_chinese_round_with_reasons(papers, output_dir, port)
     if gate is False:
@@ -1991,9 +1993,10 @@ def resume_from_chinese_login_checkpoint_with_reasons(
 
 
 def prepare_chinese_round_with_login_gate(papers: list[dict], output_dir: str,
-                                          port: int = CDP_PORT) -> bool:
+                                          port: int = CDP_PORT,
+                                          confirmed_login: bool = False) -> bool:
     """Return True only when Chinese login was explicitly confirmed."""
-    gate = show_chinese_login_gate(papers, port=port)
+    gate = show_chinese_login_gate(papers, port=port, confirmed_login=confirmed_login)
     if gate is True:
         return True
     if gate is False:
@@ -2066,7 +2069,8 @@ def resume_from_login_checkpoint(checkpoint_path: str, output_dir: str, port: in
 
 
 def show_chinese_login_gate(chinese_papers: list[dict],
-                            port: int = CDP_PORT) -> Optional[bool]:
+                            port: int = CDP_PORT,
+                            confirmed_login: bool = False) -> Optional[bool]:
     """Display Chinese login gate.
 
     Returns:
@@ -2102,6 +2106,9 @@ def show_chinese_login_gate(chinese_papers: list[dict],
     print()
     _print_chinese_login_choice_prompt()
     print()
+    if confirmed_login:
+        print(f"{OK} --confirmed supplied: skipping Chinese login prompt and starting CNKI/Wanfang CDP.\n")
+        return True
     raw_resp = _safe_gate_input("输入完整短语: ")
     if raw_resp is None:
         print("\nChinese login requires checkpoint/resume rather than treating this as skip.")
@@ -2352,6 +2359,7 @@ def main():
                 checkpoint_path,
                 args.output,
                 args.port,
+                confirmed_login=args.confirmed_login,
             )
             with open(checkpoint_path, "r", encoding="utf-8") as f:
                 payload = json.load(f)
