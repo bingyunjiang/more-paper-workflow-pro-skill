@@ -1371,24 +1371,32 @@ def run_chinese_round_with_reasons(
 
         if not result_path and status == "captcha_required" and source == "cnki":
             print(f"{WARN} ({status}, {elapsed:.1f}s)")
-            captcha_action = _confirm_cnki_captcha_resolution(title)
-            if captcha_action == "retry":
+            captcha_wait_status = _wait_for_cnki_captcha_resolution(paper, port)
+            if captcha_wait_status == "ready":
                 t0 = time.time()
                 result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
                 elapsed = time.time() - t0
             else:
-                pending_papers = []
-                for pending_paper in papers[i:]:
-                    pending_copy = dict(pending_paper)
-                    pending_copy["failure_reason"] = "captcha_required"
-                    pending_papers.append(pending_copy)
-                _checkpoint_path, checkpoint_remaining, checkpoint_reasons = _checkpoint_pending_chinese_papers(
-                    pending_papers, output_dir
-                )
-                remaining.extend(checkpoint_remaining)
-                failure_reasons.update(checkpoint_reasons)
-                fail += len(checkpoint_remaining)
-                break
+                if captcha_wait_status == "page_lost":
+                    print(f"  {WARN} 当前篇已离开目标详情页，回退到人工确认。")
+                    captcha_action = _confirm_cnki_captcha_resolution(title)
+                    if captcha_action == "retry":
+                        t0 = time.time()
+                        result_path, status, _ = _download_chinese_paper_once(paper, output_dir, port)
+                        elapsed = time.time() - t0
+                if not result_path and status == "captcha_required":
+                    pending_papers = []
+                    for pending_paper in papers[i:]:
+                        pending_copy = dict(pending_paper)
+                        pending_copy["failure_reason"] = "captcha_required"
+                        pending_papers.append(pending_copy)
+                    _checkpoint_path, checkpoint_remaining, checkpoint_reasons = _checkpoint_pending_chinese_papers(
+                        pending_papers, output_dir
+                    )
+                    remaining.extend(checkpoint_remaining)
+                    failure_reasons.update(checkpoint_reasons)
+                    fail += len(checkpoint_remaining)
+                    break
 
         while not result_path and status in CHINESE_MANUAL_RETRY_STATUSES:
             print(f"{WARN} ({status}, {elapsed:.1f}s)")

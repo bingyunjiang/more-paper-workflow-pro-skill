@@ -319,7 +319,7 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 | 状态 | 触发条件 | Agent 行为 |
 |------|----------|------------|
 | `status=ready` | `中文论文元数据.json` / direct manifest 条目已标记为可下载 | 直接进入 Step 5 下载流程；不额外查询 Zotero，不额外做附件审计 |
-| `captcha_required` | URL 命中 `/verify/home`、标题含「安全验证」或正文含「请完成安全验证」 | 不得记为普通失败；保留页面；脚本必须在对话/终端中明确提示用户完成图形验证，并等待完整短语 `已验证继续` 后重试当前篇；用户选择 `稍后重试`、输入不可识别或宿主无法输入时写 `chinese_login_checkpoint.json`；不得尝试绕过图形验证 |
+| `captcha_required` | URL 命中 `/verify/home`、标题含「安全验证」或正文含「请完成安全验证」 | 不得记为普通失败；保留页面；脚本必须先自动监控当前篇 CNKI 验证页，检测到用户完成图形验证并回到目标详情页后自动重试当前篇；若等待超时、页面丢失或自动监控无法确认，再回退到短语确认/`chinese_login_checkpoint.json`；不得尝试绕过图形验证 |
 | `pdf_probe_unknown` | 已进入详情页但未证明存在可下载入口 | 触发人工确认或重试，不得声称论文不可下载 |
 | `manual_required` | 存在人工路径，或自动点击后未监视到 PDF 落盘 | 允许用户手动点击 `PDF下载`，Agent 只监视落盘并归档 |
 | `chapter_download_mode` | 未识别到 `PDF下载`，但页面出现「章节下载」「分页下载」 | 不自动点击章节/分页入口；单独列为人工判断状态 |
@@ -330,7 +330,7 @@ python3 scripts/unified_download_router.py --test 10.1021/acsnano.4c00001 --port
 
 **已验证详情页复用规则：** 若用户已经手动完成 CNKI 安全验证并停留在目标论文详情页，Agent 后续应优先复用该已验证详情页标签进行下载/落盘监视；不要默认重新 `Target.createTarget(article_url)` 打开原始链接，以免再次触发验证码。脚本会先扫描现有 CNKI 标签页，按目标详情页 URL 优先、题名匹配其次复用；匹配到安全验证页时返回 `captcha_required` 并保留页面，匹配到已验证详情页时只在该页点击白名单 `PDF下载` 并监视落盘。找不到可复用标签页时才新开详情页。
 
-**CNKI 验证页对话门控规则：** 当当前篇命中 `captcha_required` 时，脚本必须暂停并显示短提示，要求用户在已打开的 CDP 浏览器里完成图形验证并停留在目标论文详情页。用户回到对话/终端输入完整短语 `已验证继续` 后，脚本只重试当前篇下载；用户输入 `稍后重试`、输入不可识别或宿主无法读取输入时，把当前篇及后续未执行的中文条目写入 `paper-temp/chinese_login_checkpoint.json`，后续由 agent 使用既有 `--resume-chinese-login-checkpoint ... --require-login-confirm` 恢复。
+**CNKI 验证页自动续跑规则：** 当当前篇命中 `captcha_required` 时，脚本必须先显示短提示，并自动监控当前篇 CNKI 标签页状态。只要检测到用户已完成图形验证且页面回到目标论文详情页，脚本就自动重试当前篇下载，不再要求外层 agent 或用户手动回复 `已验证继续`。若等待超时、验证页丢失或跳转到无关页面，才回退到对话/终端短语确认；用户输入 `稍后重试`、输入不可识别或宿主无法读取输入时，把当前篇及后续未执行的中文条目写入 `paper-temp/chinese_login_checkpoint.json`，后续由 agent 使用既有 `--resume-chinese-login-checkpoint ... --require-login-confirm` 恢复。
 
 **独立中文会话规则：** 当 CNKI/万方反复命中验证码、入口异常，或怀疑英文出版社页面污染 CDP 状态时，优先使用独立中文 CDP 端口或独立 profile（例如 `--port 9225`）重试。
 

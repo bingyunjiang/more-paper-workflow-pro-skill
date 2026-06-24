@@ -706,6 +706,108 @@ class Step5DownloadTest(unittest.TestCase):
                  patch("builtins.input", return_value=response):
                 self.assertIsNone(router.show_chinese_login_gate(papers))
 
+    def test_chinese_round_cnki_captcha_auto_retry_after_monitor_ready(self):
+        paper = {
+            "title": "CNKI demo",
+            "source": "cnki",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+            "doi": "cnki.demo",
+        }
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(
+                 router,
+                 "_download_chinese_paper_once",
+                 side_effect=[
+                     (None, "captcha_required", "cnki"),
+                     (str(Path(tmp) / "cnki.demo.pdf"), "ok", "cnki"),
+                 ],
+             ) as download_once, \
+             patch.object(router, "_wait_for_cnki_captcha_resolution", return_value="ready") as wait_captcha, \
+             patch.object(router, "_confirm_cnki_captcha_resolution") as confirm_captcha, \
+             patch.object(router.os.path, "getsize", return_value=6144):
+            downloaded, remaining, reasons = router.run_chinese_round_with_reasons([paper], tmp, 9223)
+
+        self.assertEqual(downloaded, ["cnki.demo"])
+        self.assertEqual(remaining, [])
+        self.assertEqual(reasons, {})
+        self.assertEqual(download_once.call_count, 2)
+        wait_captcha.assert_called_once_with(paper, 9223)
+        confirm_captcha.assert_not_called()
+
+    def test_chinese_round_cnki_captcha_page_lost_falls_back_to_manual_retry(self):
+        paper = {
+            "title": "CNKI demo",
+            "source": "cnki",
+            "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test",
+            "doi": "cnki.demo",
+        }
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(
+                 router,
+                 "_download_chinese_paper_once",
+                 side_effect=[
+                     (None, "captcha_required", "cnki"),
+                     (str(Path(tmp) / "cnki.demo.pdf"), "ok", "cnki"),
+                 ],
+             ) as download_once, \
+             patch.object(router, "_wait_for_cnki_captcha_resolution", return_value="page_lost") as wait_captcha, \
+             patch.object(router, "_confirm_cnki_captcha_resolution", return_value="retry") as confirm_captcha, \
+             patch.object(router.os.path, "getsize", return_value=6144):
+            downloaded, remaining, reasons = router.run_chinese_round_with_reasons([paper], tmp, 9223)
+
+        self.assertEqual(downloaded, ["cnki.demo"])
+        self.assertEqual(remaining, [])
+        self.assertEqual(reasons, {})
+        self.assertEqual(download_once.call_count, 2)
+        wait_captcha.assert_called_once_with(paper, 9223)
+        confirm_captcha.assert_called_once_with("CNKI demo")
+
+    def test_chinese_round_cnki_captcha_timeout_writes_checkpoint_for_remaining(self):
+        papers = [
+            {
+                "title": "CNKI demo 1",
+                "source": "cnki",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test1",
+                "doi": "cnki.demo1",
+            },
+            {
+                "title": "CNKI demo 2",
+                "source": "cnki",
+                "article_url": "https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CJFD&filename=test2",
+                "doi": "cnki.demo2",
+            },
+        ]
+        checkpoint_remaining = ["cnki.demo1", "cnki.demo2"]
+        checkpoint_reasons = {
+            "cnki.demo1": "captcha_required",
+            "cnki.demo2": "captcha_required",
+        }
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(
+                 router,
+                 "_download_chinese_paper_once",
+                 return_value=(None, "captcha_required", "cnki"),
+             ) as download_once, \
+             patch.object(router, "_wait_for_cnki_captcha_resolution", return_value="timeout") as wait_captcha, \
+             patch.object(router, "_confirm_cnki_captcha_resolution") as confirm_captcha, \
+             patch.object(
+                 router,
+                 "_checkpoint_pending_chinese_papers",
+                 return_value=("paper-temp/chinese_login_checkpoint.json", checkpoint_remaining, checkpoint_reasons),
+             ) as checkpoint_pending:
+            downloaded, remaining, reasons = router.run_chinese_round_with_reasons(papers, tmp, 9223)
+
+        self.assertEqual(downloaded, [])
+        self.assertEqual(remaining, checkpoint_remaining)
+        self.assertEqual(reasons, checkpoint_reasons)
+        download_once.assert_called_once_with(papers[0], tmp, 9223)
+        wait_captcha.assert_called_once_with(papers[0], 9223)
+        confirm_captcha.assert_not_called()
+        checkpoint_pending.assert_called_once()
+        pending_papers = checkpoint_pending.call_args.args[0]
+        self.assertEqual([paper["doi"] for paper in pending_papers], checkpoint_remaining)
+        self.assertTrue(all(paper["failure_reason"] == "captcha_required" for paper in pending_papers))
+
     def test_show_english_login_gate_lists_cdp_publishers(self):
         dois = [
             "10.1016/j.test.2024.01.001",

@@ -73,6 +73,7 @@ WANFANG_NON_OK_STATUSES = {
     "detail_click_no_effect",
     "download_page_no_actionable_control",
 }
+_CNKI_WORK_TABS: dict[int, str] = {}
 
 # ── Config Loading ──────────────────────────────────────────────────────────
 
@@ -1351,12 +1352,40 @@ def _find_reusable_cnki_tab(port: int, article_url: str,
     return None, None
 
 
-def _cnki_create_detail_tab(port: int, article_url: str) -> Optional[str]:
+def _cnki_get_cached_work_tab(port: int) -> Optional[str]:
+    tab_id = _CNKI_WORK_TABS.get(port)
+    if not tab_id:
+        return None
+    if get_tab_ws_url(port, tab_id):
+        return tab_id
+    _CNKI_WORK_TABS.pop(port, None)
+    return None
+
+
+def _cnki_navigate_existing_tab(port: int, tab_id: str, article_url: str) -> bool:
+    tab_ws_url = get_tab_ws_url(port, tab_id)
+    if not tab_ws_url:
+        _CNKI_WORK_TABS.pop(port, None)
+        return False
+    tab_ws = websocket.create_connection(tab_ws_url, timeout=10)
+    try:
+        send_cmd_and_wait(tab_ws, "Page.enable")
+        result = send_cmd_and_wait(tab_ws, "Page.navigate", {"url": article_url}) or {}
+        return bool(result.get("frameId"))
+    except Exception:
+        _CNKI_WORK_TABS.pop(port, None)
+        return False
+    finally:
+        tab_ws.close()
+
+
+def _cnki_create_detail_tab(port: int, article_url: str,
+                            background: bool = True) -> Optional[str]:
     browser_ws_url = get_cdp_ws_url(port)
     bws = websocket.create_connection(browser_ws_url, timeout=10)
     try:
         bws.send(json.dumps({"id": 1, "method": "Target.createTarget",
-                             "params": {"url": article_url}}))
+                             "params": {"url": article_url, "background": background}}))
         return json.loads(bws.recv())["result"]["targetId"]
     finally:
         bws.close()
@@ -1396,13 +1425,19 @@ def _download_cnki(port: int, article_url: str, publisher: dict,
     # Step 1: Prefer a user-verified CNKI detail tab before opening the URL
     # again, because revisiting the URL can trigger CNKI verification loops.
     tid, reusable_status = _find_reusable_cnki_tab(port, article_url, title=title)
-    should_close_tab = False
     if reusable_status:
         return reusable_status
     if not tid:
-        tid = _cnki_create_detail_tab(port, article_url)
-        should_close_tab = True
+        cached_tid = _cnki_get_cached_work_tab(port)
+        if cached_tid and _cnki_navigate_existing_tab(port, cached_tid, article_url):
+            tid = cached_tid
+        else:
+            tid = _cnki_create_detail_tab(port, article_url, background=True)
+            if tid:
+                _CNKI_WORK_TABS[port] = tid
         time.sleep(5)  # CNKI detail pages are heavy
+    else:
+        _CNKI_WORK_TABS[port] = tid
     if not tid:
         return None
 
@@ -1419,9 +1454,6 @@ def _download_cnki(port: int, article_url: str, publisher: dict,
 
     status = _cnki_status_from_click_result(result_val)
     if status:
-        # Leave captcha/manual tabs open so the user can verify or click manually.
-        if should_close_tab and status not in ("captcha_required", "manual_required", "chapter_download_mode"):
-            close_tab(port, tid)
         return status
 
     # Step 3: Wait for PDF in ~/Downloads
@@ -1429,8 +1461,6 @@ def _download_cnki(port: int, article_url: str, publisher: dict,
         downloads_dir, before_dl, output_dir, article_url, timeout
     )
     if pdf_path:
-        if should_close_tab:
-            close_tab(port, tid)
         return pdf_path
 
     return "manual_required"
