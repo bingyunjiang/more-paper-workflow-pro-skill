@@ -87,6 +87,7 @@ def _load_cards(paths: list[str]) -> list[dict[str, Any]]:
                     fig_copy["_text_source"] = record.get("source_trace", {}).get("text_source", "unknown")
                     fig_copy["_citekey"] = _clean(record.get("citekey"))
                     fig_copy["_title"] = _clean(record.get("title"))
+                    fig_copy["_reading_depth"] = _clean(record.get("reading_depth"))
                     all_candidates.append(fig_copy)
     return all_candidates
 
@@ -329,12 +330,37 @@ def _build_figure_block(
 
     display_caption = raw_caption or description
 
-    # Lead-in sentence (引出句) — use the clean description from caption
-    short_cap = display_caption[:80]
-    if len(display_caption) > 80:
-        short_cap = short_cap[:77].rstrip() + "..."
+    # Build source attribution in skill-required format: 作者, 年份, 图 xxx。已读全文
+    citekey = _clean(fig.get("_citekey"))
+    reading_depth = _clean(fig.get("_reading_depth"))
+    src_label = ""
+    if citekey:
+        m = re.match(r"([a-z]+)(\d{4})", citekey)
+        if m:
+            surname = m.group(1).capitalize()
+            year = m.group(2)
+            depth_map = {
+                "full_text": "已读全文",
+                "abstract_only": "摘要级证据",
+                "zotero_note": "笔记/标注",
+                "metadata_only": "元数据",
+                "pdf_verified": "已读全文",
+            }
+            depth_label = depth_map.get(reading_depth, reading_depth or "未标注")
+            fig_ref = f"图 {orig_figure_id}" if orig_figure_id else ""
+            if fig_ref:
+                src_label = f"{surname} 等, {year}, {fig_ref}。{depth_label}"
+            else:
+                src_label = f"{surname} 等, {year}, {depth_label}"
+        else:
+            src_label = citekey
 
-    lead_in = f"如图 {fig_number} 所示，{short_cap}"
+    # Note: the writer is responsible for the lead-in sentence (why this figure)
+    # and the post-figure explanation per figure-writing-interface.md.
+    # This script only inserts the figure + caption + source attribution.
+
+    # Connector line per skill requirement: 如图 X 所示
+    connector = f"如图 {fig_number} 所示。"
 
     # Figure markdown
     figure_md = f"![图 {fig_number}]({rel})"
@@ -342,7 +368,10 @@ def _build_figure_block(
     # Caption line
     caption_line = f"*图 {fig_number}. {display_caption}*"
 
-    return f"{lead_in}\n\n{figure_md}\n\n{caption_line}"
+    # Source attribution in skill format: 作者, 年份, 图 xxx。阅读深度
+    src_line = f"（来源: {src_label}）" if src_label else ""
+
+    return f"{connector}\n\n{figure_md}\n\n{caption_line}\n\n{src_line}"
 
 
 # ---------------------------------------------------------------------------
