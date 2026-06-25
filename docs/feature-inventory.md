@@ -4,6 +4,8 @@
 
 ---
 
+![8-Step Pipeline Overview](images/overview-8step-pipeline.png)
+
 ## 一句话定位
 
 **一套围绕真实文献工作的学术写作 Skill。** 它把论文写作拆成 8 个可见、可检查、可回溯的步骤——定题、大纲、检索、筛选、下载、Zotero 管理、写作、润色审计。每一步都有文件化产物，每一条引用都能追溯到真实 PDF 或 Zotero 条目，每一个关键判断都要求回答：证据在哪里？
