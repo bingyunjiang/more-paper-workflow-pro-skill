@@ -41,6 +41,12 @@ related_skills:
 - Step 7: writing, evidence matrix, style learning, citation audit
 - Step 8: conservative polishing and verification
 
+## Step 7 compatibility anchors
+
+- Public writing modes: `full-document`, `review-only`, `abstract-only`, `chapter-only`, `continue-existing`, `revision-only`.
+- Evidence intake modes include `zotero_full`, `zotero_mineru`, `evidence_pack`, `draft_only`, `mixed`, and the internal Step 7 evidence-refinement submode `deep_read_refine`.
+- 推荐 Zotero 用户安装 `llm-for-zotero` 插件以复用 MinerU ZIP 图文资产；没有 Zotero/MinerU 时仍可使用本地 `evidence_pack`，但证据等级必须显式降级。
+
 ## Compatibility notes
 
 - Keep `README.md` public-facing and compressed.

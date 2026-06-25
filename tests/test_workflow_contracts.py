@@ -11,6 +11,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from workflow_contracts import (  # noqa: E402
     CapabilityIndex,
     CapabilityRecord,
+    DeepReadCardRecord,
     DownloadManifestItem,
     FigureEvidenceRecord,
     FigureIndexRecord,
@@ -21,6 +22,7 @@ from workflow_contracts import (  # noqa: E402
     SearchResultRecord,
     as_chinese_papers,
     capability_index_payload,
+    deep_read_cards_payload,
     dois_from_download_items,
     evidence_pack_payload,
     figure_evidence_payload,
@@ -323,6 +325,31 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(payload["metadata"]["entry_mode"], "evidence_pack")
         self.assertEqual(payload["records"][0]["source_type"], "report")
         self.assertEqual(payload["records"][0]["evidence_level"], "author_provided")
+
+    def test_deep_read_cards_payload(self):
+        records = [
+            DeepReadCardRecord(
+                record_id="stable-001",
+                citekey="wang2024example",
+                title="Example Paper",
+                section_id="2.1",
+                section_title="热管理方法",
+                reading_depth="abstract_only",
+                evidence_role="method",
+                content_fit="direct",
+                claim_summary="提出一个示例方法。",
+                method_summary="使用模拟辅助控制框架。",
+                experiment_summary="待补全文确认实验设置与结果。",
+                usable_for=["方法综述"],
+                not_usable_for=["强结论"],
+                source_trace={"text_source": "abstract_only"},
+            )
+        ]
+        payload = deep_read_cards_payload(records, {"entry_mode": "deep_read_refine"})
+        self.assertEqual(payload["schema_version"], "deep-read-cards.v1")
+        self.assertEqual(payload["metadata"]["entry_mode"], "deep_read_refine")
+        self.assertEqual(payload["records"][0]["reading_depth"], "abstract_only")
+        self.assertEqual(payload["records"][0]["source_trace"]["text_source"], "abstract_only")
 
     def test_inspect_mineru_zip(self):
         with tempfile.TemporaryDirectory() as tmp:

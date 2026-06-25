@@ -542,6 +542,27 @@ class MinerUZipSummary:
 
 
 @dataclass
+class DeepReadCardRecord:
+    schema_version: str = "deep-read-card.v1"
+    record_id: str = ""
+    citekey: str = ""
+    title: str = ""
+    section_id: str = ""
+    section_title: str = ""
+    reading_depth: str = "metadata_only"
+    evidence_role: str = "unknown"
+    content_fit: str = "unknown"
+    claim_summary: str = ""
+    method_summary: str = ""
+    experiment_summary: str = ""
+    usable_for: list[str] = field(default_factory=list)
+    not_usable_for: list[str] = field(default_factory=list)
+    risk_flags: list[str] = field(default_factory=list)
+    figure_candidates: list[dict[str, Any]] = field(default_factory=list)
+    source_trace: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class FigureIndexRecord:
     schema_version: str = "figure-index.v1"
     item_key: str = ""
@@ -632,6 +653,21 @@ def evidence_pack_payload(records: list[EvidenceSourceRecord], metadata: dict[st
 def write_evidence_pack(path: str | Path, records: list[EvidenceSourceRecord], metadata: dict[str, Any] | None = None) -> None:
     Path(path).write_text(
         json.dumps(evidence_pack_payload(records, metadata), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def deep_read_cards_payload(records: list[DeepReadCardRecord], metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "schema_version": "deep-read-cards.v1",
+        "metadata": metadata or {},
+        "records": [asdict(r) for r in records],
+    }
+
+
+def write_deep_read_cards(path: str | Path, records: list[DeepReadCardRecord], metadata: dict[str, Any] | None = None) -> None:
+    Path(path).write_text(
+        json.dumps(deep_read_cards_payload(records, metadata), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 

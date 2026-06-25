@@ -146,6 +146,40 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("推荐 Zotero 用户安装 `llm-for-zotero` 插件", skill)
         self.assertIn("parser_confidence: low", policy)
 
+    def test_step7_deep_read_refine_contract_exists(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        policy = read_rel("references/pdf-processing-policy.md")
+        paper_card = read_rel("references/paper-card-contract.md")
+
+        for token in [
+            "`deep_read_refine`",
+            "当前章节/小节的 1-5 篇核心文献深读",
+            "deep_read_cards.json/md",
+            "claim_summary",
+            "method_summary",
+            "experiment_summary",
+            "usable_for",
+            "not_usable_for",
+            "reading_depth",
+            "zotero_mineru > zotero_fulltext > zotero_note/annotation > PyMuPDF/pdfplumber > abstract_only",
+            "MinerU ZIP / Zotero 图文资产 > 主抽图 > preview fallback",
+            "`deep_read_refine` 结果不得直接越过 `reading_depth` 规则写入强 claim",
+            "`abstract_only` 只能做背景、候选或待补全文提示",
+        ]:
+            self.assertIn(token, step7)
+
+        for token in [
+            "zotero_mineru > zotero_fulltext > zotero_note/annotation > PyMuPDF/pdfplumber > abstract_only",
+            "MinerU ZIP / Zotero 图文资产 > 主抽图 > preview fallback",
+        ]:
+            self.assertIn(token, policy)
+
+        for token in [
+            "`deep_read_cards.json/md` 是 Step 7 `deep_read_refine` 的章节级证据整形产物",
+            "不能提高原始 `reading_depth`",
+        ]:
+            self.assertIn(token, paper_card)
+
     def test_step7_section_scoped_writing_and_thesis_depth_rules_exist(self):
         text = read_rel("agents/step_7_writing.md")
         command = read_rel("commands/write.md")
