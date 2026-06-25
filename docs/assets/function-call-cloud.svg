@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200">
+  <defs>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M 44 0 L 0 0 0 44" fill="none" stroke="#1e293b" stroke-width="0.55"/></pattern>
+    <radialGradient id="glow" cx="50%" cy="50%" r="60%"><stop offset="0%" stop-color="#38bdf8" stop-opacity=".28"/><stop offset="58%" stop-color="#0f172a" stop-opacity=".10"/><stop offset="100%" stop-color="#020617" stop-opacity="0"/></radialGradient>
+    <style>
+      .title { font: 700 34px 'JetBrains Mono', ui-monospace, Menlo, monospace; fill:#f8fafc; }
+      .sub { font: 500 15px 'JetBrains Mono', ui-monospace, Menlo, monospace; fill:#cbd5e1; }
+      .tiny { font: 500 10px 'JetBrains Mono', ui-monospace, Menlo, monospace; fill:#94a3b8; }
+      .label { font: 700 15px 'JetBrains Mono', ui-monospace, Menlo, monospace; fill:#e2e8f0; }
+      .small { font: 600 12px 'JetBrains Mono', ui-monospace, Menlo, monospace; fill:#cbd5e1; }
+      .metric { font: 800 26px 'JetBrains Mono', ui-monospace, Menlo, monospace; fill:#ffffff; }
+      .metricLabel { font: 600 11px 'JetBrains Mono', ui-monospace, Menlo, monospace; fill:#94a3b8; }
+    </style>
+  </defs>
+  <rect width="100%" height="100%" fill="#020617"/>
+  <rect width="100%" height="100%" fill="url(#grid)" opacity=".72"/>
+  <circle cx="900" cy="655" r="460" fill="url(#glow)"/>
+
+<text x="64" y="62" class="title">More Paper Workflow Pro Skill</text>
+<text x="64" y="92" class="sub">Function Call Cloud / 工程工作量图 / 脚本规模 + Skill 行数 + CodeGraph 索引规模</text>
+<text x="64" y="114" class="tiny">Static repository summary only. Runtime dispatch and third-party internals are not counted as call edges.</text>
+<rect x="64" y="150" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>
+<text x="76" y="173" class="metric">60</text>
+<text x="76" y="190" class="metricLabel">Python scripts</text>
+<text x="76" y="202" class="tiny">scripts/*.py</text>
+<rect x="234" y="150" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>
+<text x="246" y="173" class="metric">41,267</text>
+<text x="246" y="190" class="metricLabel">Python LOC</text>
+<text x="246" y="202" class="tiny">repo *.py</text>
+<rect x="404" y="150" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>
+<text x="416" y="173" class="metric">32,811</text>
+<text x="416" y="190" class="metricLabel">Scripts LOC</text>
+<text x="416" y="202" class="tiny">scripts only</text>
+<rect x="574" y="150" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>
+<text x="586" y="173" class="metric">29</text>
+<text x="586" y="190" class="metricLabel">Tests</text>
+<text x="586" y="202" class="tiny">test files</text>
+<rect x="744" y="150" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>
+<text x="756" y="173" class="metric">6,234</text>
+<text x="756" y="190" class="metricLabel">Agent docs LOC</text>
+<text x="756" y="202" class="tiny">agents/*.md</text>
+<rect x="64" y="222" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>
+<text x="76" y="245" class="metric">4,615</text>
+<text x="76" y="262" class="metricLabel">Reference LOC</text>
+<text x="76" y="274" class="tiny">references/*.md</text>
+<rect x="234" y="222" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>
+<text x="246" y="245" class="metric">827</text>
+<text x="246" y="262" class="metricLabel">Functions</text>
+<text x="246" y="274" class="tiny">AST defs</text>
+<rect x="404" y="222" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>
+<text x="416" y="245" class="metric">457</text>
+<text x="416" y="262" class="metricLabel">Methods</text>
+<text x="416" y="274" class="tiny">AST defs</text>
+<rect x="574" y="222" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>
+<text x="586" y="245" class="metric">86</text>
+<text x="586" y="262" class="metricLabel">Classes</text>
+<text x="586" y="274" class="tiny">AST defs</text>
+<rect x="744" y="222" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>
+<text x="756" y="245" class="metric">2006</text>
+<text x="756" y="262" class="metricLabel">Call edges</text>
+<text x="756" y="274" class="tiny">AST local approx</text>
+<circle cx="900" cy="655" r="176" fill="#0f172a" stroke="#38bdf8" stroke-width="2.2"/>
+<circle cx="900" cy="655" r="206" fill="none" stroke="#38bdf8" stroke-width="1" stroke-dasharray="8 10" opacity=".48"/>
+<text x="900" y="615" text-anchor="middle" class="label">8-Step Workflow Core</text>
+<text x="900" y="645" text-anchor="middle" class="small">Topic · Outline · Search · Download</text>
+<text x="900" y="671" text-anchor="middle" class="small">Zotero · Writing · Audit · Polish</text>
+<text x="900" y="719" text-anchor="middle" class="metric">60 scripts / 1284 callables</text>
+<text x="900" y="745" text-anchor="middle" class="tiny">SKILL.md 70 lines · README 1689 lines · Markdown 15,906 lines</text>
+<line x1="900" y1="655" x2="360" y2="430" stroke="#22d3ee" stroke-width="1.1" opacity=".22"/>
+<circle cx="360" cy="430" r="92" fill="#0f172a" opacity=".95"/>
+<circle cx="360" cy="430" r="92" fill="rgba(8,51,68,.68)" stroke="#22d3ee" stroke-width="2"/>
+<text x="360" y="416" text-anchor="middle" class="label">Search</text>
+<text x="360" y="440" text-anchor="middle" class="small">10 scripts · 139 defs</text>
+<text x="360" y="460" text-anchor="middle" class="tiny">718 local refs</text>
+<line x1="900" y1="655" x2="1470" y2="390" stroke="#34d399" stroke-width="1.1" opacity=".22"/>
+<circle cx="1470" cy="390" r="94" fill="#0f172a" opacity=".95"/>
+<circle cx="1470" cy="390" r="94" fill="rgba(6,78,59,.68)" stroke="#34d399" stroke-width="2"/>
+<text x="1470" y="376" text-anchor="middle" class="label">Download</text>
+<text x="1470" y="400" text-anchor="middle" class="small">11 scripts · 237 defs</text>
+<text x="1470" y="420" text-anchor="middle" class="tiny">1455 local refs</text>
+<line x1="900" y1="655" x2="1470" y2="785" stroke="#a78bfa" stroke-width="1.1" opacity=".22"/>
+<circle cx="1470" cy="785" r="96" fill="#0f172a" opacity=".95"/>
+<circle cx="1470" cy="785" r="96" fill="rgba(76,29,149,.68)" stroke="#a78bfa" stroke-width="2"/>
+<text x="1470" y="771" text-anchor="middle" class="label">Zotero</text>
+<text x="1470" y="795" text-anchor="middle" class="small">12 scripts · 177 defs</text>
+<text x="1470" y="815" text-anchor="middle" class="tiny">946 local refs</text>
+<line x1="900" y1="655" x2="900" y2="1040" stroke="#fbbf24" stroke-width="1.1" opacity=".22"/>
+<circle cx="900" cy="1040" r="92" fill="#0f172a" opacity=".95"/>
+<circle cx="900" cy="1040" r="92" fill="rgba(120,53,15,.68)" stroke="#fbbf24" stroke-width="2"/>
+<text x="900" y="1026" text-anchor="middle" class="label">Writing</text>
+<text x="900" y="1050" text-anchor="middle" class="small">10 scripts · 118 defs</text>
+<text x="900" y="1070" text-anchor="middle" class="tiny">521 local refs</text>
+<line x1="900" y1="655" x2="360" y2="785" stroke="#fb923c" stroke-width="1.1" opacity=".22"/>
+<circle cx="360" cy="785" r="82" fill="#0f172a" opacity=".95"/>
+<circle cx="360" cy="785" r="82" fill="rgba(124,45,18,.68)" stroke="#fb923c" stroke-width="2"/>
+<text x="360" y="771" text-anchor="middle" class="label">Export</text>
+<text x="360" y="795" text-anchor="middle" class="small">5 scripts · 30 defs</text>
+<text x="360" y="815" text-anchor="middle" class="tiny">242 local refs</text>
+<line x1="900" y1="655" x2="900" y2="300" stroke="#fb7185" stroke-width="1.1" opacity=".22"/>
+<circle cx="900" cy="300" r="88" fill="#0f172a" opacity=".95"/>
+<circle cx="900" cy="300" r="88" fill="rgba(136,19,55,.68)" stroke="#fb7185" stroke-width="2"/>
+<text x="900" y="286" text-anchor="middle" class="label">Config</text>
+<text x="900" y="310" text-anchor="middle" class="small">8 scripts · 99 defs</text>
+<text x="900" y="330" text-anchor="middle" class="tiny">626 local refs</text>
+<line x1="900" y1="655" x2="1170" y2="620" stroke="#94a3b8" stroke-width="1.1" opacity=".22"/>
+<circle cx="1170" cy="620" r="80" fill="#0f172a" opacity=".95"/>
+<circle cx="1170" cy="620" r="80" fill="rgba(30,41,59,.76)" stroke="#94a3b8" stroke-width="2"/>
+<text x="1170" y="606" text-anchor="middle" class="label">Utility</text>
+<text x="1170" y="630" text-anchor="middle" class="small">4 scripts · 31 defs</text>
+<text x="1170" y="650" text-anchor="middle" class="tiny">83 local refs</text>
+<rect x="344" y="226" width="252" height="30" rx="8" fill="#0b1220" stroke="#34d399" stroke-width="1.1"/>
+<circle cx="360" cy="241" r="5" fill="#34d399"/>
+<text x="372" y="244" class="tiny">unified_download_router.py</text>
+<rect x="604" y="216" width="252" height="30" rx="8" fill="#0b1220" stroke="#34d399" stroke-width="1.1"/>
+<circle cx="620" cy="231" r="5" fill="#34d399"/>
+<text x="632" y="234" class="tiny">generic_publisher_downloader.py</text>
+<rect x="864" y="226" width="252" height="30" rx="8" fill="#0b1220" stroke="#34d399" stroke-width="1.1"/>
+<circle cx="880" cy="241" r="5" fill="#34d399"/>
+<text x="892" y="244" class="tiny">cdp_utils.py</text>
+<rect x="1134" y="286" width="252" height="30" rx="8" fill="#0b1220" stroke="#fb7185" stroke-width="1.1"/>
+<circle cx="1150" cy="301" r="5" fill="#fb7185"/>
+<text x="1162" y="304" class="tiny">workflow_contracts.py</text>
+<rect x="1434" y="506" width="252" height="30" rx="8" fill="#0b1220" stroke="#22d3ee" stroke-width="1.1"/>
+<circle cx="1450" cy="521" r="5" fill="#22d3ee"/>
+<text x="1462" y="524" class="tiny">search_by_topic.py</text>
+<rect x="1444" y="746" width="252" height="30" rx="8" fill="#0b1220" stroke="#a78bfa" stroke-width="1.1"/>
+<circle cx="1460" cy="761" r="5" fill="#a78bfa"/>
+<text x="1472" y="764" class="tiny">build_zotero_plan.py</text>
+<rect x="1334" y="996" width="252" height="30" rx="8" fill="#0b1220" stroke="#a78bfa" stroke-width="1.1"/>
+<circle cx="1350" cy="1011" r="5" fill="#a78bfa"/>
+<text x="1362" y="1014" class="tiny">build_deep_read_cards.py</text>
+<rect x="1034" y="1096" width="252" height="30" rx="8" fill="#0b1220" stroke="#22d3ee" stroke-width="1.1"/>
+<circle cx="1050" cy="1111" r="5" fill="#22d3ee"/>
+<text x="1062" y="1114" class="tiny">export_step4_dashboard.py</text>
+<rect x="774" y="1126" width="252" height="30" rx="8" fill="#0b1220" stroke="#fb923c" stroke-width="1.1"/>
+<circle cx="790" cy="1141" r="5" fill="#fb923c"/>
+<text x="802" y="1144" class="tiny">generate_posters.py</text>
+<rect x="494" y="1096" width="252" height="30" rx="8" fill="#0b1220" stroke="#a78bfa" stroke-width="1.1"/>
+<circle cx="510" cy="1111" r="5" fill="#a78bfa"/>
+<text x="522" y="1114" class="tiny">build_deep_read_report.py</text>
+<rect x="194" y="986" width="252" height="30" rx="8" fill="#0b1220" stroke="#fb7185" stroke-width="1.1"/>
+<circle cx="210" cy="1001" r="5" fill="#fb7185"/>
+<text x="222" y="1004" class="tiny">check_skill_update.py</text>
+<rect x="54" y="766" width="252" height="30" rx="8" fill="#0b1220" stroke="#a78bfa" stroke-width="1.1"/>
+<circle cx="70" cy="781" r="5" fill="#a78bfa"/>
+<text x="82" y="784" class="tiny">setup_zotero.py</text>
+<rect x="34" y="506" width="252" height="30" rx="8" fill="#0b1220" stroke="#22d3ee" stroke-width="1.1"/>
+<circle cx="50" cy="521" r="5" fill="#22d3ee"/>
+<text x="62" y="524" class="tiny">generate_search_report.py</text>
+<rect x="124" y="286" width="252" height="30" rx="8" fill="#0b1220" stroke="#a78bfa" stroke-width="1.1"/>
+<circle cx="140" cy="301" r="5" fill="#a78bfa"/>
+<text x="152" y="304" class="tiny">md_to_pdf.py</text>
+<rect x="1410" y="140" width="320" height="320" rx="12" fill="#0f172a" stroke="#475569" stroke-width="1.3"/>
+<text x="1432" y="172" class="label">工作量口径</text>
+<text x="1432" y="206" class="small">脚本：60 个</text>
+<text x="1432" y="230" class="small">测试：29 个</text>
+<text x="1432" y="254" class="small">Agent 文档：14 个</text>
+<text x="1432" y="278" class="small">参考文档：60 个</text>
+<text x="1432" y="302" class="small">CodeGraph：95 文件</text>
+<text x="1432" y="326" class="small">CodeGraph：2583 节点 / 4997 边</text>
+<text x="1432" y="350" class="small">AST 本地近似：2006 条调用边</text>
+<text x="1432" y="374" class="small">SKILL.md：70 行</text>
+<text x="1432" y="398" class="small">README：1689 行</text>
+<rect x="64" y="1086" width="1280" height="74" rx="10" fill="#0f172a" stroke="#334155"/>
+<text x="88" y="1116" class="label">图注</text>
+<text x="88" y="1138" class="tiny">圆形是能力域，外圈标签是代表性脚本。展示的是工程组织度和代码规模，不是运行时覆盖率。</text>
+<text x="88" y="1158" class="tiny">正式运行边界仍以 `SKILL.md` 与 `agents/step_*.md` 为准。</text>
+</svg>
