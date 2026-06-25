@@ -430,6 +430,10 @@ def resolve_figure_refs(
     for marker in markers:
         desc = marker["description"]
         context = marker["context_before"]
+        # Warn if lead-in sentence ends with period instead of comma
+        lead_in_end = context.rstrip()[-20:] if context else ""
+        if re.search(r"[。.]\s*$", lead_in_end) and not re.search(r"[,，]\s*$", lead_in_end):
+            warnings.append(f"引出句应以逗号结尾: {desc!r} ← 上一句末尾为句号")
         keywords = _description_keywords(desc, context)
 
         # Score all candidates
