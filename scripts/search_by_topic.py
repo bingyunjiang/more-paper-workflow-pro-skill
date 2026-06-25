@@ -77,6 +77,8 @@ CACHE_TTL_SECONDS = 7 * 24 * 3600  # 7 days
 CACHE_MAX_ENTRIES = 500
 SEMANTIC_SCHOLAR_ANON_MIN_INTERVAL = 1.2
 _semantic_scholar_last_request_ts = 0.0
+CNKI_CDP_MAX_ATTEMPTS = 3
+CNKI_CDP_RETRY_WAIT_SECONDS = 2.0
 
 # ── Wanfang Web Search ──────────────────────────────────────────────────
 
@@ -1840,12 +1842,33 @@ def search_cnki(query, limit=20, use_cache=True, strategy="", language="any"):
             print(f"  CNKI: cache hit ({len(cached)} results)", flush=True)
             return cached
 
-    # Try CDP mode first (kns8s SPA, requires running Chrome)
+    # Try CDP mode first (kns8s SPA, requires running Chrome).
+    # CNKI occasionally returns an empty grid even when the same browser
+    # session can succeed a moment later, so treat 0-result searches as
+    # transient and retry a small fixed number of times.
     print("  CNKI: trying CDP mode...", flush=True)
-    results = _try_cnki_cdp(query, limit, language=language)
+    results = None
+    for attempt in range(1, CNKI_CDP_MAX_ATTEMPTS + 1):
+        results = _try_cnki_cdp(query, limit, language=language)
+        if results is None:
+            break
+        if results:
+            print(f"  CNKI CDP mode: {len(results)} results", flush=True)
+            if use_cache:
+                _cache_set(cache_key, results)
+            return results
+        if attempt < CNKI_CDP_MAX_ATTEMPTS:
+            print(
+                f"  CNKI CDP mode: 0 results on attempt {attempt}/{CNKI_CDP_MAX_ATTEMPTS}, retrying...",
+                flush=True,
+            )
+            time.sleep(CNKI_CDP_RETRY_WAIT_SECONDS)
 
     if results is not None:
-        print(f"  CNKI CDP mode: {len(results)} results", flush=True)
+        print(
+            f"  CNKI CDP mode: 0 results after {CNKI_CDP_MAX_ATTEMPTS} attempts",
+            flush=True,
+        )
         if use_cache:
             _cache_set(cache_key, results)
         return results

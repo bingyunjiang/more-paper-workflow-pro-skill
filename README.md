@@ -875,7 +875,7 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 - **Step 6 Zotero 文库管理升级**：新增 `scripts/build_zotero_plan.py`，先生成 `文献-Zotero架构对照.md/json` 与 `pdf-附件池索引.json`，再决定是否写入 Zotero
 - **中文文献入库补齐**：CNKI/万方条目使用 `source_id` + `article_url` + 中文元数据生成 CSL JSON，不再把合成 ID 当 DOI
 - **PDF 附件池策略**：Step 5 下载、原有 PDF、补下载和手动整理目录统一纳入附件池；默认先判断 `missing/found/already_attached/duplicate_candidate/conflict`，再给出安全动作建议
-- **中文检索批处理**：新增跨平台主入口 `scripts/batch_chinese_search.py`，同一命令内完成 CDP Chrome 启动、CARSI 登录等待、CNKI/万方批量检索和 `.bib` 导出，并支持 `--login-only`；`scripts/batch_chinese_search.sh` 仅作为 macOS/Linux wrapper 保留
+- **中文检索批处理**：跨平台主入口 `scripts/batch_chinese_search.py` 现在默认先直跑 CNKI/万方批量检索，只在失败项需要登录/验证时才进入 CARSI 登录等待并重试失败项；仍支持 `--login-only`，`scripts/batch_chinese_search.sh` 仅作为 macOS/Linux wrapper 保留
 - **运行态模板隔离**：`decision_log.md` / `error_log.md` / `term_aliases.md` 移入 `references/templates/`，首次使用复制到项目 `.skill-state/`，避免直接改模板
 - **文档与仓库清理**：README 升级到 v1.0.9，补充 Codex 展示，明确 README 是概览、`agents/step_*.md` 是运行时规则；`.claude/` 改为本地配置忽略项
 - **解析修复**：`organize_zotero.py` 支持 Step 2 标准 `章节大纲` 编号列表和 `关键词清单` 表格，避免元信息标题误生成集合

@@ -85,11 +85,12 @@ def _ensure_chinese_cdp(port: int, browser: str) -> bool:
     return True
 
 
-def _run_searches(queries: list[dict], output_dir: Path, port: int) -> tuple[int, int]:
+def _run_searches(queries: list[dict], output_dir: Path, port: int) -> tuple[int, int, list[dict]]:
     script_dir = Path(__file__).resolve().parent
     search_script = script_dir / "search_by_topic.py"
     success = 0
     failed = 0
+    failed_queries: list[dict] = []
 
     for idx, query_spec in enumerate(queries):
         qid = query_spec.get("id", f"Q{idx + 1}")
@@ -100,6 +101,7 @@ def _run_searches(queries: list[dict], output_dir: Path, port: int) -> tuple[int
 
         if not query:
             failed += 1
+            failed_queries.append(query_spec)
             continue
 
         print(f"SEARCH_START:{qid} ({idx + 1}/{len(queries)})", flush=True)
@@ -133,20 +135,41 @@ def _run_searches(queries: list[dict], output_dir: Path, port: int) -> tuple[int
                     if line.startswith("@")
                 )
                 print(f"SEARCH_DONE:{qid}:{bib_count}", flush=True)
-                success += 1
+                if bib_count > 0:
+                    success += 1
+                else:
+                    failed += 1
+                    failed_queries.append(query_spec)
             else:
                 print(f"SEARCH_DONE:{qid}:0 (no output)", flush=True)
                 failed += 1
+                failed_queries.append(query_spec)
         except Exception as exc:
             print(f"SEARCH_DONE:{qid}:0 (error: {exc})", flush=True)
             failed += 1
+            failed_queries.append(query_spec)
 
-    return success, failed
+    return success, failed, failed_queries
+
+
+def _wait_for_login_confirmation() -> bool:
+    print("", flush=True)
+    print("=== LOGIN_REQUIRED ===", flush=True)
+    print("Some CNKI/Wanfang queries returned 0 results or no output.", flush=True)
+    print("Please complete CARSI institution login in the browser, then type 'go'.", flush=True)
+    print("  • CNKI:   kns.cnki.net/kns8s/  → 右上角「机构登录」", flush=True)
+    print("  • Wanfang: www.wanfangdata.com.cn → 右上角「登录」→ CARSI", flush=True)
+
+    try:
+        confirm = input()
+    except EOFError:
+        confirm = ""
+    return confirm == "go"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Interactive batch: CDP Chrome -> login -> CNKI+Wanfang search"
+        description="Interactive batch: optimistic CNKI/Wanfang search with login fallback"
     )
     parser.add_argument("queries_file", nargs="?", help="JSON query file")
     parser.add_argument("--port", type=int, default=9223, help="CDP debug port")
@@ -181,27 +204,24 @@ def main() -> int:
 
     _navigate_initial_tabs(args.port)
 
-    print("", flush=True)
-    print("=== LOGIN_REQUIRED ===", flush=True)
-    print("Chrome opened. Please complete CARSI institution login in the browser.", flush=True)
-    print("  • CNKI:   kns.cnki.net/kns8s/  → 右上角「机构登录」", flush=True)
-    print("  • Wanfang: www.wanfangdata.com.cn → 右上角「登录」→ CARSI", flush=True)
-    print("Type 'go' and press Enter when logged in:", flush=True)
-
-    try:
-        confirm = input()
-    except EOFError:
-        confirm = ""
-
-    if confirm != "go":
-        print("SKIPPED", flush=True)
-        return 0
-
     if args.login_only:
+        if not _wait_for_login_confirmation():
+            print("SKIPPED", flush=True)
+            return 0
         print("CHINESE_CDP_READY", flush=True)
         return 0
 
-    success, failed = _run_searches(queries, output_dir, args.port)
+    success, failed, failed_queries = _run_searches(queries, output_dir, args.port)
+    if failed_queries:
+        print("", flush=True)
+        print(f"INITIAL_PASS_DONE:{success}_success_{failed}_failed", flush=True)
+        if _wait_for_login_confirmation():
+            retry_success, retry_failed, _ = _run_searches(failed_queries, output_dir, args.port)
+            success += retry_success
+            failed = retry_failed
+        else:
+            print("LOGIN_RETRY_SKIPPED", flush=True)
+
     print("", flush=True)
     print("=== ALL_DONE ===", flush=True)
     print(f"Results: {success} success, {failed} failed (out of {len(queries)} queries)", flush=True)
