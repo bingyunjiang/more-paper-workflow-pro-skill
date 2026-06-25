@@ -33,6 +33,7 @@ import argparse
 import json
 import re
 import sys
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -241,6 +242,52 @@ def _score_figure(fig: dict[str, Any], keywords: list[str]) -> tuple[int, int]:
 
 
 # ---------------------------------------------------------------------------
+# Image path resolution (handles MinerU ZIP internal paths)
+# ---------------------------------------------------------------------------
+
+def _resolve_image_path(fig: dict[str, Any], figures_dir: Path) -> str:
+    """Resolve a figure candidate's image to an actual file path on disk.
+
+    Handles:
+      - ``local_image_path`` — already on disk, use directly
+      - ``source_image_path`` with ``zip::path`` — extract from MinerU ZIP
+      - Absolute path — use as-is
+      - Relative path — use as-is
+    """
+    local = _clean(fig.get("local_image_path"))
+    source = _clean(fig.get("source_image_path"))
+
+    # Prefer already-extracted local file
+    if local and Path(local).resolve().exists():
+        return str(Path(local).resolve())
+
+    # Handle MinerU ZIP internal path: /path/to/cache.zip::images/hash.jpg
+    if "::" in source:
+        zip_part, _, internal = source.partition("::")
+        zip_p = Path(zip_part).resolve()
+        if zip_p.exists():
+            figures_dir = figures_dir.resolve()
+            figures_dir.mkdir(parents=True, exist_ok=True)
+            # Extract and save with a readable name
+            internal_name = Path(internal).name
+            out_path = (figures_dir / internal_name).resolve()
+            if not out_path.exists():
+                try:
+                    with zipfile.ZipFile(zip_p) as zf:
+                        out_path.write_bytes(zf.read(internal))
+                except (KeyError, zipfile.BadZipFile, OSError):
+                    return source  # fallback: return raw source path
+            return str(out_path)
+
+    # Absolute path that exists
+    if source and Path(source).resolve().exists():
+        return str(Path(source).resolve())
+
+    # Relative path or non-existent — return as-is
+    return source
+
+
+# ---------------------------------------------------------------------------
 # Figure block generation
 # ---------------------------------------------------------------------------
 
@@ -249,26 +296,23 @@ def _build_figure_block(
     fig_number: int,
     description: str,
     draft_path: Path,
+    figures_dir: Path,
 ) -> str:
     """Build the minimal text-figure unit: 引出句 + 图 + 图注."""
-    local = _clean(fig.get("local_image_path"))
-    source = _clean(fig.get("source_image_path"))
-    img_path = local or source
+    img_path = _resolve_image_path(fig, figures_dir)
     if not img_path:
         return f"[图 {fig_number}：{description} — 图片路径缺失]"
 
     # Compute relative path from draft location
     rel = img_path
     try:
-        p = Path(img_path)
+        p = Path(img_path).resolve()
+        draft_parent = draft_path.parent.resolve()
         if p.is_absolute():
             try:
-                rel = p.relative_to(draft_path.parent).as_posix()
+                rel = p.relative_to(draft_parent).as_posix()
             except (ValueError, OSError):
                 rel = p.name
-        elif "::" in rel:
-            # MinerU ZIP internal path — use only the image filename
-            rel = rel.split("::")[-1] if "::" in rel else rel
         else:
             rel = p.as_posix()
     except Exception:
@@ -311,10 +355,12 @@ def resolve_figure_refs(
     cards_paths: list[str],
     figure_index_path: str | None = None,
     output_path: str | Path,
+    figures_dir: str | Path | None = None,
 ) -> int:
     draft_p = Path(draft_path).expanduser().resolve()
     if not draft_p.exists():
         raise SystemExit(f"Draft not found: {draft_p}")
+    _figures_dir = Path(figures_dir) if figures_dir else (draft_p.parent / "figures")
     text = draft_p.read_text(encoding="utf-8", errors="replace")
     markers = _find_markers(text)
     if not markers:
@@ -377,7 +423,7 @@ def resolve_figure_refs(
 
         if best_fig and best_kw_score > 0:
             fig_number = resolved_count + 1
-            block = _build_figure_block(best_fig, fig_number, desc, draft_p)
+            block = _build_figure_block(best_fig, fig_number, desc, draft_p, _figures_dir)
             replacements.append((marker["start"], marker["end"], block))
             used_figure_ids.add(
                 _clean(best_fig.get("source_image_path") or best_fig.get("local_image_path"))
@@ -391,7 +437,7 @@ def resolve_figure_refs(
         elif best_fig:
             # Keyword score 0 but we have figures — use first unused but warn
             fig_number = resolved_count + 1
-            block = _build_figure_block(best_fig, fig_number, desc, draft_p)
+            block = _build_figure_block(best_fig, fig_number, desc, draft_p, _figures_dir)
             replacements.append((marker["start"], marker["end"], block))
             used_figure_ids.add(
                 _clean(best_fig.get("source_image_path") or best_fig.get("local_image_path"))
@@ -456,6 +502,7 @@ def main() -> int:
         help="Optional path to figure_index.json for supplementary candidates",
     )
     parser.add_argument("--output", default=None, help="Output path (default: draft_resolved.md)")
+    parser.add_argument("--figures-dir", default=None, help="Directory for extracted figures (default: <draft>/figures)")
     args = parser.parse_args()
 
     if not args.cards and not args.figure_index:
@@ -469,6 +516,7 @@ def main() -> int:
         cards_paths=args.cards,
         figure_index_path=args.figure_index,
         output_path=output,
+        figures_dir=args.figures_dir,
     )
 
 

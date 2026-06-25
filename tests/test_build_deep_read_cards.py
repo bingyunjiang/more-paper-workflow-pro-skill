@@ -54,7 +54,7 @@ class BuildDeepReadCardsTest(unittest.TestCase):
                 zf.writestr("_llm_source.json", json.dumps({
                     "parentItemKey": "ITEM123",
                     "attachmentKey": "ABC123",
-                    "sourceFilename": "example.pdf",
+                    "sourceFilename": "wang2024example Example Paper.pdf",
                 }))
                 zf.writestr("full.md", "# Example\n\nThe method uses MinerU text as the preferred source. Experiments improve efficiency by 12 percent.")
                 zf.writestr("manifest.json", json.dumps({

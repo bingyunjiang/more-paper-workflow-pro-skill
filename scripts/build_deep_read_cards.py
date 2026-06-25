@@ -352,24 +352,50 @@ def _read_pdf_figure_candidates(
 
 
 def _match_mineru_zip(record: dict[str, Any], zip_paths: list[Path]) -> Path | None:
-    target_keys = {_slug(key) for key in _record_keys(record)}
+    """Match a record to the best MinerU ZIP by scoring significant-word overlap.
+
+    Filters out numeric years and requires both a minimum overlap count
+    AND a minimum Jaccard-like ratio to avoid false matches from shared
+    domain terms (e.g. "electric", "vehicle", "charging").
+    """
+    # Collect significant words from the record's identity (skip pure numbers)
+    record_words: set[str] = set()
+    for key in _record_keys(record):
+        for word in _slug(key).split("-"):
+            if len(word) > 3 and not word.isdigit():
+                record_words.add(word)
+
     pdf_path = _clean(record.get("pdf_path"))
     pdf_name = Path(pdf_path).name if pdf_path else ""
-    pdf_stem = Path(pdf_path).stem if pdf_path else ""
+    if pdf_name:
+        for word in _slug(Path(pdf_name).stem).split("-"):
+            if len(word) > 3 and not word.isdigit():
+                record_words.add(word)
+
+    if not record_words:
+        return None
+
+    best_zip: Path | None = None
+    best_score = 0.0
     for zip_path in zip_paths:
         summary = inspect_mineru_zip(zip_path)
-        candidate_keys = {
-            _slug(_clean(summary.parent_item_key)),
-            _slug(_clean(summary.attachment_key)),
-            _slug(_clean(summary.source_filename)),
-            _slug(Path(_clean(summary.source_filename)).name),
-            _slug(Path(_clean(summary.source_filename)).stem),
-            _slug(pdf_name),
-            _slug(pdf_stem),
-        }
-        if target_keys & {key for key in candidate_keys if key}:
-            return zip_path
-    return None
+        source_name = _slug(_clean(summary.source_filename))
+        zip_words = {w for w in source_name.split("-") if len(w) > 3 and not w.isdigit()}
+
+        if not zip_words:
+            continue
+
+        overlap_count = len(record_words & zip_words)
+        if overlap_count < 3:
+            continue
+
+        # Jaccard-like ratio: require substantial fraction of the smaller set to match
+        ratio = overlap_count / max(len(record_words), len(zip_words))
+        if ratio >= 0.35 and ratio > best_score:
+            best_score = ratio
+            best_zip = zip_path
+
+    return best_zip
 
 
 def _match_figure_candidates(record: dict[str, Any], figure_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
