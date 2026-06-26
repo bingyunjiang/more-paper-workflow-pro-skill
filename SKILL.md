@@ -16,6 +16,8 @@ related_skills:
 
 ## Entry routing
 
+- 对外只保留一个主入口 `README.md` / `SKILL.md`，用户只需要记一个入口。
+- 任一 Step 仍可直接进入，不把前序流程当成硬门槛。
 - Cross-agent entry vocabulary lives in `references/entry-routing-index.md`.
 - Full trigger vocabulary lives in `references/trigger-catalog.md`.
 - Platform-specific launch hints live in thin adapter files such as `agents/openai.yaml` and `.claude-plugin/marketplace.json`.
@@ -38,6 +40,8 @@ related_skills:
 - `任务定义优先于实现定义`：先判定问题、交付物和边界，再选动作。
 - `契约变更 vs 实现变更`：改输入输出、证据等级、路由或完成标准时，视为契约变更。
 - `快速通道不跳质量门`：direct-entry 可以跳过前序流程，但不能跳过证据边界、登录门控、Zotero 写入确认、引用审计或 Step 8 保守修订边界。
+- `Checkpoint 是“当前 Step 的输入与风险确认协议”，不是线性流程锁`。
+- `不限制 Step 6/7 直接入口`。
 
 ## Workflow map
 
@@ -56,6 +60,7 @@ related_skills:
 - Step 7 负责正文写作、证据矩阵、风格学习、图表与引用审计。
 - Step 8 负责成稿级精修、终验和保守修订。
 - `README.md` 只保留对外简洁入口，不承载运行态真相。
+- 入口收敛不等于流程拦截，任一 Step 都可以按 direct-entry 合同进入。
 
 ## Entry examples
 

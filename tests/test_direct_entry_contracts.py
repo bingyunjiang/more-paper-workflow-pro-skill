@@ -11,6 +11,14 @@ def read_rel(path: str) -> str:
 
 
 class DirectEntryContractsTest(unittest.TestCase):
+    def test_entry_routing_keeps_single_public_entry_without_linear_lock(self):
+        skill = read_rel("SKILL.md")
+        readme = read_rel("README.md")
+
+        self.assertIn("对外只保留一个主入口", skill)
+        self.assertIn("任一 Step 仍可直接进入", skill)
+        self.assertIn("入口收敛只影响对外发现层，不影响从任一 Step 直接进入", readme)
+
     def test_step_agents_define_direct_entry_contracts(self):
         for step in range(3, 9):
             matches = [
@@ -38,8 +46,9 @@ class DirectEntryContractsTest(unittest.TestCase):
         self.assertIn("默认串行可靠", step5)
         self.assertIn("--parallel-phase1", step5)
         self.assertIn("--parallel-phase1", router)
-        self.assertRegex(router, re.compile(r"if args\.parallel_phase1:.*ThreadPoolExecutor", re.S))
-        self.assertRegex(router, re.compile(r"else:.*run_scihub_round.*run_chinese_round", re.S))
+        self.assertIn("deprecated and ignored", router)
+        self.assertIn("downloads are serialized to protect the CDP browser", router)
+        self.assertIn("Phase 1: Sci-Hub", router)
 
     def test_step6_requires_mode_selection_before_write_planning(self):
         step6 = read_rel("agents/step_6_zotero.md")

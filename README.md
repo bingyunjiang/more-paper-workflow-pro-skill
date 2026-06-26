@@ -165,6 +165,7 @@ python3 scripts/run_step8_ai_trace.py --project-root examples/demo/step8-ai-trac
 - 可用 `.skill-state/artifact_passport.json` 记录 direct-entry artifact graph：能确认的材料关系才标 confirmed，无法确认的 PDF、证据或引用关系只标 gaps/risks
 - 不会在需要登录态、外部写入或高风险动作时假装已经完成
 - 不会把 README 当运行时真相；真正执行边界以 [`SKILL.md`](SKILL.md) 和 [`agents/step_*.md`](agents/) 为准
+- 入口收敛只影响对外发现层，不影响从任一 Step 直接进入
 
 ## 📋 工作流一览
 

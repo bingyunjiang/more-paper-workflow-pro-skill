@@ -12,6 +12,7 @@
 
 ### Step 5 真实下载链路、英文优先顺序与登录 checkpoint 收口
 
+- **入口收敛不改 direct-entry**：主入口继续收拢到 `SKILL.md` / `README.md`，但 Step 1-8 仍可从任一 Step 直接进入；这次只收口对外发现层，不加流程拦截层。
 - **Step 5 英文优先并加下载锁**：统一下载顺序收紧为 Sci-Hub / OA fast / IEEE CDP / English Generic CDP 完成后才进入 CNKI/万方；`--parallel-phase1` 保留兼容但不再并发启动中文，并新增跨进程 `step5_download.lock` 防止多个下载进程同时冲击同一 CDP 浏览器。
 - **IEEE 默认恢复独立下载脚本，并纳入英文预登录门控**：`10.1109/` 路由重新切回 `download_via_ieee.py` 作为默认实现；同时 `strategy=ieee_cdp` 且 `requires_auth != none` 的条目现在和 Generic CDP 一起参与 preflight gate。没有可信 `pdf/article probe ok` 信号时，脚本先自动打开本轮真正涉及的 IEEE / Springer / Wiley 等入口页，再提示登录、跳过或写 checkpoint。
 - **英文 OA 清单分层与 CDP 分组**：Step 5 拿到英文 DOI 后先标记 `oa_candidate` / `no_oa_hint` / `unknown`，真实下载仍由 OA fast 验证；OA fast 剩余条目进入 English CDP 时按 publisher 分组执行，减少不同出版社页面互相冲击。
