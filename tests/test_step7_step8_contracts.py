@@ -211,6 +211,56 @@ class Step7Step8ContractsTest(unittest.TestCase):
         ]:
             self.assertIn(token, paper_card)
 
+    def test_step7_pdf_only_and_layered_fulltext_contracts_exist(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        policy = read_rel("references/pdf-processing-policy.md")
+
+        for token in [
+            "PDF-only evidence_pack 是 Step 7 的正式入口，不是降级补丁",
+            "PDF 文件夹、写作目标，以及可选的大纲、已有草稿或目标期刊/学位论文要求",
+            "prepared_pdf_artifacts.json",
+            "*.clean.md",
+            "*.chunks.json",
+            "*.extraction_report.json",
+            "扫描件、OCR 差、表格/公式密集、页码锚点缺失",
+            "不得自动升级为强证据",
+            "分层全文深读链",
+            "全文 PDF/MinerU 不作为常驻写作上下文",
+            "`metadata-first`",
+            "`selective-fulltext`",
+            "`argument_plan`：把 `deep_read_cards` 中的 claim、方法、边界、图表证据绑定到章节论证",
+            "deep_read_cards + argument_plan + 必要原文回查",
+            "未压缩、未定位、未标注读取深度的全文堆料",
+        ]:
+            self.assertIn(token, step7)
+
+        for token in [
+            "PDF-only evidence_pack 是正式入口，不是降级补丁",
+            "prepared_pdf_artifacts.json",
+            "`*.clean.md`",
+            "`*.chunks.json`",
+            "`*.extraction_report.json`",
+            "must_check_pdf=true",
+        ]:
+            self.assertIn(token, policy)
+
+    def test_step7_section_evidence_completion_gate_exists(self):
+        step7 = read_rel("agents/step_7_writing.md")
+
+        for token in [
+            "小节级证据完成门",
+            "每个章节/小节写作完成前，必须完成最小证据闭环",
+            "每条强 claim 必须绑定 `reading_depth=full_text / pdf_verified / zotero_note`",
+            "每条强 claim 必须有 `source_trace`",
+            "PDF 路径或 Zotero item、页码/chunk/section、证据等级",
+            "摘要级文献只能写背景、问题定义、研究趋势",
+            "不能支撑实验结果、参数、机制判断或效果比较",
+            "输出 `[待补证据: claim]` 或写入 `evidence_gap_list.md`",
+            "PDF-only 入口下，`source_trace` 必须优先落到 `source_pdf + pages/chunk_id/section`",
+            "must_check_pdf=true",
+        ]:
+            self.assertIn(token, step7)
+
     def test_step7_mechanism_analysis_contract_exists(self):
         step7 = read_rel("agents/step_7_writing.md")
         reference = read_rel("references/mechanism-analysis-writing-contract.md")
@@ -678,6 +728,33 @@ class Step7Step8ContractsTest(unittest.TestCase):
             "最后才做词句层面的润色",
             "优先标记 `structure_drift` 并回退 `step_7_argument_plan`",
             "优先标记 `evidence_gap / citation_misalignment / contribution_overclaim`",
+        ]:
+            self.assertIn(token, step8)
+
+    def test_step8_fixed_issue_action_table_and_ledger_fields_exist(self):
+        step8 = read_rel("agents/step_8_polishing.md")
+
+        for token in [
+            "固定诊断动作表",
+            "`term_consistency`",
+            "可在 Step 8 直接修，并记录术语一致性报告",
+            "默认回退 Step 7 `argument_plan`",
+            "不靠润色硬修章节功能",
+            "默认回退 Step 7 `citation_audit` 或证据补强",
+            "Step 8 不新增外部证据",
+            "只记录引用安全提醒",
+            "完整处理回 Step 7 引用审计",
+            "允许降强度或补边界句",
+            "若仍需新证据，回 Step 7，不在 Step 8 新增文献",
+        ]:
+            self.assertIn(token, step8)
+
+        for token in [
+            "| `before` | 修订前文本或问题片段 |",
+            "| `after` | 修订后文本；未修订时记录为空并说明原因 |",
+            "| `rollback_target` |",
+            "| `evidence_status` | 当前证据状态",
+            "| `verification_result` | `PASS / WARN / FAIL`",
         ]:
             self.assertIn(token, step8)
 

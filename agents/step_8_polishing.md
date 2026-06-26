@@ -208,8 +208,20 @@ Step 8 不允许：
 - `evidence_gap`
 - `structure_drift`
 - `language_mechanical`
+- `term_consistency`
 - `contribution_overclaim`
 - `citation_misalignment`
+
+**固定诊断动作表：**
+
+| `issue_type` | Step 8 默认动作 | 禁止动作 / 回退目标 |
+|--------------|-----------------|---------------------|
+| `language_mechanical` | 可在 Step 8 直接修，执行语言清理、机械表达修复、局部衔接补写 | 不得扩大为新论证 |
+| `term_consistency` | 可在 Step 8 直接修，并记录术语一致性报告 | 涉及 Main Term 重大变更时写入 `.skill-state/decision_log.md` |
+| `structure_drift` | 默认回退 Step 7 `argument_plan`，必要时只给诊断和建议 | 不靠润色硬修章节功能 |
+| `evidence_gap` | 默认回退 Step 7 `citation_audit` 或证据补强 | Step 8 不新增外部证据 |
+| `citation_misalignment` | 只记录引用安全提醒，保留风险位置 | 完整处理回 Step 7 引用审计 |
+| `contribution_overclaim` | 允许降强度或补边界句 | 若仍需新证据，回 Step 7，不在 Step 8 新增文献 |
 
 **诊断原则：**
 - 诊断优先级固定为：`章节功能 -> 段落逻辑 -> claim/evidence/boundary -> 句子润色`。
@@ -339,13 +351,18 @@ Step 8 的问题闭环主工件为：
 | `issue_type` | 问题类型 |
 | `severity` | 严重度 |
 | `location` | 章节/段落/句子位置 |
+| `before` | 修订前文本或问题片段 |
+| `after` | 修订后文本；未修订时记录为空并说明原因 |
 | `problem` | 问题描述 |
+| `rollback_target` | `none / step_7_revision_only / step_7_citation_audit / step_7_argument_plan / step_4_or_6_evidence_repair` |
 | `evidence_basis` | 当前修订依据：正文、三工件、评审或审计输入 |
+| `evidence_status` | 当前证据状态：已确认、候选、缺失、需回 PDF、需回 Step 7 |
 | `allowed_action` | `直接修改 / 局部补写 / 回退 / 人工决定` |
 | `proposed_revision` | 拟采用的修订动作或补写方案 |
 | `meaning_audit_required` | `true / false`，当改动触及 claim、引用、限定词、比较词或因果关系时为 `true` |
 | `meaning_audit_reason` | 触发轻量含义审计的原因 |
 | `verification` | 4 项最小验证结果 |
+| `verification_result` | `PASS / WARN / FAIL`，从 `verification` 汇总得到 |
 | `final_status` | `PASS / WARN / FAIL` |
 | `next_action` | `保留修改 / 转人工复核 / 回退修改 / 回到 Step 7/4/6` |
 | `issue_state` | `identified / routed / in_revision / verification_pending / closed / blocked_author_decision / blocked_evidence / invalid_or_not_applied` |

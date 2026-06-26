@@ -10,6 +10,7 @@
 - 提取脚本的目标是“稳定复用 + 可回查”，不是完美恢复所有公式、表格和版面结构。
 - `prepare_pdf_for_llm.py` 默认使用轻量解析链路；MinerU 仅作为可选增强后端，不是默认依赖。
 - Zotero/MinerU 不是 Step 7/8 的硬依赖；没有这些工具时，用户可指定本地证据包，所有材料先归一为 `evidence_pack.json` 再进入写作。
+- PDF-only evidence_pack 是正式入口，不是降级补丁；只有 PDF 文件夹的用户也可以直接进入 Step 7。
 
 ## 1.0 证据读取优先级
 
@@ -17,7 +18,7 @@ Step 7/8 读取 PDF 与相关材料时，按应用场景选择入口：
 
 1. `zotero_mineru`：同一 Zotero item 下存在 `LLM-for-Zotero-MinerU-cache-*.zip` 时，优先读取 ZIP 中的 `manifest.json`、`full.md`、`images/` 作为图文增强层。
 2. `zotero_full`：有 Zotero 条目时，读取 `zotero_get_item_fulltext` 或按页读取，并结合 notes、annotations、metadata 做来源确认。
-3. `evidence_pack`：无 Zotero/MinerU 时，读取用户指定的 PDF、BibTeX/CSL JSON、实验报告、数据文件、草稿、标准文件、图片目录。
+3. `evidence_pack`：无 Zotero/MinerU 时，读取用户指定的 PDF、BibTeX/CSL JSON、实验报告、数据文件、草稿、标准文件、图片目录；PDF-only evidence_pack 先生成或刷新 `evidence_pack.json`，再按需生成 `prepared_pdf_artifacts.json`、`*.clean.md`、`*.chunks.json`、`*.extraction_report.json`。
 4. `pymupdf_fallback`：无法使用 Zotero fulltext/MinerU 且需要快速预读时，使用 PyMuPDF 轻量链路。
 
 Step 7 `deep_read_refine` 的文本源优先级固定为：
@@ -33,6 +34,8 @@ MinerU ZIP / Zotero 图文资产 > 主抽图 > preview fallback
 ```
 
 场景只决定读取路径，证据等级决定能写多强。摘要、BibTeX、检索结果、展示层 Markdown 只能作为候选或背景；PDF、用户自有实验报告、可核验数据、原始标准文件可在完成核验后支撑强 claim。
+
+PDF-only 入口下，扫描件、OCR 差、表格/公式密集、页码锚点缺失的 PDF 必须标记 `must_check_pdf=true` 或对应 `risk_flags`；这些材料可以用于定位和候选整理，但不得自动升级为强证据。
 
 ## 1.1 解析后端选择
 
