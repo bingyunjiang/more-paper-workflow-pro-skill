@@ -61,6 +61,7 @@
 | 保留原章节编号 | 是否保持标题层级、章节编号、图表编号不变 | 默认保留 |
 | 允许大幅改写 | 是否允许重排段落、改写论证顺序 | 默认不允许，只做局部结构润色 |
 | 修订范围 | `local-polish / section-revision / full-manuscript-pass` | 默认 `local-polish` |
+| 输出模式 | `quick-polish / audited-polish` | 默认按任务风险选择；局部低风险段落可用 `quick-polish` |
 
 **Direct-entry input contract：**
 
@@ -73,6 +74,15 @@
 
 Step 8 的直接入口只要求有可润色文本。评审报告、引用审计报告、Step 7 完整上下文都是质量增强输入，不是入口门。缺失时按降级规则标记风险，不能要求用户回跑 Step 7。
 Step 8 可以补局部内容，但仅限可由现有正文、Step 7 三工件、评审/审计输入支撑的修订性补写，不允许把本层升级为开放式重写器。
+
+**输出模式边界：**
+
+| 模式 | 适用场景 | 必须输出 | 不允许 |
+|------|----------|----------|--------|
+| `quick-polish` | 单段、局部章节、低风险语言润色，且不触及 claim、引用落点或章节功能 | 润色稿 + 3-5 条修改说明；必要时附“引用安全未审计”提醒 | 不生成新证据、不声称完成全文审计、不重排章节主论证 |
+| `audited-polish` | 全文章节、投稿/送审前终稿、触及 claim 强度/引用/结构的问题 | `diagnostic_summary.md`、`revision_ledger.json/md`、修改对照表、术语一致性报告、润色质量报告 | 不替代 Step 7 引用审计，不新增外部证据 |
+
+若 `quick-polish` 过程中发现 `evidence_gap / structure_drift / citation_misalignment / contribution_overclaim`，必须升级为 `audited-polish` 或回退 Step 7，不能继续把结构或证据问题包装成句子润色。
 
 > **AI 味确定性检查边界：** Step 8 内部包含一个“AI 味确定性检查”子层，输入为待润色正文、`.skill-state/term_aliases.md` 与 Step 7 三工件（如可用）。它只检查表达层确定性风险，用于识别机械化表达、空泛套话、悬垂洞见、节奏过匀和载体脏污等问题；它不判断学术观点真假，不判断引用是否真实存在，也不把“像 AI 写的”直接等同于“不能发表”或“必须回退”。
 
@@ -202,6 +212,10 @@ Step 8 不允许：
 - `citation_misalignment`
 
 **诊断原则：**
+- 诊断优先级固定为：`章节功能 -> 段落逻辑 -> claim/evidence/boundary -> 句子润色`。
+- 先判断当前段落是否服务正确章节功能，再判断段落内信息顺序和主任务，随后判断 claim、证据和边界是否匹配，最后才做词句层面的润色。
+- 若章节功能错误或段落承担多个互相冲突的任务，优先标记 `structure_drift` 并回退 `step_7_argument_plan`，不得直接做句子润色。
+- 若 claim 缺证据、证据无法支撑结论或边界缺失，优先标记 `evidence_gap / citation_misalignment / contribution_overclaim` 并回退 Step 7 的 citation audit 或 argument plan。
 - `language_mechanical` 通常可在 Step 8 修复。
 - `evidence_gap`、`structure_drift`、`citation_misalignment` 默认优先考虑回退，而不是本层强行修顺。
 - `contribution_overclaim` 需结合 Step 7 的 claim 与证据状态判断，不能只靠降级措辞判定为已解决。

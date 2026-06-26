@@ -80,6 +80,20 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("evidence_gap_list.md", text)
         self.assertIn("rollback_target", text)
         self.assertIn("问题识别、修订动作、证据状态、验证结果、下一步动作", text)
+        for token in [
+            "comment_id",
+            "`E.1 / E.2`",
+            "`R1.1 / R1.2 / R2.1`",
+            "source_role",
+            "original_comment",
+            "comment_type",
+            "readiness_state",
+            "missing_author_input",
+            "不得编造 reviewer 身份",
+            "不得冒充已完成修改",
+            "必须复用 `E.1 / R1.1` 等稳定编号",
+        ]:
+            self.assertIn(token, text)
 
     def test_step7_argument_plan_and_rereview_contracts_exist(self):
         text = read_rel("agents/step_7_writing.md")
@@ -115,6 +129,21 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("replace_or_remove", text)
         self.assertIn("recommended_action", text)
         self.assertIn("repair_mapping", text)
+        for token in [
+            "引用对应表契约",
+            "claim_segment_id",
+            "claim_text",
+            "claim_type",
+            "insert_position",
+            "citekey",
+            "zotero_item_key",
+            "support_grade",
+            "evidence_anchor",
+            "strong / partial / background / contradictory_or_limiting / metadata_only_candidate / not_supported",
+            "`support_grade=metadata_only_candidate` 或 `not_supported` 不得进入最终稿的强 claim",
+            "同一个 `claim_segment_id` 下的多条记录",
+        ]:
+            self.assertIn(token, text)
 
     def test_step7_multi_entry_evidence_pack_and_docx_policy_exist(self):
         text = read_rel("agents/step_7_writing.md")
@@ -610,6 +639,47 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("candidate_evidence_used", step7)
         self.assertIn("confirmation_status", step7)
         self.assertIn("rollback_if_unconfirmed", step7)
+
+    def test_step7_writing_axes_and_confirmation_gate_exist(self):
+        step7 = read_rel("agents/step_7_writing.md")
+
+        for token in [
+            "writing_axes",
+            "paper_type",
+            "section_role",
+            "language_mode",
+            "style_target",
+            "不替代 `target_genre / writing_mode / entry_mode`",
+            "不得把 Nature 风格设为默认目标",
+            "one_sentence_argument",
+            "paragraph_job_map",
+            "每段只标一个主任务",
+            "claim / evidence / boundary",
+            "本节不得直接进入完整正文生成",
+            "确认门（claim / evidence / boundary 不清时）",
+            "先输出 `one_sentence_argument`、`paragraph_job_map`、关键假设和 `unresolved_evidence`，停止完整正文生成",
+            "不得把未确认内容写成确定性结论",
+        ]:
+            self.assertIn(token, step7)
+
+    def test_step8_failure_mode_priority_and_output_modes_exist(self):
+        step8 = read_rel("agents/step_8_polishing.md")
+
+        for token in [
+            "quick-polish",
+            "audited-polish",
+            "润色稿 + 3-5 条修改说明",
+            "diagnostic_summary.md",
+            "revision_ledger.json/md",
+            "若 `quick-polish` 过程中发现 `evidence_gap / structure_drift / citation_misalignment / contribution_overclaim`",
+            "不能继续把结构或证据问题包装成句子润色",
+            "诊断优先级固定为：`章节功能 -> 段落逻辑 -> claim/evidence/boundary -> 句子润色`",
+            "先判断当前段落是否服务正确章节功能",
+            "最后才做词句层面的润色",
+            "优先标记 `structure_drift` 并回退 `step_7_argument_plan`",
+            "优先标记 `evidence_gap / citation_misalignment / contribution_overclaim`",
+        ]:
+            self.assertIn(token, step8)
 
     def test_step7_existing_draft_three_entry_paths_are_explicit(self):
         step7 = read_rel("agents/step_7_writing.md")
