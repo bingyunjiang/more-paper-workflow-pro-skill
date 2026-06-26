@@ -124,10 +124,10 @@ def _extract_mechanism_hints(
     record: dict[str, Any],
     figure_candidates: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    mechanism_terms = ["mechanism", "机理", "机制", "causal", "因果", "影响规律", "耦合", "传导", "pathway"]
-    model_terms = ["equation", "model", "formula", "公式", "方程", "模型", "等效", "control law"]
-    boundary_terms = ["condition", "scenario", "boundary", "assumption", "工况", "边界", "假设", "约束", "load", "temperature"]
-    validation_terms = ["experiment", "simulation", "validate", "ablation", "实验", "仿真", "验证", "对比", "消融"]
+    mechanism_terms = ["mechanism", "机理", "机制", "causal", "因果", "影响规律", "耦合", "传导", "pathway", "transition", "driven"]
+    model_terms = ["equation", "model", "formula", "公式", "方程", "模型", "等效", "control law", "computed", "framework"]
+    boundary_terms = ["condition", "scenario", "boundary", "assumption", "工况", "边界", "假设", "约束", "load", "temperature", "strain rate"]
+    validation_terms = ["experiment", "experiments", "test", "tests", "simulation", "validate", "validated", "ablation", "实验", "仿真", "验证", "对比", "消融"]
     alternative_terms = ["however", "limitation", "alternative", "conflict", "但", "然而", "局限", "反例", "矛盾"]
 
     title = _clean(record.get("title"))
@@ -142,15 +142,15 @@ def _extract_mechanism_hints(
     alternative_explanations = [_truncate(s, 180) for s in _pick_sentences(text, alternative_terms, 2)]
 
     state_variables: list[str] = []
-    variable_patterns = [
-        r"\b[A-Z][A-Za-z0-9_]{0,8}\b",
-        r"\b(?:voltage|current|power|temperature|load|frequency|efficiency|SOC|SOH)\b",
-        r"(?:电压|电流|功率|温度|负载|频率|效率|荷电状态|热阻|阻抗|电容)",
+    variable_patterns: list[tuple[str, int]] = [
+        (r"\b(?:CDRX|DDRX|DRV|DRX|WH|GF|GR|GBM|CA|CPFE|CPFEM|VPSC|LABs|MABs|HABs|PSC|UC|TR|EBSD|TEM|TKD|SOC|SOH)\b", 0),
+        (r"\b(?:voltage|current|power|temperature|load|frequency|efficiency|strain rate|stress state|stored energy|dislocation density|misorientation|transformation fraction|grain boundary migration|subgrain rotation|grain fragmentation|activation energy)\b", re.IGNORECASE),
+        (r"(?:电压|电流|功率|温度|负载|频率|效率|荷电状态|热阻|阻抗|电容|应力状态|应变速率|储能|位错密度|取向差|转变分数|晶界迁移|亚晶旋转|晶粒破碎|激活能)", 0),
     ]
-    for pattern in variable_patterns:
-        for match in re.findall(pattern, text, flags=re.IGNORECASE):
+    for pattern, flags in variable_patterns:
+        for match in re.findall(pattern, text, flags=flags):
             value = _clean(match)
-            if value and value.lower() not in {"the", "and", "for", "with", "this"} and value not in state_variables:
+            if value and value not in state_variables:
                 state_variables.append(value)
             if len(state_variables) >= 8:
                 break

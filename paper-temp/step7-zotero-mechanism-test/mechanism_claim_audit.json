@@ -1,0 +1,50 @@
+{
+  "schema_version": "mechanism-claim-audit.v1",
+  "metadata": {
+    "schema_version": "mechanism-analysis-artifacts.v1",
+    "source_cards": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/paper-temp/step7-zotero-mechanism-test/deep_read_cards.json",
+    "source_card_metadata": {
+      "entry_mode": "deep_read_refine",
+      "section_id": "1",
+      "section_title": "热变形过程中动态再结晶驱动晶粒细化的多尺度机理",
+      "selected_records": 3,
+      "input_artifact": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/paper-temp/step7-zotero-mechanism-test/zotero-test-mapping.json",
+      "figure_index_metadata": {},
+      "warnings": [],
+      "text_priority": "zotero_mineru > zotero_fulltext > zotero_note/annotation > PyMuPDF/pdfplumber > abstract_only",
+      "image_priority": "MinerU ZIP / Zotero 图文资产 > 主抽图 > preview fallback"
+    },
+    "figure_index": "",
+    "figure_evidence_fallback": "unavailable_without_mineru_or_manual_pdf_check",
+    "evidence_priority": "MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/元数据"
+  },
+  "findings": [
+    {
+      "claim_id": "mech-zotero-test-001",
+      "source_citekey": "Liu2024_CDRX_AA2196",
+      "severity": "downgrade_required",
+      "missing": [
+        "validation_path"
+      ],
+      "recommended_action": "降级为候选机制，并补全文/页码/图表/验证锚点"
+    },
+    {
+      "claim_id": "mech-zotero-test-002",
+      "source_citekey": "Yu2025_AA2195_StressState",
+      "severity": "downgrade_required",
+      "missing": [
+        "validation_path"
+      ],
+      "recommended_action": "降级为候选机制，并补全文/页码/图表/验证锚点"
+    },
+    {
+      "claim_id": "mech-zotero-test-003",
+      "source_citekey": "Chen2026_CPFE_CA_DDRX",
+      "severity": "downgrade_required",
+      "missing": [
+        "validation_path"
+      ],
+      "recommended_action": "降级为候选机制，并补全文/页码/图表/验证锚点"
+    }
+  ]
+}

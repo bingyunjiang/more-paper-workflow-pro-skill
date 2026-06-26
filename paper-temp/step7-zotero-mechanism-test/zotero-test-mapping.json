@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "entry_mode": "zotero_full",
+    "collection_name": "test",
+    "collection_key": "Z8HQ4JB6",
+    "section_id": "1",
+    "section_title": "热变形过程中动态再结晶驱动晶粒细化的多尺度机理"
+  },
+  "records": [
+    {
+      "record_id": "zotero-test-001",
+      "citekey": "Liu2024_CDRX_AA2196",
+      "zotero_item_key": "7BRJBXBL",
+      "title": "A polycrystal plasticity-cellular automaton integrated modeling method for continuous dynamic recrystallization and its application to AA2196 alloy",
+      "chapter_id": "1",
+      "pdf_path": "zotero://select/items/7BRJBXBL",
+      "abstract": "Continuous dynamic recrystallization in hot-worked aluminum alloys is simulated by coupling 3D cellular automaton and visco-plastic self-consistent models.",
+      "paper_card": {
+        "evidence_role": "mechanism_model",
+        "primary_claim": "CDRX 可由位错累积/回复、亚晶形成与旋转、储能和曲率驱动的界面迁移共同解释。",
+        "main_methods_or_baselines": ["VPSC", "3D cellular automaton", "CDRX model"],
+        "reading_depth": "full_text",
+        "content_fit": "direct",
+        "usable_for": ["连续动态再结晶机理", "晶体塑性-CA 多尺度建模"],
+        "not_usable_for": ["AA2195 应力状态实验的直接结论"]
+      }
+    },
+    {
+      "record_id": "zotero-test-002",
+      "citekey": "Yu2025_AA2195_StressState",
+      "zotero_item_key": "4VZ7PV7E",
+      "title": "Effect of stress state on flow stress and grain refinement mechanisms during AA2195 hot deformation",
+      "chapter_id": "1",
+      "pdf_path": "zotero://select/items/4VZ7PV7E",
+      "abstract": "Plane strain compression, uniaxial compression and torsion tests reveal stress-state-dependent grain fragmentation and subgrain rotation mechanisms in AA2195.",
+      "paper_card": {
+        "evidence_role": "mechanism_experiment",
+        "primary_claim": "应力状态改变低角度晶界形成方向、三叉晶界连接和亚晶旋转激活温度，从而改变晶粒细化机制。",
+        "main_methods_or_baselines": ["PSC", "UC", "torsion", "EBSD", "TEM", "TKD"],
+        "reading_depth": "full_text",
+        "content_fit": "direct",
+        "usable_for": ["应力状态对晶粒细化机制的影响", "GF/GR 转换边界", "WH-DRV-DRX 竞争机理"],
+        "not_usable_for": ["镍基合金 DDRX 连续场模型验证"]
+      }
+    },
+    {
+      "record_id": "zotero-test-003",
+      "citekey": "Chen2026_CPFE_CA_DDRX",
+      "zotero_item_key": "XRMSR8RX",
+      "title": "A continuum-field-enabled multiscale framework coupling crystal plasticity and cellular automaton for discontinuous dynamic recrystallization: Application to a nickel-based superalloy",
+      "chapter_id": "1",
+      "pdf_path": "zotero://select/items/XRMSR8RX",
+      "abstract": "A continuum-field-enabled CPFE-CA framework models DDRX nucleation and grain boundary migration through transformation fraction and bidirectional mapping.",
+      "paper_card": {
+        "evidence_role": "mechanism_model",
+        "primary_claim": "用连续转变分数替代 CA 离散状态跳变，可缓解 CPFE-CA 耦合中的非物理应力突跳并保持微观组织-力学响应一致。",
+        "main_methods_or_baselines": ["CPFE", "cellular automaton", "continuum-field sub-grid", "bidirectional mapping"],
+        "reading_depth": "full_text",
+        "content_fit": "direct",
+        "usable_for": ["DDRX 数值机理", "连续场 CA-CPFE 耦合", "形核和晶界迁移软化机制"],
+        "not_usable_for": ["铝合金 CDRX 特定滑移系结论"]
+      }
+    }
+  ]
+}

@@ -337,7 +337,21 @@ Step 7 进入正文前，必须先明确两件事：
 **标准输出：**
 - `mechanism_cards.json/md`
 - `mechanism_argument_plan.json/md`
+- `mechanism_claim_audit.json/md`
 - 必要时更新 `evidence_gap_list.md`
+
+**推荐执行入口：**
+
+```bash
+python3 scripts/build_mechanism_argument_plan.py \
+  --cards-json deep_read_cards.json \
+  --figure-index figure_index.json \
+  --output-dir .
+python3 scripts/audit_mechanism_claims.py \
+  --plan-json mechanism_argument_plan.json
+```
+
+`--figure-index` 是可选增强项；没有 MinerU ZIP 或 `figure_index.json` 时不得中断正文写作，只能把图表证据标记为 `figure_evidence_status=unavailable_without_mineru_or_manual_pdf_check`，并禁止自动写“如图 X 所示”“图中可见”等视觉判断。
 
 **`mechanism_cards` 最小字段：**
 
@@ -358,6 +372,14 @@ Step 7 进入正文前，必须先明确两件事：
 - 涉及方程、图表、数值比较或实验参数时，必须有 `evidence_anchor`，不能只凭摘要或候选片段。
 - 机理强 claim 必须至少绑定全文级证据；`abstract_only` 只能用于背景、问题定义或待精读提示。
 - 若存在 `alternative_explanations`，正文必须用边界条件收束，不得静默忽略反证或竞争解释。
+
+**证据分级固定为：**
+
+```text
+MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/元数据
+```
+
+无 MinerU 时仍允许写“变量-路径-边界”的机理链，但必须保守措辞；图表、公式、页码、数值和视觉观察类强 claim 只能在补齐相应锚点后进入正文。
 
 #### 7.2.1. PDF 读取模式
 

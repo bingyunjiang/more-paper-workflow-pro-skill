@@ -1,0 +1,19 @@
+{
+  "records": [
+    {
+      "citekey": "Liu2024_CDRX_AA2196",
+      "zotero_item_key": "7BRJBXBL",
+      "text": "Continuous dynamic recrystallization usually dominates the microstructural evolution in hot working of aluminum alloys. The stress response, dislocation accumulation and recovery, and evolution of crystal orientations are computed in the context of polycrystal plasticity; the formation and rotation of subgrains, followed by stored energy and curvature-driven boundary migration, are captured and visualized by cellular automaton. During a typical CDRX process, subgrain boundaries are generated from cell walls composed of tangled dislocations. Continual straining gradually increases the misorientation of subgrain boundaries, enabling the transition from low-angle grain boundaries into high-angle ones. The orientation dependence of CDRX during compression is reproduced by correlating subgrain formation and rotation with the activation state of slip systems. The non-octahedral slip mode {110}<110> is introduced to capture the texture during hot compression."
+    },
+    {
+      "citekey": "Yu2025_AA2195_StressState",
+      "zotero_item_key": "4VZ7PV7E",
+      "text": "The results show that grain refinement is highly dependent on stress state. For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dominated torsion, both grain refinement mechanisms were activated at a lower temperature of 300 C. Under shear-dominated conditions, low-angle grain boundaries preferentially formed along the short axis of the initial grains, facilitating their extension into triple junctions and promoting subgrain rotation. The flow stress behavior is governed by competition among work hardening, dynamic recovery and dynamic recrystallization. The DRV contribution to softening is most significant under plane strain compression, whereas DRX-induced softening is most pronounced under torsion. The transition thresholds do not arise from a change in critical energy for nucleation itself; different stress states generate distinct precursor substructures such as shear bands versus dislocation cells."
+    },
+    {
+      "citekey": "Chen2026_CPFE_CA_DDRX",
+      "zotero_item_key": "XRMSR8RX",
+      "text": "The incompatibility between discrete microstructural transitions in cellular automaton and continuous mechanical fields in crystal plasticity finite element modeling leads to numerical instability and unphysical stress jumps. The continuum-field-enabled framework integrates CPFE with a reformulated CA model through a sub-grid description and bidirectional mapping strategy. Nucleation and grain boundary migration are modeled as gradual reordering of distorted lattices, described by an evolving transformation fraction rather than discrete state switches. The CA formulation is embedded at CPFE integration points and exchanges dislocation density, crystallographic orientation, and updated transformation state at each timestep. Recrystallized regions act as local soft zones that release strain energy, reduce local driving force for further nucleation and grain boundary migration, and establish a dynamic feedback loop."
+    }
+  ]
+}
