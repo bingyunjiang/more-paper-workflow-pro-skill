@@ -6,55 +6,50 @@
 ## mech-zotero-test-001
 
 - source_citekey: Liu2024_CDRX_AA2196
-- confirmation_status: usable_with_cautious_wording
-- evidence_level: pdf_fulltext_no_page
-- figure_evidence_status: unavailable_without_mineru_or_manual_pdf_check
-- phenomenon: Continual straining gradually increases the misorientation of subgrain boundaries, enabling the transition from low-angle grain boundaries into high-angle ones.
-- boundary_conditions: The stress response, dislocation accumulation and recovery, and evolution of crystal orientations are computed in the context of polycrystal plasticity; the formation and rotati...
-- validation_path: 待补充
+- confirmation_status: confirmed_for_strong_claim
+- evidence_level: mineru_figure_anchor
+- figure_evidence_status: available_with_mineru_or_figure_index
+- phenomenon: The initial random grain orientations gradually converge with increasing strain, ultimately resulting in a strong $< 0 1 1 > | | \mathrm { C D }$ texture which is typical shown...
+- boundary_conditions: At higher deformation temperature and lower strain rate, fewer subgrain boundaries are formed due to enhanced boundary mobility and increased time available for boundary migration.; grain boundary migration during deformation must be considered, which is more pronounced as ln(Z) decreases (higher deformation temperature or lower strain rate).
+- validation_path: Validation by additional compression tests To further validate the model, hot compression experiments at $4 2 5 ^ { \circ } \mathrm { C }$ and strain rate of 0.001 and 1 $s ^ {...; The proposed simulation framework is validated through simulating the isothermal uniaxial compression process of AA2196 alloy under different tem peratures and strain rates.
 
 ### Causal Chain
-- Continual straining gradually increases the misorientation of subgrain boundaries, enabling the transition from low-angle grain boundaries into high-angle ones.
-- The stress response, dislocation accumulation and recovery, and evolution of crystal orientations are computed in the context of polycrystal plasticity; the formation and rotati...
+- Most dislocations are consumed through dynamic annihilation mechanism, without the necessity to generate a large number of geometrically necessar dislocations and subgrain bound...
+- 7$ To better understand the mechanisms underlying the development of distinct deformation textures, the orientations of 60 randomly selected grains at different strains are pres...
 
 ### Not Allowed Claims
-- 不得写成已证明的确定性机理结论
-- 不得写页码、公式号、图号或精确数值级结论
-- 不得自动写“如图X所示”“图中可见”等视觉判断
+- 未触发
 
 ## mech-zotero-test-002
 
 - source_citekey: Yu2025_AA2195_StressState
-- confirmation_status: usable_with_cautious_wording
-- evidence_level: pdf_fulltext_no_page
-- figure_evidence_status: unavailable_without_mineru_or_manual_pdf_check
-- phenomenon: For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom...
-- boundary_conditions: Under shear-dominated conditions, low-angle grain boundaries preferentially formed along the short axis of the initial grains, facilitating their extension into triple junctions...; For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom...
-- validation_path: 待补充
+- confirmation_status: confirmed_for_strong_claim
+- evidence_level: mineru_figure_anchor
+- figure_evidence_status: available_with_mineru_or_figure_index
+- phenomenon: The results show that grain refinement is highly dependent on the stress state, and that for the compressive-dominated stress state (PSC and UC), the transition in the dominant...
+- boundary_conditions: Conditions such as high strain, elevated temperature and low strain rate collectively promote a greater extent of DRX, leading to significant levels of dynamic softening.; The increased strain rate kinetically suppresses dynamic recovery, leading to a higher LAB density and pronounced grain boundary serrations, features reminiscent of the lower-te...
+- validation_path: The aforementioned studies predomi nantly conducted thermal simulation tests using a single, predefined loading mode.; Experiments and simulations ## 2.1.
 
 ### Causal Chain
-- For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom...
-- The transition thresholds do not arise from a change in critical energy for nucleation itself; different stress states generate distinct precursor substructures such as shear ba...
+- 0 1 { - } 1 0 s ^ { - 1 }$ Subsequently, the relationship among the transition in grain refinement mechanisms, the resultant flow stress characteristics and the applied stress s...
+- The dominant mechanism transitions from GF to GR as the Zener-Hollomon parameter decreases (i.e., with increasing temperature or decreasing strain rate).
 
 ### Not Allowed Claims
-- 不得写成已证明的确定性机理结论
-- 不得写页码、公式号、图号或精确数值级结论
-- 不得自动写“如图X所示”“图中可见”等视觉判断
+- 未触发
 
 ## mech-zotero-test-003
 
 - source_citekey: Chen2026_CPFE_CA_DDRX
-- confirmation_status: usable_with_cautious_wording
-- evidence_level: pdf_fulltext_no_page
-- figure_evidence_status: unavailable_without_mineru_or_manual_pdf_check
-- phenomenon: The incompatibility between discrete microstructural transitions in cellular automaton and continuous mechanical fields in crystal plasticity finite element modeling leads to nu...
-- boundary_conditions: Nucleation and grain boundary migration are modeled as gradual reordering of distorted lattices, described by an evolving transformation fraction rather than discrete state swit...; Recrystallized regions act as local soft zones that release strain energy, reduce local driving force for further nucleation and grain boundary migration, and establish a dynami...
-- validation_path: 待补充
+- confirmation_status: confirmed_for_strong_claim
+- evidence_level: mineru_figure_anchor
+- figure_evidence_status: available_with_mineru_or_figure_index
+- phenomenon: Initially, the nucleation of a recrystallized grain provides a rapid pathway for releasing localized elastic distortion energy, resulting in an immediate stress relaxation at th...
+- boundary_conditions: (a) Representative volume element and (b) boundary conditions used for the numerical performance analysis.; The RVE was subjected to a macroscopic true strain of 0.51 under periodic boundary conditions (Fig.
+- validation_path: Experimental calibration and validation This section describes the experiments and numerical procedures undertaken to calibrate and validate the proposed CPFE-CA model for the F...; Results and discussion This section presents and discusses the simulation results obtained from the validated multiscale framework.
 
 ### Causal Chain
-- The incompatibility between discrete microstructural transitions in cellular automaton and continuous mechanical fields in crystal plasticity finite element modeling leads to nu...
+- This coupled approach links detailed microstructure evolution driven by crystallographic mechanisms with macro scopic stress and strain fields, providing critical understanding...
+- Wang, Analysis of the mechanism of orientations evolution during hot rolling and mechanical properties of TiBw/TA15 composites based on crystal plasticity finite element model, J.
 
 ### Not Allowed Claims
-- 不得写成已证明的确定性机理结论
-- 不得写页码、公式号、图号或精确数值级结论
-- 不得自动写“如图X所示”“图中可见”等视觉判断
+- 未触发

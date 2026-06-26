@@ -24,32 +24,60 @@
       "content_fit": "direct",
       "claim_summary": "CDRX 可由位错累积/回复、亚晶形成与旋转、储能和曲率驱动的界面迁移共同解释。",
       "method_summary": "VPSC；3D cellular automaton；CDRX model",
-      "experiment_summary": "Continuous dynamic recrystallization usually dominates the microstructural evolution in hot working of aluminum alloys.",
+      "experiment_summary": "The comparison of predicted and experimental results with respect to the flow stress, average subgrain diameter, average grain diameter and average misorientation angle of boundaries is given in Fig.",
       "mechanism_hints": {
-        "phenomenon": "Continual straining gradually increases the misorientation of subgrain boundaries, enabling the transition from low-angle grain boundaries into high-angle ones.",
+        "phenomenon": "The initial random grain orientations gradually converge with increasing strain, ultimately resulting in a strong $< 0 1 1 > | | \\mathrm { C D }$ texture which is typical shown...",
         "state_variables": [
           "CDRX",
-          "stored energy",
-          "misorientation"
+          "DRV",
+          "DRX",
+          "DDRX",
+          "VPSC",
+          "CA",
+          "CPFEM",
+          "EBSD"
         ],
         "causal_chain": [
-          "Continual straining gradually increases the misorientation of subgrain boundaries, enabling the transition from low-angle grain boundaries into high-angle ones.",
-          "The stress response, dislocation accumulation and recovery, and evolution of crystal orientations are computed in the context of polycrystal plasticity; the formation and rotati..."
+          "Most dislocations are consumed through dynamic annihilation mechanism, without the necessity to generate a large number of geometrically necessar dislocations and subgrain bound...",
+          "7$ To better understand the mechanisms underlying the development of distinct deformation textures, the orientations of 60 randomly selected grains at different strains are pres..."
         ],
         "governing_model": [
-          "The stress response, dislocation accumulation and recovery, and evolution of crystal orientations are computed in the context of polycrystal plasticity; the formation and rotati..."
+          "Integrating VPSC model within the CA-CDRX frameworks The 3D CA framework is established based on the MATLAB platform, followed by embedment of the modified CDRX relevant equatio...",
+          "The physics-based CDRX equations and dislo cation density-based VPSC subroutine are constructed, followed by integration with CA framework at the grain level."
         ],
         "boundary_conditions": [
-          "The stress response, dislocation accumulation and recovery, and evolution of crystal orientations are computed in the context of polycrystal plasticity; the formation and rotati..."
+          "At higher deformation temperature and lower strain rate, fewer subgrain boundaries are formed due to enhanced boundary mobility and increased time available for boundary migration.",
+          "grain boundary migration during deformation must be considered, which is more pronounced as ln(Z) decreases (higher deformation temperature or lower strain rate)."
         ],
         "evidence_anchor": [
           {
             "type": "pdf",
             "value": "zotero://select/items/7BRJBXBL"
+          },
+          {
+            "type": "figure_or_table",
+            "value": "Fig. 1",
+            "page": "3"
+          },
+          {
+            "type": "figure_or_table",
+            "value": "image-2",
+            "page": "4"
+          },
+          {
+            "type": "figure_or_table",
+            "value": "image-3",
+            "page": "5"
           }
         ],
-        "alternative_explanations": [],
-        "validation_path": [],
+        "alternative_explanations": [
+          "However, the primary shortcomings of CPFEM are the limitation in computational efficiency and difficulties in simulating industry-scale deformation processes, such as hot extrus...",
+          "However, the involvement of {110}<110> slip mode can reverse their rotating directions, eventually shifting them towards the <001>, and an orientation turbulence zone appears (Fig."
+        ],
+        "validation_path": [
+          "Validation by additional compression tests To further validate the model, hot compression experiments at $4 2 5 ^ { \\circ } \\mathrm { C }$ and strain rate of 0.001 and 1 $s ^ {...",
+          "The proposed simulation framework is validated through simulating the isothermal uniaxial compression process of AA2196 alloy under different tem peratures and strain rates."
+        ],
         "claim_limit": "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。"
       },
       "usable_for": [
@@ -60,18 +88,228 @@
         "AA2195 应力状态实验的直接结论"
       ],
       "risk_flags": [
-        "reading_depth_locked",
-        "figure_candidates_missing"
+        "reading_depth_locked"
       ],
-      "figure_candidates": [],
+      "figure_candidates": [
+        {
+          "figure_id": "Fig. 1",
+          "page": "3",
+          "caption": "Fig. 1. IPF map of the as-homogenized AA2196 alloy.",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/35080a0d0d13edb0e85cc6718b89eafadf22bbe83db29ccfdaa5d213d4c57a04.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-2",
+          "page": "4",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/232b9493879e4e03f0835eb5e47e868b56afba577d73fdc966a1f916ceb88c1c.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-3",
+          "page": "5",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/eedd9646ee3f703cb121568cbd69c6e684de85b02b6d6fc50134c1ab1065970c.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-4",
+          "page": "5",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/ee900e3b5dedc63eb8ea3990126813dcad03a3483e7209928338231c49d699b7.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-5",
+          "page": "5",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/3fda09e70ad3512d2d1175ee9798a5321f1674f8f606ec3b9de6da38ef27a662.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-6",
+          "page": "5",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/f31765dae5943d5e67f54c45b05ff1ed6415c06735df56f63ba490ad1ac61298.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-7",
+          "page": "5",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/a503724f0d8e9dd3704a295084b7680eba50363b5114bc8ee1c921ce9a5d316f.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 4",
+          "page": "5",
+          "caption": "Fig. 4. Boundary maps of samples after compression under various temperatures and strain rates.",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/f363f198dbb0e80530243803cb29538de02ff7cc1d0b8ff6434f2f7fdd607bd7.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-9",
+          "page": "5",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/f3c79a2f9f71b73a5305c7be00ecbae13eb539c92a096acdfa5c7b8d4e5abc94.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-10",
+          "page": "7",
+          "caption": "(a) (d) Fig. 6. Illustration of the main mechanisms involved in the CDRX modeling: (a) initial microstructure; (b) rapid formation of LABs in the early stage; (c) increase of misorientation angles; (d) boundary migration and subgrain coalescence.",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/d5a21b0c6b8bc290345127802aca9329b6e6cbb23e1dc708e7a3d4cefaf27ea1.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-11",
+          "page": "12",
+          "caption": "Integrated VPSC-CA-CDRX framework <sub>Fig.</sub> <sub>7. Flowchart</sub> <sub>of</sub> <sub>the</sub> <sub>VPSC</sub>–<sub>CA-CDRX</sub> <sub>model.</sub>",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/0800da78528aa50a4751d09e398dba70a23910c39c4feda8bd143bd1dedd4688.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 12",
+          "page": "18",
+          "caption": "Fig. 12. Predicted microstructures at different strains under 450 $^ \\circ \\mathrm { C }$ and 0.001 $\\mathbf { s } ^ { - 1 } .$ . The evolution of grain morphology, substructures and orien tations can be visually observed.",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/c57b5985eea423bcfad08e01aa89537fe578b2043ec9c4ffbd8a52ad7ba3a4c3.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-13",
+          "page": "19",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/393704db4e725f8db3f4fe66828321c17d315daf0aa10f6db15deed339fadac1.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-14",
+          "page": "19",
+          "caption": "(b) (c)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/0462c4a389e798d301d59a1cbbdd2aaf402b9c200f266bafc41c2cdb0bbe8a70.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-15",
+          "page": "19",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/f329fa3b645be22c9a4f18101a2e73aa0769ae7c8c913c73daa523c1650baf73.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-16",
+          "page": "19",
+          "caption": "(d)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/82b81c9f8dedb9d9919a0140b304e4a79619bd22c8b06f9957a16cc60bcea525.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-17",
+          "page": "19",
+          "caption": "(e)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/f78379fd7b8a3d7b6e523ce956ad0a9db630ea1e028ea0bdf51d91e6a848d9f3.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 13",
+          "page": "19",
+          "caption": "Fig. 13. Predicted microstructures after compression under various temperatures and strain rates. More subgrain boundaries occurs at lower temperature and higher strain rate.",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/cbda1eca6099bf7f623fa37a79d0cde3f9f4fb99aed94672e879a699cd2fe031.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-19",
+          "page": "19",
+          "caption": "(b)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/ef94197823cf6803c9680da13842d4759ff6b3bf7516dbd2b930da659ee9c5cf.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-20",
+          "page": "19",
+          "caption": "(c)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/98807e9f1659ec3a1ee2dcb50b895b9f19f3d39c51def4db5b0471e5190af46f.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-21",
+          "page": "19",
+          "caption": "(d)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/bf5a5d6f563651ccb6d090c9139b0a01bf5926b1a1fc424a9a3a4433afa3e5a4.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-22",
+          "page": "19",
+          "caption": "(e) (f)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/676be343ecce4d7c8a28d9655365debb1b2f4b230b67de635fe9dbb2a78d6630.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 14",
+          "page": "19",
+          "caption": "Fig. 14. Predicted boundary maps after compression under various temperatures and strain rates. More subgrain boundaries occurs at lower temperature and higher strain rate.",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/861df5675dbc1ebc765a809f29f3f0596a2168dc5a36db224591fdfd7c89a3bf.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 18",
+          "page": "21",
+          "caption": "Fig. 18. The rotation angle maps and IPFs illustrating the orientations of subgrains in the parent grain C at different strains. Red spots in IPFs denote the orientations of the parent grain C and black spots represents the orientations of all subgrains within. (Rotation angle is the misorientation",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/396624f0f8aa8eac92860d3460fc14b62c6b930c9a726c50cd6c481040ae97d8.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-25",
+          "page": "22",
+          "caption": "(a)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/c2d10e808f2f71288259d41f2fab7f9b1e845d4c8897a9651141b45f2c462012.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 19",
+          "page": "22",
+          "caption": "Fig. 19. (a) The orientations of grains A and B from Fig. 3 (f); (b) the orientations of grains A’ and B’ from Fig. 13 (f); (c) the rotation angle map of subgrains inside grain A’ and B’. (The black and blue spots in IPFs denote the orientations of subgrains in grain A (A’) and B (B’), respectively.",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/054b10e375187c31b42d7f137ddc46770172617aa24c31e92c1c6126b0dd4f89.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-27",
+          "page": "23",
+          "caption": "(a)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/1b8a4344d245c51e533e1059e676d1f14696da5b6a3a60acc1550ecf31c1ac69.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-28",
+          "page": "23",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/e0713630cbf325e12e8939ddb6d8171a1e353f889da0f5c27f278e182f4dbd6b.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-29",
+          "page": "23",
+          "caption": "(d)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/44e73314fa2efa9a5a33253061c518f1237c18cfc0c6deb4885f27d1ca32a780.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-30",
+          "page": "23",
+          "caption": "(e)",
+          "source_image_path": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip::images/c4920a19348b56024549a95d113568cd5f13101e54ca97570ec2b379c2f85fcb.jpg",
+          "local_image_path": ""
+        }
+      ],
       "source_trace": {
-        "text_source": "zotero_fulltext",
-        "image_source": "none",
+        "text_source": "zotero_mineru",
+        "image_source": "MinerU ZIP / Zotero 图文资产",
         "mapping_json": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/paper-temp/step7-zotero-mechanism-test/zotero-test-mapping.json",
         "source_pdf": "zotero://select/items/7BRJBXBL",
         "zotero_item_key": "7BRJBXBL",
         "chunks_json": "",
-        "mineru_zip": "",
+        "mineru_zip": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip",
         "figure_index": ""
       }
     },
@@ -87,34 +325,60 @@
       "content_fit": "direct",
       "claim_summary": "应力状态改变低角度晶界形成方向、三叉晶界连接和亚晶旋转激活温度，从而改变晶粒细化机制。",
       "method_summary": "PSC；UC；torsion；EBSD；TEM；TKD",
-      "experiment_summary": "The results show that grain refinement is highly dependent on stress state.",
+      "experiment_summary": "These results were used to evaluate deformation homogeneity and verify the experimental design.",
       "mechanism_hints": {
-        "phenomenon": "For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom...",
+        "phenomenon": "The results show that grain refinement is highly dependent on the stress state, and that for the compressive-dominated stress state (PSC and UC), the transition in the dominant...",
         "state_variables": [
+          "PSC",
+          "UC",
+          "TR",
+          "WH",
           "DRV",
           "DRX",
-          "stress state",
-          "grain fragmentation",
-          "subgrain rotation",
-          "temperature"
+          "CDRX",
+          "DDRX"
         ],
         "causal_chain": [
-          "For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom...",
-          "The transition thresholds do not arise from a change in critical energy for nucleation itself; different stress states generate distinct precursor substructures such as shear ba..."
+          "0 1 { - } 1 0 s ^ { - 1 }$ Subsequently, the relationship among the transition in grain refinement mechanisms, the resultant flow stress characteristics and the applied stress s...",
+          "The dominant mechanism transitions from GF to GR as the Zener-Hollomon parameter decreases (i.e., with increasing temperature or decreasing strain rate)."
         ],
-        "governing_model": [],
+        "governing_model": [
+          "The equivalent stress data were calculated using formulas (4)\\~(6) and subsequently corrected for friction using the equations provided in Ref.",
+          "Lai, A continuous dynamic recrystallization constitutive model combined with grain fragmentation and subgrain rotation for aluminum alloy 2219 under hot deformation, Model."
+        ],
         "boundary_conditions": [
-          "Under shear-dominated conditions, low-angle grain boundaries preferentially formed along the short axis of the initial grains, facilitating their extension into triple junctions...",
-          "For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom..."
+          "Conditions such as high strain, elevated temperature and low strain rate collectively promote a greater extent of DRX, leading to significant levels of dynamic softening.",
+          "The increased strain rate kinetically suppresses dynamic recovery, leading to a higher LAB density and pronounced grain boundary serrations, features reminiscent of the lower-te..."
         ],
         "evidence_anchor": [
           {
             "type": "pdf",
             "value": "zotero://select/items/4VZ7PV7E"
+          },
+          {
+            "type": "figure_or_table",
+            "value": "image-1",
+            "page": ""
+          },
+          {
+            "type": "figure_or_table",
+            "value": "image-2",
+            "page": "1"
+          },
+          {
+            "type": "figure_or_table",
+            "value": "image-3",
+            "page": "1"
           }
         ],
-        "alternative_explanations": [],
-        "validation_path": [],
+        "alternative_explanations": [
+          "However, the literature presents conflicting findings: Tang et al.",
+          "Due to equipment limitations, the 10 $\\mathsf { s } ^ { - 1 }$ strain rate was not achievable for the TR test."
+        ],
+        "validation_path": [
+          "The aforementioned studies predomi nantly conducted thermal simulation tests using a single, predefined loading mode.",
+          "Experiments and simulations ## 2.1."
+        ],
         "claim_limit": "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。"
       },
       "usable_for": [
@@ -126,18 +390,228 @@
         "镍基合金 DDRX 连续场模型验证"
       ],
       "risk_flags": [
-        "reading_depth_locked",
-        "figure_candidates_missing"
+        "reading_depth_locked"
       ],
-      "figure_candidates": [],
+      "figure_candidates": [
+        {
+          "figure_id": "image-1",
+          "page": "",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/379c40d3ad10f90e2a19b221dec35d5c409bb8a823b6b3935e4fe3063e5cfd8c.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-2",
+          "page": "1",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/64caa27ca02e05129a6411234c5558ab3ed140d6b4dc64e9b08210cddb557c02.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-3",
+          "page": "1",
+          "caption": "(b)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/02371344d1077bf95c235719779574905c6e36638e81f1cd6362f475a1c4e10b.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-4",
+          "page": "1",
+          "caption": "(c)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/7f3f67fdabf1f52a51f781a8201c353ead8f389d45782ca873a8380a131e4d5e.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-5",
+          "page": "1",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/c40e56226664079013ddb90c6fdf05563a86fe102c5e9050e5e809de6c42383b.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-6",
+          "page": "1",
+          "caption": "(e)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/db54ff5e1b89f4da2e2e59eed953e6467fef16f2c6a881d96065971fc9e3b955.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-7",
+          "page": "1",
+          "caption": "(f)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/d9dee2199a3a8fd56335a3a69a8cdcf32da29a54774ca82e8839a2402a2f9ae5.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-8",
+          "page": "1",
+          "caption": "(g) Fig. 1. Illustrations of three kinds of stress state tests: (a) schematic illustration of sampling directions and sheet orientation for PSC, UC and TR tests; (b) dimensions of samples and loading directions for PSC tests; (c) dimensions of samples and loading directions for UC tests; (d) dimensi",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/bd394299c8039e288f09a9ebe25a5b93ca86fd5c29b1cee0f5917067e86a9dda.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-9",
+          "page": "3",
+          "caption": "(a)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/e91bd8dac3f73de0916aae36aa576464567789756faaa92f3b2f17a1ec252566.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-10",
+          "page": "3",
+          "caption": "(c)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/e5f6191f4df6eb2eba49c5f8d884a813ccbaa01f21a128b61ca0d99093fb40a7.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-11",
+          "page": "3",
+          "caption": "(e)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/627640eacb0645a0b45505507c64c72c1bab8ad081bd61410e271cc17008ee5a.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-12",
+          "page": "4",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/092361367b0c053fe64b26183a6aacb1598c1c2321243bee1fb3bff1f130493b.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-13",
+          "page": "4",
+          "caption": "(b)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/5590209a07ac845ff5bd25815338dfc668d38bf6474c39c02733b2ed592f4541.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-14",
+          "page": "4",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/ce0674432606765c0e49a57393372c8d965f518bcf90c26d9d3192c46ecbe043.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-15",
+          "page": "4",
+          "caption": "(d) Fig. 4. IPF images: (a) initial microstructure of the billet; (b) microstructure of PSC deformed samples at 350 ${ ^ { \\circ } \\mathbf { C } } / 1 \\ : s { ^ { - 1 } } ;$ (c) microstructure of UC deformed samples at 350 $^ \\circ \\mathrm { C } / 1 \\ s ^ { - 1 }$ ; (d) microstructure of TR deformed",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/367bfbf2a4ce46736501bee0c3993428a310e3a12a12a8499d7feb8021d4a6c8.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-16",
+          "page": "5",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/f078218faa57b882c060675b03ba6ac15f59d113c879d8d6cb8470fad418ba0f.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-17",
+          "page": "5",
+          "caption": "(b)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/7018199825176f91974c316057e3b88a772acd28fe4baaa934efd2a79b7307e7.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-18",
+          "page": "5",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/f18c5ebb941dfdb47b8cdc7d92512bebde75b09d2e334ee63f41cbb8272d253d.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-19",
+          "page": "5",
+          "caption": "(d) Fig. 5. IPF images of PSC deformed samples at: (a) ${ \\textrm { l } } T = 2 5 0 \\ { \\textrm { c } } , { \\dot { \\varepsilon } } = 0 . 0 1 \\ { \\textrm { s } } ^ { - 1 } ; \\ ( { \\textrm b } ) T = 3 5 0 \\ { \\textrm { c } } , { \\dot { \\varepsilon } } = 0 . 0 1 \\ { \\textrm { s } } ^ { - 1 } ; \\ ( { \\t",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/5872896d1cae38b7454b5eeb4a90d87e4c55daea211fdeb6120f200b5541505b.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-20",
+          "page": "5",
+          "caption": "(a) (b)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/3462dbd681d56154172551a602bf4a065cb5fff3ee8c8276d90dbdcebd8de125.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-21",
+          "page": "5",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/203b1509752c25be23a2e84e56447994bed381289a479c0f73dffe97fc2fd906.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-22",
+          "page": "5",
+          "caption": "(c) Fig. 6. TEM images of substructure in PSC deformed samples in: (a, b) grain fragmentation zone at $2 5 0 \\ { ^ \\circ } \\mathbf { C } / 0 . 0 1 \\ s ^ { - 1 } ;$ (c) subgrain rotation zone at $4 0 0 ~ ^ { \\circ } \\mathbf { C } / 0 . 0 1 ~ s ^ { - }$ − 1",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/bca3abe1a291065b8e0ea8b5dd6c94c12361c197a99e1d317f8d7affc87d3e3f.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-23",
+          "page": "6",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/e7853fff7e6f4de62fc305024e4739dbef6215e85a812628fa5165e0c0bb6c85.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-24",
+          "page": "6",
+          "caption": "(b)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/79e3e4a523b32356c441ee82eb8580853627647bd6c4126d4dce12ca4b531e11.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-25",
+          "page": "6",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/f94bffdc5e88e60d93e03ebacd44f35831b55675a54cc235327cfc6798edab1b.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 7",
+          "page": "6",
+          "caption": "Fig. 7. IPF images of UC deformed samples at:(a) T = 250 <sup>◦</sup>C, ε˙ = 0.01 s<sup>−</sup> <sup>1</sup>;(b) T = 350 <sup>◦</sup>C, ε˙ = 0.01 s<sup>−</sup> <sup>1</sup>; (c) T = 400 <sup>◦</sup>C, ε˙ = 0.01 s<sup>−</sup> <sup>1</sup>; (d) T = 350 <sup>◦</sup>C, ε˙ = 10 s<sup>−</sup> <sup>1</sup>",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/66563c5c32d82642e81212700e8a7acfb0a21124073cd332213426b538376271.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-27",
+          "page": "7",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/323025dd391f19b41fca0c5c333f414c83b1a4b6a15f8c99aa85af878333b400.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-28",
+          "page": "7",
+          "caption": "(b)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/c9e9ed78780613e35f9821693883619ccb2fdf7815d20e769949c993dceec506.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-29",
+          "page": "7",
+          "caption": "(d)",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/22dec1c9e70dc13d077d5b932ab117d9248e8a2869992a63870b1a8402dd4a83.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-30",
+          "page": "7",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip::images/67224d64114a14bc57a36f166e587795be0d7fedb93c4a2d82fc4f942af24328.jpg",
+          "local_image_path": ""
+        }
+      ],
       "source_trace": {
-        "text_source": "zotero_fulltext",
-        "image_source": "none",
+        "text_source": "zotero_mineru",
+        "image_source": "MinerU ZIP / Zotero 图文资产",
         "mapping_json": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/paper-temp/step7-zotero-mechanism-test/zotero-test-mapping.json",
         "source_pdf": "zotero://select/items/4VZ7PV7E",
         "zotero_item_key": "4VZ7PV7E",
         "chunks_json": "",
-        "mineru_zip": "",
+        "mineru_zip": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip",
         "figure_index": ""
       }
     },
@@ -153,35 +627,60 @@
       "content_fit": "direct",
       "claim_summary": "用连续转变分数替代 CA 离散状态跳变，可缓解 CPFE-CA 耦合中的非物理应力突跳并保持微观组织-力学响应一致。",
       "method_summary": "CPFE；cellular automaton；continuum-field sub-grid；bidirectional mapping",
-      "experiment_summary": "The incompatibility between discrete microstructural transitions in cellular automaton and continuous mechanical fields in crystal plasticity finite element modeling leads to numerical instability and unphysical stres...",
+      "experiment_summary": "Correlation between experiment and simulation results for: (a,c) X ; (b,d) $d _ { \\mathrm { a v g } } .$ ![](images/5d64bac12b3abdb81e1b0766cd5814f442aeeb6fd2f18f6b4e025dba02993feb.jpg) Fig.",
       "mechanism_hints": {
-        "phenomenon": "The incompatibility between discrete microstructural transitions in cellular automaton and continuous mechanical fields in crystal plasticity finite element modeling leads to nu...",
+        "phenomenon": "Initially, the nucleation of a recrystallized grain provides a rapid pathway for releasing localized elastic distortion energy, resulting in an immediate stress relaxation at th...",
         "state_variables": [
-          "CPFE",
           "CA",
-          "grain boundary migration",
-          "transformation fraction",
-          "dislocation density"
+          "CPFE",
+          "DDRX",
+          "GBM",
+          "DRX",
+          "WH",
+          "DRV",
+          "CDRX"
         ],
         "causal_chain": [
-          "The incompatibility between discrete microstructural transitions in cellular automaton and continuous mechanical fields in crystal plasticity finite element modeling leads to nu..."
+          "This coupled approach links detailed microstructure evolution driven by crystallographic mechanisms with macro scopic stress and strain fields, providing critical understanding...",
+          "Wang, Analysis of the mechanism of orientations evolution during hot rolling and mechanical properties of TiBw/TA15 composites based on crystal plasticity finite element model, J."
         ],
         "governing_model": [
-          "The continuum-field-enabled framework integrates CPFE with a reformulated CA model through a sub-grid description and bidirectional mapping strategy.",
-          "Nucleation and grain boundary migration are modeled as gradual reordering of distorted lattices, described by an evolving transformation fraction rather than discrete state swit..."
+          "this study develops a continuum-field-enabled multiscale framework that seamlessly integrates CPFE with a reformulated continuum-field CA model via a sub-grid description and a...",
+          "Thus, this work integrates a CA model within a CP framework to simulate mesoscopic DRX kinetics, balancing physical representativeness and computational efficiency."
         ],
         "boundary_conditions": [
-          "Nucleation and grain boundary migration are modeled as gradual reordering of distorted lattices, described by an evolving transformation fraction rather than discrete state swit...",
-          "Recrystallized regions act as local soft zones that release strain energy, reduce local driving force for further nucleation and grain boundary migration, and establish a dynami..."
+          "(a) Representative volume element and (b) boundary conditions used for the numerical performance analysis.",
+          "The RVE was subjected to a macroscopic true strain of 0.51 under periodic boundary conditions (Fig."
         ],
         "evidence_anchor": [
           {
             "type": "pdf",
             "value": "zotero://select/items/XRMSR8RX"
+          },
+          {
+            "type": "figure_or_table",
+            "value": "image-1",
+            "page": "3"
+          },
+          {
+            "type": "figure_or_table",
+            "value": "image-2",
+            "page": "3"
+          },
+          {
+            "type": "figure_or_table",
+            "value": "Fig. 2",
+            "page": "4"
           }
         ],
-        "alternative_explanations": [],
-        "validation_path": [],
+        "alternative_explanations": [
+          "Once triggered, however, the excessive stored energy accumulated within the large element volume leads to a non-physically explosive recrystallization process, causing a sharp s...",
+          "At this stage, the CA module is not activated or participates only to a limited extent, so the model is not sensitive to the limitation on the maximum increment step."
+        ],
+        "validation_path": [
+          "Experimental calibration and validation This section describes the experiments and numerical procedures undertaken to calibrate and validate the proposed CPFE-CA model for the F...",
+          "Results and discussion This section presents and discusses the simulation results obtained from the validated multiscale framework."
+        ],
         "claim_limit": "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。"
       },
       "usable_for": [
@@ -193,18 +692,193 @@
         "铝合金 CDRX 特定滑移系结论"
       ],
       "risk_flags": [
-        "reading_depth_locked",
-        "figure_candidates_missing"
+        "reading_depth_locked"
       ],
-      "figure_candidates": [],
+      "figure_candidates": [
+        {
+          "figure_id": "image-1",
+          "page": "3",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/69ed58c8b16360c8ecebcf351bdd2173424f3579f0638a9a55c3595e0e024081.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-2",
+          "page": "3",
+          "caption": "(a) (b) Fig. 1. Schematic diagram of sub-grid state transition: (a) nucleation; (b) GBM.",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/63b7f8426b4505ff712d1cf02dbe5c7176d4735884dbd2c49309316573ae9a28.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 2",
+          "page": "4",
+          "caption": "Fig. 2. Schematic diagram of: (a) multiscale mapping strategy between CP and CA module; (b) sub-grid nucleation process; (c) sub-grid GBM process.",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/f2ca572f2e9b8888120ae90ced6a2397943aa1dc816e55c27689b6e4c7354f34.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 3",
+          "page": "6",
+          "caption": "Fig. 3. (a) Representative volume element and (b) boundary conditions used for the numerical performance analysis.",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/a6b7e1f57000db067f1b0de906f59007495a239b12068059de2ae3096325cb5e.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-5",
+          "page": "8",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/6cd1f23ae9d0ba98a9e5306f1a5886926de14095a51933a4eddcbfc89f324c84.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-6",
+          "page": "9",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/235ae5c2d324425d17c7fcafe7211441acb01fb719958a391c207b62d3a5c0d1.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-7",
+          "page": "9",
+          "caption": "(b)",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/e4bfb314afe072702a3058d6a2c944ce1cda700d0146983b2316626d1554698b.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-8",
+          "page": "9",
+          "caption": "(c)",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/0a4aac7e68bbecf494b99f64c571f262fe148e9132408f7e31c2c6e72b27f00e.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 6",
+          "page": "9",
+          "caption": "Fig. 6. Initial microstructure of the studied alloy (adapted from [17]): (a) PF; (b) IPF map; (c) KAM map.",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/b933bd242628ab5bd5affc40ef60329aea1ac70943e9f765e35389f0436ceb7f.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-10",
+          "page": "10",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/10441a5ba45576d23d65b493577637c528005f999b45dcc799b9cc601cecf70a.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-11",
+          "page": "12",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/89dcc8212fe10be9d21844607e54c108caeed28472338738b77f03825a6267ed.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-12",
+          "page": "12",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/e03a338b15568cd81e3c3d6a4acc0142a87ca842f35f16d9eee5ffdc4e297488.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-13",
+          "page": "12",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/b840cd6b1b0a537a8a01d721023dfe3c9cadc59d19a6ff4ff52755a0cabc91fa.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-14",
+          "page": "12",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/520a774fa4d2b3b95cc101da5574fd7600fe63c86693a13bb52a6b8382e146c2.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-15",
+          "page": "12",
+          "caption": "",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/0a074c59cb5dde5ce333be49eddee6c580b03ce552c396cce0eb786d7c3590c1.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 9",
+          "page": "12",
+          "caption": "Fig. 9. DRX maps of the studied alloy at different true strain levels from experimental EBSD data (the data of true strain levels (A, C, E), adapted from [17]).",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/fd6678e15baabf60d0f7936f5155592e28c21d464980014fb715b6c9006f100b.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 12",
+          "page": "14",
+          "caption": "Fig. 12. Distribution of $\\sigma _ { \\mathrm { v } }$ and $\\overline { { \\varepsilon } } _ { \\mathrm { { p } } }$ at progressive true strain.",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/5d64bac12b3abdb81e1b0766cd5814f442aeeb6fd2f18f6b4e025dba02993feb.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-18",
+          "page": "15",
+          "caption": "dark blue).",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/a154ff92999b623577faf4c697590c4dbc443bb5c75337e302e4e5029f4cb897.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 14",
+          "page": "16",
+          "caption": "Fig. 14. Comparison of textures at different true strain levels.",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/213d5c135a0d674d785b5a1bcb0e30d24ad4e8d390e9ff25c5bab5c87d454e10.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 15",
+          "page": "16",
+          "caption": "Fig. 15. Distribution profiles along line L1 showing $\\sigma _ { \\mathrm { v } } , \\overline { { \\varepsilon } } _ { \\mathrm { p } } ,$ and $. \\rho ,$ and the misorientation angles between specific grains are annotated.",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/5079e6fb3912081b6e58d0e778e548bd0ebe6cbe86f2ff27ec6056ce9d477f83.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "Fig. 17",
+          "page": "17",
+          "caption": "Fig. 17. Schematic diagram of the interaction of mechanical response and microstructural evolution during DDRX.",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/3f6a87e05a547a7f1ffb882b78cb158f26b51cc8c894d00e090f1c1f552e5021.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "image-22",
+          "page": "19",
+          "caption": "Appendix B. Flow chart of the CPFE-CA framework",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/4aa172b547b69e95e9d16ae5ebe2187eb190be569e9c0c6fbea90dd89d2381b8.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "table-1",
+          "page": "11",
+          "caption": "Calibrated parameters of the CPFE-CA framework for the studied alloy.",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/77e9062fbffae01a971cca45f9dbec2d3298c03f1170edf9b08b3941341ef8d0.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "table-2",
+          "page": "19",
+          "caption": "(a)",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/76c92b087d20fd1cb057a0c5c663bbf80f56ab8d3a665f75f903aeb924f96fc6.jpg",
+          "local_image_path": ""
+        },
+        {
+          "figure_id": "table-3",
+          "page": "19",
+          "caption": "(b) Fig. A.1. Schematic of the local 3 × 3 grid used for curvature calculation. Point $\\mathrm { P } _ { 5 }$ is the central point of interest",
+          "source_image_path": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip::images/fc2e54c8b7e820a2a31077f6d7626961a648969111a26bb8668e367e0e101df9.jpg",
+          "local_image_path": ""
+        }
+      ],
       "source_trace": {
-        "text_source": "zotero_fulltext",
-        "image_source": "none",
+        "text_source": "zotero_mineru",
+        "image_source": "MinerU ZIP / Zotero 图文资产",
         "mapping_json": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/paper-temp/step7-zotero-mechanism-test/zotero-test-mapping.json",
         "source_pdf": "zotero://select/items/XRMSR8RX",
         "zotero_item_key": "XRMSR8RX",
         "chunks_json": "",
-        "mineru_zip": "",
+        "mineru_zip": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip",
         "figure_index": ""
       }
     }

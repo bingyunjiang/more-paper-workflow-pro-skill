@@ -6,61 +6,74 @@
 ## Liu2024_CDRX_AA2196 - A polycrystal plasticity-cellular automaton integrated modeling method for continuous dynamic recrystallization and its application to AA2196 alloy
 
 - reading_depth: full_text
-- evidence_level: pdf_fulltext_no_page
-- figure_evidence_status: unavailable_without_mineru_or_manual_pdf_check
-- claim_strength: moderate_mechanism_claim_allowed
-- phenomenon: Continual straining gradually increases the misorientation of subgrain boundaries, enabling the transition from low-angle grain boundaries into high-angle ones.
-- state_variables: CDRX; stored energy; misorientation
+- evidence_level: mineru_figure_anchor
+- figure_evidence_status: available_with_mineru_or_figure_index
+- claim_strength: strong_mechanism_claim_allowed
+- phenomenon: The initial random grain orientations gradually converge with increasing strain, ultimately resulting in a strong $< 0 1 1 > | | \mathrm { C D }$ texture which is typical shown...
+- state_variables: CDRX; DRV; DRX; DDRX; VPSC; CA; CPFEM; EBSD
 
 ### Causal Chain
-- Continual straining gradually increases the misorientation of subgrain boundaries, enabling the transition from low-angle grain boundaries into high-angle ones.
-- The stress response, dislocation accumulation and recovery, and evolution of crystal orientations are computed in the context of polycrystal plasticity; the formation and rotati...
+- Most dislocations are consumed through dynamic annihilation mechanism, without the necessity to generate a large number of geometrically necessar dislocations and subgrain bound...
+- 7$ To better understand the mechanisms underlying the development of distinct deformation textures, the orientations of 60 randomly selected grains at different strains are pres...
 
 ### Evidence Anchors
-- pdf: zotero://select/items/7BRJBXBL page= level=pdf_fulltext_no_page
+- pdf: zotero://select/items/7BRJBXBL page= level=mineru_figure_anchor
+- figure_or_table: Fig. 1 page=3 level=mineru_figure_anchor
+- figure_or_table: image-2 page=4 level=mineru_figure_anchor
+- figure_or_table: image-3 page=5 level=mineru_figure_anchor
+- figure_or_table: Fig. 1 page=3 level=mineru_figure_anchor
+- figure_or_table: image-2 page=4 level=mineru_figure_anchor
+- figure_or_table: image-3 page=5 level=mineru_figure_anchor
 
 ### Not Allowed Claims
-- 不得写成已证明的确定性机理结论
-- 不得写页码、公式号、图号或精确数值级结论
-- 不得自动写“如图X所示”“图中可见”等视觉判断
+- 未触发
 
 ## Yu2025_AA2195_StressState - Effect of stress state on flow stress and grain refinement mechanisms during AA2195 hot deformation
 
 - reading_depth: full_text
-- evidence_level: pdf_fulltext_no_page
-- figure_evidence_status: unavailable_without_mineru_or_manual_pdf_check
-- claim_strength: moderate_mechanism_claim_allowed
-- phenomenon: For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom...
-- state_variables: DRV; DRX; stress state; grain fragmentation; subgrain rotation; temperature
+- evidence_level: mineru_figure_anchor
+- figure_evidence_status: available_with_mineru_or_figure_index
+- claim_strength: strong_mechanism_claim_allowed
+- phenomenon: The results show that grain refinement is highly dependent on the stress state, and that for the compressive-dominated stress state (PSC and UC), the transition in the dominant...
+- state_variables: PSC; UC; TR; WH; DRV; DRX; CDRX; DDRX
 
 ### Causal Chain
-- For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom...
-- The transition thresholds do not arise from a change in critical energy for nucleation itself; different stress states generate distinct precursor substructures such as shear ba...
+- 0 1 { - } 1 0 s ^ { - 1 }$ Subsequently, the relationship among the transition in grain refinement mechanisms, the resultant flow stress characteristics and the applied stress s...
+- The dominant mechanism transitions from GF to GR as the Zener-Hollomon parameter decreases (i.e., with increasing temperature or decreasing strain rate).
 
 ### Evidence Anchors
-- pdf: zotero://select/items/4VZ7PV7E page= level=pdf_fulltext_no_page
+- pdf: zotero://select/items/4VZ7PV7E page= level=mineru_figure_anchor
+- figure_or_table: image-1 page= level=mineru_figure_anchor
+- figure_or_table: image-2 page=1 level=mineru_figure_anchor
+- figure_or_table: image-3 page=1 level=mineru_figure_anchor
+- figure_or_table: image-1 page= level=mineru_figure_anchor
+- figure_or_table: image-2 page=1 level=mineru_figure_anchor
+- figure_or_table: image-3 page=1 level=mineru_figure_anchor
 
 ### Not Allowed Claims
-- 不得写成已证明的确定性机理结论
-- 不得写页码、公式号、图号或精确数值级结论
-- 不得自动写“如图X所示”“图中可见”等视觉判断
+- 未触发
 
 ## Chen2026_CPFE_CA_DDRX - A continuum-field-enabled multiscale framework coupling crystal plasticity and cellular automaton for discontinuous dynamic recrystallization: Application to a nickel-based superalloy
 
 - reading_depth: full_text
-- evidence_level: pdf_fulltext_no_page
-- figure_evidence_status: unavailable_without_mineru_or_manual_pdf_check
-- claim_strength: moderate_mechanism_claim_allowed
-- phenomenon: The incompatibility between discrete microstructural transitions in cellular automaton and continuous mechanical fields in crystal plasticity finite element modeling leads to nu...
-- state_variables: CPFE; CA; grain boundary migration; transformation fraction; dislocation density
+- evidence_level: mineru_figure_anchor
+- figure_evidence_status: available_with_mineru_or_figure_index
+- claim_strength: strong_mechanism_claim_allowed
+- phenomenon: Initially, the nucleation of a recrystallized grain provides a rapid pathway for releasing localized elastic distortion energy, resulting in an immediate stress relaxation at th...
+- state_variables: CA; CPFE; DDRX; GBM; DRX; WH; DRV; CDRX
 
 ### Causal Chain
-- The incompatibility between discrete microstructural transitions in cellular automaton and continuous mechanical fields in crystal plasticity finite element modeling leads to nu...
+- This coupled approach links detailed microstructure evolution driven by crystallographic mechanisms with macro scopic stress and strain fields, providing critical understanding...
+- Wang, Analysis of the mechanism of orientations evolution during hot rolling and mechanical properties of TiBw/TA15 composites based on crystal plasticity finite element model, J.
 
 ### Evidence Anchors
-- pdf: zotero://select/items/XRMSR8RX page= level=pdf_fulltext_no_page
+- pdf: zotero://select/items/XRMSR8RX page= level=mineru_figure_anchor
+- figure_or_table: image-1 page=3 level=mineru_figure_anchor
+- figure_or_table: image-2 page=3 level=mineru_figure_anchor
+- figure_or_table: Fig. 2 page=4 level=mineru_figure_anchor
+- figure_or_table: image-1 page=3 level=mineru_figure_anchor
+- figure_or_table: image-2 page=3 level=mineru_figure_anchor
+- figure_or_table: Fig. 2 page=4 level=mineru_figure_anchor
 
 ### Not Allowed Claims
-- 不得写成已证明的确定性机理结论
-- 不得写页码、公式号、图号或精确数值级结论
-- 不得自动写“如图X所示”“图中可见”等视觉判断
+- 未触发

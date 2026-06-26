@@ -353,6 +353,12 @@ python3 scripts/audit_mechanism_claims.py \
 
 `--figure-index` 是可选增强项；没有 MinerU ZIP 或 `figure_index.json` 时不得中断正文写作，只能把图表证据标记为 `figure_evidence_status=unavailable_without_mineru_or_manual_pdf_check`，并禁止自动写“如图 X 所示”“图中可见”等视觉判断。
 
+**Zotero 附件防误判规则：**
+
+- 若 `deep_read_cards.json` 中 `source_trace.mineru_zip` 为空，但记录来自 Zotero 条目（如存在 `zotero_item_key` 或 `zotero://select/items/<key>`），不得直接判定“无 MinerU 图表锚点”。
+- 必须先检查该 Zotero parent item 的 child attachments，查找 `LLM-for-Zotero-MinerU-cache-*.zip`；本地模式下还应到 Zotero storage 中按附件 key 定位 ZIP。
+- 只有确认 Zotero children、本地 storage 和用户提供资产均无可用 ZIP/`figure_index.json` 后，才可写 `figure_evidence_status=unavailable_without_mineru_or_manual_pdf_check`。
+
 **`mechanism_cards` 最小字段：**
 
 | 字段 | 说明 |

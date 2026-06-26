@@ -195,6 +195,8 @@ class Step7Step8ContractsTest(unittest.TestCase):
             "scripts/audit_mechanism_claims.py",
             "figure_evidence_status=unavailable_without_mineru_or_manual_pdf_check",
             "MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/元数据",
+            "不得直接判定“无 MinerU 图表锚点”",
+            "LLM-for-Zotero-MinerU-cache-*.zip",
             "phenomenon",
             "state_variables",
             "causal_chain",

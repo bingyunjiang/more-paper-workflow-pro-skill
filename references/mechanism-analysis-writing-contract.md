@@ -32,6 +32,10 @@ python3 scripts/audit_mechanism_claims.py --plan-json mechanism_argument_plan.js
 
 若已有 MinerU ZIP 解析出的 `figure_index.json`，可追加 `--figure-index figure_index.json` 升级图表锚点；没有 MinerU 时不得阻塞写作，只能把图表证据降级为 `figure_evidence_status=unavailable_without_mineru_or_manual_pdf_check`。
 
+若来源是 Zotero 条目，不得只因为 `deep_read_cards.json` 中 `source_trace.mineru_zip` 为空就直接判定“无 MinerU 图表锚点”。必须先检查 parent item 的 child attachments，查找 `LLM-for-Zotero-MinerU-cache-*.zip`；本地模式下还应按附件 key 到 Zotero storage 定位 ZIP。只有确认 Zotero children、本地 storage 和用户提供资产均无 ZIP/`figure_index.json` 后，才可降级为无图表锚点。
+
+简写规则：不得直接判定“无 MinerU 图表锚点”，必须先完成 Zotero 附件核验。
+
 ## mechanism_cards 最小字段
 
 | 字段 | 说明 |

@@ -27,52 +27,93 @@
       "section_id": "1",
       "section_title": "热变形过程中动态再结晶驱动晶粒细化的多尺度机理",
       "reading_depth": "full_text",
-      "phenomenon": "Continual straining gradually increases the misorientation of subgrain boundaries, enabling the transition from low-angle grain boundaries into high-angle ones.",
+      "phenomenon": "The initial random grain orientations gradually converge with increasing strain, ultimately resulting in a strong $< 0 1 1 > | | \\mathrm { C D }$ texture which is typical shown...",
       "state_variables": [
         "CDRX",
-        "stored energy",
-        "misorientation"
+        "DRV",
+        "DRX",
+        "DDRX",
+        "VPSC",
+        "CA",
+        "CPFEM",
+        "EBSD"
       ],
       "causal_chain": [
-        "Continual straining gradually increases the misorientation of subgrain boundaries, enabling the transition from low-angle grain boundaries into high-angle ones.",
-        "The stress response, dislocation accumulation and recovery, and evolution of crystal orientations are computed in the context of polycrystal plasticity; the formation and rotati..."
+        "Most dislocations are consumed through dynamic annihilation mechanism, without the necessity to generate a large number of geometrically necessar dislocations and subgrain bound...",
+        "7$ To better understand the mechanisms underlying the development of distinct deformation textures, the orientations of 60 randomly selected grains at different strains are pres..."
       ],
       "governing_model": [
-        "The stress response, dislocation accumulation and recovery, and evolution of crystal orientations are computed in the context of polycrystal plasticity; the formation and rotati..."
+        "Integrating VPSC model within the CA-CDRX frameworks The 3D CA framework is established based on the MATLAB platform, followed by embedment of the modified CDRX relevant equatio...",
+        "The physics-based CDRX equations and dislo cation density-based VPSC subroutine are constructed, followed by integration with CA framework at the grain level."
       ],
       "boundary_conditions": [
-        "The stress response, dislocation accumulation and recovery, and evolution of crystal orientations are computed in the context of polycrystal plasticity; the formation and rotati..."
+        "At higher deformation temperature and lower strain rate, fewer subgrain boundaries are formed due to enhanced boundary mobility and increased time available for boundary migration.",
+        "grain boundary migration during deformation must be considered, which is more pronounced as ln(Z) decreases (higher deformation temperature or lower strain rate)."
       ],
       "evidence_anchor": [
         {
           "type": "pdf",
           "value": "zotero://select/items/7BRJBXBL"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "Fig. 1",
+          "page": "3"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-2",
+          "page": "4"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-3",
+          "page": "5"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "Fig. 1",
+          "page": "3",
+          "evidence_level": "mineru_figure_anchor"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-2",
+          "page": "4",
+          "evidence_level": "mineru_figure_anchor"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-3",
+          "page": "5",
+          "evidence_level": "mineru_figure_anchor"
         }
       ],
-      "evidence_level": "pdf_fulltext_no_page",
-      "figure_evidence_status": "unavailable_without_mineru_or_manual_pdf_check",
-      "alternative_explanations": [],
-      "validation_path": [],
-      "claim_limit": "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。",
-      "claim_strength": "moderate_mechanism_claim_allowed",
-      "not_allowed_claims": [
-        "不得写成已证明的确定性机理结论",
-        "不得写页码、公式号、图号或精确数值级结论",
-        "不得自动写“如图X所示”“图中可见”等视觉判断"
+      "evidence_level": "mineru_figure_anchor",
+      "figure_evidence_status": "available_with_mineru_or_figure_index",
+      "alternative_explanations": [
+        "However, the primary shortcomings of CPFEM are the limitation in computational efficiency and difficulties in simulating industry-scale deformation processes, such as hot extrus...",
+        "However, the involvement of {110}<110> slip mode can reverse their rotating directions, eventually shifting them towards the <001>, and an orientation turbulence zone appears (Fig."
       ],
+      "validation_path": [
+        "Validation by additional compression tests To further validate the model, hot compression experiments at $4 2 5 ^ { \\circ } \\mathrm { C }$ and strain rate of 0.001 and 1 $s ^ {...",
+        "The proposed simulation framework is validated through simulating the isothermal uniaxial compression process of AA2196 alloy under different tem peratures and strain rates."
+      ],
+      "claim_limit": "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。",
+      "claim_strength": "strong_mechanism_claim_allowed",
+      "not_allowed_claims": [],
       "source_trace": {
-        "text_source": "zotero_fulltext",
-        "image_source": "none",
+        "text_source": "zotero_mineru",
+        "image_source": "MinerU ZIP / Zotero 图文资产",
         "mapping_json": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/paper-temp/step7-zotero-mechanism-test/zotero-test-mapping.json",
         "source_pdf": "zotero://select/items/7BRJBXBL",
         "zotero_item_key": "7BRJBXBL",
         "chunks_json": "",
-        "mineru_zip": "",
+        "mineru_zip": "/Users/Bing/Zotero/storage/X68AN72W/LLM-for-Zotero-MinerU-cache-KX8NMMDF.zip",
         "figure_index": ""
       },
       "risk_flags": [
-        "reading_depth_locked",
-        "figure_candidates_missing"
+        "reading_depth_locked"
       ]
     },
     {
@@ -83,54 +124,93 @@
       "section_id": "1",
       "section_title": "热变形过程中动态再结晶驱动晶粒细化的多尺度机理",
       "reading_depth": "full_text",
-      "phenomenon": "For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom...",
+      "phenomenon": "The results show that grain refinement is highly dependent on the stress state, and that for the compressive-dominated stress state (PSC and UC), the transition in the dominant...",
       "state_variables": [
+        "PSC",
+        "UC",
+        "TR",
+        "WH",
         "DRV",
         "DRX",
-        "stress state",
-        "grain fragmentation",
-        "subgrain rotation",
-        "temperature"
+        "CDRX",
+        "DDRX"
       ],
       "causal_chain": [
-        "For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom...",
-        "The transition thresholds do not arise from a change in critical energy for nucleation itself; different stress states generate distinct precursor substructures such as shear ba..."
+        "0 1 { - } 1 0 s ^ { - 1 }$ Subsequently, the relationship among the transition in grain refinement mechanisms, the resultant flow stress characteristics and the applied stress s...",
+        "The dominant mechanism transitions from GF to GR as the Zener-Hollomon parameter decreases (i.e., with increasing temperature or decreasing strain rate)."
       ],
-      "governing_model": [],
+      "governing_model": [
+        "The equivalent stress data were calculated using formulas (4)\\~(6) and subsequently corrected for friction using the equations provided in Ref.",
+        "Lai, A continuous dynamic recrystallization constitutive model combined with grain fragmentation and subgrain rotation for aluminum alloy 2219 under hot deformation, Model."
+      ],
       "boundary_conditions": [
-        "Under shear-dominated conditions, low-angle grain boundaries preferentially formed along the short axis of the initial grains, facilitating their extension into triple junctions...",
-        "For compressive-dominated stress states, the transition in the dominant grain refinement mechanism from grain fragmentation to subgrain rotation occurred at 350 C; for shear-dom..."
+        "Conditions such as high strain, elevated temperature and low strain rate collectively promote a greater extent of DRX, leading to significant levels of dynamic softening.",
+        "The increased strain rate kinetically suppresses dynamic recovery, leading to a higher LAB density and pronounced grain boundary serrations, features reminiscent of the lower-te..."
       ],
       "evidence_anchor": [
         {
           "type": "pdf",
           "value": "zotero://select/items/4VZ7PV7E"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-1",
+          "page": ""
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-2",
+          "page": "1"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-3",
+          "page": "1"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-1",
+          "page": "",
+          "evidence_level": "mineru_figure_anchor"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-2",
+          "page": "1",
+          "evidence_level": "mineru_figure_anchor"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-3",
+          "page": "1",
+          "evidence_level": "mineru_figure_anchor"
         }
       ],
-      "evidence_level": "pdf_fulltext_no_page",
-      "figure_evidence_status": "unavailable_without_mineru_or_manual_pdf_check",
-      "alternative_explanations": [],
-      "validation_path": [],
-      "claim_limit": "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。",
-      "claim_strength": "moderate_mechanism_claim_allowed",
-      "not_allowed_claims": [
-        "不得写成已证明的确定性机理结论",
-        "不得写页码、公式号、图号或精确数值级结论",
-        "不得自动写“如图X所示”“图中可见”等视觉判断"
+      "evidence_level": "mineru_figure_anchor",
+      "figure_evidence_status": "available_with_mineru_or_figure_index",
+      "alternative_explanations": [
+        "However, the literature presents conflicting findings: Tang et al.",
+        "Due to equipment limitations, the 10 $\\mathsf { s } ^ { - 1 }$ strain rate was not achievable for the TR test."
       ],
+      "validation_path": [
+        "The aforementioned studies predomi nantly conducted thermal simulation tests using a single, predefined loading mode.",
+        "Experiments and simulations ## 2.1."
+      ],
+      "claim_limit": "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。",
+      "claim_strength": "strong_mechanism_claim_allowed",
+      "not_allowed_claims": [],
       "source_trace": {
-        "text_source": "zotero_fulltext",
-        "image_source": "none",
+        "text_source": "zotero_mineru",
+        "image_source": "MinerU ZIP / Zotero 图文资产",
         "mapping_json": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/paper-temp/step7-zotero-mechanism-test/zotero-test-mapping.json",
         "source_pdf": "zotero://select/items/4VZ7PV7E",
         "zotero_item_key": "4VZ7PV7E",
         "chunks_json": "",
-        "mineru_zip": "",
+        "mineru_zip": "/Users/Bing/Zotero/storage/T57SPPQ3/LLM-for-Zotero-MinerU-cache-HMGU44G5.zip",
         "figure_index": ""
       },
       "risk_flags": [
-        "reading_depth_locked",
-        "figure_candidates_missing"
+        "reading_depth_locked"
       ]
     },
     {
@@ -141,55 +221,93 @@
       "section_id": "1",
       "section_title": "热变形过程中动态再结晶驱动晶粒细化的多尺度机理",
       "reading_depth": "full_text",
-      "phenomenon": "The incompatibility between discrete microstructural transitions in cellular automaton and continuous mechanical fields in crystal plasticity finite element modeling leads to nu...",
+      "phenomenon": "Initially, the nucleation of a recrystallized grain provides a rapid pathway for releasing localized elastic distortion energy, resulting in an immediate stress relaxation at th...",
       "state_variables": [
-        "CPFE",
         "CA",
-        "grain boundary migration",
-        "transformation fraction",
-        "dislocation density"
+        "CPFE",
+        "DDRX",
+        "GBM",
+        "DRX",
+        "WH",
+        "DRV",
+        "CDRX"
       ],
       "causal_chain": [
-        "The incompatibility between discrete microstructural transitions in cellular automaton and continuous mechanical fields in crystal plasticity finite element modeling leads to nu..."
+        "This coupled approach links detailed microstructure evolution driven by crystallographic mechanisms with macro scopic stress and strain fields, providing critical understanding...",
+        "Wang, Analysis of the mechanism of orientations evolution during hot rolling and mechanical properties of TiBw/TA15 composites based on crystal plasticity finite element model, J."
       ],
       "governing_model": [
-        "The continuum-field-enabled framework integrates CPFE with a reformulated CA model through a sub-grid description and bidirectional mapping strategy.",
-        "Nucleation and grain boundary migration are modeled as gradual reordering of distorted lattices, described by an evolving transformation fraction rather than discrete state swit..."
+        "this study develops a continuum-field-enabled multiscale framework that seamlessly integrates CPFE with a reformulated continuum-field CA model via a sub-grid description and a...",
+        "Thus, this work integrates a CA model within a CP framework to simulate mesoscopic DRX kinetics, balancing physical representativeness and computational efficiency."
       ],
       "boundary_conditions": [
-        "Nucleation and grain boundary migration are modeled as gradual reordering of distorted lattices, described by an evolving transformation fraction rather than discrete state swit...",
-        "Recrystallized regions act as local soft zones that release strain energy, reduce local driving force for further nucleation and grain boundary migration, and establish a dynami..."
+        "(a) Representative volume element and (b) boundary conditions used for the numerical performance analysis.",
+        "The RVE was subjected to a macroscopic true strain of 0.51 under periodic boundary conditions (Fig."
       ],
       "evidence_anchor": [
         {
           "type": "pdf",
           "value": "zotero://select/items/XRMSR8RX"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-1",
+          "page": "3"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-2",
+          "page": "3"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "Fig. 2",
+          "page": "4"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-1",
+          "page": "3",
+          "evidence_level": "mineru_figure_anchor"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-2",
+          "page": "3",
+          "evidence_level": "mineru_figure_anchor"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "Fig. 2",
+          "page": "4",
+          "evidence_level": "mineru_figure_anchor"
         }
       ],
-      "evidence_level": "pdf_fulltext_no_page",
-      "figure_evidence_status": "unavailable_without_mineru_or_manual_pdf_check",
-      "alternative_explanations": [],
-      "validation_path": [],
-      "claim_limit": "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。",
-      "claim_strength": "moderate_mechanism_claim_allowed",
-      "not_allowed_claims": [
-        "不得写成已证明的确定性机理结论",
-        "不得写页码、公式号、图号或精确数值级结论",
-        "不得自动写“如图X所示”“图中可见”等视觉判断"
+      "evidence_level": "mineru_figure_anchor",
+      "figure_evidence_status": "available_with_mineru_or_figure_index",
+      "alternative_explanations": [
+        "Once triggered, however, the excessive stored energy accumulated within the large element volume leads to a non-physically explosive recrystallization process, causing a sharp s...",
+        "At this stage, the CA module is not activated or participates only to a limited extent, so the model is not sensitive to the limitation on the maximum increment step."
       ],
+      "validation_path": [
+        "Experimental calibration and validation This section describes the experiments and numerical procedures undertaken to calibrate and validate the proposed CPFE-CA model for the F...",
+        "Results and discussion This section presents and discusses the simulation results obtained from the validated multiscale framework."
+      ],
+      "claim_limit": "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。",
+      "claim_strength": "strong_mechanism_claim_allowed",
+      "not_allowed_claims": [],
       "source_trace": {
-        "text_source": "zotero_fulltext",
-        "image_source": "none",
+        "text_source": "zotero_mineru",
+        "image_source": "MinerU ZIP / Zotero 图文资产",
         "mapping_json": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/paper-temp/step7-zotero-mechanism-test/zotero-test-mapping.json",
         "source_pdf": "zotero://select/items/XRMSR8RX",
         "zotero_item_key": "XRMSR8RX",
         "chunks_json": "",
-        "mineru_zip": "",
+        "mineru_zip": "/Users/Bing/Zotero/storage/K2B2VTBY/LLM-for-Zotero-MinerU-cache-8F8XJXI8.zip",
         "figure_index": ""
       },
       "risk_flags": [
-        "reading_depth_locked",
-        "figure_candidates_missing"
+        "reading_depth_locked"
       ]
     }
   ]

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>热变形过程中动态再结晶驱动晶粒细化的多尺度机理</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="pdf-style.css" />
+</head>
+<body>
+<h1
+id="热变形过程中动态再结晶驱动晶粒细化的多尺度机理">热变形过程中动态再结晶驱动晶粒细化的多尺度机理</h1>
+<p>热变形过程中的晶粒细化不是单一热激活结果，而是位错累积、动态回复、亚晶旋转、晶界迁移和加载路径共同作用后的多尺度组织响应。基于
+Zotero 全文与 MinerU
+图表锚点，本节将动态再结晶驱动的晶粒细化概括为一条递进链条：外加载荷首先造成晶粒内部非均匀塑性变形和位错储能差异，随后诱发低角度晶界形成、亚晶取向差累积和局部晶界迁移，最终通过连续动态再结晶（CDRX）或不连续动态再结晶（DDRX）的不同路径完成新晶粒形成与组织细化。当前三篇核心文献均已读全文，且均有
+MinerU 图表锚点，可用于支撑图文结合的机理分析。</p>
+<p>在 CDRX
+路径中，核心问题是位错结构如何连续转化为可稳定存在的新晶粒边界。Liu
+等针对 AA2196 合金构建了 VPSC 与三维 CA 耦合的 CDRX
+模型，将应力响应、位错累积与回复、晶体取向演化、亚晶形成与旋转以及储能/曲率驱动的界面迁移纳入同一框架（Liu
+et al., 2024（已读全文））。其图表证据显示，CDRX
+不是“瞬时形核”的离散事件，而是由低角度晶界快速形成、取向差增加、边界迁移和亚晶聚合连续推进的组织演化过程，
+如图 1 所示。</p>
+<figure>
+<img
+src="figures/d5a21b0c6b8bc290345127802aca9329b6e6cbb23e1dc708e7a3d4cefaf27ea1.jpg"
+alt="图 1" />
+<figcaption aria-hidden="true">图 1</figcaption>
+</figure>
+<p><em>图 1. CDRX
+建模中的主要组织演化路径：初始组织、低角度晶界快速形成、取向差增加、边界迁移与亚晶聚合。</em></p>
+<p>（来源：Liu et al., 2024, Fig. 6（已读全文））</p>
+<p>由图中机制链可以看出，变形首先通过滑移激活和位错增殖提高局部储能，动态回复使部分位错重排为亚晶界；随着应变继续增加，亚晶界取向差逐步增大，部分低角度晶界向高角度晶界转化；随后边界迁移和亚晶聚合使细化晶粒逐步形成。Liu
+等的 VPSC-CA-CDRX
+框架进一步说明，若只看平均晶粒尺寸或流动应力曲线，容易忽略“位错储能
+-&gt; 亚晶旋转 -&gt; 高角度晶界形成 -&gt;
+边界迁移”的连续传导过程。因此，CDRX
+机理分析应把位错密度、取向差、亚晶界密度和晶界迁移共同作为状态变量，而不是把动态再结晶简化为单一形核事件。</p>
+<p>应力状态会改变上述链条中前驱亚结构的生成方式，从而改变晶粒破碎（GF）和亚晶旋转（GR）的相对贡献。Yu
+等围绕 AA2195
+合金设计了平面应变压缩、单轴压缩和扭转三类加载路径，并将流动应力、EBSD/TEM/TKD
+组织表征与晶粒细化机制联系起来（Yu et al.,
+2025（已读全文））。其中，加载方式决定了晶粒压扁、剪切局部化、低角度晶界取向和三叉晶界连通方式，进而影响
+GF 与 GR 的主导关系。Yu 等的 TEM
+亚结构图展示了平面应变压缩样品中三叉晶界附近的位错累积和亚晶旋转相关结构，
+如图 2 所示。</p>
+<figure>
+<img
+src="figures/bca3abe1a291065b8e0ea8b5dd6c94c12361c197a99e1d317f8d7affc87d3e3f.jpg"
+alt="图 2" />
+<figcaption aria-hidden="true">图 2</figcaption>
+</figure>
+<p><em>图 2. 平面应变压缩样品中的 TEM
+亚结构证据，显示三叉晶界附近的位错累积和亚晶旋转相关结构。</em></p>
+<p>（来源：Yu et al., 2025, Fig. 6（已读全文））</p>
+<p>结合该图、同组 TEM 子图和 IPF
+图表证据，可以将应力状态的作用解释为：压缩主导路径更容易延续初始晶粒的压扁和晶内低角度晶界累积，使
+GF 更突出；剪切主导路径更容易改变低角度晶界的取向和连通方式，使 GR
+与新晶粒团簇形成更容易介入。因而，晶粒细化机制的转换不是单纯由温度或应变速率决定，而是由“应力状态
+-&gt; 前驱亚结构 -&gt; 晶界连通方式 -&gt; GF/GR
+主导关系”共同控制。这个判断也解释了为什么同一铝合金在不同加载路径下会表现出不同的软化行为：宏观流动应力曲线只是机制竞争的外在投影，真正决定软化来源的是位错回复、亚晶旋转、晶界迁移和再结晶分数之间的耦合。</p>
+<p>从多尺度建模角度看，机理研究的难点在于把连续力学场与离散组织演化过程统一起来。Chen
+等提出连续场增强的 CPFE-CA
+框架，用连续转变分数描述有限元子网格内从变形态向再结晶态的渐进重排，并通过双向映射交换位错密度、晶体取向和转变状态（Chen
+et al.,
+2026（已读全文））。该框架的关键价值在于，它把再结晶区域视为会持续改变局部应力、塑性应变、位错密度和取向差的软化区域，而不是把
+CA 单元简单切换为新晶粒。Chen 等对 DDRX
+中力学响应与组织演化的相互作用进行了机制化概括， 如图 3 所示。</p>
+<figure>
+<img
+src="figures/3f6a87e05a547a7f1ffb882b78cb158f26b51cc8c894d00e090f1c1f552e5021.jpg"
+alt="图 3" />
+<figcaption aria-hidden="true">图 3</figcaption>
+</figure>
+<p><em>图 3. DDRX 过程中力学响应与微观组织演化的相互作用示意。</em></p>
+<p>（来源：Chen et al., 2026, Fig. 17（已读全文））</p>
+<p>该图支撑了一个重要认识：再结晶形成后并不是被动地记录组织变化，而会通过释放局部储能、降低局部应力集中、改变晶界迁移驱动力和重分配塑性应变，反过来影响后续变形场。对于
+DDRX，这种反馈链条可表述为“局部形核/晶界迁移 -&gt; 软化区形成 -&gt;
+应力松弛与位错密度下降 -&gt;
+邻近区域驱动力重新分配”。这为解释“微观组织演化如何反过来改变宏观流动应力”提供了可计算路径。</p>
+<p>不过，Chen 等的对象是镍基高温合金 DDRX，而 Liu 和 Yu
+的对象主要是铝合金热变形中的 CDRX/GF/GR
+机制，因此跨材料使用时必须限定外推边界。Chen
+等的贡献更适合作为“连续力学场与组织演化耦合方式”的建模参照，而不能直接替代
+AA2195 或 AA2196 中的实验机制证据。换言之，CPFE-CA
+连续场框架可以解释“组织转变如何反过来影响局部应力/应变场”，但铝合金 CDRX
+中具体的亚晶旋转、晶粒破碎和晶界迁移阈值，仍应以 Liu 和 Yu
+的铝合金全文及图表证据为主。</p>
+<p>综合三篇核心文献，动态再结晶驱动晶粒细化可按三个层级组织。第一层是位错-亚晶层级：位错累积、动态回复、低角度晶界形成和取向差增长，决定亚晶能否继续向高角度晶界和新晶粒演化。第二层是加载路径层级：不同应力状态通过改变低角度晶界取向、剪切局部化、三叉晶界连通和前驱亚结构，调节
+GF 与 GR 的竞争关系。第三层是多尺度耦合层级：VPSC/CPFE
+提供晶粒尺度的非均匀变形和取向演化，CA 或连续场 CA
+描述形核、转变分数、晶界迁移和局部软化反馈。三者共同构成“状态量 -&gt;
+作用路径 -&gt; 组织响应 -&gt; 宏观流动行为”的机理框架。</p>
+<p>因此，本节的机理结论可以表述为：热变形晶粒细化的本质，是外加载荷诱发的位错储能和前驱亚结构差异，通过亚晶旋转、晶粒破碎、形核和晶界迁移等路径逐级传导，并最终表现为动态再结晶组织和宏观流动应力的协同演化。可靠的机理分析不能停留在“某篇文献发现晶粒变细”的综述层面，而应明确状态量、作用路径和证据锚点：以应力状态、温度、应变速率、位错密度、取向差和转变分数为关键状态量，以
+GF、GR、CDRX、DDRX、DRV 和 DRX 为作用路径，以 EBSD/TEM/TKD
+图像、流动曲线和多尺度模拟结果为验证证据。只有这三层同时闭合，晶粒细化现象才能被提升为有证据支撑的机理判断。</p>
+<h2 id="图表锚点与读取深度">图表锚点与读取深度</h2>
+<ul>
+<li>Liu et al., 2024, International Journal of Plasticity, DOI:
+10.1016/j.ijplas.2024.104127（已读全文；MinerU 图表锚点：CDRX
+机制示意、VPSC-CA-CDRX 模型流程、预测组织和边界图）</li>
+<li>Yu et al., 2025, Materials Science and Engineering: A, DOI:
+10.1016/j.msea.2025.149035（已读全文；MinerU
+图表锚点：应力状态试验示意、IPF 图、TEM 亚结构图）</li>
+<li>Chen et al., 2026, Journal of Alloys and Compounds, DOI:
+10.1016/j.jallcom.2026.188264（已读全文；MinerU 图表锚点：CPFE-CA
+映射、DRX 图、应力/应变/位错密度剖面和 DDRX 交互机制示意）</li>
+<li>Zhou et al., 2025, Journal of Materials Science &amp;
+Technology（已读摘要；未用于本节强机理主张）</li>
+<li>Park et al., 2022, Mechanics of
+Materials（已读摘要；未用于本节强机理主张）</li>
+</ul>
+</body>
+</html>
