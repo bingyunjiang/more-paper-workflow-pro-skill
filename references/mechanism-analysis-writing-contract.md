@@ -4,12 +4,41 @@
 
 ## 触发条件
 
-命中以下任一情况时启用：
+命中以下“两段式触发”时启用：
 
-- 章节标题或用户任务包含：机理、机制、影响规律、作用路径、耦合关系、传导路径、失效机理、控制机理
-- 英文任务包含：mechanism、mechanistic、causal pathway、coupling、transfer path
+### 第一段：机制候选召回
+
+满足任一条件即可标记 `mechanism_candidate=true`：
+
+- 章节标题或用户任务命中 `mechanism_core_terms`
+  - 中文：`机理`、`机制`、`失效机理`、`控制机理`、`损伤机理`、`调控机制`、`驱动机制`、`演化机理`
+  - 英文：`mechanism`、`mechanistic`、`failure mechanism`、`damage mechanism`、`driving mechanism`、`governing mechanism`
+- 章节标题或用户任务命中 `mechanism_judgement_terms`
+  - 中文：`成因`、`原因`、`根本原因`、`内在原因`、`主导因素`、`关键因素`、`决定因素`、`竞争关系`、`判别依据`
+  - 英文：`root cause`、`governing factor`、`key determinant`、`dominant factor`
+- 章节标题或用户任务命中 `mechanism_path_terms`
+  - 中文：`影响规律`、`演化规律`、`作用路径`、`演化路径`、`转变路径`、`传导路径`、`传导链`、`作用链`、`反馈机制`、`耦合关系`
+  - 英文：`causal pathway`、`evolution pathway`、`transition pathway`、`transfer path`、`causal chain`、`feedback mechanism`、`interaction effect`、`coupling`
+
+### 第二段：机制增强确认
+
+只有满足以下任一条件，才正式进入 `mechanism_analysis`：
+
+- 命中 `mechanism_core_terms`
+- 同时命中 `mechanism_judgement_terms` 与 `mechanism_path_terms`
 - `argument_plan` 中的核心 claim 需要解释变量如何影响结果
+- `argument_plan.mechanism_path` 非空
+- `required_evidence` 或 `evidence_needed` 中出现：`变量传导`、`边界条件`、`机理验证`、`作用路径`
 - 引用审计发现机理 claim 只有综述性或摘要级证据
+
+若只命中第一段、不满足第二段：保留普通章节写作链，不进入 `mechanism_analysis`。
+
+### 防误触发
+
+- 单纯 `研究现状`、`方法介绍`、`实验结果汇总`、`参数优化结果` 默认不触发
+- 仅有 `影响因素`、`影响分析`、`因素研究`，但没有 `原因 / 路径 / 机理 / 主导 / 演化 / 反馈` 之一时，不触发
+- 若章节属于 `方法设计`、`实验装置`、`数据来源`，即使偶发命中 `control` / `mechanism` 单词，也不自动进入 `mechanism_analysis`
+- 若触发来源仅为英文泛词 `control`、`effect`、`analysis`，必须与 `mechanism_judgement_terms` 或 `mechanism_path_terms` 联合命中
 
 ## 工件链
 
@@ -68,6 +97,8 @@ python3 scripts/audit_mechanism_paragraphs.py --draft-md 当前小节草稿.md -
 
 若 `mechanism_type` 已明确，正文还应尽量说明它与 `discriminates_against` 中竞争机制的区别；否则段落容易退化成“解释型综述”而非“判别型机理分析”。
 
+若 `target_genre=thesis`，机理章节默认采用“判定句优先、解释句收束”的章节语言风格：先给机制判断，再补证据与边界，不以口语化解释推进段落。
+
 ## 降级规则
 
 | 缺失项 | 允许写法 | 禁止写法 |
@@ -88,6 +119,13 @@ MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/
 
 若 `transfer_risk` 为 `cross_material_requires_boundary` 或 `same_family_different_material`，正文必须显式写边界句，如“该模型提供解释框架，但不能直接替代当前材料体系中的实验机制证据”。
 
+## 风格约束
+
+- 学位论文机理章节应优先使用“据此可判定”“由此表明”“进一步可归结为”“需要指出的是”等书面连接句。
+- 应减少“如果说……那么……”“换言之”“也就是说”“这个判断也说明了”等解释腔连接句，避免段落节奏被口语化解释主导。
+- 机理段落应尽量采用“机制判别句 -> 图文/全文证据 -> 边界句 -> 收束句”的结构，而不是先铺解释再迟迟落结论。
+- “图的价值不在于……而在于……”这类元评论式句法可用，但每段至多 1 处，且必须直接服务于机制判别。
+
 ## 质量门
 
 - 每个机理强 claim 必须绑定至少一个全文级证据锚点。
@@ -97,3 +135,4 @@ MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/
 - 没有验证路径时，措辞必须降级为“可能说明/可解释为/提示存在”。
 - `mechanism_claim_audit` 中 `downgrade_required` 的 claim 不得以强机理结论进入正文。
 - `mechanism_paragraph_audit` 中命中的 `cross_material_claim_missing_boundary`、`visual_reference_without_figure_id`、`mechanism_discrimination_not_explicit` 应在定稿前处理。
+- 若 `target_genre=thesis`，应额外自查是否存在解释腔过密、判定句滞后和口语化连接句堆叠。

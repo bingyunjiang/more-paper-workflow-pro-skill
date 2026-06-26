@@ -284,19 +284,113 @@ def _parse_evidence_csv(path: str) -> dict:
     return evidence
 
 
+MECHANISM_CORE_TERMS = [
+    "机理",
+    "机制",
+    "失效机理",
+    "控制机理",
+    "损伤机理",
+    "调控机制",
+    "驱动机制",
+    "演化机理",
+    "mechanism",
+    "mechanistic",
+    "failure mechanism",
+    "damage mechanism",
+    "driving mechanism",
+    "governing mechanism",
+]
+
+MECHANISM_JUDGEMENT_TERMS = [
+    "成因",
+    "原因",
+    "根本原因",
+    "内在原因",
+    "主导因素",
+    "关键因素",
+    "决定因素",
+    "竞争关系",
+    "判别依据",
+    "root cause",
+    "governing factor",
+    "key determinant",
+    "dominant factor",
+]
+
+MECHANISM_PATH_TERMS = [
+    "影响规律",
+    "演化规律",
+    "作用路径",
+    "演化路径",
+    "转变路径",
+    "传导路径",
+    "传导链",
+    "作用链",
+    "反馈机制",
+    "耦合关系",
+    "causal pathway",
+    "evolution pathway",
+    "transition pathway",
+    "transfer path",
+    "causal chain",
+    "feedback mechanism",
+    "interaction effect",
+    "coupling",
+]
+
+MECHANISM_EVIDENCE_HINTS = [
+    "变量传导",
+    "边界条件",
+    "机理验证",
+    "作用路径",
+    "演化路径",
+]
+
+NON_MECHANISM_SECTION_HINTS = [
+    "方法设计",
+    "实验装置",
+    "数据来源",
+    "method design",
+    "experimental setup",
+    "data source",
+]
+
+WEAK_ANALYSIS_TERMS = [
+    "影响因素",
+    "影响分析",
+    "因素研究",
+    "effect",
+    "analysis",
+    "control",
+]
+
+
+def _contains_any(text: str, terms: list[str]) -> bool:
+    lowered = text.lower()
+    return any(term.lower() in lowered for term in terms)
+
+
+def _is_mechanism_candidate(name: str) -> bool:
+    return (
+        _contains_any(name, MECHANISM_CORE_TERMS)
+        or _contains_any(name, MECHANISM_JUDGEMENT_TERMS)
+        or _contains_any(name, MECHANISM_PATH_TERMS)
+    )
+
+
 def _is_mechanism_section(name: str) -> bool:
     name_lower = name.lower()
-    return any(w in name_lower for w in [
-        "mechanism",
-        "mechanistic",
-        "causal",
-        "机理",
-        "机制",
-        "影响规律",
-        "作用路径",
-        "耦合",
-        "传导",
-    ])
+    if _contains_any(name_lower, NON_MECHANISM_SECTION_HINTS):
+        return False
+    if _contains_any(name_lower, MECHANISM_CORE_TERMS):
+        return True
+    has_judgement = _contains_any(name_lower, MECHANISM_JUDGEMENT_TERMS)
+    has_path = _contains_any(name_lower, MECHANISM_PATH_TERMS)
+    if has_judgement and has_path:
+        return True
+    if _contains_any(name_lower, WEAK_ANALYSIS_TERMS):
+        return has_judgement or has_path or _contains_any(name_lower, ["机理", "机制", "反馈", "主导", "演化", "路径"])
+    return False
 
 
 def _infer_evidence_needed(section: dict) -> list[str]:
@@ -308,6 +402,10 @@ def _infer_evidence_needed(section: dict) -> list[str]:
             "boundary_condition",
             "validation_evidence",
             "counter_explanation",
+            "变量-作用路径证据",
+            "机制判别图/表",
+            "边界条件证据",
+            "验证路径证据",
         ]
     if any(w in name for w in ['intro', '引言', '绪论', 'related', '文献综述', '综述']):
         return ["review", "context", "gap"]
@@ -353,7 +451,13 @@ def _infer_purpose(name: str, idx: int, total: int) -> str:
     """Infer the purpose of a section from its name and position."""
     name_lower = name.lower()
     if _is_mechanism_section(name):
-        return "解释现象背后的变量传导、模型约束、边界条件和验证路径，避免把相关性写成因果结论"
+        if _contains_any(name, ["失效", "failure"]):
+            return "failure_cause_analysis：识别失效诱因、变量传导路径、边界条件与竞争解释，避免把表面现象误写成根因"
+        if _contains_any(name, ["耦合", "coupling", "interaction", "反馈"]):
+            return "interaction_path_analysis：解释变量耦合、反馈机制和作用路径，明确不同机制之间的传导关系与适用边界"
+        if _contains_any(name, MECHANISM_JUDGEMENT_TERMS):
+            return "mechanism_discrimination：解释现象背后的变量传导、主导机制、竞争机制差异、边界条件和验证路径，避免把相关性写成因果结论"
+        return "mechanism_explanation：解释现象背后的变量传导、模型约束、边界条件和验证路径，避免把相关性写成因果结论"
     if idx == 0:
         return f"建立研究背景，识别问题差距（gap），明确列出本文的贡献"
     elif idx == total - 1:
@@ -418,6 +522,7 @@ def _infer_claims(section: dict, evidence: dict) -> list[str]:
     elif _is_mechanism_section(section["name"]):
         claims = [
             "目标现象可由...变量传导路径解释",
+            "当前主导机制与竞争机制的区别在于...",
             "关键模型/方程/等效关系约束了...作用边界",
             "实验、仿真或图表证据支持/限制了该机理解释",
         ]
@@ -449,7 +554,7 @@ def _suggest_figures(section: dict, style_rules: dict) -> list[str]:
     elif any(w in name for w in ['experiment', '实验', '结果']):
         suggestions = ["核心对比结果图（柱状图/折线图）", "消融实验结果图", "关键数据分布图（热力图/散点图）"]
     elif _is_mechanism_section(section["name"]):
-        suggestions = ["变量-作用路径示意图", "机理验证证据图/表", "边界条件或工况对比图"]
+        suggestions = ["变量-作用路径示意图", "机理验证证据图/表", "边界条件或工况对比图", "主导机制与竞争机制判别图"]
     return suggestions
 
 
