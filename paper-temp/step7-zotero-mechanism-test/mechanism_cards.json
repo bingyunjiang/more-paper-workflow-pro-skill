@@ -1,7 +1,7 @@
 {
-  "schema_version": "mechanism-cards.v1",
+  "schema_version": "mechanism-cards.v2",
   "metadata": {
-    "schema_version": "mechanism-analysis-artifacts.v1",
+    "schema_version": "mechanism-analysis-artifacts.v2",
     "source_cards": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/paper-temp/step7-zotero-mechanism-test/deep_read_cards.json",
     "source_card_metadata": {
       "entry_mode": "deep_read_refine",
@@ -16,17 +16,37 @@
     },
     "figure_index": "",
     "figure_evidence_fallback": "unavailable_without_mineru_or_manual_pdf_check",
-    "evidence_priority": "MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/元数据"
+    "evidence_priority": "MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/元数据",
+    "dominant_material_family": "aluminum_alloy"
   },
   "records": [
     {
-      "schema_version": "mechanism-card.v1",
+      "schema_version": "mechanism-card.v2",
+      "claim_id": "mech-zotero-test-001",
       "record_id": "zotero-test-001",
       "citekey": "Liu2024_CDRX_AA2196",
       "title": "A polycrystal plasticity-cellular automaton integrated modeling method for continuous dynamic recrystallization and its application to AA2196 alloy",
       "section_id": "1",
       "section_title": "热变形过程中动态再结晶驱动晶粒细化的多尺度机理",
       "reading_depth": "full_text",
+      "mechanism_type": [
+        "GR",
+        "CDRX",
+        "DDRX",
+        "DRV",
+        "DRX",
+        "WH"
+      ],
+      "discriminates_against": [
+        "GF",
+        "DRV",
+        "DDRX",
+        "CDRX",
+        "DRX",
+        "WH"
+      ],
+      "material_family": "aluminum_alloy",
+      "transfer_risk": "same_material",
       "phenomenon": "The initial random grain orientations gradually converge with increasing strain, ultimately resulting in a strong $< 0 1 1 > | | \\mathrm { C D }$ texture which is typical shown...",
       "state_variables": [
         "CDRX",
@@ -53,40 +73,71 @@
       "evidence_anchor": [
         {
           "type": "pdf",
-          "value": "zotero://select/items/7BRJBXBL"
-        },
-        {
-          "type": "figure_or_table",
-          "value": "Fig. 1",
-          "page": "3"
-        },
-        {
-          "type": "figure_or_table",
-          "value": "image-2",
-          "page": "4"
-        },
-        {
-          "type": "figure_or_table",
-          "value": "image-3",
-          "page": "5"
+          "value": "zotero://select/items/7BRJBXBL",
+          "claim_binding": "mech-zotero-test-001",
+          "evidence_level": "mineru_figure_anchor"
         },
         {
           "type": "figure_or_table",
           "value": "Fig. 1",
           "page": "3",
+          "claim_binding": "mech-zotero-test-001",
           "evidence_level": "mineru_figure_anchor"
         },
         {
           "type": "figure_or_table",
           "value": "image-2",
           "page": "4",
+          "claim_binding": "mech-zotero-test-001",
           "evidence_level": "mineru_figure_anchor"
         },
         {
           "type": "figure_or_table",
           "value": "image-3",
           "page": "5",
+          "claim_binding": "mech-zotero-test-001",
           "evidence_level": "mineru_figure_anchor"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-10",
+          "page": "7",
+          "evidence_level": "mineru_figure_anchor",
+          "figure_id": "image-10",
+          "figure_type": "figure",
+          "caption": "(a) (d) Fig. 6. Illustration of the main mechanisms involved in the CDRX modeling: (a) initial microstructure; (b) rapid formation of LABs in the early stage; (c) increase of misorientation angles; (d) boundary migration and subgrain coalescence.",
+          "panel_candidates": [
+            "a",
+            "d",
+            "b",
+            "c"
+          ],
+          "claim_binding": "mech-zotero-test-001",
+          "source_type": "caption_plus_text"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-11",
+          "page": "12",
+          "evidence_level": "mineru_figure_anchor",
+          "figure_id": "image-11",
+          "figure_type": "figure",
+          "caption": "Integrated VPSC-CA-CDRX framework <sub>Fig.</sub> <sub>7. Flowchart</sub> <sub>of</sub> <sub>the</sub> <sub>VPSC</sub>–<sub>CA-CDRX</sub> <sub>model.</sub>",
+          "panel_candidates": [],
+          "claim_binding": "mech-zotero-test-001",
+          "source_type": "caption_plus_text"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "Fig. 12",
+          "page": "18",
+          "evidence_level": "mineru_figure_anchor",
+          "figure_id": "Fig. 12",
+          "figure_type": "figure",
+          "caption": "Fig. 12. Predicted microstructures at different strains under 450 $^ \\circ \\mathrm { C }$ and 0.001 $\\mathbf { s } ^ { - 1 } .$ . The evolution of grain morphology, substructures and orien tations can be visually observed.",
+          "panel_candidates": [],
+          "claim_binding": "mech-zotero-test-001",
+          "source_type": "caption_plus_text"
         }
       ],
       "evidence_level": "mineru_figure_anchor",
@@ -117,13 +168,34 @@
       ]
     },
     {
-      "schema_version": "mechanism-card.v1",
+      "schema_version": "mechanism-card.v2",
+      "claim_id": "mech-zotero-test-002",
       "record_id": "zotero-test-002",
       "citekey": "Yu2025_AA2195_StressState",
       "title": "Effect of stress state on flow stress and grain refinement mechanisms during AA2195 hot deformation",
       "section_id": "1",
       "section_title": "热变形过程中动态再结晶驱动晶粒细化的多尺度机理",
       "reading_depth": "full_text",
+      "mechanism_type": [
+        "GF",
+        "GR",
+        "CDRX",
+        "DDRX",
+        "DRV",
+        "DRX",
+        "WH"
+      ],
+      "discriminates_against": [
+        "GR",
+        "CDRX",
+        "GF",
+        "DRV",
+        "DDRX",
+        "DRX",
+        "WH"
+      ],
+      "material_family": "aluminum_alloy",
+      "transfer_risk": "same_material",
       "phenomenon": "The results show that grain refinement is highly dependent on the stress state, and that for the compressive-dominated stress state (PSC and UC), the transition in the dominant...",
       "state_variables": [
         "PSC",
@@ -150,40 +222,79 @@
       "evidence_anchor": [
         {
           "type": "pdf",
-          "value": "zotero://select/items/4VZ7PV7E"
-        },
-        {
-          "type": "figure_or_table",
-          "value": "image-1",
-          "page": ""
-        },
-        {
-          "type": "figure_or_table",
-          "value": "image-2",
-          "page": "1"
-        },
-        {
-          "type": "figure_or_table",
-          "value": "image-3",
-          "page": "1"
+          "value": "zotero://select/items/4VZ7PV7E",
+          "claim_binding": "mech-zotero-test-002",
+          "evidence_level": "mineru_figure_anchor"
         },
         {
           "type": "figure_or_table",
           "value": "image-1",
           "page": "",
+          "claim_binding": "mech-zotero-test-002",
           "evidence_level": "mineru_figure_anchor"
         },
         {
           "type": "figure_or_table",
           "value": "image-2",
           "page": "1",
+          "claim_binding": "mech-zotero-test-002",
           "evidence_level": "mineru_figure_anchor"
         },
         {
           "type": "figure_or_table",
           "value": "image-3",
           "page": "1",
+          "claim_binding": "mech-zotero-test-002",
           "evidence_level": "mineru_figure_anchor"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-8",
+          "page": "1",
+          "evidence_level": "mineru_figure_anchor",
+          "figure_id": "image-8",
+          "figure_type": "figure",
+          "caption": "(g) Fig. 1. Illustrations of three kinds of stress state tests: (a) schematic illustration of sampling directions and sheet orientation for PSC, UC and TR tests; (b) dimensions of samples and loading directions for PSC tests; (c) dimensions of samples and loading directions for UC tests; (d) dimensi",
+          "panel_candidates": [
+            "g",
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "claim_binding": "mech-zotero-test-002",
+          "source_type": "caption_plus_text"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-22",
+          "page": "5",
+          "evidence_level": "mineru_figure_anchor",
+          "figure_id": "image-22",
+          "figure_type": "figure",
+          "caption": "(c) Fig. 6. TEM images of substructure in PSC deformed samples in: (a, b) grain fragmentation zone at $2 5 0 \\ { ^ \\circ } \\mathbf { C } / 0 . 0 1 \\ s ^ { - 1 } ;$ (c) subgrain rotation zone at $4 0 0 ~ ^ { \\circ } \\mathbf { C } / 0 . 0 1 ~ s ^ { - }$ − 1",
+          "panel_candidates": [
+            "c"
+          ],
+          "claim_binding": "mech-zotero-test-002",
+          "source_type": "caption_plus_text"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "image-15",
+          "page": "4",
+          "evidence_level": "mineru_figure_anchor",
+          "figure_id": "image-15",
+          "figure_type": "figure",
+          "caption": "(d) Fig. 4. IPF images: (a) initial microstructure of the billet; (b) microstructure of PSC deformed samples at 350 ${ ^ { \\circ } \\mathbf { C } } / 1 \\ : s { ^ { - 1 } } ;$ (c) microstructure of UC deformed samples at 350 $^ \\circ \\mathrm { C } / 1 \\ s ^ { - 1 }$ ; (d) microstructure of TR deformed",
+          "panel_candidates": [
+            "d",
+            "a",
+            "b",
+            "c"
+          ],
+          "claim_binding": "mech-zotero-test-002",
+          "source_type": "caption_plus_text"
         }
       ],
       "evidence_level": "mineru_figure_anchor",
@@ -214,13 +325,33 @@
       ]
     },
     {
-      "schema_version": "mechanism-card.v1",
+      "schema_version": "mechanism-card.v2",
+      "claim_id": "mech-zotero-test-003",
       "record_id": "zotero-test-003",
       "citekey": "Chen2026_CPFE_CA_DDRX",
       "title": "A continuum-field-enabled multiscale framework coupling crystal plasticity and cellular automaton for discontinuous dynamic recrystallization: Application to a nickel-based superalloy",
       "section_id": "1",
       "section_title": "热变形过程中动态再结晶驱动晶粒细化的多尺度机理",
       "reading_depth": "full_text",
+      "mechanism_type": [
+        "GR",
+        "CDRX",
+        "DDRX",
+        "DRV",
+        "DRX",
+        "GBM",
+        "WH"
+      ],
+      "discriminates_against": [
+        "GF",
+        "DRV",
+        "DDRX",
+        "CDRX",
+        "DRX",
+        "WH"
+      ],
+      "material_family": "nickel_based_superalloy",
+      "transfer_risk": "cross_material_requires_boundary",
       "phenomenon": "Initially, the nucleation of a recrystallized grain provides a rapid pathway for releasing localized elastic distortion energy, resulting in an immediate stress relaxation at th...",
       "state_variables": [
         "CA",
@@ -247,40 +378,70 @@
       "evidence_anchor": [
         {
           "type": "pdf",
-          "value": "zotero://select/items/XRMSR8RX"
-        },
-        {
-          "type": "figure_or_table",
-          "value": "image-1",
-          "page": "3"
-        },
-        {
-          "type": "figure_or_table",
-          "value": "image-2",
-          "page": "3"
-        },
-        {
-          "type": "figure_or_table",
-          "value": "Fig. 2",
-          "page": "4"
+          "value": "zotero://select/items/XRMSR8RX",
+          "claim_binding": "mech-zotero-test-003",
+          "evidence_level": "mineru_figure_anchor"
         },
         {
           "type": "figure_or_table",
           "value": "image-1",
           "page": "3",
+          "claim_binding": "mech-zotero-test-003",
           "evidence_level": "mineru_figure_anchor"
         },
         {
           "type": "figure_or_table",
           "value": "image-2",
           "page": "3",
+          "claim_binding": "mech-zotero-test-003",
           "evidence_level": "mineru_figure_anchor"
         },
         {
           "type": "figure_or_table",
           "value": "Fig. 2",
           "page": "4",
+          "claim_binding": "mech-zotero-test-003",
           "evidence_level": "mineru_figure_anchor"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "Fig. 17",
+          "page": "17",
+          "evidence_level": "mineru_figure_anchor",
+          "figure_id": "Fig. 17",
+          "figure_type": "figure",
+          "caption": "Fig. 17. Schematic diagram of the interaction of mechanical response and microstructural evolution during DDRX.",
+          "panel_candidates": [],
+          "claim_binding": "mech-zotero-test-003",
+          "source_type": "caption_plus_text"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "Fig. 2",
+          "page": "4",
+          "evidence_level": "mineru_figure_anchor",
+          "figure_id": "Fig. 2",
+          "figure_type": "figure",
+          "caption": "Fig. 2. Schematic diagram of: (a) multiscale mapping strategy between CP and CA module; (b) sub-grid nucleation process; (c) sub-grid GBM process.",
+          "panel_candidates": [
+            "a",
+            "b",
+            "c"
+          ],
+          "claim_binding": "mech-zotero-test-003",
+          "source_type": "caption_plus_text"
+        },
+        {
+          "type": "figure_or_table",
+          "value": "table-1",
+          "page": "11",
+          "evidence_level": "mineru_figure_anchor",
+          "figure_id": "table-1",
+          "figure_type": "figure",
+          "caption": "Calibrated parameters of the CPFE-CA framework for the studied alloy.",
+          "panel_candidates": [],
+          "claim_binding": "mech-zotero-test-003",
+          "source_type": "caption_plus_text"
         }
       ],
       "evidence_level": "mineru_figure_anchor",
@@ -295,7 +456,9 @@
       ],
       "claim_limit": "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。",
       "claim_strength": "strong_mechanism_claim_allowed",
-      "not_allowed_claims": [],
+      "not_allowed_claims": [
+        "不得跨材料或跨体系直接外推为同一机理结论"
+      ],
       "source_trace": {
         "text_source": "zotero_mineru",
         "image_source": "MinerU ZIP / Zotero 图文资产",

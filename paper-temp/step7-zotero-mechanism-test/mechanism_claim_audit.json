@@ -1,7 +1,7 @@
 {
   "schema_version": "mechanism-claim-audit.v1",
   "metadata": {
-    "schema_version": "mechanism-analysis-artifacts.v1",
+    "schema_version": "mechanism-analysis-artifacts.v2",
     "source_cards": "/Users/Bing/.hermes/skills/more-paper-workflow-pro-skill/paper-temp/step7-zotero-mechanism-test/deep_read_cards.json",
     "source_card_metadata": {
       "entry_mode": "deep_read_refine",
@@ -16,7 +16,8 @@
     },
     "figure_index": "",
     "figure_evidence_fallback": "unavailable_without_mineru_or_manual_pdf_check",
-    "evidence_priority": "MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/元数据"
+    "evidence_priority": "MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/元数据",
+    "dominant_material_family": "aluminum_alloy"
   },
   "findings": [
     {

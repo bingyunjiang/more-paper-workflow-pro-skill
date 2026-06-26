@@ -21,6 +21,37 @@ FULLTEXT_DEPTHS = {"full_text", "pdf_verified", "zotero_note", "annotation_verif
 FIGURE_UNAVAILABLE = "unavailable_without_mineru_or_manual_pdf_check"
 FIGURE_AVAILABLE = "available_with_mineru_or_figure_index"
 FIGURE_MANUAL = "manual_pdf_check_required"
+STRONG_WORDS = ("证明", "证实", "验证了", "demonstrates", "proves", "validates")
+
+MECHANISM_KEYWORDS = {
+    "GF": ["grain fragmentation", "gf", "晶粒破碎"],
+    "GR": ["subgrain rotation", "gr", "亚晶旋转"],
+    "CDRX": ["cdrx", "continuous dynamic recrystallization", "连续动态再结晶"],
+    "DDRX": ["ddrx", "discontinuous dynamic recrystallization", "不连续动态再结晶"],
+    "DRV": ["drv", "dynamic recovery", "动态回复"],
+    "DRX": ["drx", "dynamic recrystallization", "动态再结晶"],
+    "GBM": ["grain boundary migration", "gbm", "晶界迁移"],
+    "WH": ["work hardening", "wh", "加工硬化"],
+}
+
+DISCRIMINATION_MAP = {
+    "GF": ["GR", "CDRX"],
+    "GR": ["GF", "DRV"],
+    "CDRX": ["DDRX", "GF"],
+    "DDRX": ["CDRX", "DRV"],
+    "DRV": ["DRX", "WH"],
+    "DRX": ["DRV", "WH"],
+    "GBM": ["GF", "DRV"],
+    "WH": ["DRV", "DRX"],
+}
+
+MATERIAL_PATTERNS = [
+    ("aluminum_alloy", [r"\baa\d{4}\b", r"aluminum alloy", r"aluminium alloy", r"铝合金"]),
+    ("nickel_based_superalloy", [r"nickel-based superalloy", r"镍基高温合金", r"nickel based"]),
+    ("steel", [r"\baisi\s*\d+\b", r"steel", r"不锈钢", r"钢"]),
+    ("titanium_alloy", [r"titanium", r"钛合金", r"\bta\d+\b"]),
+    ("magnesium_alloy", [r"magnesium", r"镁合金", r"\baz\d+\b"]),
+]
 
 
 def _clean(value: Any) -> str:
@@ -111,11 +142,9 @@ def _anchor_level(card: dict[str, Any], anchors: list[dict[str, Any]], figures: 
             if "caption" in source_type or caption or "LLM-for-Zotero-MinerU-cache" in source_path:
                 return "mineru_figure_anchor"
         return "pdf_page_or_chunk"
-
     for anchor in anchors:
         if _clean(anchor.get("page")) or _clean(anchor.get("chunk_id")):
             return "pdf_page_or_chunk"
-
     source = card.get("source_trace") if isinstance(card.get("source_trace"), dict) else {}
     if _clean(source.get("chunks_json")):
         return "pdf_page_or_chunk"
@@ -146,15 +175,90 @@ def _claim_strength(card: dict[str, Any], hints: dict[str, Any], anchor_level: s
     return "candidate_mechanism_only"
 
 
-def _not_allowed_claims(claim_strength: str, figure_status: str, anchor_level: str) -> list[str]:
-    blocked = []
-    if claim_strength != "strong_mechanism_claim_allowed":
-        blocked.append("不得写成已证明的确定性机理结论")
-    if anchor_level in {"abstract_or_metadata", "pdf_fulltext_no_page"}:
-        blocked.append("不得写页码、公式号、图号或精确数值级结论")
-    if figure_status != FIGURE_AVAILABLE:
-        blocked.append("不得自动写“如图X所示”“图中可见”等视觉判断")
-    return blocked
+def _text_blob(card: dict[str, Any], hints: dict[str, Any]) -> str:
+    parts = [
+        _clean(card.get("title")),
+        _clean(card.get("claim_summary")),
+        _clean(hints.get("phenomenon")),
+        " ".join(_clean_list(hints.get("state_variables"))),
+        " ".join(_clean_list(hints.get("causal_chain"))),
+        " ".join(_clean_list(hints.get("governing_model"))),
+    ]
+    return " ".join(part for part in parts if part).lower()
+
+
+def _infer_mechanism_types(card: dict[str, Any], hints: dict[str, Any]) -> list[str]:
+    blob = _text_blob(card, hints)
+    found = [name for name, keywords in MECHANISM_KEYWORDS.items() if any(word in blob for word in keywords)]
+    return found or ["unspecified_mechanism"]
+
+
+def _infer_discriminates_against(mechanism_types: list[str]) -> list[str]:
+    result: list[str] = []
+    for mech in mechanism_types:
+        for other in DISCRIMINATION_MAP.get(mech, []):
+            if other not in result:
+                result.append(other)
+    return result
+
+
+def _infer_material_family(card: dict[str, Any], hints: dict[str, Any]) -> str:
+    blob = _text_blob(card, hints)
+    for material, patterns in MATERIAL_PATTERNS:
+        if any(re.search(pattern, blob, flags=re.IGNORECASE) for pattern in patterns):
+            return material
+    return "unknown_material"
+
+
+def _infer_transfer_risk(card_material: str, dominant_material: str) -> str:
+    if card_material == "unknown_material" or dominant_material == "unknown_material":
+        return "material_scope_unclear"
+    if card_material == dominant_material:
+        return "same_material"
+    if {card_material, dominant_material} <= {"aluminum_alloy", "magnesium_alloy", "titanium_alloy"}:
+        return "same_family_different_material"
+    return "cross_material_requires_boundary"
+
+
+def _parse_panel_candidates(caption: str) -> list[str]:
+    raw = re.findall(r"\(([a-z])\)", caption.lower())
+    seen: list[str] = []
+    for panel in raw:
+        if panel not in seen:
+            seen.append(panel)
+    return seen
+
+
+def _figure_blob(fig: dict[str, Any]) -> str:
+    return " ".join([
+        _clean(fig.get("figure_id")),
+        _clean(fig.get("caption")),
+        _clean(fig.get("figure_type")),
+    ]).lower()
+
+
+def _score_figure_for_card(fig: dict[str, Any], card: dict[str, Any], hints: dict[str, Any]) -> tuple[int, int]:
+    figure_blob = _figure_blob(fig)
+    mech_words = _infer_mechanism_types(card, hints)
+    state_words = _clean_list(hints.get("state_variables"))
+    title_words = re.findall(r"[a-zA-Z]{3,}", _clean(card.get("title")).lower())
+    keywords = [word.lower() for word in mech_words + state_words + title_words]
+    keyword_score = sum(1 for word in keywords if word and word in figure_blob)
+    if "fig." in figure_blob or "table" in figure_blob:
+        keyword_score += 1
+    quality_score = 1 if _clean(fig.get("caption")) else 0
+    if "LLM-for-Zotero-MinerU-cache" in _clean(fig.get("source_image_path")):
+        quality_score += 1
+    return keyword_score, quality_score
+
+
+def _select_bound_figures(figures: list[dict[str, Any]], card: dict[str, Any], hints: dict[str, Any]) -> list[dict[str, Any]]:
+    ranked = sorted(
+        figures,
+        key=lambda fig: _score_figure_for_card(fig, card, hints),
+        reverse=True,
+    )
+    return ranked[:3]
 
 
 def _evidence_anchor(
@@ -162,15 +266,26 @@ def _evidence_anchor(
     hints: dict[str, Any],
     figures: list[dict[str, Any]],
     anchor_level: str,
+    claim_id: str,
 ) -> list[dict[str, Any]]:
     anchors = hints.get("evidence_anchor")
     result = [a for a in anchors if isinstance(a, dict)] if isinstance(anchors, list) else []
-    for fig in figures[:3]:
+    for anchor in result:
+        anchor.setdefault("claim_binding", claim_id)
+        anchor.setdefault("evidence_level", anchor_level)
+    for fig in _select_bound_figures(figures, card, hints):
+        caption = _clean(fig.get("caption"))
         result.append({
             "type": "figure_or_table",
-            "value": _clean(fig.get("figure_id") or fig.get("caption") or fig.get("source_image_path")),
+            "value": _clean(fig.get("figure_id") or caption or fig.get("source_image_path")),
             "page": _clean(fig.get("page")),
             "evidence_level": anchor_level,
+            "figure_id": _clean(fig.get("figure_id")),
+            "figure_type": _clean(fig.get("figure_type") or "figure"),
+            "caption": caption,
+            "panel_candidates": _parse_panel_candidates(caption),
+            "claim_binding": claim_id,
+            "source_type": _clean(fig.get("source_type")) or "caption_plus_text",
         })
     source = card.get("source_trace") if isinstance(card.get("source_trace"), dict) else {}
     if not result and _clean(source.get("source_pdf")):
@@ -179,26 +294,59 @@ def _evidence_anchor(
             "value": _clean(source.get("source_pdf")),
             "page": "",
             "evidence_level": anchor_level,
+            "claim_binding": claim_id,
         })
     return result
 
 
-def _build_mechanism_card(card: dict[str, Any], figure_records: list[dict[str, Any]]) -> dict[str, Any]:
+def _not_allowed_claims(
+    claim_strength: str,
+    figure_status: str,
+    anchor_level: str,
+    transfer_risk: str,
+) -> list[str]:
+    blocked = []
+    if claim_strength != "strong_mechanism_claim_allowed":
+        blocked.append("不得写成已证明的确定性机理结论")
+    if anchor_level in {"abstract_or_metadata", "pdf_fulltext_no_page"}:
+        blocked.append("不得写页码、公式号、图号或精确数值级结论")
+    if figure_status != FIGURE_AVAILABLE:
+        blocked.append("不得自动写“如图X所示”“图中可见”等视觉判断")
+    if transfer_risk in {"cross_material_requires_boundary", "same_family_different_material"}:
+        blocked.append("不得跨材料或跨体系直接外推为同一机理结论")
+    return blocked
+
+
+def _build_mechanism_card(
+    card: dict[str, Any],
+    figure_records: list[dict[str, Any]],
+    dominant_material: str,
+) -> dict[str, Any]:
     hints = card.get("mechanism_hints") if isinstance(card.get("mechanism_hints"), dict) else {}
     figures = _match_figures(card, figure_records)
+    claim_id = f"mech-{_clean(card.get('record_id') or card.get('citekey') or 'unknown')}"
+    mechanism_types = _infer_mechanism_types(card, hints)
+    material_family = _infer_material_family(card, hints)
+    transfer_risk = _infer_transfer_risk(material_family, dominant_material)
     raw_anchors = [a for a in hints.get("evidence_anchor", []) if isinstance(a, dict)] if isinstance(hints.get("evidence_anchor"), list) else []
     anchor_level = _anchor_level(card, raw_anchors, figures)
     figure_status = _figure_status(anchor_level, figures)
     strength = _claim_strength(card, hints, anchor_level)
-    anchors = _evidence_anchor(card, hints, figures, anchor_level)
+    anchors = _evidence_anchor(card, hints, figures, anchor_level, claim_id)
+    not_allowed = _not_allowed_claims(strength, figure_status, anchor_level, transfer_risk)
     return {
-        "schema_version": "mechanism-card.v1",
+        "schema_version": "mechanism-card.v2",
+        "claim_id": claim_id,
         "record_id": _clean(card.get("record_id")),
         "citekey": _clean(card.get("citekey")),
         "title": _clean(card.get("title")),
         "section_id": _clean(card.get("section_id")),
         "section_title": _clean(card.get("section_title")),
         "reading_depth": _clean(card.get("reading_depth")) or "metadata_only",
+        "mechanism_type": mechanism_types,
+        "discriminates_against": _infer_discriminates_against(mechanism_types),
+        "material_family": material_family,
+        "transfer_risk": transfer_risk,
         "phenomenon": _clean(hints.get("phenomenon") or card.get("claim_summary")),
         "state_variables": _clean_list(hints.get("state_variables")),
         "causal_chain": _clean_list(hints.get("causal_chain")),
@@ -211,7 +359,7 @@ def _build_mechanism_card(card: dict[str, Any], figure_records: list[dict[str, A
         "validation_path": _clean_list(hints.get("validation_path")),
         "claim_limit": _clean(hints.get("claim_limit")),
         "claim_strength": strength,
-        "not_allowed_claims": _not_allowed_claims(strength, figure_status, anchor_level),
+        "not_allowed_claims": not_allowed,
         "source_trace": card.get("source_trace") if isinstance(card.get("source_trace"), dict) else {},
         "risk_flags": _clean_list(card.get("risk_flags")),
     }
@@ -229,14 +377,19 @@ def _confirmation_status(card: dict[str, Any]) -> str:
 
 def _build_argument_item(card: dict[str, Any]) -> dict[str, Any]:
     return {
-        "claim_id": f"mech-{card['record_id'] or card['citekey'] or 'unknown'}",
+        "claim_id": card["claim_id"],
         "source_citekey": card["citekey"],
+        "mechanism_type": card["mechanism_type"],
+        "discriminates_against": card["discriminates_against"],
+        "material_family": card["material_family"],
+        "transfer_risk": card["transfer_risk"],
         "phenomenon": card["phenomenon"],
         "state_variables": card["state_variables"],
         "causal_chain": card["causal_chain"],
         "governing_model": card["governing_model"],
         "boundary_conditions": card["boundary_conditions"],
         "evidence_anchor": card["evidence_anchor"],
+        "figure_claim_binding": [a for a in card["evidence_anchor"] if a.get("type") == "figure_or_table"],
         "evidence_level": card["evidence_level"],
         "figure_evidence_status": card["figure_evidence_status"],
         "validation_path": card["validation_path"],
@@ -251,6 +404,8 @@ def audit_plan_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     for item in items:
         missing = []
+        if not item.get("mechanism_type"):
+            missing.append("mechanism_type")
         if not item.get("causal_chain"):
             missing.append("causal_chain")
         if not item.get("boundary_conditions"):
@@ -261,6 +416,8 @@ def audit_plan_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
             missing.append("evidence_anchor")
         if item.get("evidence_level") == "abstract_or_metadata":
             missing.append("full_text_evidence")
+        if item.get("transfer_risk") in {"cross_material_requires_boundary", "same_family_different_material"} and not item.get("boundary_conditions"):
+            missing.append("transfer_boundary")
         severity = "pass" if not missing else "downgrade_required"
         findings.append({
             "claim_id": item.get("claim_id", ""),
@@ -282,7 +439,12 @@ def _render_cards_md(cards: list[dict[str, Any]], metadata: dict[str, Any]) -> s
         lines.extend([
             f"## {card['citekey'] or card['record_id'] or 'unknown'} - {card['title']}",
             "",
+            f"- claim_id: {card['claim_id']}",
             f"- reading_depth: {card['reading_depth']}",
+            f"- mechanism_type: {', '.join(card['mechanism_type'])}",
+            f"- discriminates_against: {', '.join(card['discriminates_against']) or '待补充'}",
+            f"- material_family: {card['material_family']}",
+            f"- transfer_risk: {card['transfer_risk']}",
             f"- evidence_level: {card['evidence_level']}",
             f"- figure_evidence_status: {card['figure_evidence_status']}",
             f"- claim_strength: {card['claim_strength']}",
@@ -295,7 +457,7 @@ def _render_cards_md(cards: list[dict[str, Any]], metadata: dict[str, Any]) -> s
         lines.append("")
         lines.append("### Evidence Anchors")
         lines.extend([
-            f"- {a.get('type', '')}: {a.get('value', '')} page={a.get('page', '')} level={a.get('evidence_level', card['evidence_level'])}"
+            f"- {a.get('type', '')}: {a.get('value', '')} page={a.get('page', '')} panel={','.join(a.get('panel_candidates', []))} bind={a.get('claim_binding', '')}"
             for a in card["evidence_anchor"]
         ] or ["- 待补充"])
         lines.append("")
@@ -312,6 +474,9 @@ def _render_plan_md(items: list[dict[str, Any]], metadata: dict[str, Any]) -> st
             f"## {item['claim_id']}",
             "",
             f"- source_citekey: {item['source_citekey']}",
+            f"- mechanism_type: {', '.join(item['mechanism_type'])}",
+            f"- discriminates_against: {', '.join(item['discriminates_against']) or '待补充'}",
+            f"- transfer_risk: {item['transfer_risk']}",
             f"- confirmation_status: {item['confirmation_status']}",
             f"- evidence_level: {item['evidence_level']}",
             f"- figure_evidence_status: {item['figure_evidence_status']}",
@@ -322,6 +487,12 @@ def _render_plan_md(items: list[dict[str, Any]], metadata: dict[str, Any]) -> st
             "### Causal Chain",
         ])
         lines.extend([f"- {entry}" for entry in item["causal_chain"]] or ["- 待补充"])
+        lines.append("")
+        lines.append("### Figure Claim Binding")
+        lines.extend([
+            f"- {entry.get('figure_id') or entry.get('value', '')} page={entry.get('page', '')} panel={','.join(entry.get('panel_candidates', []))}"
+            for entry in item["figure_claim_binding"]
+        ] or ["- 未绑定图表"])
         lines.append("")
         lines.append("### Not Allowed Claims")
         lines.extend([f"- {entry}" for entry in item["not_allowed_claims"]] or ["- 未触发"])
@@ -347,6 +518,17 @@ def _render_gap_md(audit: list[dict[str, Any]]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _dominant_material_family(records: list[dict[str, Any]]) -> str:
+    counts: dict[str, int] = {}
+    for record in records:
+        hints = record.get("mechanism_hints") if isinstance(record.get("mechanism_hints"), dict) else {}
+        material = _infer_material_family(record, hints)
+        counts[material] = counts.get(material, 0) + 1
+    if not counts:
+        return "unknown_material"
+    return max(counts.items(), key=lambda item: item[1])[0]
+
+
 def build_mechanism_argument_plan(
     *,
     cards_json: Path,
@@ -357,17 +539,19 @@ def build_mechanism_argument_plan(
     records, card_metadata = _load_records(cards_json)
     figure_records = _load_figure_records(figure_index)
     output_dir.mkdir(parents=True, exist_ok=True)
+    dominant_material = _dominant_material_family(records)
 
-    mechanism_cards = [_build_mechanism_card(record, figure_records) for record in records]
+    mechanism_cards = [_build_mechanism_card(record, figure_records, dominant_material) for record in records]
     plan_items = [_build_argument_item(card) for card in mechanism_cards]
     audit = audit_plan_items(plan_items)
     metadata = {
-        "schema_version": "mechanism-analysis-artifacts.v1",
+        "schema_version": "mechanism-analysis-artifacts.v2",
         "source_cards": str(cards_json),
         "source_card_metadata": card_metadata,
         "figure_index": str(figure_index or ""),
         "figure_evidence_fallback": FIGURE_UNAVAILABLE,
         "evidence_priority": "MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/元数据",
+        "dominant_material_family": dominant_material,
     }
 
     prefix = f"{output_prefix}_" if output_prefix else ""
@@ -379,13 +563,13 @@ def build_mechanism_argument_plan(
     gap_md_out = output_dir / f"{prefix}evidence_gap_list.md"
 
     _write_json(cards_json_out, {
-        "schema_version": "mechanism-cards.v1",
+        "schema_version": "mechanism-cards.v2",
         "metadata": metadata,
         "records": mechanism_cards,
     })
     cards_md_out.write_text(_render_cards_md(mechanism_cards, metadata), encoding="utf-8")
     _write_json(plan_json_out, {
-        "schema_version": "mechanism-argument-plan.v1",
+        "schema_version": "mechanism-argument-plan.v2",
         "metadata": metadata,
         "claims": plan_items,
     })

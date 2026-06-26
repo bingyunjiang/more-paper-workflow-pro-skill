@@ -338,6 +338,7 @@ Step 7 进入正文前，必须先明确两件事：
 - `mechanism_cards.json/md`
 - `mechanism_argument_plan.json/md`
 - `mechanism_claim_audit.json/md`
+- `mechanism_paragraph_audit.json/md`
 - 必要时更新 `evidence_gap_list.md`
 
 **推荐执行入口：**
@@ -348,6 +349,9 @@ python3 scripts/build_mechanism_argument_plan.py \
   --figure-index figure_index.json \
   --output-dir .
 python3 scripts/audit_mechanism_claims.py \
+  --plan-json mechanism_argument_plan.json
+python3 scripts/audit_mechanism_paragraphs.py \
+  --draft-md 当前小节草稿.md \
   --plan-json mechanism_argument_plan.json
 ```
 
@@ -372,6 +376,10 @@ python3 scripts/audit_mechanism_claims.py \
 | `alternative_explanations` | 可能削弱当前解释的其他机制或反证 |
 | `validation_path` | 用实验、仿真、消融、对比或图表验证的路径 |
 | `claim_limit` | 哪些强度的机理 claim 可以写，哪些必须降级 |
+| `mechanism_type` | 当前主张属于 GF / GR / CDRX / DDRX / DRV / DRX 中哪类机制 |
+| `discriminates_against` | 当前机制需要与哪些竞争机制区分 |
+| `transfer_risk` | 是否存在跨材料 / 跨体系外推风险 |
+| `figure_claim_binding` | 当前 claim 具体绑定到哪些图、表、panel |
 
 **写作闸门：**
 - 机理段落必须同时具备 `phenomenon + causal_chain + boundary_conditions`；缺任一项时只能写“可能解释/候选机制”，不得写成确定性结论。
@@ -386,6 +394,14 @@ MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/
 ```
 
 无 MinerU 时仍允许写“变量-路径-边界”的机理链，但必须保守措辞；图表、公式、页码、数值和视觉观察类强 claim 只能在补齐相应锚点后进入正文。
+
+**机制判别规则：**
+
+- 机理段落不能只回答“发生了什么”，还要回答“更接近哪一类机制、不是哪一类机制”。
+- 若 `mechanism_type` 已命中 GF / GR / CDRX / DDRX / DRV / DRX，正文应尽量显式写出与 `discriminates_against` 的区别，而不是只给泛泛解释。
+- 若 `transfer_risk` 为 `cross_material_requires_boundary` 或 `same_family_different_material`，正文必须补跨材料外推边界句。
+- `figure_claim_binding` 不能只停留在“本段配一张图”；至少要能落到 `figure_id`，能识别 panel 时应进一步落到 `(a)/(b)/(c)`。
+- `mechanism_paragraph_audit` 至少应能识别：`cross_material_claim_missing_boundary`、`visual_reference_without_figure_id`、`mechanism_discrimination_not_explicit`。
 
 #### 7.2.1. PDF 读取模式
 

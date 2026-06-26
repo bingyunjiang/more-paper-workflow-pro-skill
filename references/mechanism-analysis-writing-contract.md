@@ -18,6 +18,7 @@ deep_read_cards.json/md
   -> mechanism_cards.json/md
   -> mechanism_argument_plan.json/md
   -> mechanism_claim_audit.json/md
+  -> mechanism_paragraph_audit.json/md
   -> 当前小节正文
 ```
 
@@ -28,6 +29,7 @@ deep_read_cards.json/md
 ```bash
 python3 scripts/build_mechanism_argument_plan.py --cards-json deep_read_cards.json --output-dir .
 python3 scripts/audit_mechanism_claims.py --plan-json mechanism_argument_plan.json
+python3 scripts/audit_mechanism_paragraphs.py --draft-md 当前小节草稿.md --plan-json mechanism_argument_plan.json
 ```
 
 若已有 MinerU ZIP 解析出的 `figure_index.json`，可追加 `--figure-index figure_index.json` 升级图表锚点；没有 MinerU 时不得阻塞写作，只能把图表证据降级为 `figure_evidence_status=unavailable_without_mineru_or_manual_pdf_check`。
@@ -49,6 +51,10 @@ python3 scripts/audit_mechanism_claims.py --plan-json mechanism_argument_plan.js
 | alternative_explanations | 可能削弱当前解释的其他机制或反证 |
 | validation_path | 用实验、仿真、消融、对比或图表验证的路径 |
 | claim_limit | 可写 claim 强度与必须降级的边界 |
+| mechanism_type | GF / GR / CDRX / DDRX / DRV / DRX 等机制标签 |
+| discriminates_against | 当前机制需要和谁区分 |
+| transfer_risk | 是否存在跨材料 / 跨体系外推风险 |
+| figure_claim_binding | claim 绑定到哪张图、哪类图、哪些 panel |
 
 ## 段落规则
 
@@ -59,6 +65,8 @@ python3 scripts/audit_mechanism_claims.py --plan-json mechanism_argument_plan.js
 ```
 
 不得把“文献 A 研究了、文献 B 发现了”当作机理分析。文献引用只用于支撑链条中的具体环节。
+
+若 `mechanism_type` 已明确，正文还应尽量说明它与 `discriminates_against` 中竞争机制的区别；否则段落容易退化成“解释型综述”而非“判别型机理分析”。
 
 ## 降级规则
 
@@ -78,6 +86,8 @@ MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/
 
 无 MinerU 或无 `figure_index.json` 时，仍可写机理链，但只能基于 PDF 全文/页段/摘要证据进行保守表述；不得自动写“如图 X 所示”“图中可见”等视觉判断，也不得补写未核验的图号、公式号、页码或精确数值。
 
+若 `transfer_risk` 为 `cross_material_requires_boundary` 或 `same_family_different_material`，正文必须显式写边界句，如“该模型提供解释框架，但不能直接替代当前材料体系中的实验机制证据”。
+
 ## 质量门
 
 - 每个机理强 claim 必须绑定至少一个全文级证据锚点。
@@ -86,3 +96,4 @@ MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/
 - 没有实验、仿真或对比验证时，不得把相关性写成因果证明。
 - 没有验证路径时，措辞必须降级为“可能说明/可解释为/提示存在”。
 - `mechanism_claim_audit` 中 `downgrade_required` 的 claim 不得以强机理结论进入正文。
+- `mechanism_paragraph_audit` 中命中的 `cross_material_claim_missing_boundary`、`visual_reference_without_figure_id`、`mechanism_discrimination_not_explicit` 应在定稿前处理。
