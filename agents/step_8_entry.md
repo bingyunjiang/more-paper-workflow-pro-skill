@@ -30,6 +30,8 @@ Step 8 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 - 只有 `citation_audit`、没有正文时，只能做风险解释或回到 Step 7 审计/修稿计划，不能假装已进入润色。
 - 缺引用审计时，Step 8 只做润色与术语终验风险标记，不替代 Step 7 的引用审计结论。
 - Passport 的全局 `route_mode` 不覆盖 Step 8 的 `revision_scope / target_genre`。
+- 如果 artifact graph 中存在 `metadata_only`、`abstract_only`、`trace_status=unlinked` 或 `confidence=inferred` 的证据关系，Step 8 只能保守降级表达、标注风险或建议回到 Step 7；不得把弱证据升级为 confirmed，也不得新增外部证据补洞。
+- Step 8 direct-entry 只要求有待修订正文；不要求完整 Step 4-7 链路，但必须在输出中说明证据链缺口是否影响本轮修订结论。
 
 Step 8 不找图、不换图源、不新增图表证据；若正文含图文联合草稿，只能做图注和图文表达收口。
 

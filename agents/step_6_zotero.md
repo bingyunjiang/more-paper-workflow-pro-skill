@@ -56,6 +56,14 @@
 > 标准链路下推荐使用 Step 4 生成的 `文献库.bib`。但 Step 6 不把它当成唯一合法入口：若用户已有 Zotero 文库、已有 BibTeX/CSL JSON、已有 workflow search results JSON、已有 PDF 目录或只想整理现有集合，也可直接进入本步骤。
 > Zotero 是 Step 7 的推荐资产管理层，不是唯一写作入口。若用户没有 Zotero 或选择 `skip`，Step 7 可改走本地 `evidence_pack`；Step 6 只需把可用 PDF、MinerU ZIP、文献库和缺口记录清楚。
 
+**Artifact Passport / Direct-entry Graph：**
+
+- Step 6 可从 Zotero 集合、BibTeX、workflow JSON、PDF 附件池、PDF 索引或既有 `文献-Zotero架构对照.*` 直接进入；不要求 Step 5 已跑过。
+- `artifact_passport.json` 中 Zotero 相关材料登记为 `zotero_item`，PDF/附件池登记为 `pdf_attachment`，BibTeX/workflow JSON 登记为 `search_record`。
+- Zotero 对账必须区分 `matched_attachment`、`missing_attachment`、`unlinked_pdf`、`duplicate_candidate`；其中 `unlinked_pdf` 只能表示待匹配 PDF，不能表述为已挂载附件。
+- 只有 Zotero item key、集合路径、附件路径或对照 JSON 明确一致时，`imported_to_zotero` / 附件关系才能视为 confirmed；标题相似、同目录共存或文件名相似只能视为 inferred。
+- direct-entry 下缺 Step 4/5 不是阻塞项；只需在 gaps/risks 中说明来源链缺口和后续补齐动作。
+
 **工件读取优先级：**
 
 从本版开始，Step 6 对上游输入的优先顺序为：

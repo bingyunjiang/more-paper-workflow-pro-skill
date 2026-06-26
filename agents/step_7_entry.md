@@ -54,6 +54,14 @@ Step 7 启动时先检查 `$CWD/.skill-state/artifact_passport.json`：
 - 缺 `pdf-附件池索引.json` 或证据矩阵时，生成最小映射和风险标记；不得声明引用安全通过。
 - Passport 的全局 `route_mode` 只决定 direct-entry/plan-only/repair，不覆盖本文件的 Step 7 `mode` 和 `target_genre`。
 
+Artifact graph 只负责登记当前可用材料和可确认关系，不强制线性 Step 4→5→6→7：
+
+- `zotero_item / evidence_item / claim / draft_section` 可以从 Zotero、evidence pack、MinerU ZIP、已有初稿或章节大纲独立登记。
+- 每个正文 claim 或引用映射必须带 `reading_depth` 与 `trace_status`；`trace_status=inferred/unlinked` 只能支撑候选、背景或待确认表达。
+- `metadata_only`、`abstract_only` 或 `unlinked` 证据必须显式进入 `citation_risk_summary` / `evidence_gap_list`，不得被写成全文已读或 confirmed evidence。
+- 只有 `evidence_item -> claim` 或 `claim -> draft_section` 关系有明确 evidence id、citation key、页码/段落/注释来源时，才可标为 confirmed。
+- direct-entry 下允许先产出“当前入口可继续版本”；如果用户要求“全链路可追溯”，则必须把缺失的 Step 4/5/6 关系列为待补任务。
+
 ## 图文联合规则
 
 - `auto_insert_figures=true` 时，条目必须具备 `LLM-for-Zotero-MinerU-cache-*.zip` 或等价图文资产包。

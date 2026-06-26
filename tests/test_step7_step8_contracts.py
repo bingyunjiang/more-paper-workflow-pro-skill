@@ -259,6 +259,59 @@ class Step7Step8ContractsTest(unittest.TestCase):
         ]:
             self.assertIn(token, command)
 
+    def test_direct_entry_artifact_graph_contracts_are_documented(self):
+        step5 = read_rel("agents/step_5_download.md")
+        step6 = read_rel("agents/step_6_zotero.md")
+        step7 = read_rel("agents/step_7_entry.md")
+        step8 = read_rel("agents/step_8_entry.md")
+        gates = read_rel("references/completion-gates.md")
+        readme = read_rel("README.md")
+
+        for token in [
+            "Artifact Passport / Direct-entry Graph",
+            "unlinked_pdf",
+            "source_unlinked",
+            "不得宣称下载来源链完整",
+        ]:
+            self.assertIn(token, step5)
+
+        for token in [
+            "matched_attachment",
+            "missing_attachment",
+            "unlinked_pdf",
+            "duplicate_candidate",
+            "缺 Step 4/5 不是阻塞项",
+        ]:
+            self.assertIn(token, step6)
+
+        for token in [
+            "Artifact graph 只负责登记当前可用材料和可确认关系",
+            "reading_depth",
+            "trace_status",
+            "metadata_only",
+            "unlinked",
+            "当前入口可继续版本",
+        ]:
+            self.assertIn(token, step7)
+
+        for token in [
+            "trace_status=unlinked",
+            "confidence=inferred",
+            "不得把弱证据升级为 confirmed",
+            "不要求完整 Step 4-7 链路",
+        ]:
+            self.assertIn(token, step8)
+
+        for token in [
+            "direct-entry 入口敏感",
+            "`inferred`、`unlinked`、`conflict` 关系不得说成 `confirmed`",
+            "当前入口可继续版本；全链路仍有以下 gaps/risks",
+        ]:
+            self.assertIn(token, gates)
+
+        self.assertIn("artifact_passport.json", readme)
+        self.assertIn("direct-entry artifact graph", readme)
+
     def test_step8_degraded_entry_rules_remain_non_blocking(self):
         text = read_rel("agents/step_8_polishing.md")
         self.assertIn("评审依据不足", text)

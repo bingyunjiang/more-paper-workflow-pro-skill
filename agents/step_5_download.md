@@ -70,6 +70,16 @@
 | direct_download_manifest.md/json | .md/.json | 直达下载模式的临时归一化清单 |
 | unresolved_download_items.md | .md | 标题无法唯一解析、缺少 URL 或需要人工确认的条目 |
 
+## Artifact Passport / Direct-entry Graph
+
+Step 5 可从 DOI 列表、BibTeX、检索表、失败清单、出版社 URL、中文 article URL 或已有 PDF 目录直接进入；不得因为缺少 Step 4 历史就要求用户回跑前序步骤。
+
+- 进入 Step 5 前后可用 `scripts/artifact_passport.py --entry-step step5 --add <path>` 登记输入材料。
+- DOI/BibTeX/检索结果应登记为 `download_item` 或 `search_record` 节点；已有 PDF/PDF 目录登记为 `pdf_attachment` 节点。
+- 只有下载 manifest、日志或明确文件匹配能证明来源时，`downloaded_as` 关系才能视为 `confirmed`；仅因同目录共存推断的关系只能是 `inferred`。
+- PDF 直入但无法确认来源时必须标记 `unlinked_pdf` / `source_unlinked`，可继续做清单核对或补下载，但不得宣称下载来源链完整。
+- 登录中断、`pending_user_login`、`failed_dois.json` 和 checkpoint 状态应保留为下载 graph 风险，不得覆盖为成功下载。
+
 ---
 
 ## 执行流程 (Execution Flow)

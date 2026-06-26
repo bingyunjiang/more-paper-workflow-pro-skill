@@ -14,6 +14,7 @@ from workflow_contracts import (  # noqa: E402
     ARTIFACT_PASSPORT_SCHEMA,
     build_artifact_passport,
     load_artifact_passport,
+    validate_artifact_passport,
     write_artifact_passport,
 )
 
@@ -124,6 +125,46 @@ class ArtifactPassportTest(unittest.TestCase):
         self.assertEqual(readiness["Step 6"].route_mode, "plan-only")
         self.assertIn("Zotero mode: local/cloud/skip", readiness["Step 6"].missing_optional)
 
+    def test_step5_direct_entry_from_doi_list_builds_download_readiness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            doi_list = root / "doi-list.txt"
+            doi_list.write_text("10.1109/demo.2024.1\n", encoding="utf-8")
+            passport = build_artifact_passport(root, [doi_list], entry_step="step5")
+            readiness = readiness_by_step(passport)
+
+        self.assertEqual(passport.current_step, "Step 5")
+        self.assertTrue(readiness["Step 5"].ready)
+        self.assertIn("manifest-from-any-input", readiness["Step 5"].allowed_modes)
+        self.assertTrue(any(node.node_type == "download_item" for node in passport.nodes))
+        self.assertEqual(validate_artifact_passport(passport), [])
+
+    def test_step5_direct_entry_from_pdf_pool_keeps_unlinked_pdf_nonblocking(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pdf_pool = root / "PDFs"
+            pdf_pool.mkdir()
+            passport = build_artifact_passport(root, [pdf_pool], entry_step="step5")
+            readiness = readiness_by_step(passport)
+
+        self.assertTrue(readiness["Step 5"].ready)
+        self.assertIn("reconcile-existing-pdf", readiness["Step 5"].allowed_modes)
+        self.assertTrue(any("unlinked_pdf" in node.risk_flags for node in passport.nodes))
+        self.assertTrue(any("unlinked" in gap for gap in passport.gaps))
+
+    def test_step6_direct_entry_from_bib_does_not_require_step4_or_step5(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bib = root / "文献库.bib"
+            bib.write_text("@article{demo,title={Demo}}", encoding="utf-8")
+            passport = build_artifact_passport(root, [bib], entry_step="step6")
+            readiness = readiness_by_step(passport)
+
+        self.assertTrue(passport.direct_entry.direct_entry_friendly)
+        self.assertFalse(passport.direct_entry.missing_prior_steps_block)
+        self.assertTrue(readiness["Step 6"].ready)
+        self.assertIn("plan-from-bib", readiness["Step 6"].allowed_modes)
+
     def test_workflow_json_routes_to_step5_manifest_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -179,6 +220,19 @@ class ArtifactPassportTest(unittest.TestCase):
         self.assertTrue(readiness["Step 7"].ready)
         self.assertIn("evidence_pack", readiness["Step 7"].allowed_modes)
 
+    def test_step7_direct_entry_from_evidence_pack_registers_evidence_node(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            evidence = root / "evidence_pack.json"
+            evidence.write_text(json.dumps({"records": []}), encoding="utf-8")
+            passport = build_artifact_passport(root, [evidence], entry_step="step7")
+            readiness = readiness_by_step(passport)
+
+        self.assertTrue(readiness["Step 7"].ready)
+        self.assertIn("evidence_pack", readiness["Step 7"].allowed_modes)
+        self.assertTrue(any(node.node_type == "evidence_item" for node in passport.nodes))
+        self.assertEqual(validate_artifact_passport(passport), [])
+
     def test_mineru_zip_routes_to_step7_as_evidence_pack(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -206,6 +260,7 @@ class ArtifactPassportTest(unittest.TestCase):
         self.assertEqual(loaded.schema_version, ARTIFACT_PASSPORT_SCHEMA)
         self.assertEqual(loaded.recommended_step, "Step 6")
         self.assertEqual(loaded.artifacts[0].kind, "bibliography")
+        self.assertTrue(loaded.nodes)
 
     def test_cli_scan_writes_runtime_passport(self):
         with tempfile.TemporaryDirectory() as tmp:

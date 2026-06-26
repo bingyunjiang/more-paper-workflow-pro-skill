@@ -156,6 +156,7 @@ python3 scripts/run_step8_ai_trace.py --project-root examples/demo/step8-ai-trac
 - 不会把未核验引用直接写进成稿关键结论
 - 不会在 Step 6 静默默认 `cloud` 模式
 - 不会因为缺少前序步骤就强迫你线性回跑；如果你已有等价输入，会按 direct-entry 合同进入当前步骤
+- 可用 `.skill-state/artifact_passport.json` 记录 direct-entry artifact graph：能确认的材料关系才标 confirmed，无法确认的 PDF、证据或引用关系只标 gaps/risks
 - 不会在需要登录态、外部写入或高风险动作时假装已经完成
 - 不会把 README 当运行时真相；真正执行边界以 [`SKILL.md`](SKILL.md) 和 [`agents/step_*.md`](agents/) 为准
 

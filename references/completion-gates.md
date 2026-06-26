@@ -33,6 +33,11 @@
 4. **没有把候选当结论**
    - 候选证据、候选 DOI、候选集合归属、候选写作论点，不能被表述成已确认事实。
 
+5. **direct-entry 入口敏感**
+   - 用户从 Step 5/6/7/8 直接进入时，只检查当前入口的最小产物、风险标记和下一步输入，不强制要求补齐前序 Step。
+   - `artifact_passport.json` / artifact graph 中 `inferred`、`unlinked`、`conflict` 关系不得说成 `confirmed`。
+   - 只有用户明确要求“全链路可追溯”时，缺失 Step 4→5→6→7 关系才作为阻塞；默认只作为 gaps/risks 呈现。
+
 ---
 
 ## 3. 各 Step 最小完成门
@@ -60,6 +65,7 @@
 - 下载记录可追溯
 - 未把未解析标题、未确认 DOI 或失败条目算作已完成
 - 未把源站无法下载的文献自动转向另一数据源尝试绕过
+- direct-entry PDF 目录只能标为 `unlinked_pdf` 或 existing PDF pool，除非有下载日志/manifest 明确匹配，不得说来源链完整
 
 ### Step 6：Zotero 已整理完成
 
@@ -68,6 +74,7 @@
 - 已核对条目导入状态
 - 已核对 PDF 附件状态
 - 已单列重复、缺附件、待人工确认项
+- direct-entry Zotero/BibTeX/PDF 对账必须区分 `matched_attachment`、`missing_attachment`、`unlinked_pdf`、`duplicate_candidate`
 
 ### Step 7：章节写完
 
@@ -75,6 +82,14 @@
 - 已说明证据基础来自哪里
 - 已说明引用风险状态
 - 已区分“正文完成”和“证据仍弱但先交草稿”
+- `metadata_only`、`abstract_only`、`trace_status=unlinked` 或 `confidence=inferred` 的证据关系必须进入风险说明，不能支撑强 claim
+
+### Step 8：保守修订完成
+
+只有同时满足以下条件，才能说“本轮 Step 8 修订完成”：
+- 已说明本轮只处理既有正文，不新增未经确认的证据
+- 已保留或标注 artifact graph 中的证据链缺口
+- 弱证据、未链接证据或缺引用审计只被降级表达/风险提示/回退建议处理，未被升级为 confirmed
 
 ---
 
@@ -92,6 +107,7 @@
 - `当前已形成可继续版本`
 - `主产物已生成，但仍有以下缺口`
 - `可进入下一步，但需带风险标记`
+- `当前入口可继续版本；全链路仍有以下 gaps/risks`
 
 ---
 

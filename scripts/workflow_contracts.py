@@ -36,6 +36,27 @@ ROUTE_MODES = (
     "audit-only",
     "resume",
 )
+ARTIFACT_NODE_TYPES = {
+    "search_record",
+    "download_item",
+    "pdf_attachment",
+    "zotero_item",
+    "evidence_item",
+    "claim",
+    "draft_section",
+    "source_file",
+}
+ARTIFACT_EDGE_RELATIONS = {
+    "derived_from",
+    "downloaded_as",
+    "imported_to_zotero",
+    "supports_claim",
+    "cited_as",
+    "contains",
+    "unlinked",
+}
+ARTIFACT_EDGE_CONFIDENCE = {"confirmed", "inferred", "unlinked", "conflict"}
+DIRECT_ENTRY_STEPS = {"step4", "step5", "step6", "step7", "step8"}
 
 
 def _clean(value: Any) -> str:
@@ -435,6 +456,39 @@ class StepReadiness:
 
 
 @dataclass
+class ArtifactNode:
+    node_id: str = ""
+    node_type: str = "source_file"
+    artifact_id: str = ""
+    path: str = ""
+    step_origin: str = ""
+    label: str = ""
+    trace_status: str = "inferred"  # confirmed | inferred | unlinked | conflict
+    risk_flags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ArtifactEdge:
+    edge_id: str = ""
+    source_node_id: str = ""
+    target_node_id: str = ""
+    relation: str = "derived_from"
+    confidence: str = "inferred"  # confirmed | inferred | unlinked | conflict
+    evidence: str = ""
+    risk_flags: list[str] = field(default_factory=list)
+
+
+@dataclass
+class DirectEntryMode:
+    entry_step: str = ""
+    direct_entry_friendly: bool = True
+    require_full_trace: bool = False
+    missing_prior_steps_block: bool = False
+    notes: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ArtifactPassport:
     schema_version: str = ARTIFACT_PASSPORT_SCHEMA
     project_root: str = ""
@@ -443,7 +497,12 @@ class ArtifactPassport:
     current_step: str = ""
     recommended_step: str = ""
     artifacts: list[ArtifactRecord] = field(default_factory=list)
+    nodes: list[ArtifactNode] = field(default_factory=list)
+    edges: list[ArtifactEdge] = field(default_factory=list)
     readiness: list[StepReadiness] = field(default_factory=list)
+    gaps: list[str] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
+    direct_entry: DirectEntryMode = field(default_factory=DirectEntryMode)
     notes: list[str] = field(default_factory=list)
 
 
@@ -858,6 +917,8 @@ def infer_artifact_kind(path: str | Path) -> str:
         return "mineru_zip"
     if suffix == ".pdf":
         return "pdf"
+    if suffix in (".txt", ".md") and any(token in name for token in ("doi", "papers", "download-list", "下载列表")):
+        return "doi_list"
     if suffix in (".csv", ".xlsx", ".xls", ".tsv"):
         return "evidence_data"
     if suffix in (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".svg"):
@@ -872,6 +933,8 @@ def infer_artifact_kind(path: str | Path) -> str:
         return "search_table"
     if suffix == ".bib" or "文献库" in name:
         return "bibliography"
+    if "evidence_pack" in name or "证据包" in name:
+        return "evidence_data"
     if suffix == ".json" and (
         "workflow" in name
         or "search" in name
@@ -952,6 +1015,187 @@ def artifact_record_from_path(
     )
 
 
+def artifact_node_type(kind: str) -> str:
+    mapping = {
+        "search_plan": "search_record",
+        "search_table": "search_record",
+        "workflow_search_results": "search_record",
+        "chinese_metadata": "download_item",
+        "bibliography": "search_record",
+        "doi_list": "download_item",
+        "download_manifest": "download_item",
+        "pdf": "pdf_attachment",
+        "pdf_pool": "pdf_attachment",
+        "pdf_index": "pdf_attachment",
+        "mineru_zip": "evidence_item",
+        "zotero_structure": "zotero_item",
+        "zotero_mapping": "zotero_item",
+        "capability_index": "zotero_item",
+        "citation_audit": "claim",
+        "draft": "draft_section",
+        "evidence_data": "evidence_item",
+        "evidence_report": "evidence_item",
+        "standard_file": "evidence_item",
+        "image": "evidence_item",
+        "polishing": "draft_section",
+    }
+    return mapping.get(kind, "source_file")
+
+
+def artifact_node_from_record(record: ArtifactRecord) -> ArtifactNode:
+    node_type = artifact_node_type(record.kind)
+    risk_flags: list[str] = []
+    trace_status = "confirmed" if record.kind in {
+        "workflow_search_results",
+        "download_manifest",
+        "zotero_mapping",
+        "pdf_index",
+        "citation_audit",
+        "polishing",
+    } else "inferred"
+    if record.kind in {"pdf", "pdf_pool"}:
+        trace_status = "unlinked"
+        risk_flags.append("unlinked_pdf")
+    if record.kind in {"bibliography", "doi_list"}:
+        risk_flags.append("source_unlinked")
+    if record.kind == "mineru_zip":
+        risk_flags.append("verify_reading_depth_before_claim")
+    if record.kind == "draft":
+        risk_flags.append("draft_claims_need_evidence_trace")
+    if not record.exists:
+        trace_status = "unlinked"
+        risk_flags.append("artifact_missing")
+    return ArtifactNode(
+        node_id=f"node-{record.artifact_id}",
+        node_type=node_type,
+        artifact_id=record.artifact_id,
+        path=record.path,
+        step_origin=record.step_origin,
+        label=record.summary,
+        trace_status=trace_status,
+        risk_flags=sorted(set(risk_flags)),
+        metadata={"artifact_kind": record.kind, "format": record.format},
+    )
+
+
+def _first_node(nodes: list[ArtifactNode], *node_types: str) -> ArtifactNode | None:
+    for node in nodes:
+        if node.node_type in node_types:
+            return node
+    return None
+
+
+def _edge_id(source: str, relation: str, target: str) -> str:
+    digest = hashlib.md5(f"{source}:{relation}:{target}".encode("utf-8")).hexdigest()[:12]
+    return f"edge-{digest}"
+
+
+def _make_edge(
+    source: ArtifactNode,
+    target: ArtifactNode,
+    relation: str,
+    confidence: str,
+    evidence: str,
+    risk_flags: list[str] | None = None,
+) -> ArtifactEdge:
+    return ArtifactEdge(
+        edge_id=_edge_id(source.node_id, relation, target.node_id),
+        source_node_id=source.node_id,
+        target_node_id=target.node_id,
+        relation=relation,
+        confidence=confidence,
+        evidence=evidence,
+        risk_flags=sorted(set(risk_flags or [])),
+    )
+
+
+def build_artifact_graph(artifacts: list[ArtifactRecord]) -> tuple[list[ArtifactNode], list[ArtifactEdge], list[str], list[str]]:
+    nodes = [artifact_node_from_record(record) for record in artifacts]
+    edges: list[ArtifactEdge] = []
+    gaps: list[str] = []
+    risks: list[str] = []
+
+    search = _first_node(nodes, "search_record")
+    download = _first_node(nodes, "download_item")
+    pdf = _first_node(nodes, "pdf_attachment")
+    zotero = _first_node(nodes, "zotero_item")
+    evidence = _first_node(nodes, "evidence_item")
+    claim = _first_node(nodes, "claim")
+    draft = _first_node(nodes, "draft_section")
+
+    if search and download:
+        edges.append(_make_edge(search, download, "derived_from", "inferred", "download input and search/bibliography artifact coexist"))
+    if download and pdf:
+        edges.append(_make_edge(download, pdf, "downloaded_as", "inferred", "download manifest/input and PDF artifact coexist"))
+        pdf.trace_status = "inferred"
+        pdf.risk_flags = sorted(set(flag for flag in pdf.risk_flags if flag != "unlinked_pdf"))
+    if pdf and zotero:
+        edges.append(_make_edge(pdf, zotero, "imported_to_zotero", "inferred", "PDF artifact and Zotero mapping/index coexist"))
+        if pdf.trace_status == "unlinked":
+            pdf.trace_status = "inferred"
+    if zotero and evidence:
+        edges.append(_make_edge(zotero, evidence, "derived_from", "inferred", "Zotero artifact and evidence artifact coexist"))
+    if evidence and claim:
+        edges.append(_make_edge(evidence, claim, "supports_claim", "inferred", "evidence artifact and citation/claim audit coexist"))
+    if evidence and draft:
+        edges.append(_make_edge(evidence, draft, "supports_claim", "inferred", "evidence artifact and draft coexist", ["verify_claim_mapping"]))
+    if claim and draft:
+        edges.append(_make_edge(claim, draft, "cited_as", "inferred", "citation audit and draft coexist", ["verify_citation_mapping"]))
+
+    for node in nodes:
+        if node.trace_status == "unlinked":
+            gaps.append(f"{node.node_type}:{node.path} is unlinked")
+        risks.extend(node.risk_flags)
+    if pdf and pdf.trace_status == "unlinked":
+        gaps.append("PDF exists without confirmed search/download/Zotero linkage; keep as unlinked_pdf until matched")
+    if draft and not (evidence or claim or zotero):
+        risks.append("draft has no evidence graph; Step 7/8 must keep citation/evidence risk visible")
+    return nodes, edges, sorted(set(gaps)), sorted(set(risks))
+
+
+def normalize_entry_step(entry_step: str | None) -> str:
+    value = _clean(entry_step).lower().replace("_", "").replace("-", "")
+    if not value:
+        return ""
+    if value in DIRECT_ENTRY_STEPS:
+        return value
+    if value.startswith("step") and value[4:].isdigit() and value in DIRECT_ENTRY_STEPS:
+        return value
+    return ""
+
+
+def validate_artifact_passport(passport: ArtifactPassport | dict[str, Any]) -> list[str]:
+    data = artifact_passport_payload(passport) if isinstance(passport, ArtifactPassport) else passport
+    errors: list[str] = []
+    nodes = data.get("nodes", [])
+    edges = data.get("edges", [])
+    node_ids = {node.get("node_id") for node in nodes if isinstance(node, dict)}
+    for index, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            errors.append(f"nodes[{index}] must be an object")
+            continue
+        if node.get("node_type") not in ARTIFACT_NODE_TYPES:
+            errors.append(f"nodes[{index}].node_type is invalid: {node.get('node_type')}")
+        if node.get("trace_status") not in ARTIFACT_EDGE_CONFIDENCE:
+            errors.append(f"nodes[{index}].trace_status is invalid: {node.get('trace_status')}")
+    for index, edge in enumerate(edges):
+        if not isinstance(edge, dict):
+            errors.append(f"edges[{index}] must be an object")
+            continue
+        if edge.get("relation") not in ARTIFACT_EDGE_RELATIONS:
+            errors.append(f"edges[{index}].relation is invalid: {edge.get('relation')}")
+        if edge.get("confidence") not in ARTIFACT_EDGE_CONFIDENCE:
+            errors.append(f"edges[{index}].confidence is invalid: {edge.get('confidence')}")
+        if edge.get("source_node_id") not in node_ids:
+            errors.append(f"edges[{index}].source_node_id does not reference a node")
+        if edge.get("target_node_id") not in node_ids:
+            errors.append(f"edges[{index}].target_node_id does not reference a node")
+    entry_step = data.get("direct_entry", {}).get("entry_step", "") if isinstance(data.get("direct_entry"), dict) else ""
+    if entry_step and normalize_entry_step(entry_step) != entry_step:
+        errors.append(f"direct_entry.entry_step is invalid: {entry_step}")
+    return errors
+
+
 def infer_step_origin(kind: str) -> str:
     mapping = {
         "topic": "Step 1",
@@ -961,6 +1205,7 @@ def infer_step_origin(kind: str) -> str:
         "bibliography": "Step 4",
         "workflow_search_results": "Step 4",
         "chinese_metadata": "Step 4",
+        "doi_list": "Step 5",
         "download_manifest": "Step 5",
         "pdf": "Step 5",
         "pdf_pool": "Step 5",
@@ -980,7 +1225,7 @@ def infer_step_origin(kind: str) -> str:
     return mapping.get(kind, "")
 
 
-def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepReadiness]:
+def evaluate_passport_readiness(artifacts: list[ArtifactRecord], entry_step: str = "") -> list[StepReadiness]:
     existing = [a for a in artifacts if a.exists]
     kinds = {a.kind for a in existing}
     polishing_status_contracts = [
@@ -1009,16 +1254,18 @@ def evaluate_passport_readiness(artifacts: list[ArtifactRecord]) -> list[StepRea
         recommended_next_step="生成或修复检索结果",
     ))
 
-    step5_ready = bool(kinds & {"bibliography", "search_table", "workflow_search_results", "download_manifest", "chinese_metadata"})
+    step5_ready = bool(kinds & {"bibliography", "search_table", "workflow_search_results", "download_manifest", "chinese_metadata", "doi_list"})
+    if entry_step == "step5" and kinds & {"pdf", "pdf_pool"}:
+        step5_ready = True
     readiness.append(StepReadiness(
         step="Step 5",
         ready=step5_ready,
         route_mode="direct-step" if step5_ready else "plan-only",
-        allowed_modes=["manifest-from-any-input", "dry-run", "download"] if step5_ready else ["plan-only"],
-        available_artifacts=ids("bibliography", "search_table", "workflow_search_results", "download_manifest", "chinese_metadata"),
+        allowed_modes=["manifest-from-any-input", "dry-run", "download", "reconcile-existing-pdf"] if step5_ready else ["plan-only"],
+        available_artifacts=ids("bibliography", "search_table", "workflow_search_results", "download_manifest", "chinese_metadata", "doi_list", "pdf", "pdf_pool"),
         missing_required=[] if step5_ready else ["DOI 列表、中文 article_url、publisher URL、BibTeX 或 workflow JSON"],
         missing_optional=["下载优先级", "登录态说明"] if step5_ready else [],
-        risks=["真实下载可能触发登录或版权访问边界，先 dry-run"] if step5_ready else [],
+        risks=["真实下载可能触发登录或版权访问边界，先 dry-run"] + (["PDF 直入只能登记 existing/unlinked 状态，不能倒推来源为 confirmed"] if entry_step == "step5" and kinds & {"pdf", "pdf_pool"} else []) if step5_ready else [],
         blocked_reason="" if step5_ready else "没有可归一为 DownloadManifestItem 的输入",
         recommended_next_step="先生成下载 manifest，再决定 dry-run 或真实下载",
     ))
@@ -1149,21 +1396,36 @@ def build_artifact_passport(
     project_root: str | Path,
     artifact_paths: list[str | Path] | None = None,
     source: str = "user_provided",
+    entry_step: str = "",
 ) -> ArtifactPassport:
     root = Path(project_root)
+    normalized_entry_step = normalize_entry_step(entry_step)
     artifacts = [
         artifact_record_from_path(path, root, source=source)
         for path in (artifact_paths or [])
     ]
-    readiness = evaluate_passport_readiness(artifacts)
+    readiness = evaluate_passport_readiness(artifacts, normalized_entry_step)
     route_mode = infer_passport_route_mode(artifacts, readiness)
+    nodes, edges, gaps, risks = build_artifact_graph(artifacts)
     return ArtifactPassport(
         project_root=root.as_posix(),
         generated_at=_now_iso(),
         route_mode=route_mode,
+        current_step=f"Step {normalized_entry_step.removeprefix('step')}" if normalized_entry_step else "",
         recommended_step=recommend_passport_step(artifacts, readiness),
         artifacts=artifacts,
+        nodes=nodes,
+        edges=edges,
         readiness=readiness,
+        gaps=gaps,
+        risks=risks,
+        direct_entry=DirectEntryMode(
+            entry_step=normalized_entry_step,
+            direct_entry_friendly=True,
+            require_full_trace=False,
+            missing_prior_steps_block=False,
+            notes=["缺失前序 Step 不阻塞当前入口；只把无法确认的关系标记为 inferred/unlinked/conflict。"],
+        ),
         notes=["Passport 只保存材料指针、缺口和风险，不保存正文内容。"],
     )
 
@@ -1184,7 +1446,11 @@ def write_artifact_passport(path: str | Path, passport: ArtifactPassport) -> Non
 def load_artifact_passport(path: str | Path) -> ArtifactPassport:
     data = load_json(path)
     artifacts = [ArtifactRecord(**row) for row in data.get("artifacts", []) if isinstance(row, dict)]
+    nodes = [ArtifactNode(**row) for row in data.get("nodes", []) if isinstance(row, dict)]
+    edges = [ArtifactEdge(**row) for row in data.get("edges", []) if isinstance(row, dict)]
     readiness = [StepReadiness(**row) for row in data.get("readiness", []) if isinstance(row, dict)]
+    direct_entry_data = data.get("direct_entry", {})
+    direct_entry = DirectEntryMode(**direct_entry_data) if isinstance(direct_entry_data, dict) else DirectEntryMode()
     return ArtifactPassport(
         schema_version=data.get("schema_version", ARTIFACT_PASSPORT_SCHEMA),
         project_root=data.get("project_root", ""),
@@ -1193,7 +1459,12 @@ def load_artifact_passport(path: str | Path) -> ArtifactPassport:
         current_step=data.get("current_step", ""),
         recommended_step=data.get("recommended_step", ""),
         artifacts=artifacts,
+        nodes=nodes,
+        edges=edges,
         readiness=readiness,
+        gaps=list(data.get("gaps", [])),
+        risks=list(data.get("risks", [])),
+        direct_entry=direct_entry,
         notes=list(data.get("notes", [])),
     )
 

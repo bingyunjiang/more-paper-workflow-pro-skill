@@ -21,7 +21,6 @@ import sys
 
 from workflow_contracts import (
     ArtifactPassport,
-    artifact_record_from_path,
     build_artifact_passport,
     load_artifact_passport,
     write_artifact_passport,
@@ -69,6 +68,12 @@ def parse_args() -> argparse.Namespace:
         description="Build or show .skill-state/artifact_passport.json without side effects.",
     )
     parser.add_argument("--project-root", default=".", help="Project directory to scan.")
+    parser.add_argument(
+        "--entry-step",
+        choices=["step4", "step5", "step6", "step7", "step8"],
+        default="",
+        help="Direct-entry step to evaluate without requiring earlier workflow steps.",
+    )
     parser.add_argument("--scan", action="store_true", help="Scan common workflow artifact names.")
     parser.add_argument("--add", action="append", default=[], help="Add an explicit artifact path. Can repeat.")
     parser.add_argument("--output", help="Output JSON path. Defaults to PROJECT/.skill-state/artifact_passport.json.")
@@ -106,8 +111,16 @@ def print_summary(passport: ArtifactPassport) -> None:
     print(f"schema: {passport.schema_version}")
     print(f"project_root: {passport.project_root}")
     print(f"route_mode: {passport.route_mode}")
+    if passport.current_step:
+        print(f"current_step: {passport.current_step}")
     print(f"recommended_step: {passport.recommended_step}")
     print(f"artifacts: {len(passport.artifacts)}")
+    print(f"nodes: {len(passport.nodes)}")
+    print(f"edges: {len(passport.edges)}")
+    if passport.gaps:
+        print(f"gaps: {'; '.join(passport.gaps)}")
+    if passport.risks:
+        print(f"risks: {'; '.join(passport.risks)}")
     for readiness in passport.readiness:
         status = "ready" if readiness.ready else "blocked"
         modes = ", ".join(readiness.allowed_modes) if readiness.allowed_modes else "-"
@@ -137,16 +150,7 @@ def main() -> int:
         artifact_paths.extend(scan_artifacts(project_root))
     artifact_paths.extend(Path(p).expanduser() for p in args.add)
 
-    passport = build_artifact_passport(project_root, artifact_paths)
-    # Preserve explicit missing artifacts added by the user as risk-bearing pointers.
-    if args.add:
-        explicit = [
-            artifact_record_from_path(Path(p).expanduser(), project_root)
-            for p in args.add
-            if not (project_root / Path(p)).exists() and not Path(p).expanduser().exists()
-        ]
-        if explicit:
-            passport.artifacts.extend(explicit)
+    passport = build_artifact_passport(project_root, artifact_paths, entry_step=args.entry_step)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     write_artifact_passport(output, passport)

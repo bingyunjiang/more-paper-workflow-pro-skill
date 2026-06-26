@@ -29,6 +29,13 @@ related_skills:
 - Update reminders: `references/update-reminder-protocol.md`
 - Entry vocabulary: `references/entry-routing-index.md`
 - Trigger catalog: `references/trigger-catalog.md`
+- Direct-entry artifact graph: `.skill-state/artifact_passport.json`
+
+## Direct-entry artifact passport
+
+- `artifact_passport.json` 是 direct-entry / resume / repair 的轻量产物护照，不是线性流程锁。
+- 它记录 `route_mode`、`recommended_step`、nodes、edges、gaps、risks 和每个 Step 的 readiness；缺失前序 Step 默认不阻塞当前入口。
+- Step 5/6/7/8 可从 DOI/BibTeX/PDF/Zotero/evidence pack/初稿等现有材料直接进入；无法确认的关系必须标为 `inferred`、`unlinked` 或 `conflict`，不得伪装为 confirmed。
 
 ## Workflow map
 

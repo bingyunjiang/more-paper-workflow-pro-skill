@@ -9,6 +9,9 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from workflow_contracts import (  # noqa: E402
+    ArtifactEdge,
+    ArtifactNode,
+    ArtifactPassport,
     CapabilityIndex,
     CapabilityRecord,
     DeepReadCardRecord,
@@ -33,6 +36,7 @@ from workflow_contracts import (  # noqa: E402
     retrieval_candidates_payload,
     retrieval_manifest_payload,
     stable_source_id,
+    validate_artifact_passport,
     write_workflow_json,
 )
 
@@ -44,6 +48,43 @@ class WorkflowContractsTest(unittest.TestCase):
             "10.1016/j.test.2024.01.001",
         )
         self.assertEqual(normalize_doi("doi:10.1109/TEST.2024.123"), "10.1109/TEST.2024.123")
+
+    def test_artifact_graph_schema_accepts_direct_entry_unlinked_edges(self):
+        passport = ArtifactPassport(
+            nodes=[
+                ArtifactNode(
+                    node_id="node-pdf",
+                    node_type="pdf_attachment",
+                    trace_status="unlinked",
+                    risk_flags=["unlinked_pdf"],
+                ),
+                ArtifactNode(
+                    node_id="node-evidence",
+                    node_type="evidence_item",
+                    trace_status="inferred",
+                ),
+            ],
+            edges=[
+                ArtifactEdge(
+                    edge_id="edge-1",
+                    source_node_id="node-pdf",
+                    target_node_id="node-evidence",
+                    relation="derived_from",
+                    confidence="inferred",
+                )
+            ],
+        )
+
+        self.assertEqual(validate_artifact_passport(passport), [])
+
+    def test_artifact_graph_schema_rejects_invalid_confidence(self):
+        passport = ArtifactPassport(
+            nodes=[ArtifactNode(node_id="node-1", node_type="pdf_attachment", trace_status="certain")],
+        )
+
+        errors = validate_artifact_passport(passport)
+
+        self.assertTrue(any("trace_status is invalid" in error for error in errors))
 
     def test_chinese_article_url_only_routes_to_manifest(self):
         record = SearchResultRecord.from_search_result({
