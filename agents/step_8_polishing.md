@@ -21,6 +21,19 @@
 
 ---
 
+## 润色前先答 (Before You Polish)
+
+先把下面四个问题答清楚，再开始改正文：
+
+1. 这次是 `quick-polish` 还是 `audited-polish`？
+2. 这段文字的问题主要是语言、结构、术语，还是 claim / evidence / citation 风险？
+3. 当前可用的约束源是什么：Step 7 三工件、评审报告、引用审计报告，还是只有初稿？
+4. 这一轮允许做到哪一层：直接修改、局部补写，还是必须回退 Step 7？
+
+如果问题已经落到证据缺口、章节功能错误或引用不匹配，不要继续硬修句子，先回退对应 Step。
+
+---
+
 ## 适用任务 (Applicable Tasks)
 
 - 逐句精修学术论文
@@ -35,7 +48,7 @@
 ## 不适用任务 (Non-applicable Tasks)
 
 - 论文写作 → 路由到 `agents/step_7_writing.md`
-- 引用审计 → 路由到 `agents/step_7_writing.md`（7.15）
+- 引用审计 → 路由到 `agents/step_7_writing.md`（7.16）
 - 图表生成 → 路由到 `agents/step_7_writing.md`（7.14）
 - 正文生成、文献整合、证据补强、修稿路线图 → 路由到 `agents/step_7_writing.md`
 
@@ -83,6 +96,20 @@ Step 8 可以补局部内容，但仅限可由现有正文、Step 7 三工件、
 | `audited-polish` | 全文章节、投稿/送审前终稿、触及 claim 强度/引用/结构的问题 | `diagnostic_summary.md`、`revision_ledger.json/md`、修改对照表、术语一致性报告、润色质量报告 | 不替代 Step 7 引用审计，不新增外部证据 |
 
 若 `quick-polish` 过程中发现 `evidence_gap / structure_drift / citation_misalignment / contribution_overclaim`，必须升级为 `audited-polish` 或回退 Step 7，不能继续把结构或证据问题包装成句子润色。
+
+### 8.0.1. 默认输出顺序
+
+Step 8 的默认输出顺序固定为：
+
+1. 诊断摘要
+2. 修订任务清单
+3. 润色正文草案
+4. `revision_ledger`
+5. 修改对照表
+6. 术语一致性报告
+7. 润色质量报告
+
+如果只是局部 low-risk 润色，可以压缩输出，但诊断摘要和风险标记仍然必须保留。
 
 > **AI 味确定性检查边界：** Step 8 内部包含一个“AI 味确定性检查”子层，输入为待润色正文、`.skill-state/term_aliases.md` 与 Step 7 三工件（如可用）。它只检查表达层确定性风险，用于识别机械化表达、空泛套话、悬垂洞见、节奏过匀和载体脏污等问题；它不判断学术观点真假，不判断引用是否真实存在，也不把“像 AI 写的”直接等同于“不能发表”或“必须回退”。
 
