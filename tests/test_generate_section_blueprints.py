@@ -99,6 +99,36 @@ class GenerateSectionBlueprintsTest(unittest.TestCase):
         bp = blueprints[0].to_schema_dict()
         self.assertNotIn("mechanism_chain", bp["evidence_needed"])
 
+    def test_thesis_style_strengthens_mechanism_blueprint_language(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            outline = root / "大纲关键词.md"
+            style = root / "style_profile.json"
+            evidence = root / "综述矩阵.csv"
+
+            outline.write_text(
+                "# 论文大纲\n\n## 1. 失效机理分析\n",
+                encoding="utf-8",
+            )
+            style.write_text(
+                '{"target_genre":"thesis","language_rules":{"avg_sentence_length":20,"passive_voice_ratio":0.2},"structure_rules":{"section_order":["引言","机理分析"]}}',
+                encoding="utf-8",
+            )
+            evidence.write_text(
+                "作者年份,核心发现,方法,贡献,可引用摘录,与我的主题关系\n"
+                "Wang2024,fast charging heat transfer,experiment,mechanism,quote,direct\n",
+                encoding="utf-8",
+            )
+
+            blueprints = generate_blueprints(str(outline), str(style), str(evidence))
+
+        bp = blueprints[0].to_schema_dict()
+        self.assertIn("thesis-mechanism-style", bp["risk_flags"])
+        self.assertIn("mechanism_type", bp["evidence_needed"])
+        self.assertIn("discriminates_against", bp["evidence_needed"])
+        self.assertIn("博士论文章节优先给出机制判断", " ".join(bp["style_notes"]))
+        self.assertIn("判定句优先", bp["section_function"])
+
 
 if __name__ == "__main__":
     unittest.main()

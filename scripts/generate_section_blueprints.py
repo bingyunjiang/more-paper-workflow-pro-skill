@@ -87,17 +87,17 @@ def generate_blueprints(
         bp = SectionBlueprint(
             section_title=section["name"],
             section_id=section["number"],
-            section_function=_infer_purpose(section["name"], i, len(outline_sections)),
+            section_function=_infer_purpose(section["name"], i, len(outline_sections), style_rules),
             expected_length=_estimate_length(section, style_rules),
-            key_claims=_infer_claims(section, evidence),
-            evidence_needed=_infer_evidence_needed(section),
+            key_claims=_infer_claims(section, evidence, style_rules),
+            evidence_needed=_infer_evidence_needed(section, style_rules),
             evidence_basis=_map_evidence(section, evidence),
-            do_not_write=_infer_do_not_write(section),
+            do_not_write=_infer_do_not_write(section, style_rules),
             figure_needs=_suggest_figures(section, style_rules),
             transition_from=_transition_from(i, outline_sections),
             transition_to=_transition_to(i, outline_sections),
             style_notes=_style_notes(section, style_rules),
-            risk_flags=_infer_risk_flags(section, evidence),
+            risk_flags=_infer_risk_flags(section, evidence, style_rules),
         )
         blueprints.append(bp)
 
@@ -227,12 +227,17 @@ def _parse_style_profile(path: str) -> dict:
     if path.endswith(".json"):
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
+        rules["target_genre"] = data.get("target_genre", "")
         rules["avg_sentence_length"] = data.get("language_rules", {}).get("avg_sentence_length")
         rules["passive_ratio"] = data.get("language_rules", {}).get("passive_voice_ratio")
         rules["section_order"] = data.get("structure_rules", {}).get("section_order", [])
         return rules
     with open(path, 'r', encoding='utf-8') as f:
         content = f.read()
+
+    m = re.search(r'target_genre:\s*([a-z-]+)', content)
+    if m:
+        rules["target_genre"] = m.group(1).strip()
 
     # Extract avg sentence length
     m = re.search(r'平均句长.*?(\d+\.?\d*)\s*words', content)
@@ -370,6 +375,14 @@ def _contains_any(text: str, terms: list[str]) -> bool:
     return any(term.lower() in lowered for term in terms)
 
 
+def _is_thesis_style(style_rules: dict) -> bool:
+    return _clean_style_value(style_rules.get("target_genre")) == "thesis"
+
+
+def _clean_style_value(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
 def _is_mechanism_candidate(name: str) -> bool:
     return (
         _contains_any(name, MECHANISM_CORE_TERMS)
@@ -393,10 +406,10 @@ def _is_mechanism_section(name: str) -> bool:
     return False
 
 
-def _infer_evidence_needed(section: dict) -> list[str]:
+def _infer_evidence_needed(section: dict, style_rules: dict) -> list[str]:
     name = section["name"].lower()
     if _is_mechanism_section(section["name"]):
-        return [
+        evidence = [
             "mechanism_chain",
             "model_or_equation",
             "boundary_condition",
@@ -407,6 +420,14 @@ def _infer_evidence_needed(section: dict) -> list[str]:
             "边界条件证据",
             "验证路径证据",
         ]
+        if _is_thesis_style(style_rules):
+            evidence.extend([
+                "mechanism_type",
+                "discriminates_against",
+                "thesis_boundary_statement",
+                "paragraph-level evidence anchor",
+            ])
+        return evidence
     if any(w in name for w in ['intro', '引言', '绪论', 'related', '文献综述', '综述']):
         return ["review", "context", "gap"]
     if any(w in name for w in ['method', '方法', '方案']):
@@ -418,10 +439,17 @@ def _infer_evidence_needed(section: dict) -> list[str]:
     return ["context", "evidence"]
 
 
-def _infer_do_not_write(section: dict) -> list[str]:
+def _infer_do_not_write(section: dict, style_rules: dict) -> list[str]:
     name = section["name"].lower()
     if _is_mechanism_section(section["name"]):
-        return ["只堆文献不解释变量传导", "没有边界条件的强机理结论", "把候选相关性写成因果证明"]
+        blocked = ["只堆文献不解释变量传导", "没有边界条件的强机理结论", "把候选相关性写成因果证明"]
+        if _is_thesis_style(style_rules):
+            blocked.extend([
+                "用解释腔替代判定句",
+                "先铺垫一大段再迟迟不落机制判断",
+                "把概述写成口语化分析",
+            ])
+        return blocked
     if any(w in name for w in ['method', '方法', '方案']):
         return ["重复大段背景综述", "未定义符号前直接给公式"]
     if any(w in name for w in ['experiment', '实验', '结果']):
@@ -431,7 +459,7 @@ def _infer_do_not_write(section: dict) -> list[str]:
     return ["与本章功能无关的大段内容"]
 
 
-def _infer_risk_flags(section: dict, evidence: dict) -> list[str]:
+def _infer_risk_flags(section: dict, evidence: dict, style_rules: dict) -> list[str]:
     flags = []
     if not evidence:
         flags.append("evidence-thin")
@@ -440,6 +468,8 @@ def _infer_risk_flags(section: dict, evidence: dict) -> list[str]:
         flags.append("requires-mechanism-chain")
         if not evidence:
             flags.append("mechanism-evidence-thin")
+        if _is_thesis_style(style_rules):
+            flags.append("thesis-mechanism-style")
     if any(w in name for w in ['experiment', '实验']) and not evidence:
         flags.append("missing-experimental-basis")
     return flags
@@ -447,17 +477,21 @@ def _infer_risk_flags(section: dict, evidence: dict) -> list[str]:
 
 # ── Inference Helpers ────────────────────────────────────────────────────────
 
-def _infer_purpose(name: str, idx: int, total: int) -> str:
+def _infer_purpose(name: str, idx: int, total: int, style_rules: dict) -> str:
     """Infer the purpose of a section from its name and position."""
     name_lower = name.lower()
     if _is_mechanism_section(name):
         if _contains_any(name, ["失效", "failure"]):
-            return "failure_cause_analysis：识别失效诱因、变量传导路径、边界条件与竞争解释，避免把表面现象误写成根因"
-        if _contains_any(name, ["耦合", "coupling", "interaction", "反馈"]):
-            return "interaction_path_analysis：解释变量耦合、反馈机制和作用路径，明确不同机制之间的传导关系与适用边界"
-        if _contains_any(name, MECHANISM_JUDGEMENT_TERMS):
-            return "mechanism_discrimination：解释现象背后的变量传导、主导机制、竞争机制差异、边界条件和验证路径，避免把相关性写成因果结论"
-        return "mechanism_explanation：解释现象背后的变量传导、模型约束、边界条件和验证路径，避免把相关性写成因果结论"
+            base = "failure_cause_analysis：识别失效诱因、变量传导路径、边界条件与竞争解释，避免把表面现象误写成根因"
+        elif _contains_any(name, ["耦合", "coupling", "interaction", "反馈"]):
+            base = "interaction_path_analysis：解释变量耦合、反馈机制和作用路径，明确不同机制之间的传导关系与适用边界"
+        elif _contains_any(name, MECHANISM_JUDGEMENT_TERMS):
+            base = "mechanism_discrimination：解释现象背后的变量传导、主导机制、竞争机制差异、边界条件和验证路径，避免把相关性写成因果结论"
+        else:
+            base = "mechanism_explanation：解释现象背后的变量传导、模型约束、边界条件和验证路径，避免把相关性写成因果结论"
+        if _is_thesis_style(style_rules):
+            return base + "；按博士论文章节写法采用判定句优先、解释句收束，减少解释腔"
+        return base
     if idx == 0:
         return f"建立研究背景，识别问题差距（gap），明确列出本文的贡献"
     elif idx == total - 1:
@@ -479,25 +513,26 @@ def _infer_purpose(name: str, idx: int, total: int) -> str:
 def _estimate_length(section: dict, style_rules: dict) -> str:
     """Estimate appropriate section length based on style conventions."""
     name = section["name"].lower()
+    is_thesis = _is_thesis_style(style_rules)
     if any(w in name for w in ['intro', '引言', '绪论']):
-        return "~800-1200 词（3-5 段）"
+        return "~1000-1600 词（4-6 段）" if is_thesis else "~800-1200 词（3-5 段）"
     elif any(w in name for w in ['related', '相关工作', '文献综述']):
-        return "~1200-2000 词（5-8 段）"
+        return "~1500-2400 词（6-9 段）" if is_thesis else "~1200-2000 词（5-8 段）"
     elif any(w in name for w in ['method', '方法', '方案']):
-        return "~1500-2500 词（6-10 段）"
+        return "~1800-2800 词（7-11 段）" if is_thesis else "~1500-2500 词（6-10 段）"
     elif any(w in name for w in ['experiment', '实验', '结果']):
-        return "~2000-3000 词（8-12 段）"
+        return "~2200-3200 词（8-13 段）" if is_thesis else "~2000-3000 词（8-12 段）"
     elif _is_mechanism_section(section["name"]):
-        return "~1500-2500 词（6-10 段）"
+        return "~1800-3000 词（7-12 段）" if is_thesis else "~1500-2500 词（6-10 段）"
     elif any(w in name for w in ['discussion', '讨论']):
-        return "~1000-1500 词（4-6 段）"
+        return "~1200-1800 词（5-7 段）" if is_thesis else "~1000-1500 词（4-6 段）"
     elif any(w in name for w in ['conclusion', '结论']):
-        return "~500-800 词（2-3 段）"
+        return "~700-1000 词（3-4 段）" if is_thesis else "~500-800 词（2-3 段）"
     else:
-        return "~800-1200 词（3-5 段）"
+        return "~1000-1500 词（4-6 段）" if is_thesis else "~800-1200 词（3-5 段）"
 
 
-def _infer_claims(section: dict, evidence: dict) -> list[str]:
+def _infer_claims(section: dict, evidence: dict, style_rules: dict) -> list[str]:
     """Infer likely claims for a section based on evidence."""
     claims = []
     name = section["name"].lower()
@@ -526,6 +561,11 @@ def _infer_claims(section: dict, evidence: dict) -> list[str]:
             "关键模型/方程/等效关系约束了...作用边界",
             "实验、仿真或图表证据支持/限制了该机理解释",
         ]
+        if _is_thesis_style(style_rules):
+            claims.extend([
+                "该机制判断与边界条件可被现有证据直接约束",
+                "应显式区分主导机制与次级/竞争机制",
+            ])
     return claims
 
 
@@ -581,6 +621,12 @@ def _style_notes(section: dict, style_rules: dict) -> list[str]:
     notes.append(f"句长保持在 {avg_sl:.0f} 词左右，自然波动")
     if style_rules.get("passive_ratio", 0) < 0.3:
         notes.append("多用主动语态（'We conducted...'），避免过度使用被动态")
+    if _is_thesis_style(style_rules) and _is_mechanism_section(section["name"]):
+        notes.extend([
+            "博士论文章节优先给出机制判断，再补证据与边界",
+            "段内避免长解释链堆叠，收束句必须回到本节问题",
+            "竞争机制、适用边界和验证路径要显式写出",
+        ])
     return notes
 
 

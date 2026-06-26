@@ -182,6 +182,8 @@ retrieval_index_manifest:
 - `query_blocks` 优先使用关键词清单中的核心词、同义词/缩写、方法词、场景词、指标词
 - `exclusion_terms` 优先来自关键词清单的排除词
 - `review_protocol` 仅在综述 / 系统综述任务下强制填写；普通研究型任务可省略
+- 关键词分层只用于检索表达层，不等于 Zotero 分类层；它服务于检索式构造、召回控制和路由，不负责文献归档。
+- `query_blocks` 默认保留核心词、同义词/缩写、方法词、场景词、指标词和排除词；上位词/下位词只在检索过窄、过散或需要扩召回时补入。
 
 ### 3.2. retrieval_index_manifest 复用规则
 
@@ -219,6 +221,8 @@ Step 3 可生成或更新 `retrieval_index_manifest.json`，用于告诉 Step 4 
 | **Methods-focused** | 方法学论文 | Method + Application + Validation |
 
 #### 概念块模型
+
+> 概念块是检索语义分层，不是文献管理分类。Step 3 只负责把关键词组织成可执行检索式，真正的 Zotero 分类与集合组织留到 Step 6。
 
 ```
 ✅ 正确 — 概念块模型：

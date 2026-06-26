@@ -19,6 +19,9 @@ class PublicDocsTest(unittest.TestCase):
             "examples/first-run/README.md",
             "examples/demo/step8-ai-trace-demo/",
             "python3 scripts/run_step8_ai_trace.py --project-root examples/demo/step8-ai-trace-demo",
+            "先发散、后收敛、候选池先保留",
+            "输入边界、候选池、输出工件和失败回退",
+            "先把主题、假设、路线和反例放进候选池，再把当前轮收敛成一个执行包",
         ]:
             self.assertIn(token, readme)
 
@@ -44,6 +47,18 @@ class PublicDocsTest(unittest.TestCase):
         skill = read_rel("SKILL.md")
         self.assertIn("Public-first entry examples", skill)
         self.assertIn("README 首屏", skill)
+
+    def test_search_and_zotero_entry_docs_keep_boundary_separated(self):
+        search = read_rel("commands/search.md")
+        zotero = read_rel("commands/zotero.md")
+        self.assertIn("关键词分层只服务检索式构造", search)
+        self.assertIn("真正的 Zotero 分类与集合组织留到 Step 6", search)
+        self.assertIn("Step 6 才是文献与大纲二级标题对齐的 Zotero 集合组织入口", zotero)
+        self.assertIn("Zotero 根集合为论文标题", zotero)
+        self.assertIn("一级集合只作为一级章节容器", zotero)
+        self.assertIn("文献默认直接归入对应的大纲二级章节集合", zotero)
+        self.assertIn("按小节集合限定证据链范围", zotero)
+        self.assertIn("Step 3 的关键词分层只用于检索表达，不作为 Zotero 分类规则", zotero)
 
     def test_update_reminder_protocol_is_public_and_host_agnostic(self):
         protocol = read_rel("references/update-reminder-protocol.md")

@@ -424,10 +424,12 @@ Step 8 的问题闭环主工件为：
    - 术语是否与 Main Term 一致？
    - 是否存在同义词轮换（Level 2 中的"同义替换综合征"）？
    - 是否在错误章节使用了不该出现的术语变体？
+   - `seed` / `provisional` / `locked` 是否与当前证据状态一致
 4. 不一致处理：
    - 修正为 Main Term → 记录到 before/after 表
    - 如果 Main Term 选择不当 → 更新 `.skill-state/term_aliases.md` → 记录到 `.skill-state/decision_log.md`
    - 如果属于新术语 → 追加到 `.skill-state/term_aliases.md`
+   - `provisional` 术语只做风险提示和统一建议，不得因为尚未收口就硬删；只有证据足够时才提升为 `locked`，而不是把 `seed / provisional / locked` 当作一次性静态名单
 5. 输出：术语一致性报告（含修改数、新增术语数、映射表更新说明）
 
 ---

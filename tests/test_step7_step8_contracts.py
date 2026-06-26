@@ -56,6 +56,20 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("Step 7 的职责是维持 workflow 与证据边界", text)
         self.assertIn("不得作为用户选项、命令、按钮或对话模式暴露", text)
 
+    def test_step7_terminology_frontloading_is_seeded_not_fully_locked(self):
+        text = read_rel("agents/step_7_writing.md")
+        for token in [
+            "术语状态分三层",
+            "`seed`",
+            "`provisional`",
+            "`locked`",
+            "不要求一开始就扫完全部 PDF",
+            "`seed` 和 `provisional` 术语可以先用于写作和证据组织",
+            "locked 术语才作为全篇标准",
+            "先建立可写作、可审计的标准",
+        ]:
+            self.assertIn(token, text)
+
     def test_step8_is_constrained_revision_not_primary_writing_or_audit_owner(self):
         step8 = read_rel("agents/step_8_polishing.md")
         step8_entry = read_rel("agents/step_8_entry.md")
@@ -71,6 +85,17 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("执行受约束补写、直接修改与修订后验证", step8_entry)
         self.assertIn("Step 7 是写作生产层", architecture)
         self.assertIn("Step 8 是成稿级精修与保守修订层", architecture)
+
+    def test_step8_terminology_termination_respects_provisional_terms(self):
+        step8 = read_rel("agents/step_8_polishing.md")
+        for token in [
+            "seed / provisional / locked",
+            "`seed` / `provisional` / `locked` 是否与当前证据状态一致",
+            "`provisional` 术语只做风险提示和统一建议",
+            "不得因为尚未收口就硬删",
+            "只有证据足够时才提升为 `locked`",
+        ]:
+            self.assertIn(token, step8)
 
     def test_step7_revision_coach_contract_exists(self):
         text = read_rel("agents/step_7_writing.md")

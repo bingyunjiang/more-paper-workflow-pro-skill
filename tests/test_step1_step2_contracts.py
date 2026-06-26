@@ -23,9 +23,19 @@ class Step1Step2ContractsTest(unittest.TestCase):
             "devils_advocate_challenge",
         ]:
             self.assertIn(token, step1)
+        for token in [
+            "发散层 / 收敛层",
+            "当前轮的执行范围",
+            "候选池",
+            "侧边聊天",
+            "候选池内容记录",
+            "不锁死研究想象",
+        ]:
+            self.assertIn(token, step1)
 
     def test_step2_declares_unique_outline_generation_boundary(self):
         step2 = read_rel("agents/step_2_outline.md")
+        self.assertIn("Step 1 负责问题结构收敛，但不压死研究发散", step2)
         self.assertIn("Step 2 是完整研究大纲 / 论文大纲的唯一生成层", step2)
         self.assertIn("Step 1 提供问题结构，Step 2 负责把问题结构展开为完整论文结构", step2)
 
@@ -58,6 +68,9 @@ class Step1Step2ContractsTest(unittest.TestCase):
             "混合资料包",
             "只抽取结构、关键词、证据需求和缺口；正文改写交给 Step 7/8",
             "保密边界、数据是否已验证、哪些内容可写成论文 claim",
+            "候选任务 / 备选论证区",
+            "候选任务区只用于保留发散结果和后续切换空间",
+            "只收口当前轮的执行范围",
         ]:
             self.assertIn(token, step2)
 
@@ -76,6 +89,7 @@ class Step1Step2ContractsTest(unittest.TestCase):
             "混合资料出现优先级冲突",
             "资料清点、反推主题、风险标注、初步评审和待确认版建议不需要等待确认",
             "确认状态必须写入 `大纲评审报告.md` 或 `大纲关键词.md`",
+            "发散模式的目标是扩大候选池，不是提前替代定题",
         ]:
             self.assertIn(token, step2)
 

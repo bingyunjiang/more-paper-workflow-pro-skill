@@ -56,6 +56,14 @@
 > 标准链路下推荐使用 Step 4 生成的 `文献库.bib`。但 Step 6 不把它当成唯一合法入口：若用户已有 Zotero 文库、已有 BibTeX/CSL JSON、已有 workflow search results JSON、已有 PDF 目录或只想整理现有集合，也可直接进入本步骤。
 > Zotero 是 Step 7 的推荐资产管理层，不是唯一写作入口。若用户没有 Zotero 或选择 `skip`，Step 7 可改走本地 `evidence_pack`；Step 6 只需把可用 PDF、MinerU ZIP、文献库和缺口记录清楚。
 
+**大纲对齐分类边界：**
+
+- Step 6 才是文献与大纲二级标题对齐的 Zotero 集合组织入口，不做脱离大纲的自由分类。
+- Step 3 的关键词分层只用于检索式构造，不作为 Zotero 分类规则。
+- 标准链路下，Zotero 根集合为论文标题，一级集合只作为一级章节容器；文献默认直接归入对应的大纲二级章节集合，方便 Step 7 按小节集合限定证据链范围。
+- 新建集合和子集合优先依据 Step 2 大纲二级章节；关键词、证据类型和文件名匹配只做标签或降级匹配。
+- 有前序文献-大纲映射时，入库集合路径应直接复用该映射，不重新按关键词猜章节。
+
 **Artifact Passport / Direct-entry Graph：**
 
 - Step 6 可从 Zotero 集合、BibTeX、workflow JSON、PDF 附件池、PDF 索引或既有 `文献-Zotero架构对照.*` 直接进入；不要求 Step 5 已跑过。
@@ -313,7 +321,7 @@ python3 scripts/organize_zotero.py 大纲关键词.md \
   4. 一级标题，但必须排除 `论文大纲与关键词`、`论文大纲`、`大纲关键词` 等模板标题。
   5. 全部失败时回退为 `论文文献库`。
 - 用户显式传入 `--root-name` 时，以用户指定为准。
-- 标准链路中，集合树应优先复用 Step 2 大纲层级：根集合为论文题目，一级集合对应一级章节，二级集合对应大纲二级目录。
+- 标准链路中，集合树应优先复用 Step 2 大纲层级：根集合为论文题目，一级集合只作为一级章节容器，文献默认直接归入对应的大纲二级章节集合。
 - 三级及更深集合只有在大纲真实存在对应层级时才创建；不得用关键词、证据类型或单篇文献临时替代大纲层级。
 - 关键词、证据类型、方法路线和研究对象默认进入标签、note 或 `paper_card` 字段，不作为主集合层级。
 - 不为单篇论文创建集合；单篇论文归属通过条目、标签和附件体现。
@@ -382,7 +390,7 @@ python3 scripts/citation_audit.py 论文初稿.md \
 - `prepared_pdf_artifacts.json`：PDF 全文工作层索引，供 Step 6/7/7.16/8 共享
 
 **核心任务：**
-优先复用 `workflow_search_results.json` / `文献-大纲对照.json` 中已有的 `chapter_id / chapter_title / secondary_chapter_ids / secondary_chapter_titles`，再与 `zotero-架构` 中按大纲二级目录生成的集合路径匹配，生成每篇文献应该进入哪个 Zotero 集合的对照表。
+优先复用 `workflow_search_results.json` / `文献-大纲对照.json` 中已有的 `chapter_id / chapter_title / secondary_chapter_ids / secondary_chapter_titles`，再与 `zotero-架构` 中按大纲二级章节生成的集合路径匹配，生成每篇文献应该进入哪个 Zotero 集合的对照表。
 
 如果前序文献-大纲映射存在，Step 6 不应重新用关键词猜章节归属；关键词匹配只作为映射缺失时的降级手段。
 
@@ -503,7 +511,7 @@ python3 scripts/citation_audit.py 论文初稿.md \
 **质量要求：**
 - 每个 BibTeX 条目必须出现在对照表中。
 - 每个 T1/T2/T3 条目必须有推荐集合路径。
-- 标准链路下，推荐集合路径应尽量落到大纲二级目录；只有大纲没有二级目录或文献确属章级背景时，才允许停留在一级章节集合。
+- 标准链路下，推荐集合路径应直接落到大纲二级章节；只有大纲没有二级章节或文献确属章级背景时，才允许停留在一级章节容器集合。
 - 每个条目必须保留 Step 4 的可信度字段；旧 BibTeX 缺失时标记 `verification_status=WARN`、`warn_class=legacy-unverified`，但不中断。
 - `verification_status=REJECT` 的记录不得进入 Zotero 写入队列；只保留在异常清单或补查候选中。
 - `verification_status=WARN` 的记录可进入计划表，但必须保留 `warn_class`，写入前作为待审项向用户展示。
@@ -547,7 +555,7 @@ zotero_get_collections()
 
 **关键规则：**
 - 创建集合时只以 `zotero-架构.json` 中的根集合名为准，不再硬编码 `论文文献库`。
-- 标准链路中，递归创建的集合树应保持 Step 2 大纲层级：一级章节为一级子集合，二级目录为二级子集合。
+- 标准链路中，递归创建的集合树应保持 Step 2 大纲层级：一级章节为容器集合，二级章节为文献默认归属集合。
 - 只有 `zotero-架构.json` 中真实存在三级及更深节点时，才继续创建更深子集合。
 - `parent_collection` 始终传直接父级的 8 位 key，不能偷懒传根 key。
 - 每创建或复用一个集合，立即记录 `collection_path → collection_key` 映射。

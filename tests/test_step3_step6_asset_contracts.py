@@ -77,18 +77,21 @@ class Step3Step6AssetContractsTest(unittest.TestCase):
         readme = read_rel("README.md")
 
         for token in [
-            "一级集合对应一级章节，二级集合对应大纲二级目录",
+            "根集合为论文题目",
+            "一级集合只作为一级章节容器",
+            "文献默认直接归入对应的大纲二级章节集合",
             "不得用关键词、证据类型或单篇文献临时替代大纲层级",
             "workflow_search_results.json` / `文献-大纲对照.json",
             "不应重新用关键词猜章节归属",
-            "推荐集合路径应尽量落到大纲二级目录",
-            "二级目录为二级子集合",
+            "推荐集合路径应直接落到大纲二级章节",
+            "二级章节为文献默认归属集合",
         ]:
             self.assertIn(token, step6)
 
-        self.assertIn("新建集合和子集合优先依据 Step 2 大纲二级目录", command)
+        self.assertIn("新建集合和子集合优先依据 Step 2 大纲二级章节", command)
         self.assertIn("入库集合路径应直接复用该映射", command)
-        self.assertIn("二级集合对应大纲二级目录", readme)
+        self.assertIn("根集合是论文题目", readme)
+        self.assertIn("文献默认直接归入对应的大纲二级章节集合", readme)
 
     def test_organize_zotero_builds_second_level_outline_tree(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -172,6 +175,23 @@ class Step3Step6AssetContractsTest(unittest.TestCase):
         self.assertIn("不触发全文 RAG", step3)
         self.assertIn("不能把检索命中、摘要、metadata cache 或候选 chunk 直接升级为正文证据", step4)
         self.assertIn("Step 6 capability index", step4)
+
+    def test_step3_keyword_layer_is_not_zotero_classification_layer(self):
+        step3 = read_rel("agents/step_3_search_plan.md")
+        self.assertIn("关键词分层只用于检索表达层，不等于 Zotero 分类层", step3)
+        self.assertIn("检索式构造、召回控制和路由", step3)
+        self.assertIn("真正的 Zotero 分类与集合组织留到 Step 6", step3)
+
+    def test_step6_is_formal_classification_entry(self):
+        step6 = read_rel("agents/step_6_zotero.md")
+        self.assertIn("Step 6 才是文献与大纲二级标题对齐的 Zotero 集合组织入口", step6)
+        self.assertIn("不做脱离大纲的自由分类", step6)
+        self.assertIn("Zotero 根集合为论文标题，一级集合只作为一级章节容器", step6)
+        self.assertIn("文献默认直接归入对应的大纲二级章节集合", step6)
+        self.assertIn("按小节集合限定证据链范围", step6)
+        self.assertIn("Step 3 的关键词分层只用于检索式构造，不作为 Zotero 分类规则", step6)
+        self.assertIn("优先依据 Step 2 大纲二级章节", step6)
+        self.assertIn("不重新按关键词猜章节", step6)
 
     def test_step4_screening_basis_is_user_visible_before_scoring(self):
         step4 = read_rel("agents/step_4_search_score.md")
