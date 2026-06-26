@@ -44,6 +44,8 @@
 
 全局口径是先发散、后收敛、候选池先保留；每一步都要有输入边界、候选池、输出工件和失败回退。
 
+执行纪律不新增公开入口，而是嵌入现有 8 步：先做任务定义，再做实现选择；先识别张力，再执行动作；同时用双向校准、最小对比和反模式命名防止“做不够”和“做过头”。
+
 [![中文海报](posters/story/more-paper-long-scroll.png)](https://www.bilibili.com/video/BV1hzjE6jEmo/?vd_source=45e56689c0324bcaf7fe9c9cd13fca01)
 
 > 点击上方海报可跳转到 B 站视频

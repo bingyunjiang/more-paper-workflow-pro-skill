@@ -15,6 +15,13 @@ For the full long-form trigger list, see `references/trigger-catalog.md`.
 - Step 7: writing, evidence matrix, style learning, citation audit
 - Step 8: polishing, conservative revision, AI-trace diagnostics
 
+## Routing discipline
+
+- Public routing remains Step 1-8 only; global prechecks are embedded inside each Step and must not be exposed as a separate numbered entry.
+- Route by user intent first, file type second. A file can be evidence, input carrier, review target, or output artifact depending on the action requested.
+- Before choosing an implementation path, identify the task definition: desired output, input boundary, evidence risk, and whether the request changes a contract or only uses an existing implementation.
+- Direct-entry is a fast path, not a quality bypass: it may skip upstream artifacts, but it must keep completion gates, checkpoints, evidence boundaries, and rollback rules.
+
 ## Common aliases
 
 - Chinese entry phrases remain supported across agents, including `确定研究主题`, `生成论文大纲`, `文献检索`, `批量下载`, `Zotero 文库整理`, `写论文`, and `论文润色`.

@@ -97,6 +97,20 @@ class Step7Step8ContractsTest(unittest.TestCase):
         ]:
             self.assertIn(token, step8)
 
+    def test_step8_dual_calibration_keeps_polish_conservative(self):
+        step8 = read_rel("agents/step_8_polishing.md")
+        for token in [
+            "双向校准规则",
+            "防止润色不足",
+            "防止润色过头",
+            "过头和不足都要防",
+            "优先保护证据边界和章节功能",
+            "风格校准只能作为 Level 4 的有限收口",
+            "不得升级为全文重写或新的写作目标",
+            "术语终验的分层收口",
+        ]:
+            self.assertIn(token, step8)
+
     def test_step7_revision_coach_contract_exists(self):
         text = read_rel("agents/step_7_writing.md")
         self.assertIn("#### 7.12.1. 修稿教练", text)
@@ -128,6 +142,20 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("### 7.14. 复评", text)
         self.assertIn("rereview_report.md", text)
         self.assertIn("new_issue", text)
+
+    def test_step7_argument_dialogue_does_not_expand_evidence_boundary(self):
+        text = read_rel("agents/step_7_writing.md")
+        for token in [
+            "三步对话公式",
+            "他说A -> 我说非A/A+ -> 所以C",
+            "核心/支撑/补充",
+            "章节权重",
+            "什么可以不写",
+            "最小对比",
+            "对话式论证不得越过证据边界",
+            "只能保守表达或输出待补证据",
+        ]:
+            self.assertIn(token, text)
 
     def test_step7_heading_numbers_are_ordered_and_clean(self):
         text = read_rel("agents/step_7_writing.md")

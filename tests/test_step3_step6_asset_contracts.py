@@ -71,6 +71,52 @@ class Step3Step6AssetContractsTest(unittest.TestCase):
         self.assertIn("capability_index.json/md", command)
         self.assertIn("capability_index.json/md", architecture)
 
+    def test_step3_to_step6_global_flow_discipline_exists(self):
+        step3 = read_rel("agents/step_3_search_plan.md")
+        step4 = read_rel("agents/step_4_search_score.md")
+        step5 = read_rel("agents/step_5_download.md")
+        step6 = read_rel("agents/step_6_zotero.md")
+
+        for token in [
+            "流程设计补充",
+            "消费方分析",
+            "依赖分析",
+            "风险标注",
+            "快速通道边界",
+            "契约变更 vs 实现变更",
+        ]:
+            self.assertIn(token, step3)
+
+        for token in [
+            "执行前流程判定",
+            "消费方分析",
+            "依赖分析",
+            "风险标注",
+            "快速通道不跳质量门",
+            "最小对比",
+        ]:
+            self.assertIn(token, step4)
+
+        for token in [
+            "Step 5 execution discipline",
+            "交付定义",
+            "输入依赖",
+            "可委派边界",
+            "最小实验优先",
+            "快速通道不跳质量门",
+        ]:
+            self.assertIn(token, step5)
+
+        for token in [
+            "资产整理执行纪律",
+            "交付定义",
+            "输入依赖",
+            "可委派边界",
+            "最小实验优先",
+            "快速通道不跳质量门",
+        ]:
+            self.assertIn(token, step6)
+
     def test_step6_uses_outline_second_level_collection_contract(self):
         step6 = read_rel("agents/step_6_zotero.md")
         command = read_rel("commands/zotero.md")

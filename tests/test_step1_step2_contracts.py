@@ -33,6 +33,28 @@ class Step1Step2ContractsTest(unittest.TestCase):
         ]:
             self.assertIn(token, step1)
 
+    def test_step1_step2_argument_tension_and_outline_weighting_exist(self):
+        step1 = read_rel("agents/step_1_topic.md")
+        step2 = read_rel("agents/step_2_outline.md")
+
+        for token in [
+            "论证张力检查",
+            "惊讶点",
+            "主角发现",
+            "什么可以不写",
+            "最小对比",
+        ]:
+            self.assertIn(token, step1)
+
+        for token in [
+            "论证型大纲检查",
+            "章节第一句必须是论证句",
+            "核心/支撑/补充",
+            "do_not_write",
+            "完备性偏执",
+        ]:
+            self.assertIn(token, step2)
+
     def test_step2_declares_unique_outline_generation_boundary(self):
         step2 = read_rel("agents/step_2_outline.md")
         self.assertIn("Step 1 负责问题结构收敛，但不压死研究发散", step2)

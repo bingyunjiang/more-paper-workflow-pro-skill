@@ -48,6 +48,38 @@ class PublicDocsTest(unittest.TestCase):
         self.assertIn("Public-first entry examples", skill)
         self.assertIn("README 首屏", skill)
 
+    def test_global_nature_skills_principles_are_public_without_new_numbered_entry(self):
+        skill = read_rel("SKILL.md")
+        readme = read_rel("README.md")
+        routing = read_rel("references/entry-routing-index.md")
+
+        for token in [
+            "张力先行",
+            "双向校准",
+            "最小对比",
+            "反模式命名",
+            "任务定义优先于实现定义",
+            "契约变更 vs 实现变更",
+            "快速通道不跳质量门",
+        ]:
+            self.assertIn(token, skill)
+
+        for token in [
+            "不新增公开入口",
+            "先做任务定义，再做实现选择",
+            "双向校准、最小对比和反模式命名",
+            "现有 8 步",
+        ]:
+            self.assertIn(token, readme)
+
+        self.assertIn("Public routing remains Step 1-8 only", routing)
+        self.assertIn("Direct-entry is a fast path, not a quality bypass", routing)
+
+        for text in [skill, readme, routing]:
+            self.assertNotIn("Step 0:", text)
+            self.assertNotIn("Step 0：", text)
+            self.assertNotIn("- Step 0", text)
+
     def test_search_and_zotero_entry_docs_keep_boundary_separated(self):
         search = read_rel("commands/search.md")
         zotero = read_rel("commands/zotero.md")

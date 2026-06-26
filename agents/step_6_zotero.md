@@ -72,6 +72,14 @@
 - 只有 Zotero item key、集合路径、附件路径或对照 JSON 明确一致时，`imported_to_zotero` / 附件关系才能视为 confirmed；标题相似、同目录共存或文件名相似只能视为 inferred。
 - direct-entry 下缺 Step 4/5 不是阻塞项；只需在 gaps/risks 中说明来源链缺口和后续补齐动作。
 
+**资产整理执行纪律：**
+
+- `交付定义`：本步交付的是 Zotero 架构、文献-集合对照、附件池索引、capability index 和写入计划；不是下载 PDF，也不是写作证据裁决。
+- `输入依赖`：Zotero 写入依赖用户选择 `local / cloud / skip` 和 `CP-ZOTERO-WRITE`；plan-only 只依赖可读取的 BibTeX、workflow JSON、Zotero 集合或 PDF 目录。
+- `可委派边界`：Agent 可以自动扫描、匹配、生成计划和低风险元数据补全；用户必须决定真实 Zotero 写入、冲突合并、权限受限附件和高风险覆盖。
+- `最小实验优先`：新文库、来源混杂或匹配质量未知时，先生成 plan-only 双工件或小批量 smoke plan，再做真实写入。
+- `快速通道不跳质量门`：已有 Zotero 文库可直入 Step 6，但仍要区分 `matched_attachment / missing_attachment / unlinked_pdf / duplicate_candidate`，不得把 inferred 关系写成 confirmed。
+
 **工件读取优先级：**
 
 从本版开始，Step 6 对上游输入的优先顺序为：
