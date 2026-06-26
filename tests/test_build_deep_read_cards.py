@@ -56,7 +56,13 @@ class BuildDeepReadCardsTest(unittest.TestCase):
                     "attachmentKey": "ABC123",
                     "sourceFilename": "wang2024example Example Paper.pdf",
                 }))
-                zf.writestr("full.md", "# Example\n\nThe method uses MinerU text as the preferred source. Experiments improve efficiency by 12 percent.")
+                zf.writestr(
+                    "full.md",
+                    "# Example\n\n"
+                    "The thermal mechanism is governed by current, temperature, and load transfer. "
+                    "The model uses an equivalent thermal resistance equation under fast charging conditions. "
+                    "Experiments validate the causal pathway and improve efficiency by 12 percent.",
+                )
                 zf.writestr("manifest.json", json.dumps({
                     "sections": [
                         {
@@ -94,6 +100,7 @@ class BuildDeepReadCardsTest(unittest.TestCase):
             )
 
             data = json.loads(out_json.read_text(encoding="utf-8"))
+            markdown = out_md.read_text(encoding="utf-8")
 
         self.assertIn("SELECTED_RECORDS: 1", result.stdout)
         self.assertEqual(data["schema_version"], "deep-read-cards.v1")
@@ -103,6 +110,11 @@ class BuildDeepReadCardsTest(unittest.TestCase):
         self.assertIn("images/fig-1.jpg", data["records"][0]["figure_candidates"][0]["source_image_path"])
         self.assertEqual(data["records"][0]["reading_depth"], "abstract_only")
         self.assertIn("提出一个热管理控制方法", data["records"][0]["claim_summary"])
+        self.assertIn("current", [v.lower() for v in data["records"][0]["mechanism_hints"]["state_variables"]])
+        self.assertTrue(data["records"][0]["mechanism_hints"]["causal_chain"])
+        self.assertTrue(data["records"][0]["mechanism_hints"]["governing_model"])
+        self.assertTrue(data["records"][0]["mechanism_hints"]["validation_path"])
+        self.assertIn("Mechanism Hints", markdown)
 
     def test_cli_falls_back_to_prepared_chunks_and_preview_candidates(self):
         with tempfile.TemporaryDirectory() as tmp:

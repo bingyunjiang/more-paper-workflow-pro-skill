@@ -158,6 +158,7 @@ class Step7Step8ContractsTest(unittest.TestCase):
             "claim_summary",
             "method_summary",
             "experiment_summary",
+            "mechanism_hints",
             "usable_for",
             "not_usable_for",
             "reading_depth",
@@ -176,9 +177,33 @@ class Step7Step8ContractsTest(unittest.TestCase):
 
         for token in [
             "`deep_read_cards.json/md` 是 Step 7 `deep_read_refine` 的章节级证据整形产物",
+            "`mechanism_hints` 只作为 `mechanism_analysis` 的机理链候选输入",
             "不能提高原始 `reading_depth`",
         ]:
             self.assertIn(token, paper_card)
+
+    def test_step7_mechanism_analysis_contract_exists(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        reference = read_rel("references/mechanism-analysis-writing-contract.md")
+
+        for token in [
+            "`mechanism_analysis`",
+            "mechanism_cards.json/md",
+            "mechanism_argument_plan.json/md",
+            "phenomenon",
+            "state_variables",
+            "causal_chain",
+            "governing_model",
+            "boundary_conditions",
+            "evidence_anchor",
+            "alternative_explanations",
+            "validation_path",
+            "claim_limit",
+            "现象 -> 状态量/控制量 -> 作用路径 -> 证据锚点 -> 适用边界 -> 回扣本节问题",
+            "没有实验、仿真或对比验证时，不得把相关性写成因果证明",
+        ]:
+            self.assertIn(token, step7)
+            self.assertIn(token, reference)
 
     def test_step7_section_scoped_writing_and_thesis_depth_rules_exist(self):
         text = read_rel("agents/step_7_writing.md")

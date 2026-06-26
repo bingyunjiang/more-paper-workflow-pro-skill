@@ -555,6 +555,7 @@ class DeepReadCardRecord:
     claim_summary: str = ""
     method_summary: str = ""
     experiment_summary: str = ""
+    mechanism_hints: dict[str, Any] = field(default_factory=dict)
     usable_for: list[str] = field(default_factory=list)
     not_usable_for: list[str] = field(default_factory=list)
     risk_flags: list[str] = field(default_factory=list)

@@ -340,6 +340,12 @@ class WorkflowContractsTest(unittest.TestCase):
                 claim_summary="提出一个示例方法。",
                 method_summary="使用模拟辅助控制框架。",
                 experiment_summary="待补全文确认实验设置与结果。",
+                mechanism_hints={
+                    "phenomenon": "温升变化",
+                    "state_variables": ["current", "temperature"],
+                    "causal_chain": ["电流增加导致热损耗上升。"],
+                    "claim_limit": "候选解释，需补全文确认。",
+                },
                 usable_for=["方法综述"],
                 not_usable_for=["强结论"],
                 source_trace={"text_source": "abstract_only"},
@@ -349,6 +355,7 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(payload["schema_version"], "deep-read-cards.v1")
         self.assertEqual(payload["metadata"]["entry_mode"], "deep_read_refine")
         self.assertEqual(payload["records"][0]["reading_depth"], "abstract_only")
+        self.assertIn("causal_chain", payload["records"][0]["mechanism_hints"])
         self.assertEqual(payload["records"][0]["source_trace"]["text_source"], "abstract_only")
 
     def test_inspect_mineru_zip(self):

@@ -99,11 +99,89 @@ def _pick_sentence(text: str, keywords: list[str]) -> str:
     return sentences[0] if sentences else ""
 
 
+def _pick_sentences(text: str, keywords: list[str], limit: int = 2) -> list[str]:
+    sentences = _split_sentences(text)
+    lowered_keywords = [keyword.lower() for keyword in keywords if keyword]
+    matches: list[tuple[int, int, str]] = []
+    for sentence in sentences:
+        lowered = sentence.lower()
+        score = sum(1 for keyword in lowered_keywords if keyword in lowered)
+        if score > 0 and len(sentence) >= 12:
+            matches.append((score, len(sentence), sentence))
+    matches.sort(key=lambda x: (-x[0], abs(x[1] - 180)))
+    return [item[2] for item in matches[:limit]]
+
+
 def _truncate(text: str, limit: int = 220) -> str:
     text = _clean(text)
     if len(text) <= limit:
         return text
     return text[: limit - 3].rstrip() + "..."
+
+
+def _extract_mechanism_hints(
+    text: str,
+    record: dict[str, Any],
+    figure_candidates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    mechanism_terms = ["mechanism", "机理", "机制", "causal", "因果", "影响规律", "耦合", "传导", "pathway"]
+    model_terms = ["equation", "model", "formula", "公式", "方程", "模型", "等效", "control law"]
+    boundary_terms = ["condition", "scenario", "boundary", "assumption", "工况", "边界", "假设", "约束", "load", "temperature"]
+    validation_terms = ["experiment", "simulation", "validate", "ablation", "实验", "仿真", "验证", "对比", "消融"]
+    alternative_terms = ["however", "limitation", "alternative", "conflict", "但", "然而", "局限", "反例", "矛盾"]
+
+    title = _clean(record.get("title"))
+    phenomenon = _truncate(
+        _pick_sentence(text, mechanism_terms + ["result", "show", "导致", "提高", "降低"]) or title,
+        180,
+    )
+    causal_chain = [_truncate(s, 180) for s in _pick_sentences(text, mechanism_terms, 2)]
+    governing_model = [_truncate(s, 180) for s in _pick_sentences(text, model_terms, 2)]
+    boundary_conditions = [_truncate(s, 180) for s in _pick_sentences(text, boundary_terms, 2)]
+    validation_path = [_truncate(s, 180) for s in _pick_sentences(text, validation_terms, 2)]
+    alternative_explanations = [_truncate(s, 180) for s in _pick_sentences(text, alternative_terms, 2)]
+
+    state_variables: list[str] = []
+    variable_patterns = [
+        r"\b[A-Z][A-Za-z0-9_]{0,8}\b",
+        r"\b(?:voltage|current|power|temperature|load|frequency|efficiency|SOC|SOH)\b",
+        r"(?:电压|电流|功率|温度|负载|频率|效率|荷电状态|热阻|阻抗|电容)",
+    ]
+    for pattern in variable_patterns:
+        for match in re.findall(pattern, text, flags=re.IGNORECASE):
+            value = _clean(match)
+            if value and value.lower() not in {"the", "and", "for", "with", "this"} and value not in state_variables:
+                state_variables.append(value)
+            if len(state_variables) >= 8:
+                break
+        if len(state_variables) >= 8:
+            break
+
+    anchors = []
+    pdf_path = _clean(record.get("pdf_path"))
+    if pdf_path:
+        anchors.append({"type": "pdf", "value": pdf_path})
+    for fig in figure_candidates[:3]:
+        label = _clean(fig.get("figure_id") or fig.get("caption") or fig.get("source_image_path"))
+        if label:
+            anchors.append({"type": "figure_or_table", "value": label, "page": _clean(fig.get("page"))})
+
+    evidence_is_thin = not (causal_chain or governing_model or boundary_conditions or validation_path)
+    return {
+        "phenomenon": phenomenon,
+        "state_variables": state_variables,
+        "causal_chain": causal_chain,
+        "governing_model": governing_model,
+        "boundary_conditions": boundary_conditions,
+        "evidence_anchor": anchors,
+        "alternative_explanations": alternative_explanations,
+        "validation_path": validation_path,
+        "claim_limit": (
+            "可作为机理候选解释，写强机制判断前需补全文、图表或实验锚点。"
+            if evidence_is_thin
+            else "可进入 mechanism_argument_plan；强 claim 仍需逐条绑定全文、图表或实验锚点。"
+        ),
+    }
 
 
 def _load_json(path: str | Path | None) -> Any:
@@ -471,6 +549,30 @@ def _render_markdown(records: list[DeepReadCardRecord], metadata: dict[str, Any]
         ])
         blocked = card.not_usable_for or ["未声明"]
         lines.extend([f"- {item}" for item in blocked])
+        if card.mechanism_hints:
+            lines.extend([
+                "",
+                "### Mechanism Hints",
+                f"- phenomenon: {card.mechanism_hints.get('phenomenon', '')}",
+                f"- state_variables: {'; '.join(card.mechanism_hints.get('state_variables', [])) or '待补充'}",
+                f"- claim_limit: {card.mechanism_hints.get('claim_limit', '')}",
+            ])
+            for field_name in [
+                "causal_chain",
+                "governing_model",
+                "boundary_conditions",
+                "validation_path",
+                "alternative_explanations",
+            ]:
+                values = card.mechanism_hints.get(field_name, [])
+                if values:
+                    lines.append(f"- {field_name}:")
+                    lines.extend([f"  - {item}" for item in values])
+            anchors = card.mechanism_hints.get("evidence_anchor", [])
+            if anchors:
+                lines.append("- evidence_anchor:")
+                for anchor in anchors:
+                    lines.append(f"  - {anchor.get('type', '')}: {anchor.get('value', '')} page={anchor.get('page', '')}")
         if card.risk_flags:
             lines.extend([
                 "",
@@ -601,10 +703,13 @@ def build_cards(
         experiment_summary = _truncate(
             _pick_sentence(text_body, ["experiment", "result", "ablation", "实验", "结果", "improve", "improvement"])
         )
+        mechanism_hints = _extract_mechanism_hints(text_body, record, figure_candidates)
 
         risk_flags = list(dict.fromkeys(_clean_list(prepared.get("risk_flags")) + (["reading_depth_locked"] if reading_depth_locked else [])))
         if text_source == "abstract_only":
             risk_flags.append("abstract_only_candidate")
+        if not mechanism_hints.get("causal_chain") and not mechanism_hints.get("governing_model"):
+            risk_flags.append("mechanism_chain_missing")
         if not figure_candidates and image_source == "none":
             risk_flags.append("figure_candidates_missing")
         if mineru_summary and mineru_summary.warnings:
@@ -627,6 +732,7 @@ def build_cards(
                 claim_summary=claim_summary,
                 method_summary=method_summary,
                 experiment_summary=experiment_summary,
+                mechanism_hints=mechanism_hints,
                 usable_for=paper_card.usable_for,
                 not_usable_for=paper_card.not_usable_for,
                 risk_flags=risk_flags,

@@ -284,8 +284,31 @@ def _parse_evidence_csv(path: str) -> dict:
     return evidence
 
 
+def _is_mechanism_section(name: str) -> bool:
+    name_lower = name.lower()
+    return any(w in name_lower for w in [
+        "mechanism",
+        "mechanistic",
+        "causal",
+        "机理",
+        "机制",
+        "影响规律",
+        "作用路径",
+        "耦合",
+        "传导",
+    ])
+
+
 def _infer_evidence_needed(section: dict) -> list[str]:
     name = section["name"].lower()
+    if _is_mechanism_section(section["name"]):
+        return [
+            "mechanism_chain",
+            "model_or_equation",
+            "boundary_condition",
+            "validation_evidence",
+            "counter_explanation",
+        ]
     if any(w in name for w in ['intro', '引言', '绪论', 'related', '文献综述', '综述']):
         return ["review", "context", "gap"]
     if any(w in name for w in ['method', '方法', '方案']):
@@ -299,6 +322,8 @@ def _infer_evidence_needed(section: dict) -> list[str]:
 
 def _infer_do_not_write(section: dict) -> list[str]:
     name = section["name"].lower()
+    if _is_mechanism_section(section["name"]):
+        return ["只堆文献不解释变量传导", "没有边界条件的强机理结论", "把候选相关性写成因果证明"]
     if any(w in name for w in ['method', '方法', '方案']):
         return ["重复大段背景综述", "未定义符号前直接给公式"]
     if any(w in name for w in ['experiment', '实验', '结果']):
@@ -313,6 +338,10 @@ def _infer_risk_flags(section: dict, evidence: dict) -> list[str]:
     if not evidence:
         flags.append("evidence-thin")
     name = section["name"].lower()
+    if _is_mechanism_section(section["name"]):
+        flags.append("requires-mechanism-chain")
+        if not evidence:
+            flags.append("mechanism-evidence-thin")
     if any(w in name for w in ['experiment', '实验']) and not evidence:
         flags.append("missing-experimental-basis")
     return flags
@@ -323,6 +352,8 @@ def _infer_risk_flags(section: dict, evidence: dict) -> list[str]:
 def _infer_purpose(name: str, idx: int, total: int) -> str:
     """Infer the purpose of a section from its name and position."""
     name_lower = name.lower()
+    if _is_mechanism_section(name):
+        return "解释现象背后的变量传导、模型约束、边界条件和验证路径，避免把相关性写成因果结论"
     if idx == 0:
         return f"建立研究背景，识别问题差距（gap），明确列出本文的贡献"
     elif idx == total - 1:
@@ -352,6 +383,8 @@ def _estimate_length(section: dict, style_rules: dict) -> str:
         return "~1500-2500 词（6-10 段）"
     elif any(w in name for w in ['experiment', '实验', '结果']):
         return "~2000-3000 词（8-12 段）"
+    elif _is_mechanism_section(section["name"]):
+        return "~1500-2500 词（6-10 段）"
     elif any(w in name for w in ['discussion', '讨论']):
         return "~1000-1500 词（4-6 段）"
     elif any(w in name for w in ['conclusion', '结论']):
@@ -382,6 +415,12 @@ def _infer_claims(section: dict, evidence: dict) -> list[str]:
             f"与基线相比，方法在...指标上提升了...",
             f"消融实验证明了...组件的重要性",
         ]
+    elif _is_mechanism_section(section["name"]):
+        claims = [
+            "目标现象可由...变量传导路径解释",
+            "关键模型/方程/等效关系约束了...作用边界",
+            "实验、仿真或图表证据支持/限制了该机理解释",
+        ]
     return claims
 
 
@@ -409,6 +448,8 @@ def _suggest_figures(section: dict, style_rules: dict) -> list[str]:
         suggestions = ["系统/方法框架图", "算法流程图（如适用）"]
     elif any(w in name for w in ['experiment', '实验', '结果']):
         suggestions = ["核心对比结果图（柱状图/折线图）", "消融实验结果图", "关键数据分布图（热力图/散点图）"]
+    elif _is_mechanism_section(section["name"]):
+        suggestions = ["变量-作用路径示意图", "机理验证证据图/表", "边界条件或工况对比图"]
     return suggestions
 
 
