@@ -462,8 +462,62 @@ class Step7Step8ContractsTest(unittest.TestCase):
             "competing_mechanisms",
             "discrimination_evidence",
             "insufficient_basis",
+            "discrimination_matrix_used",
+            "evidence_modality",
         ]:
             self.assertIn(token, reference)
+
+    def test_materials_mechanics_discrimination_matrices_are_actionable(self):
+        domain_pack = read_rel("references/domain-packs/materials-mechanics-writing.md")
+        figure_contract = read_rel("references/figure-writing-interface.md")
+
+        for token in [
+            "DRX_discrimination_matrix",
+            "EBSD_claim_evidence_matrix",
+            "TEM_SEM_XRD_claim_boundary",
+            "CNT_Al_strengthening_mechanism_matrix",
+            "mechanism_overclaim_examples",
+            "只有晶粒尺寸变小，不得写“证明发生 DRX”",
+            "只有 HAGB 比例升高，不得区分 CDRX/DDRX",
+            "只有 KAM 降低，不得把 DRV 写成 DRX",
+            "load transfer",
+            "Orowan strengthening",
+            "CTE mismatch strengthening",
+            "Zener/CNT pinning",
+            "EBSD 证明发生 CDRX",
+            "CNTs 钉扎晶界导致细晶稳定",
+        ]:
+            self.assertIn(token, domain_pack)
+
+        for token in [
+            "evidence_modality",
+            "EBSD|TEM|SEM|XRD|flow_curve|mechanical_test|simulation|user_data",
+        ]:
+            self.assertIn(token, figure_contract)
+
+    def test_materials_journal_style_pack_is_optional_and_specific(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        style_pack = read_rel("references/domain-packs/materials-journal-style.md")
+        domain_pack = read_rel("references/domain-packs/materials-mechanics-writing.md")
+
+        self.assertIn("references/domain-packs/materials-journal-style.md", step7)
+        self.assertIn("仅在目标期刊或体裁明确时加载", step7)
+        self.assertIn("不得作为所有论文的全局默认写作规则", style_pack)
+        self.assertIn("不作为材料领域的全局默认风格", domain_pack)
+
+        for token in [
+            "Scripta Materialia",
+            "Acta Materialia",
+            "Materials Science and Engineering A (MSEA)",
+            "Journal of Materials Processing Technology (JMPT)",
+            "中文核心材料/机械论文",
+            "学位论文材料/机械章节",
+            "processing-structure-property",
+            "processing -> microstructure -> mechanical properties -> mechanism",
+            "目标期刊风格只能约束结构密度、证据呈现、图表说明和讨论深度",
+            "如果目标期刊风格与当前证据等级冲突，以证据等级为准",
+        ]:
+            self.assertIn(token, style_pack)
 
     def test_step7_section_scoped_writing_and_thesis_depth_rules_exist(self):
         text = read_rel("agents/step_7_writing.md")

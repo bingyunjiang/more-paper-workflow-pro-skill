@@ -30,6 +30,7 @@
 - [ ] `references/section-blueprint-template.md` — 章节蓝图字段规范，含 `claim_strength / required_evidence / evidence_anchor`
 - [ ] `references/mechanism-analysis-writing-contract.md` — 🆕 机理分析写作契约
 - [ ] `references/domain-packs/materials-mechanics-writing.md` — 材料/机械/工程领域增强包；仅在任务命中材料、机械、热变形、显微组织或工程机理时加载
+- [ ] `references/domain-packs/materials-journal-style.md` — 材料/机械目标期刊与体裁风格包；仅在目标期刊或体裁明确时加载
 - [ ] `references/writing-antipatterns.md` — 🆕 写作反模式库
 - [ ] `references/reviewer-protocol.md` — 🆕 reviewer-style 预审输出格式
 - [ ] `references/citation-audit-contract.md` — 🆕 写作后引用审计契约

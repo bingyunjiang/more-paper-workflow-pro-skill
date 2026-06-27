@@ -25,6 +25,7 @@
 - evidence_basis
 - caption_anchor
 - text_anchor
+- evidence_modality
 - support_type
 - support_status
 - figure_table_panel_binding
@@ -47,6 +48,7 @@
   "panel_id": "",
   "caption_anchor": "",
   "text_anchor": "",
+  "evidence_modality": "EBSD|TEM|SEM|XRD|flow_curve|mechanical_test|simulation|user_data",
   "support_type": "direct|partial|contextual|not_supported",
   "support_status": "support|weak-support|not-supported|cannot-judge",
   "downgrade_required": false,

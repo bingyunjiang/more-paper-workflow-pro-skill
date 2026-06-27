@@ -84,6 +84,8 @@ python3 scripts/audit_mechanism_paragraphs.py --draft-md 当前小节草稿.md -
 | discriminates_against | 当前机制需要和谁区分 |
 | transfer_risk | 是否存在跨材料 / 跨体系外推风险 |
 | figure_claim_binding | claim 绑定到哪张图、哪类图、哪些 panel |
+| discrimination_matrix_used | 是否使用 CDRX/DDRX/DRV/CNT 等判别矩阵 |
+| evidence_modality | `EBSD / TEM / SEM / XRD / flow_curve / mechanical_test / simulation / user_data` |
 | claim_strength | `mechanism` / `numeric_comparison` / `parameter` 等句子强度 |
 | required_evidence | 当前机制 claim 的最低证据要求 |
 | downgrade_required | 证据不足时是否必须降强度 |
