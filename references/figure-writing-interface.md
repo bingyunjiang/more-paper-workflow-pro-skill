@@ -80,7 +80,10 @@
 
 - 图表任务可以在 Step 7 发起
 - `auto_insert_figures=true` 时，优先要求条目下存在 `LLM-for-Zotero-MinerU-cache-*.zip` 或等价图文资产包
+- 用户要求基于 Zotero 集合撰写完整论文、章节或重写论文，且 Zotero child attachments / 本地证据包中存在 MinerU ZIP、图片目录或已有 `figure_index.json` 时，默认进入“写文 + 插图”的图文联合路径；除非用户明确要求纯文字稿，不得静默省略插图
+- Markdown 初稿也是图文稿承载层：已确认图片应使用项目内 `figures/` 相对路径插入；尚未确认的图片应保留可解析图位和 `figure_evidence_report` 缺口，而不是删除图位
 - 没有 MinerU ZIP 但本地 PDF 可读时，允许通过 PyMuPDF 直接抽取 `pdf_direct` 候选图；该候选必须标记为低置信、无 caption、待人工确认
 - 没有 MinerU ZIP 且 PDF 不可读或无候选图时，才只保留正文图位占位，不自动选图
+- 任何 `figure_mode=skip` 都必须记录跳过原因、已检查资产范围和后续补图动作
 - 没有 figure/table/panel 绑定时，不得自动写“如图 X 所示”“图中可见”“由图证明”
 - 具体图形设计和导出细节可继续由现有图表参考处理

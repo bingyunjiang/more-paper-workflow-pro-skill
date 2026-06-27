@@ -1,0 +1,78 @@
+@page {
+  size: A4;
+  margin: 22mm 18mm 20mm 18mm;
+}
+
+body {
+  font-family: "PingFang SC", "Hiragino Sans GB", "STHeiti", "Microsoft YaHei", sans-serif;
+  font-size: 11pt;
+  line-height: 1.72;
+  color: #111;
+}
+
+h1 {
+  text-align: center;
+  font-size: 20pt;
+  margin: 0 0 18pt;
+}
+
+h2 {
+  font-size: 15pt;
+  margin: 20pt 0 8pt;
+  border-bottom: 1px solid #d0d0d0;
+  padding-bottom: 3pt;
+}
+
+h3 {
+  font-size: 12.5pt;
+  margin: 14pt 0 6pt;
+}
+
+p {
+  margin: 0 0 8pt;
+  text-align: justify;
+}
+
+strong {
+  font-weight: 700;
+}
+
+img {
+  display: block;
+  max-width: 92%;
+  max-height: 105mm;
+  margin: 8pt auto 10pt;
+  object-fit: contain;
+  page-break-inside: avoid;
+}
+
+figure {
+  page-break-inside: avoid;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+  margin: 8pt 0 12pt;
+}
+
+th,
+td {
+  border: 1px solid #bbb;
+  padding: 4pt 5pt;
+  vertical-align: top;
+}
+
+th {
+  background: #f2f2f2;
+}
+
+li {
+  margin-bottom: 4pt;
+}
+
+code {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.92em;
+}

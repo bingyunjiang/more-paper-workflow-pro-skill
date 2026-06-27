@@ -1,0 +1,106 @@
+{
+  "figure_mode_decision": {
+    "figure_mode": "auto_insert",
+    "trigger": "zotero_collection_with_mineru_assets",
+    "scope": "rewrite full manuscript with inline figures",
+    "skip_reason": ""
+  },
+  "attachment_audit": [
+    {
+      "item_key": "P82NKUCE",
+      "status": "mineru_zip_local_available",
+      "action": "insert_selected_figures"
+    },
+    {
+      "item_key": "3VKND9N4",
+      "status": "mineru_zip_local_available",
+      "action": "insert_selected_figures"
+    },
+    {
+      "item_key": "36SGIFAD",
+      "status": "zotero_zip_child_record_but_missing_on_disk",
+      "action": "text_evidence_only"
+    },
+    {
+      "item_key": "99QWSQ5K",
+      "status": "zotero_zip_child_record_but_missing_on_disk",
+      "action": "text_evidence_only"
+    },
+    {
+      "item_key": "36ANUFUI",
+      "status": "zotero_zip_child_record_but_missing_on_disk",
+      "action": "text_evidence_only"
+    },
+    {
+      "item_key": "F98GDZSB",
+      "status": "zotero_zip_child_record_but_missing_on_disk",
+      "action": "text_evidence_only"
+    },
+    {
+      "item_key": "MWXZS66W",
+      "status": "zotero_zip_child_record_but_missing_on_disk",
+      "action": "text_evidence_only"
+    },
+    {
+      "item_key": "PSZJKCWU",
+      "status": "zotero_zip_child_record_but_missing_on_disk",
+      "action": "text_evidence_only"
+    },
+    {
+      "item_key": "26T9U5ZA",
+      "status": "zotero_zip_child_record_but_missing_on_disk",
+      "action": "text_evidence_only"
+    },
+    {
+      "item_key": "TSDA57M9",
+      "status": "zotero_zip_child_record_but_missing_on_disk",
+      "action": "text_evidence_only"
+    }
+  ],
+  "figure_claim_bindings": [
+    {
+      "figure_no": "图1",
+      "local_image_path": "figures/fig1_3d_free_bending_principle.jpg",
+      "source_item_key": "P82NKUCE",
+      "source_attachment_key": "3VCP4VMT",
+      "page": "2",
+      "caption": "图 三维自由弯曲成形原理示意图 Fig. 1 Schematic diagram of 3D free bending",
+      "evidence_status": "caption_plus_text_confirmed",
+      "claim_binding": "三维自由弯曲中推进力、弯曲模、导向结构和局部接触共同决定弯曲轨迹",
+      "risk_note": "free_bending_only_not_rotary_draw_bending"
+    },
+    {
+      "figure_no": "图2",
+      "local_image_path": "figures/fig2_bending_stress_strain_state.jpg",
+      "source_item_key": "P82NKUCE",
+      "source_attachment_key": "3VCP4VMT",
+      "page": "2",
+      "caption": "图 弯曲段管材应力应变状态 Fig. 2 Tube bending stress and strain analysis",
+      "evidence_status": "caption_plus_text_confirmed",
+      "claim_binding": "中性层偏移、弯曲半径、偏距和截面变形在同一变形区内耦合",
+      "risk_note": "schematic_not_numeric_stress_evidence"
+    },
+    {
+      "figure_no": "图3",
+      "local_image_path": "figures/fig3_ur_curve_section_distortion.jpg",
+      "source_item_key": "P82NKUCE",
+      "source_attachment_key": "3VCP4VMT",
+      "page": "4",
+      "caption": "Fig. 8 U-R curves and comparison of section distortion rates / 图 管材截面畸变测量方法",
+      "evidence_status": "caption_plus_text_confirmed_with_boundary",
+      "claim_binding": "自由弯曲中 U-R 关系和截面畸变测量需要联合评价",
+      "risk_note": "composite_figure_no_numeric_claim"
+    },
+    {
+      "figure_no": "图4",
+      "local_image_path": "figures/fig4_push_bending_mises_stress.jpg",
+      "source_item_key": "3VKND9N4",
+      "source_attachment_key": "EG96W6C2",
+      "page": "1",
+      "caption": "Fig.5 Grid Model 图 6 Mises 应力图 Fig.6 Mises Stress Drawing",
+      "evidence_status": "auxiliary_visual_evidence",
+      "claim_binding": "推弯仿真中弯曲区存在应力梯度，支撑多指标参数优化必要性",
+      "risk_note": "low_image_quality_auxiliary_only"
+    }
+  ]
+}

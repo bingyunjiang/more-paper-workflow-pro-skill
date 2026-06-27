@@ -8,3 +8,6 @@ ZOTERO_API_KEY = "Q6VubmLTB23pUSYtNysGMgnW"
 ZOTERO_LIBRARY_ID = "10165543"
 no_proxy = "localhost,127.0.0.1,::1"
 NO_PROXY = "localhost,127.0.0.1,::1"
+
+[mcp_servers.zotero.tools.zotero_get_annotations]
+approval_mode = "approve"
