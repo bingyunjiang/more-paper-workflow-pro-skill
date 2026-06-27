@@ -4,6 +4,10 @@
 
 服务 Step 7 的 `continue-existing`、`draft`、`chapter-only` 场景，不默认绑定 Nature 风格。
 
+如果当前要做的是“借鉴外部写作质量做融入”，先看 [`writing-quality-borrowing-plan.md`](writing-quality-borrowing-plan.md)，再回到 `style_profile` / `section_blueprints` / `writing_rationale_matrix`。
+
+借鉴时先抽取结构、语言和修订模式，再映射到当前工件。
+
 ## 输入来源
 
 - 目标期刊样文

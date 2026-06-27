@@ -42,6 +42,20 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertNotIn("- `figure`", step7_entry)
         self.assertNotIn("- `pre-review`", step7_entry)
 
+    def test_step7_writing_quality_contracts_are_explicit(self):
+        text = read_rel("agents/step_7_writing.md")
+        for token in [
+            "先生成 `section_blueprints.json/md`，再写正文",
+            "section_function / expected_length / key_claims / evidence_needed / do_not_write / transition_from / transition_to / risk_flags",
+            "argument_plan 之后才能进入 7.8 正文流水线",
+            "每节只承担一个主要功能",
+            "先写 `one_sentence_argument`，再写段落展开",
+            "每节都要显式写 `do_not_write`",
+            "每节都要保留 `transition_from / transition_to`",
+            "`risk_flags` 不是装饰字段",
+        ]:
+            self.assertIn(token, text)
+
     def test_step7_internal_pipeline_and_light_readability_guidance_exist(self):
         text = read_rel("agents/step_7_writing.md")
         self.assertIn("### 7.8. 内部写作流水线（用户不可见）", text)
@@ -49,6 +63,7 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("整合", text)
         self.assertIn("审阅", text)
         self.assertIn("校验", text)
+        self.assertIn("段内写作质量底线", text)
         self.assertIn("#### 7.8.1. 轻量可读性整理", text)
         self.assertIn("不应预设用户的写作策略、论证风格或表达审美", text)
         self.assertIn("最小术语统一", text)
@@ -69,6 +84,20 @@ class Step7Step8ContractsTest(unittest.TestCase):
             "先建立可写作、可审计的标准",
         ]:
             self.assertIn(token, text)
+
+    def test_step7_writing_quality_borrowing_plan_is_explicit(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        style_workflow = read_rel("references/style-learning-workflow.md")
+        borrowing_plan = read_rel("references/writing-quality-borrowing-plan.md")
+
+        for token in [
+            "writing-quality-borrowing-plan.md",
+            "结构、语言和修订模式",
+            "style_profile / section_blueprints / writing_rationale_matrix",
+            "不得把外部句子或默认体裁直接搬进正文",
+        ]:
+            self.assertIn(token, step7)
+            self.assertIn(token, style_workflow + borrowing_plan)
 
     def test_step8_is_constrained_revision_not_primary_writing_or_audit_owner(self):
         step8 = read_rel("agents/step_8_polishing.md")

@@ -13,7 +13,7 @@
 <a id="chinese"></a>
 # 📚 more paper workflow pro skill `v1.0.17-20260624`
 
-> 面向中文/双语论文写作的证据闭环学术工作流：从定题、检索、下载、Zotero 到写作与引用审计，全程基于真实文献，而不是模型记忆。
+> 面向中文/双语论文写作的证据闭环工作流。覆盖定题、检索、下载、Zotero、写作与引用审计，所有关键步骤都围绕真实文献落地，而不是模型记忆。
 
 ## 📑 目录
 
@@ -38,13 +38,11 @@
 
 ### 为什么需要这个工具
 
-为什么你的 AI 写论文总在编造参考文献？因为大多数 AI 学术工具把「写论文」当成「生成文本」: 至于引用的文献存不存在、论证有没有依据，它们并不关心。
+很多 AI 写论文工具把问题简化成“生成一段文本”，但论文真正麻烦的地方是证据、引用和边界是否站得住。  
+这个 skill 不负责替你一键写完，而是把学术写作拆成 8 个可见、可中断、可回溯的步骤，让检索、下载、Zotero、写作和引用审计形成闭环。
 
-**More Paper Workflow Pro Skill** 的目标不是一键替你写论文，而是把学术写作拆成 8 个可见、可中断、可回溯的步骤，让检索、下载、Zotero、写作和引用审计围绕真实文献闭环运作。
-
-全局口径是先发散、后收敛、候选池先保留；每一步都要有输入边界、候选池、输出工件和失败回退。
-
-执行纪律不新增公开入口，而是嵌入现有 8 步：先做任务定义，再做实现选择；先识别张力，再执行动作；同时用双向校准、最小对比和反模式命名防止“做不够”和“做过头”。
+它的默认口径是先发散、后收敛，候选池先保留。每一步都要有输入边界、输出工件和失败回退。  
+执行纪律也不另开一套复杂入口，而是嵌在现有 8 步里：先定义任务，再选动作；先识别拉扯，再推进实现。
 
 [![中文海报](posters/story/more-paper-long-scroll.png)](https://www.bilibili.com/video/BV1hzjE6jEmo/?vd_source=45e56689c0324bcaf7fe9c9cd13fca01)
 
@@ -68,7 +66,7 @@
 
 ## ⚡ Quick Start / 装完第一句话
 
-README 首屏只给 3 个最短入口。运行规则和失败回退仍以 [`SKILL.md`](SKILL.md) 与 [`agents/`](agents/) 为准。
+README 首屏只保留 3 个最短入口。运行规则、失败回退和 step 级边界仍以 [`SKILL.md`](SKILL.md) 与 [`agents/`](agents/) 为准。
 
 ### 1. 定题入口
 
@@ -166,18 +164,19 @@ python3 scripts/run_step8_ai_trace.py --project-root examples/demo/step8-ai-trac
 - 不会在需要登录态、外部写入或高风险动作时假装已经完成
 - 不会把 README 当运行时真相；真正执行边界以 [`SKILL.md`](SKILL.md) 和 [`agents/step_*.md`](agents/) 为准
 - 入口收敛只影响对外发现层，不影响从任一 Step 直接进入
+- 6 种稳定写作模式仍然保留：`full-document / review-only / abstract-only / chapter-only / continue-existing / revision-only`
 
 ## 📋 工作流一览
 
 ```
 Step 1: 交互式确定研究主题（先发散后收敛）          → 研究主题.md
 Step 2: 生成论文大纲与关键词（主任务 + 候选任务区）  → 大纲关键词.md
-Step 3: 生成文献检索方案（协议化筛选 + 回退）      → 检索方案.md
-Step 4: 多渠道检索+评分筛选（结果落文件 + 状态回写） → 检索文献表.md / .xlsx / .pdf / .bib / step4-dashboard/
-Step 5: 统一下载路由（显式失败状态 + 恢复点） → paper-temp/ PDFs
-Step 6: Zotero 文库管理（架构+证据层分离 + 缺口记录） → zotero-架构.md + 文献-Zotero架构对照.md/json + pdf-附件池索引.json + Zotero
-Step 7: 论文写作（结构化证据 + 可回查锚点） → 文献证据矩阵.csv + 论文初稿或指定章节.md/.docx
-Step 8: 润色与保守修订（诊断、局部修订、回退）      → 论文润色稿.md
+Step 3: 生成文献检索方案（协议化筛选 + 回退）        → 检索方案.md
+Step 4: 多渠道检索+评分筛选（结果落文件 + 状态回写）  → 检索文献表.md / .xlsx / .pdf / .bib / step4-dashboard/
+Step 5: 统一下载路由（显式失败状态 + 恢复点）         → paper-temp/ PDFs
+Step 6: Zotero 文库管理（架构+证据层分离 + 缺口记录）  → zotero-架构.md + 文献-Zotero架构对照.md/json + pdf-附件池索引.json + Zotero
+Step 7: 论文写作（结构化证据 + 可回查锚点）           → 文献证据矩阵.csv + 论文初稿或指定章节.md/.docx
+Step 8: 润色与保守修订（诊断、局部修订、回退）        → 论文润色稿.md
 ```
 [![中文海报](posters/story/preview-contact-sheet.png)](https://www.bilibili.com/video/BV1hzjE6jEmo/?vd_source=45e56689c0324bcaf7fe9c9cd13fca01)
 

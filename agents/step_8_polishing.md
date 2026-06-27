@@ -97,7 +97,7 @@ Step 8 可以补局部内容，但仅限可由现有正文、Step 7 三工件、
 
 若 `quick-polish` 过程中发现 `evidence_gap / structure_drift / citation_misalignment / contribution_overclaim`，必须升级为 `audited-polish` 或回退 Step 7，不能继续把结构或证据问题包装成句子润色。
 
-### 8.0.1. 默认输出顺序
+#### 默认输出顺序
 
 Step 8 的默认输出顺序固定为：
 

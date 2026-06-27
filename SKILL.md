@@ -33,7 +33,7 @@ related_skills:
 
 ## Global discipline
 
-- `张力先行`：每一步先说明当前任务的核心拉扯。
+- `张力先行`：每一步先说清楚当前任务的核心拉扯。
 - `双向校准`：同时防止“不够”和“过头”。
 - `最小对比`：关键边界用最小对比例子校准。
 - `反模式命名`：把常见错误写入对应 Step 的检查项。
@@ -61,6 +61,9 @@ related_skills:
 - Step 8 负责成稿级精修、终验和保守修订。
 - `README.md` 只保留对外简洁入口，不承载运行态真相。
 - 入口收敛不等于流程拦截，任一 Step 都可以按 direct-entry 合同进入。
+- 推荐 Zotero 用户安装 `llm-for-zotero` 插件。
+- `evidence_pack` 是无 Zotero/MinerU 时的本地证据包入口。
+- `full-document / review-only / abstract-only / chapter-only / continue-existing / revision-only` 仍是 Step 7 的公开模式名。
 
 ## Entry examples
 
