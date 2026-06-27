@@ -39,6 +39,19 @@
 - Zotero 文库管理 → 路由到 `agents/step_6_zotero.md`
 - 浏览器中人工逐篇点击下载 → 使用各专用脚本或用户手动处理
 
+## When to use this Step
+
+- 用户已经有 DOI、标题、URL、BibTeX、参考文献段落，或 Step 4 的检索结果，需要把它们变成真实 PDF。
+- 用户明确在问下载、补下、重试、恢复登录中断，或要从 publisher/source 路由到实际文件落地。
+- 用户不想回跑 Step 1-4，只要求把当前输入归一化为可下载清单并执行下载。
+
+## When NOT to use this Step
+
+- 任务只是检索、筛选、打分，去 Step 4。
+- 任务只是 Zotero 入库、条目整理或附件挂回，去 Step 6。
+- 任务只是写作、证据整合或引用审计，去 Step 7。
+- 任务只是成稿修订或表达收口，去 Step 8。
+
 ---
 
 ## 输入要求 (Input Requirements)

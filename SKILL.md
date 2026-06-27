@@ -18,6 +18,8 @@ related_skills:
 
 - 对外只保留一个主入口 `README.md` / `SKILL.md`，用户只需要记一个入口。
 - 任一 Step 仍可直接进入，不把前序流程当成硬门槛。
+- 快速导流先看 `references/entry-guide.md`，按任务意图选 Step，再回到对应 `agents/step_*.md`。
+- 参考文件的功能分组见 `references/reference-index.md`，新增或重排 reference 前先更新索引。
 - Cross-agent entry vocabulary lives in `references/entry-routing-index.md`.
 - Full trigger vocabulary lives in `references/trigger-catalog.md`.
 - Platform-specific launch hints live in thin adapter files such as `agents/openai.yaml` and `.claude-plugin/marketplace.json`.
