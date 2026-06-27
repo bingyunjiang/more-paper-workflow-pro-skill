@@ -25,6 +25,7 @@ This index groups the reference files by function so the workflow contracts are 
 ## Writing and evidence templates
 
 - `section-blueprint-template.md`
+- `templates/step7_execution_card.md`
 - `literature-table-template.md`
 - `literature-review-matrix-schema.md`
 - `zotero-structure-template.md`

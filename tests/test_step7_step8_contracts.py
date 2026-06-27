@@ -56,6 +56,33 @@ class Step7Step8ContractsTest(unittest.TestCase):
         ]:
             self.assertIn(token, text)
 
+    def test_step7_execution_card_gate_is_explicit(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        template = read_rel("references/templates/step7_execution_card.md")
+        reference_index = read_rel("references/reference-index.md")
+        for token in [
+            "正文前硬门控",
+            "step7_execution_card.md",
+            "figure_asset_check.md",
+            "scripts/validate_step7_output.py",
+            "只有正文草稿",
+            "没有 `citation_audit.md`",
+            "机理类任务缺少 `mechanism_trigger_decision`",
+            "该脚本只校验工件链和关键字段，不评价文章质量",
+        ]:
+            self.assertIn(token, step7)
+        for token in [
+            "writing_scope",
+            "target_genre",
+            "evidence_entry_mode",
+            "mechanism_trigger_decision",
+            "figure_mode",
+            "allowed_claim_strength",
+            "blocked_until",
+        ]:
+            self.assertIn(token, template)
+        self.assertIn("templates/step7_execution_card.md", reference_index)
+
     def test_step7_internal_pipeline_and_light_readability_guidance_exist(self):
         text = read_rel("agents/step_7_writing.md")
         self.assertIn("### 7.8. 内部写作流水线（用户不可见）", text)
