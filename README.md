@@ -11,7 +11,7 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 more paper workflow pro skill `v1.0.17-20260624`
+# 📚 more paper workflow pro skill `v1.0.18-20260627`
 
 > 面向中文/双语论文写作的证据闭环工作流。覆盖定题、检索、下载、Zotero、写作与引用审计，所有关键步骤都围绕真实文献落地，而不是模型记忆。
 
@@ -808,16 +808,15 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
-### v1.0.17-20260624 (2026-06-21 至 2026-06-24)
-- **Step 4 默认生成检索结果看板**：标准 Step 4 完成链路会同步输出 `step4-dashboard/`，用于本地审阅 T1-T3 文献、复核 T4 排除项、查看章节挂接、下载准备度和阅读深度。
-- **Step 5 下载主链改为英文优先**：英文 DOI 先走 Sci-Hub / OA fast / IEEE CDP / Generic CDP，再进入 CNKI / 万方，减少中英文共享浏览器会话互相干扰；其中英文 OA 先做 `oa_candidate / no_oa_hint / unknown` 提示分层，真实 OA 仍必须由 OA fast 验证。
-- **英文预登录门控继续前移并覆盖 IEEE**：命中登录敏感的 IEEE CDP 与 Generic CDP 条目会先统一检查会话、自动打开本轮真正需要的 publisher 登录页，再决定继续、写 `login_checkpoint.json` 或稍后恢复。
-- **中文验证码改为“当前篇自动续跑”**：CNKI 命中 `captcha_required` 后，脚本会先持续监控当前验证页；用户在已打开浏览器完成验证并回到论文详情页后，当前篇会自动重试，不再默认要求额外交互确认。
-- **中文下载更偏真实落盘与人工协作**：CNKI 继续只点击明确 `PDF下载`；万方细分为详情页点击无效、下载页无可执行控件等状态，并把浏览器实际下载的 PDF 归档回 `paper-temp/`，减少 `~/Downloads` 残留。
-- **RSC / MDPI / IEEE 路由补齐**：RSC 增加 `articlepdf` 直链 fallback；MDPI 从直接跳过改为 Generic CDP 尝试但不触发机构登录门控；IEEE 默认恢复独立 `download_via_ieee.py` 路径并纳入英文预登录判定。
-- **checkpoint / 恢复语义继续收口**：英文 `login_checkpoint.json` 和中文 `chinese_login_checkpoint.json` 都保持“待登录确认”而非“已跳过”；恢复路径固定为只重跑 checkpoint 中条目，确认后把失败原因刷新为真实策略失败。
-- **Step 5 文档边界更明确**：README 与 Step 5 运行文档补清了 `.bib` 在 Step 5 默认表示“下载输入”而不是“导入 Zotero 指令”，并强调真实下载前必须先在同一个 CDP 浏览器里完成必要登录。
-- **回归测试继续补齐**：本轮补入了 Step 4 看板默认导出、MDPI Generic CDP、checkpoint/`confirmed` 恢复、输出目录默认解析、浏览器下载归档、CNKI 验证自动续跑、IEEE+Generic 统一预登录门控等行为的测试。
+### v1.0.18-20260627 (2026-06-26 至 2026-06-27)
+- **Step 7 写作前硬门控与结构化子模式**：`full-document / chapter-only / continue-existing` 写作必须先生成 `step7_execution_card.md`；新增四个结构化子模式（`section-blueprint-first` / `pre-review` / `citation-audit` / `revision-roadmap`），统一消费同类证据工件。
+- **图文联合约束加固**：Markdown-first 不等于 text-only；正文需包含图片或可解析图位标记；`post_write` 只表示图片插入可后置。
+- **写作质量审计脚本体系**：新增 6 个脚本（`audit_scientific_writing_quality.py` / `audit_engineering_claims.py` / `validate_step7_output.py` / `md_to_pdf_with_images.py` / `build_mechanism_argument_plan.py` / `build_deep_read_cards.py`）。
+- **领域知识包（Domain Packs）**：新增 4 个领域包（材料/机械 Journal Style、材料/机械 Writing、电力电子/充电桩/储能/EMS/V2G、电力电子 Journal Style）与 6 个质量/审计参考文件，均采用条件加载策略。
+- **Step 8 审稿式润色子模式**：新增 `review-style-polish` 子模式与 `CRITICAL / MAJOR / MINOR` 严重性分级；默认输出顺序固定为 7 段制。
+- **SKILL.md/README 入口收敛重构**：SKILL.md 新增全局执行纪律；README 首屏只保留 3 个最短入口；新增 `agents/step_1_entry.md`、`step_7_entry.md`、`references/reference-index.md`。入口收敛不影响 direct-entry。
+- **测试大幅扩展**：`test_step7_step8_contracts.py` +532 行；新增 `test_validate_step7_output.py` / `test_writing_quality_audits.py` / `test_public_docs.py` / `test_direct_entry_contracts.py`。
+
 
 ### v1.0.16-20260621 (2026-06-21)
 - **Step 8 与运行态状态源继续收口**：AI 味诊断、`.skill-state/ai_trace_diagnostics.json`、Step 8 demo、`artifact_passport` 对接与更新提醒协议一起落位，润色层更接近可验证、可追踪的发布状态。
@@ -975,7 +974,7 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 ---
 
 <a id="english"></a>
-# 📚 more paper workflow pro skill `v1.0.17-20260624`
+# 📚 more paper workflow pro skill `v1.0.18-20260627`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
@@ -1548,16 +1547,15 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
 
-### v1.0.17-20260624 (2026-06-21 to 2026-06-24)
-- **Step 4 now exports a search-results dashboard by default**: the standard Step 4 finish path also creates `step4-dashboard/` for local review of T1-T3 papers, T4 exclusions, chapter mapping, download readiness, and reading depth.
-- **Step 5 now runs an English-first download chain**: English DOI items move through Sci-Hub / OA fast / IEEE CDP / Generic CDP before CNKI / Wanfang starts, reducing cross-language CDP session interference; OA hints are staged as `oa_candidate / no_oa_hint / unknown`, but real OA still has to be verified by OA fast.
-- **Pre-login gating is tighter and now includes IEEE**: login-sensitive IEEE CDP and Generic CDP items now share one preflight login decision, auto-open only the publishers needed for the current batch, and write `login_checkpoint.json` cleanly before repeated access-wall failures.
-- **CNKI captcha handling now auto-resumes the current paper**: when a paper hits `captcha_required`, the router watches the live CNKI tab first; once the user completes the captcha and returns to the target detail page, the current paper is retried automatically instead of requiring an extra confirmation loop by default.
-- **Chinese downloads lean further toward real file landing and manual collaboration**: CNKI still only auto-clicks explicit PDF entries; Wanfang now distinguishes detail-click-no-effect vs download-page-no-actionable-control, and browser-downloaded PDFs are archived back into `paper-temp/` instead of being left behind in `~/Downloads`.
-- **RSC / MDPI / IEEE routing is more complete**: RSC now has an `articlepdf` direct-PDF fallback, MDPI moved from hard skip to Generic CDP attempt without joining institutional-login gating, and IEEE is back on the dedicated `download_via_ieee.py` path while still participating in English preflight login checks.
-- **Checkpoint and resume semantics were tightened again**: `login_checkpoint.json` and `chinese_login_checkpoint.json` remain “waiting for confirmed login” states rather than “skipped” states, and confirmed resume paths rerun only the gated subset while refreshing failure reasons into real strategy outcomes.
-- **Step 5 boundary text is clearer**: README and runtime docs now state more explicitly that `.bib` means “download input” in Step 5 unless the user explicitly asks for Zotero import, and that real download runs must reuse the same visible CDP browser for login-gated sites.
-- **Regression coverage expanded again**: tests now cover default Step 4 dashboard export, MDPI Generic CDP, checkpoint/confirmed resume behavior, default output-dir resolution, browser-download archiving, CNKI captcha auto-resume, and the shared IEEE + Generic preflight login gate.
+### v1.0.18-20260627 (2026-06-26 to 2026-06-27)
+- **Step 7 pre-writing hard gates and structured sub-modes**: `full-document / chapter-only / continue-existing` writing requires a `step7_execution_card.md` gate before generating any body text.
+- **Structured sub-mode system**: `section-blueprint-first` (outline before writing), `pre-review` (reviewer simulation), `citation-audit` (evidence against citations), `revision-roadmap` (response to reviewer comments).
+- **Figure/text joint constraints**: Markdown-first does not mean text-only; the body must include image references or parseable figure markers if assets exist.
+- **6 new audit/build scripts**: `audit_scientific_writing_quality.py`, `audit_engineering_claims.py`, `validate_step7_output.py`, `md_to_pdf_with_images.py`, `build_mechanism_argument_plan.py`, `build_deep_read_cards.py`.
+- **4 domain packs added** (materials/mechanics journal style, materials/mechanics writing, power electronics/EV/charging, power energy journal style) with conditional loading.
+- **Step 8 `review-style-polish` sub-mode** with `CRITICAL / MAJOR / MINOR` severity levels; default output sequence fixed to 7 stages.
+- **SKILL.md/README convergence**: global discipline rules added; README first screen reduced to 3 shortest entry points.
+- **Tests massively expanded**: `test_step7_step8_contracts.py` +532 lines; 4 new test files.
 
 ### v1.0.16-20260621 (2026-06-21)
 - **Hero poster became a clickable video cover**: the top README poster now links to the Bilibili intro video as the public-facing entry point.

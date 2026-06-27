@@ -8,6 +8,64 @@
 
 ---
 
+## v1.0.18-20260627 (2026-06-26 至 2026-06-27)
+
+### Step 7 写作质量基础设施重构
+
+**写作前硬门控引入：**
+
+- `step_7_writing.md` 新增"写作前先答"契约：任何 `full-document / chapter-only / continue-existing` 写作必须先生成 `step7_execution_card.md` 作为硬门控，否则不得直接进入正文生成。
+- `step7_execution_card.md` 模板落位于 `references/templates/step7_execution_card.md`，包含 `writing_scope / evidence_entry_mode / mechanism_trigger_decision / figure_mode / allowed_claim_strength` 等字段。
+- 正文引文格式完成门：正文不得残留 Zotero item key 作为引文；必须转换为编号制或作者-年份制，否则不得宣称 Step 7 完成。
+- 图文完成门：Zotero/PDF 驱动的写作默认交付图文稿（非 text-only）；缺失图文资产时必须显式记录 `figure_mode=skip` 及理由。
+- PDF-only `evidence_pack` 正式成为 Step 7 独立入口（不是降级补丁）。
+
+**结构化写作子模式体系：**
+
+- Step 7 新增四个结构化子模式：`section-blueprint-first`（章节蓝图先行）、`pre-review`（审稿人视角预审）、`citation-audit`（引用审计）、`revision-roadmap`（修稿路线图），统一消费 `section_blueprints / writing_rationale_matrix / evidence_pack`。
+- 预审和引用审计有固定的 6 段输出顺序，不能替代用户新增未核验文献或升级证据等级。
+
+**图文证据链约束加固：**
+
+- Markdown-first 不等于 text-only；启用图文联合时正文需包含图片或可解析图位标记。
+- 正文前硬门控缺失 `figure_asset_check.md` 时不得完成 Step 7。
+- `post_write` 只表示正式图片插入可后置，不表示可以交付纯文字稿。
+
+### 写作质量审计脚本体系
+
+- **新增 6 个脚本**：`scripts/audit_scientific_writing_quality.py`（+291 行）、`scripts/audit_engineering_claims.py`（+191 行）、`scripts/validate_step7_output.py`（+330 行）、`scripts/md_to_pdf_with_images.py`（+208 行）、`scripts/build_mechanism_argument_plan.py`（+609 行）、`scripts/build_deep_read_cards.py`（+106 行）。
+
+### 领域知识包（Domain Packs）
+
+- **新增 4 个领域参考包**：`references/domain-packs/materials-journal-style.md`、`materials-mechanics-writing.md`、`power-electronics-ev-energy-writing.md`、`power-energy-journal-style.md`。采用条件加载策略。
+- **新增 6 个质量/审计参考文件**：`scientific-writing-quality-rubric.md`、`section-quality-gates.md`、`reviewer-defect-taxonomy.md`、`citation-audit-contract.md`、`writing-quality-borrowing-plan.md`、`writing-antipatterns.md`。
+- `references/figure-writing-interface.md` 从图文分离更新为图文联合合同（+51 行）。
+- `references/section-blueprint-template.md` 增补字段（+24 行）。
+
+### Step 8 润色增强
+
+- `step_8_polishing.md` 新增"润色前先答"四问与 `review-style-polish` 子模式。严重性分级 `CRITICAL / MAJOR / MINOR`。默认输出顺序固定为 7 段制。
+
+### SKILL.md / README 入口收敛
+
+- **SKILL.md 大幅重构**（+44/-4 行）：新增全局执行纪律（张力先行、双向校准、最小对比、反模式命名、任务定义优先）、Step 边界定义、快速通道不跳质量门原则。
+- **README 首屏精简**（+36/-4 行）：只保留 3 个最短入口对外。入口收敛不影响 direct-entry。
+- 新增 `agents/step_1_entry.md`、`agents/step_7_entry.md`、`references/reference-index.md`。
+- `references/entry-guide.md` 大幅更新，按任务意图做快速导流。
+- `.codex/config.toml` 新增 CodeGraph 配置。
+
+### 2026-06-26 持续更新
+
+- `step_8_polishing.md` +31 行：新增润色前四问、子模式划分、AI 味检查边界、问题超出 sentence-level 时强制回退。
+- `references/pdf-processing-policy.md` +5 行：明确纯文字降级需要显式确认。
+- `tests/test_step7_step8_contracts.py` +147 行。
+
+### 测试拓展
+
+- `tests/test_step7_step8_contracts.py` +532 行。新增测试文件：`test_validate_step7_output.py`（+130 行）、`test_writing_quality_audits.py`（+130 行）、`test_public_docs.py`（+47 行）、`test_direct_entry_contracts.py`（+13 行）。
+
+**统计**：72 files changed, 7508 insertions, 145 deletions；约 25 个新参考文件、脚本和测试文件。
+
 ## v1.0.17-20260624 (2026-06-21 至 2026-06-24)
 
 ### Step 5 真实下载链路、英文优先顺序与登录 checkpoint 收口
