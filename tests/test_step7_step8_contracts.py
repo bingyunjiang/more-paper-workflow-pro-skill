@@ -382,10 +382,20 @@ class Step7Step8ContractsTest(unittest.TestCase):
 
         for token in [
             "`mechanism_analysis`",
+            "mechanism_trigger_decision",
+            "enter_mechanism_analysis",
+            "skip_mechanism_analysis",
+            "checked_text",
+            "candidate_terms_hit",
+            "confirmed_triggers",
+            "required_artifacts",
             "mechanism_cards.json/md",
             "mechanism_argument_plan.json/md",
             "mechanism_claim_audit.json/md",
             "mechanism_paragraph_audit.json/md",
+            "正文生成前必须先产出或刷新 `mechanism_cards.json/md`、`mechanism_argument_plan.json/md` 和 `mechanism_claim_audit.json`",
+            "已有草稿续写和 direct-entry 写作也不能跳过",
+            "不得先写正文再补工件",
             "scripts/build_mechanism_argument_plan.py",
             "scripts/audit_mechanism_claims.py",
             "scripts/audit_mechanism_paragraphs.py",
@@ -1182,7 +1192,8 @@ class Step7Step8ContractsTest(unittest.TestCase):
             "图后解释句",
             "auto_insert_figures=true",
             "LLM-for-Zotero-MinerU-cache-*.zip",
-            "没有 MinerU ZIP 时，只允许正文占位，不自动选图",
+            "没有 MinerU ZIP 但本地 PDF 可读时，允许通过 PyMuPDF 直接抽取 `pdf_direct` 候选图",
+            "没有 MinerU ZIP 且 PDF 不可读或无候选图时，才只保留正文图位占位，不自动选图",
         ]:
             self.assertIn(token, interface)
 
@@ -1204,12 +1215,13 @@ class Step7Step8ContractsTest(unittest.TestCase):
             self.assertIn(token, step7)
 
         for token in [
-            "没有 MinerU ZIP 时，允许继续写正文，但只能放图位占位，不自动选图",
+            "没有 MinerU ZIP 但本地 PDF 可读时，允许先进入 `post_write`，用 PyMuPDF 生成 `pdf_direct` 低置信候选图",
             "- `skip`",
         ]:
             self.assertIn(token, step7_entry)
 
-        self.assertIn("若 `auto_insert_figures=true` 且 MinerU ZIP 缺失，应明确降级为 `figure_mode=post_write`；若连正文占位都不适合，则退回 `figure_mode=skip`，不得静默失败。", step7)
+        self.assertIn("没有 MinerU ZIP 但本地 PDF 可读时，允许用 PyMuPDF 直接抽取 `pdf_direct` 候选图", step7)
+        self.assertIn("figure_evidence_status=pdf_direct_candidate_pending_manual_check", step7)
 
     def test_step8_light_meaning_audit_trigger_exists(self):
         step8 = read_rel("agents/step_8_polishing.md")

@@ -6,6 +6,25 @@
 
 命中以下“两段式触发”时启用：
 
+### 正文前硬门
+
+每次 Step 7 进入正文写作、续写或图文联合写作前，必须先记录 `mechanism_trigger_decision`。该记录是运行时闸门，不是展示性说明。
+
+最小字段：
+
+| 字段 | 说明 |
+|---|---|
+| checked_text | 被检查的标题、用户任务、章节蓝图、argument_plan 或核心 claim |
+| candidate_terms_hit | 第一段命中的机制候选词 |
+| confirmed_triggers | 第二段命中的机制增强确认条件 |
+| decision | `enter_mechanism_analysis` 或 `skip_mechanism_analysis` |
+| reason | 进入或跳过的具体原因 |
+| required_artifacts | 进入时必须先生成的工件 |
+
+若 `decision=enter_mechanism_analysis`，正文生成前必须先产出或刷新 `mechanism_cards.json/md`、`mechanism_argument_plan.json/md` 和 `mechanism_claim_audit.json`；已有草稿续写和 direct-entry 写作也不能跳过，图文联合写作同样不能跳过。
+
+若 `decision=skip_mechanism_analysis`，必须写明防误触发依据，例如只命中 `影响因素` 但没有原因/路径/机理/主导/演化/反馈，或章节属于方法/装置/数据来源。
+
 ### 第一段：机制候选召回
 
 满足任一条件即可标记 `mechanism_candidate=true`：
@@ -60,6 +79,14 @@ python3 scripts/build_mechanism_argument_plan.py --cards-json deep_read_cards.js
 python3 scripts/audit_mechanism_claims.py --plan-json mechanism_argument_plan.json
 python3 scripts/audit_mechanism_paragraphs.py --draft-md 当前小节草稿.md --plan-json mechanism_argument_plan.json
 ```
+
+直达写作执行顺序：
+
+1. 先构造或刷新最小证据映射与 `deep_read_cards.json/md`。
+2. 记录 `mechanism_trigger_decision`。
+3. 若 `decision=enter_mechanism_analysis`，立即执行 `build_mechanism_argument_plan.py`；不得先写正文再补工件。
+4. 对已有草稿执行 `audit_mechanism_paragraphs.py`，对新写正文至少在完成本节后执行一次。
+5. 只有 `mechanism_claim_audit` 中的降级项已经写入 `evidence_gap_list.md` 或在正文中降强度后，才允许进入 Step 8。
 
 若已有 MinerU ZIP 解析出的 `figure_index.json`，可追加 `--figure-index figure_index.json` 升级图表锚点；没有 MinerU 时不得阻塞写作，只能把图表证据降级为 `figure_evidence_status=unavailable_without_mineru_or_manual_pdf_check`。
 

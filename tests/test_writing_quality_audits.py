@@ -60,6 +60,15 @@ class WritingQualityAuditsTest(unittest.TestCase):
         self.assertTrue(payload["summary"]["domain_detected"])
         self.assertEqual(payload["summary"]["recommended_next_step"], "Step 7")
 
+    def test_engineering_claim_audit_skips_non_power_energy_domain(self):
+        payload = audit_engineering_text(
+            "管材内侧稳定性受内压、芯棒和模具间隙影响，外侧壁厚减薄也与摩擦条件有关。"
+        )
+        self.assertFalse(payload["summary"]["domain_detected"])
+        self.assertEqual(payload["summary"]["finding_count"], 0)
+        self.assertEqual(payload["summary"]["recommended_next_step"], "ready")
+        self.assertEqual(payload["summary"]["skipped_reason"], "power_electronics_ev_energy_domain_not_detected")
+
     def test_cli_outputs_json_and_markdown_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

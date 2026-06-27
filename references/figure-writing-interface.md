@@ -80,6 +80,7 @@
 
 - 图表任务可以在 Step 7 发起
 - `auto_insert_figures=true` 时，优先要求条目下存在 `LLM-for-Zotero-MinerU-cache-*.zip` 或等价图文资产包
-- 没有 MinerU ZIP 时，只允许正文占位，不自动选图
+- 没有 MinerU ZIP 但本地 PDF 可读时，允许通过 PyMuPDF 直接抽取 `pdf_direct` 候选图；该候选必须标记为低置信、无 caption、待人工确认
+- 没有 MinerU ZIP 且 PDF 不可读或无候选图时，才只保留正文图位占位，不自动选图
 - 没有 figure/table/panel 绑定时，不得自动写“如图 X 所示”“图中可见”“由图证明”
 - 具体图形设计和导出细节可继续由现有图表参考处理

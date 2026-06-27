@@ -85,6 +85,20 @@ def _mk(
 
 def audit_text(text: str) -> dict:
     findings: list[EngineeringClaimFinding] = []
+    domain_detected = _has_any(text, [re.escape(term) for term in POWER_TERMS])
+    if not domain_detected:
+        return {
+            "summary": {
+                "schema_version": "engineering-claim-audit.v1",
+                "domain_detected": False,
+                "finding_count": 0,
+                "critical_count": 0,
+                "major_count": 0,
+                "recommended_next_step": "ready",
+                "skipped_reason": "power_electronics_ev_energy_domain_not_detected",
+            },
+            "findings": [],
+        }
     idx = 1
     for line, sentence in _sentences(text):
         if _has_any(sentence, [r"稳定", r"stable", r"stability", r"鲁棒"]):
@@ -117,7 +131,7 @@ def audit_text(text: str) -> dict:
 
     summary = {
         "schema_version": "engineering-claim-audit.v1",
-        "domain_detected": _has_any(text, [re.escape(term) for term in POWER_TERMS]),
+        "domain_detected": domain_detected,
         "finding_count": len(findings),
         "critical_count": sum(1 for item in findings if item.severity == "critical"),
         "major_count": sum(1 for item in findings if item.severity == "major"),
