@@ -19,13 +19,18 @@
 - ...
 
 **证据映射：**
-| 声明 | 支撑证据 | 来源 |
-|------|---------|------|
-| {claim_1} | {evidence_refs} | {综述矩阵/检索文献表/实时搜索} |
+| claim_id | 声明 | claim_strength | required_evidence | 支撑证据 | evidence_anchor | downgrade_required |
+|------|------|------|------|---------|------|------|
+| C-001 | {claim_1} | background/trend/parameter/numeric_comparison/mechanism/novelty | {最低证据要求} | {evidence_refs} | {PDF/page/chunk/figure/table/panel/note} | false |
 
 **建议图表位置：**
 - {figure_1_placement}
 - ...
+
+**图表绑定：**
+| claim_id | figure/table | panel | support_type | risk_flags |
+|------|------|------|------|------|
+| C-001 | Fig. 1 / Table 1 | a,b | direct/partial/contextual/not_supported | {risk_flags} |
 
 **承上：** {与上一节的逻辑衔接}
 **启下：** {引出下一节的过渡}
@@ -46,6 +51,19 @@
 | **基准对比** | 4 | baseline 方法的公开结果 | "比标准方案提升 12%" |
 
 **红线：** 不接受无证据的声明。如果一条 claim 找不到任何证据支撑 → 要么补充证据，要么删除 claim。
+
+### 句子强度与证据最低要求
+
+| claim_strength | 最低证据要求 | 蓝图处理 |
+|---|---|---|
+| `background` | 综述、摘要、元数据可作为低风险支撑 | 可写背景，不写具体结论 |
+| `trend` | 多篇文献或系统性证据 | 单篇支撑时标记 `risk_flags=single_source_trend` |
+| `parameter` | PDF 原文、方法表、用户数据或标准文件 | 无锚点时不得写入强参数句 |
+| `numeric_comparison` | 页码、图、表或数据文件 | 必须填 `evidence_anchor` |
+| `mechanism` | 全文级证据，优先图表/实验/仿真 | 必须说明竞争机制或适用边界 |
+| `novelty` | 检索覆盖和对比文献 | 无检索覆盖不得写“首次/创新” |
+
+蓝图中 `downgrade_required=true` 的 claim 不能以强结论进入正文，只能保守表达、保留 `[待补证据: claim]`，或回退 Step 4/5/6 补证据。
 
 ## 图表放置规范
 

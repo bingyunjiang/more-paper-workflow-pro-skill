@@ -216,16 +216,49 @@ class Step7Step8ContractsTest(unittest.TestCase):
             "claim_segment_id",
             "claim_text",
             "claim_type",
+            "claim_strength",
+            "required_evidence",
             "insert_position",
             "citekey",
             "zotero_item_key",
             "support_grade",
             "evidence_anchor",
+            "downgrade_required",
             "strong / partial / background / contradictory_or_limiting / metadata_only_candidate / not_supported",
             "`support_grade=metadata_only_candidate` 或 `not_supported` 不得进入最终稿的强 claim",
             "同一个 `claim_segment_id` 下的多条记录",
         ]:
             self.assertIn(token, text)
+
+    def test_step7_claim_strength_and_evidence_requirements_are_documented(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        citation_contract = read_rel("references/citation-audit-contract.md")
+        blueprint = read_rel("references/section-blueprint-template.md")
+
+        for token in [
+            "background / trend / parameter / numeric_comparison / mechanism / novelty",
+            "claim_strength",
+            "required_evidence",
+            "current_evidence_level",
+            "evidence_anchor",
+            "downgrade_required",
+            "risk_flags",
+            "无页码/表格锚点不得写强参数句",
+            "无检索覆盖不得写“首次/创新”",
+        ]:
+            self.assertIn(token, step7 + citation_contract + blueprint)
+
+        for token in [
+            "`background`",
+            "`trend`",
+            "`parameter`",
+            "`numeric_comparison`",
+            "`mechanism`",
+            "`novelty`",
+            "证据等级决定 claim 强度",
+            "蓝图中 `downgrade_required=true` 的 claim 不能以强结论进入正文",
+        ]:
+            self.assertIn(token, citation_contract + blueprint)
 
     def test_step7_multi_entry_evidence_pack_and_docx_policy_exist(self):
         text = read_rel("agents/step_7_writing.md")
@@ -391,6 +424,47 @@ class Step7Step8ContractsTest(unittest.TestCase):
             self.assertIn(token, step7)
             self.assertIn(token, reference)
 
+    def test_materials_mechanics_domain_pack_is_wired_to_step7(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        reference = read_rel("references/mechanism-analysis-writing-contract.md")
+        domain_pack = read_rel("references/domain-packs/materials-mechanics-writing.md")
+
+        self.assertIn("references/domain-packs/materials-mechanics-writing.md", step7)
+        self.assertIn("材料/机械/工程写作领域增强包", domain_pack)
+
+        for token in [
+            "materials_system_card",
+            "thermomechanical_process_card",
+            "microstructure_evidence_card",
+            "mechanism_discrimination_card",
+            "figure_claim_panel_card",
+            "journal_style_card",
+            "CDRX",
+            "DDRX",
+            "DRV",
+            "Zener pinning",
+            "CNT pinning",
+            "load transfer",
+            "EBSD",
+            "TEM",
+            "KAM",
+            "GOS",
+            "HAGB",
+            "LAGB",
+            "只在任务命中材料、机械、热变形、显微组织或工程机理时加载",
+        ]:
+            self.assertIn(token, domain_pack)
+
+        for token in [
+            "materials_system",
+            "thermomechanical_path",
+            "microstructure_evidence",
+            "competing_mechanisms",
+            "discrimination_evidence",
+            "insufficient_basis",
+        ]:
+            self.assertIn(token, reference)
+
     def test_step7_section_scoped_writing_and_thesis_depth_rules_exist(self):
         text = read_rel("agents/step_7_writing.md")
         command = read_rel("commands/write.md")
@@ -545,6 +619,48 @@ class Step7Step8ContractsTest(unittest.TestCase):
         ]:
             self.assertIn(token, text)
             self.assertIn(token, reference)
+
+    def test_step8_scientific_bluff_diagnostics_are_constrained(self):
+        step8 = read_rel("agents/step_8_polishing.md")
+        antipatterns = read_rel("references/writing-antipatterns.md")
+        mechanism_contract = read_rel("references/mechanism-analysis-writing-contract.md")
+
+        for token in [
+            "mechanism_bluff",
+            "科学空话诊断",
+            "mechanism_without_state_variables",
+            "causal_jump_without_validation",
+            "visual_claim_without_panel",
+            "proof_verb_without_evidence",
+            "generic_strengthening_list",
+            "不能新增文献、补图号、补实验解释或替代 Step 7 引用审计",
+            "不新增机理证据，不补图号，不替代 Step 7 机理审计",
+        ]:
+            self.assertIn(token, step8 + antipatterns + mechanism_contract)
+
+        self.assertIn("Step 8：只做 `mechanism_bluff` 诊断、降强度、补边界句或提示回退，不新增证据", antipatterns)
+
+    def test_figure_claim_panel_binding_contract_exists(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        figure_contract = read_rel("references/figure-writing-interface.md")
+        blueprint = read_rel("references/section-blueprint-template.md")
+
+        for token in [
+            "figure_table_panel_binding",
+            "claim_id",
+            "claim_text",
+            "claim_strength",
+            "figure_id",
+            "table_id",
+            "panel_id",
+            "caption_anchor",
+            "support_type",
+            "support_status",
+            "downgrade_required",
+            "没有 figure/table/panel 绑定时，不得自动写",
+            "三者必须回答同一条 claim",
+        ]:
+            self.assertIn(token, step7 + figure_contract + blueprint)
 
     def test_step8_revision_ledger_and_minimum_validation_contracts_exist(self):
         text = read_rel("agents/step_8_polishing.md")

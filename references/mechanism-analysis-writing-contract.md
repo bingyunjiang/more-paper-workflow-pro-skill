@@ -84,6 +84,24 @@ python3 scripts/audit_mechanism_paragraphs.py --draft-md 当前小节草稿.md -
 | discriminates_against | 当前机制需要和谁区分 |
 | transfer_risk | 是否存在跨材料 / 跨体系外推风险 |
 | figure_claim_binding | claim 绑定到哪张图、哪类图、哪些 panel |
+| claim_strength | `mechanism` / `numeric_comparison` / `parameter` 等句子强度 |
+| required_evidence | 当前机制 claim 的最低证据要求 |
+| downgrade_required | 证据不足时是否必须降强度 |
+
+材料/机械/工程类任务还应按需加载 `references/domain-packs/materials-mechanics-writing.md`，把材料体系、热变形条件、显微组织证据和竞争机制判别纳入 `mechanism_cards`。
+
+## 材料机制判别字段
+
+当任务涉及 EBSD、TEM、SEM、XRD、KAM、GOS、HAGB/LAGB、织构、热变形、CDRX、DDRX、DRV、PSN、Zener pinning、CNT load transfer 等内容时，`mechanism_cards` 额外记录：
+
+| 字段 | 说明 |
+|---|---|
+| materials_system | 合金/基体、增强相、制备工艺、热处理状态、初始组织 |
+| thermomechanical_path | 温度、应变速率、真应变、应力状态、压缩/剪切/轧制路径 |
+| microstructure_evidence | EBSD/TEM/SEM/XRD/KAM/GOS/HAGB/LAGB/织构等证据 |
+| competing_mechanisms | CDRX/DDRX/DRV/PSN/Zener pinning/load transfer 等候选机制 |
+| discrimination_evidence | 区分竞争机制所需证据 |
+| insufficient_basis | 不能单独作为证明的依据 |
 
 ## 段落规则
 
@@ -136,3 +154,15 @@ MinerU 图表锚点 > PDF 页/段落锚点 > PDF 全文无页码锚点 > 摘要/
 - `mechanism_claim_audit` 中 `downgrade_required` 的 claim 不得以强机理结论进入正文。
 - `mechanism_paragraph_audit` 中命中的 `cross_material_claim_missing_boundary`、`visual_reference_without_figure_id`、`mechanism_discrimination_not_explicit` 应在定稿前处理。
 - 若 `target_genre=thesis`，应额外自查是否存在解释腔过密、判定句滞后和口语化连接句堆叠。
+
+### 科学空话 / 机理空话诊断
+
+以下命中项应进入 Step 8 的 `mechanism_bluff` 或 Step 7 的机理段落审计，但不能替代引用审计：
+
+- `mechanism_without_state_variables`：只有“促进/抑制/改善”，没有状态量或控制量。
+- `causal_jump_without_validation`：从性能变化直接跳到微观机制，没有验证路径。
+- `visual_claim_without_panel`：写“图中可见/如图所示”，但无 figure/table/panel 锚点。
+- `proof_verb_without_evidence`：使用“证明/验证/揭示”但缺全文、图表、实验或仿真证据。
+- `generic_strengthening_list`：晶粒细化、位错强化、第二相强化、载荷传递等套话并列，但没有当前体系证据。
+
+命中以上规则时，默认动作是 `downgrade_claim`、补边界句或回退 Step 7/4/6 补证据；不得在 Step 8 中新增外部证据。

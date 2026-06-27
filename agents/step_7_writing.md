@@ -27,7 +27,9 @@
 - [ ] `references/genre-style-axis.md` — 🆕 target_genre 轴：thesis / journal / review / report / proposal / conference
 - [ ] `references/section-function-matrix.md` — 🆕 章节-功能-证据需求矩阵
 - [ ] `references/section-blueprint-workflow.md` — 🆕 章节蓝图工作流
+- [ ] `references/section-blueprint-template.md` — 章节蓝图字段规范，含 `claim_strength / required_evidence / evidence_anchor`
 - [ ] `references/mechanism-analysis-writing-contract.md` — 🆕 机理分析写作契约
+- [ ] `references/domain-packs/materials-mechanics-writing.md` — 材料/机械/工程领域增强包；仅在任务命中材料、机械、热变形、显微组织或工程机理时加载
 - [ ] `references/writing-antipatterns.md` — 🆕 写作反模式库
 - [ ] `references/reviewer-protocol.md` — 🆕 reviewer-style 预审输出格式
 - [ ] `references/citation-audit-contract.md` — 🆕 写作后引用审计契约
@@ -727,6 +729,9 @@ Step 7.2-4: LaTeX 校验    → latex_check.md（可选）
 - 文献堆砌，不形成论证
 - 章节功能漂移
 - 强 claim，弱证据
+- claim_strength 与 required_evidence 不匹配
+- 图表 claim 缺 figure/table/panel 绑定
+- 机理 claim 缺状态量、竞争机制或验证路径
 - 风格目标不明
 - 直写正文，不做蓝图
 
@@ -1490,15 +1495,31 @@ python3 scripts/citation_audit.py 论文初稿.md \
 | `claim_segment_id` | 稳定 claim 段号，如 `S001 / S002`；按正文顺序生成，长段落可拆成多个 claim |
 | `claim_text` | 被引用支撑的原文 claim 或句子片段 |
 | `claim_type` | `mechanism / association / method / background / definition / review_context / figure_claim` |
+| `claim_strength` | `background / trend / parameter / numeric_comparison / mechanism / novelty` |
+| `required_evidence` | 当前 claim 的最低证据要求，如 `abstract_ok / multi_source / full_text / page_or_table / figure_panel / search_coverage` |
 | `insert_position` | 引用建议插入点，如句末、分句后、图表解释句后 |
 | `citekey` | BibTeX citekey；无 citekey 时记录 Zotero key 或本地证据 ID |
 | `zotero_item_key` | Zotero 条目 key，可缺省但必须说明映射状态 |
 | `support_grade` | `strong / partial / background / contradictory_or_limiting / metadata_only_candidate / not_supported` |
 | `reading_depth` | `full_text / abstract_only / metadata_only / zotero_note / pdf_verified` 等实际读取深度 |
 | `evidence_anchor` | note / annotation / PDF 页码 / chunk / 图表 / 元数据来源 |
+| `downgrade_required` | 证据低于 `required_evidence` 时必须为 `true` |
 | `recommended_action` | `retain / downgrade_claim / supplement_pdf_or_fulltext / repair_mapping / replace_or_remove` |
 
 `support_grade=metadata_only_candidate` 或 `not_supported` 不得进入最终稿的强 claim；`contradictory_or_limiting` 必须进入风险和缺口说明，不能静默忽略。若同一 claim 由多篇文献支撑，应保留同一个 `claim_segment_id` 下的多条记录，而不是合并成笼统“多文献支持”。
+
+**句子强度分级：**
+
+| claim_strength | 可接受证据 | 禁止升级 |
+|---|---|---|
+| `background` | 综述、摘要、元数据 | 不得写成具体实验结论 |
+| `trend` | 多篇文献或系统性证据 | 单篇摘要不能写“普遍表明” |
+| `parameter` | PDF 原文、方法表、用户数据或标准文件 | 无页码/表格锚点不得写强参数句 |
+| `numeric_comparison` | 页码、图、表、数据文件或可核验计算 | 无锚点不得写百分比提升/降低 |
+| `mechanism` | 全文级证据，优先图表、实验或仿真 | 无竞争机制判别不得写“证明/主导” |
+| `novelty` | 检索覆盖和对比文献 | 无检索覆盖不得写“首次/创新” |
+ 
+若 `claim_strength` 与 `required_evidence` 不匹配，必须输出 `downgrade_required=true`，并执行 `downgrade_claim`、保留 `[待补证据: claim]`，或回退 Step 4/5/6 补证据。
 
 **动作化输出：**
 
@@ -1534,6 +1555,9 @@ python3 scripts/citation_audit.py 论文初稿.md \
 
 当某条 claim 主要依赖图/表时，除文字审计外，额外记录：
 - `figure_id`
+- `table_id`
+- `panel_id`
+- `figure_table_panel_binding`
 - `caption_support`
 - `text_support`
 - `visual_support`
