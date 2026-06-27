@@ -1,0 +1,112 @@
+{
+  "schema_version": "figure-index.v1",
+  "metadata": {
+    "source_zip": "/Users/Bing/Zotero/storage/LLAG4GJ7/LLM-for-Zotero-MinerU-cache-IARJQHC6.zip",
+    "mineru_zip_summary": {
+      "schema_version": "mineru-zip.v1",
+      "zip_path": "/Users/Bing/Zotero/storage/LLAG4GJ7/LLM-for-Zotero-MinerU-cache-IARJQHC6.zip",
+      "parent_item_key": "MWXZS66W",
+      "attachment_key": "IARJQHC6",
+      "source_filename": "易和董 - 2025 - 接触边界条件对管材绕弯成形质量的影响.pdf",
+      "has_full_md": true,
+      "has_manifest_json": true,
+      "has_content_list_json": true,
+      "image_count": 20,
+      "entries": [
+        "full.md",
+        "images/77fb457533ddca78f0e6d75e38842accff29dbf69ba16794f2564572f7fb8e73.jpg",
+        "images/7bd93940a7b140db49a1655da57036281d4a7ada287037251e6f3a9a490c4e23.jpg",
+        "images/5ea8262f22aa9805c3d199983ea6b87d62977d755ac9bf0ce312fc4a81851c0e.jpg",
+        "images/3483f230a802de17a5e81b9bc6aeea5935ee6a585b75bcfcef7ad7b743565315.jpg",
+        "images/2a0f52039634fd8a4757e70ebbf5c66aca8cac89eef65fa002d73ab6cbec7d2c.jpg",
+        "images/79d0b58ad3c5aca316edbfaee90e39189a5b7fef07be06709aa6ee9de881d47f.jpg",
+        "images/4bae632f773b5f87acd65df212c444013ea4c5eb7ff9a2e5d8240f0169682cf9.jpg",
+        "images/04bf4320159f2252bce32e8c3caf5a2d2f823250e3f805ffe77a5bc4b5e44b1a.jpg",
+        "images/a504ecf044fe525251e833e48d141c2b04c729ed8a869ee13199b7122717a1d6.jpg",
+        "images/47d3c1a134817b43b48c96ba331267f43a1ca05f4629d24474d2c178ecdb73c7.jpg",
+        "images/2893bd9266b88dda344262ccca1dafa6160d11e6e3cc0ea76007db43a0d25dec.jpg",
+        "images/e810db4731b99b12a90aa2b0b218d917f307ca74179e017105d1ad665cb91e83.jpg",
+        "images/08b78c183984a1d92f27dd898f8fe964a7b4d1301874b47dff550c712f282c54.jpg",
+        "images/b64bc806da2ebc76ab5a4bae443a7e3c1c9bfc093afc08d6dfa0df7477a39557.jpg",
+        "images/0c0772134d1012041452af4704b94a441c5b6d5c64d58f8fa8e8cf64c10a885e.jpg",
+        "images/4710d038d0f63373adcc255cb56f0393dd5fadbac85c4676c9d9a92c8975ca3e.jpg",
+        "images/71c0f25062c76801a6d8cda45ddf66a2e352da67d06b43fba3bead432ef627c1.jpg",
+        "images/f42cae5e499be841b306a5bd3fbf7e93b205a72b7e17b16d6156b3ac0aeb5d21.jpg",
+        "images/9be26fc8a19fc6cdb35fe2a433b9d8f2cbc77e71ccc450f96c1fe5856a44d2e4.jpg",
+        "images/ac915b3c02ed67a0d6df446b14585efa3d635e1fa82eb15b68353b34f4c614d1.jpg",
+        "___ - 2025 - ___________________content_list_v2.json",
+        "_llm_source.json",
+        "content_list.json",
+        "manifest.json",
+        "_llm_sync.json"
+      ],
+      "warnings": []
+    },
+    "copied_images": [
+      "outputs/step7-writing/aviation-metal-tube-bending-2-2/figures/ref3/image-1.jpg",
+      "outputs/step7-writing/aviation-metal-tube-bending-2-2/figures/ref3/image-2.jpg",
+      "outputs/step7-writing/aviation-metal-tube-bending-2-2/figures/ref3/image-3.jpg"
+    ],
+    "auto_insert_figures": true,
+    "notes": [
+      "MinerU images are candidates only until bound to a claim.",
+      "PDF remains the truth source for captions, tables, equations, and strong claims."
+    ]
+  },
+  "records": [
+    {
+      "schema_version": "figure-index.v1",
+      "item_key": "MWXZS66W",
+      "figure_id": "image-1",
+      "figure_type": "figure",
+      "page": "1",
+      "caption": "图 1 管材绕弯成形工模具三维模型 Fig.1 3D model of tools for rotary draw bending",
+      "mentions_in_text": [],
+      "source_type": "caption_plus_text",
+      "collection_path": [],
+      "paper_tier": "",
+      "source_item_key": "MWXZS66W",
+      "source_attachment_key": "IARJQHC6",
+      "source_image_path": "images/b64bc806da2ebc76ab5a4bae443a7e3c1c9bfc093afc08d6dfa0df7477a39557.jpg",
+      "local_image_path": "outputs/step7-writing/aviation-metal-tube-bending-2-2/figures/ref3/image-1.jpg",
+      "section_id": "section-02",
+      "claim_binding": ""
+    },
+    {
+      "schema_version": "figure-index.v1",
+      "item_key": "MWXZS66W",
+      "figure_id": "image-2",
+      "figure_type": "figure",
+      "page": "2",
+      "caption": "图 2 截面畸变测量位置 Fig.2 Measurement position of cross-section distortion",
+      "mentions_in_text": [],
+      "source_type": "caption_plus_text",
+      "collection_path": [],
+      "paper_tier": "",
+      "source_item_key": "MWXZS66W",
+      "source_attachment_key": "IARJQHC6",
+      "source_image_path": "images/9be26fc8a19fc6cdb35fe2a433b9d8f2cbc77e71ccc450f96c1fe5856a44d2e4.jpg",
+      "local_image_path": "outputs/step7-writing/aviation-metal-tube-bending-2-2/figures/ref3/image-2.jpg",
+      "section_id": "section-02",
+      "claim_binding": ""
+    },
+    {
+      "schema_version": "figure-index.v1",
+      "item_key": "MWXZS66W",
+      "figure_id": "image-3",
+      "figure_type": "figure",
+      "page": "2",
+      "caption": "图 3 弯管截面尺寸的定义 Fig.3 Definition of cross-section size of bend pipe",
+      "mentions_in_text": [],
+      "source_type": "caption_plus_text",
+      "collection_path": [],
+      "paper_tier": "",
+      "source_item_key": "MWXZS66W",
+      "source_attachment_key": "IARJQHC6",
+      "source_image_path": "images/4710d038d0f63373adcc255cb56f0393dd5fadbac85c4676c9d9a92c8975ca3e.jpg",
+      "local_image_path": "outputs/step7-writing/aviation-metal-tube-bending-2-2/figures/ref3/image-3.jpg",
+      "section_id": "section-02",
+      "claim_binding": ""
+    }
+  ]
+}

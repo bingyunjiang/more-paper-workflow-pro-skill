@@ -1,0 +1,33 @@
+{
+  "schema_version": "deep-read-cards.v1",
+  "cards": [
+    {
+      "reference_no": "[1]",
+      "item_key": "99QWSQ5K",
+      "reading_depth": "已读全文",
+      "usable_for": ["壁厚减薄定义", "阶段性分布", "相对弯曲半径敏感性", "变弹性模量影响"],
+      "not_usable_for": ["内部加压辅助弯曲直接机理"]
+    },
+    {
+      "reference_no": "[2]",
+      "item_key": "F98GDZSB",
+      "reading_depth": "已读全文",
+      "usable_for": ["数控绕弯受力状态", "截面畸变", "芯棒支撑折中"],
+      "not_usable_for": ["跨材料定量推广"]
+    },
+    {
+      "reference_no": "[3]",
+      "item_key": "MWXZS66W",
+      "reading_depth": "已读全文",
+      "usable_for": ["接触间隙", "摩擦", "减薄-畸变-起皱耦合"],
+      "not_usable_for": ["小直径航空高强管直接参数窗口"]
+    },
+    {
+      "reference_no": "[4]",
+      "item_key": "P82NKUCE",
+      "reading_depth": "已读全文",
+      "usable_for": ["自由弯曲受力", "U-R关系", "摩擦影响"],
+      "not_usable_for": ["数控绕弯芯棒摩擦直接等同"]
+    }
+  ]
+}

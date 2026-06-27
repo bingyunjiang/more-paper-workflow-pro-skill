@@ -1,0 +1,11 @@
+{
+  "schema_version": "mechanism-claim-audit.v1",
+  "claims": [
+    {"claim": "外侧减薄、内侧起皱、截面畸变来自三维受力和接触约束", "support_status": "support", "evidence": ["[1]", "[2]", "[4]"]},
+    {"claim": "壁厚减薄沿弯曲方向呈阶段性", "support_status": "support", "evidence": ["[1]"]},
+    {"claim": "芯棒越强越好", "support_status": "not-supported", "action": "do_not_write"},
+    {"claim": "芯棒降低畸变但可能增加减薄", "support_status": "support", "evidence": ["[2]"]},
+    {"claim": "绕弯摩擦与自由弯曲摩擦作用路径相同", "support_status": "not-supported", "action": "do_not_write"},
+    {"claim": "内部加压确定性改善所有缺陷", "support_status": "not-supported", "action": "do_not_write"}
+  ]
+}

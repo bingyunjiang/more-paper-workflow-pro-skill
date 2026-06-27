@@ -2,8 +2,8 @@
 """Validate the Step 7 writing artifact chain.
 
 This checks whether a Step 7 output directory has the minimum runtime
-artifacts before a draft is treated as complete. It does not judge prose
-quality or citation correctness.
+artifacts before a draft is treated as complete. It also enforces citation
+and figure-format floor rules, but does not judge prose quality.
 """
 
 from __future__ import annotations
@@ -45,6 +45,15 @@ DRAFT_PATTERNS = [
     "journal_paper*.md",
     "section_*draft*.md",
 ]
+
+ZOTERO_KEY_RE = re.compile(r"\b[A-Z0-9]{8}\b")
+NUMBERED_DEPTH_RE = re.compile(r"\[\d+\](?:[，,、;；\s]*（已读(?:全文|摘要)|（仅元数据）)")
+AUTHOR_YEAR_DEPTH_RE = re.compile(
+    r"[\u4e00-\u9fffA-Za-z][\u4e00-\u9fffA-Za-z .·&-]{0,40}"
+    r"(?:等|和[\u4e00-\u9fffA-Za-z .·&-]{1,30}|et al\.)?"
+    r"[（(](?:19|20)\d{2}[）)](?:（已读(?:全文|摘要)|（仅元数据）)"
+)
+FIGURE_MARKER_RE = re.compile(r"(\[\[FIGURE:[^\]]+\]\]|!\[[^\]]*\]\([^)]+\))")
 
 
 @dataclass
@@ -132,6 +141,76 @@ def _figure_mode_present(root: Path, card_text: str) -> bool:
     return any(re.search(r"figure_mode\s*[:=]\s*(auto_insert|post_write|skip)", text) for text in texts)
 
 
+def _figure_mode(root: Path, card_text: str) -> str:
+    texts = [card_text]
+    for name in ["figure_asset_check.md", "draft_risk_summary.md"]:
+        path = root / name
+        if path.exists():
+            texts.append(_read_text(path))
+    for text in texts:
+        match = re.search(r"figure_mode\s*[:=]\s*(auto_insert|post_write|skip)", text)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _figure_assets_available(root: Path) -> bool:
+    texts: list[str] = []
+    for name in ["figure_asset_check.md", "figure_asset_check.json", "step7_execution_card.md"]:
+        path = root / name
+        if path.exists():
+            texts.append(_read_text(path))
+    combined = "\n".join(texts).lower()
+    if not combined:
+        return False
+    return any(token in combined for token in [
+        "mineru zip",
+        "mineru_zip",
+        "llm-for-zotero-mineru-cache",
+        "figure_index: available",
+        "local_figures: available",
+    ])
+
+
+def _has_figure_index(root: Path) -> bool:
+    return (root / "figure_index.json").exists() or (root / "figure_index.md").exists()
+
+
+def _has_figure_marker(text: str) -> bool:
+    return bool(FIGURE_MARKER_RE.search(text))
+
+
+def _strip_internal_sections(text: str) -> str:
+    stop_markers = [
+        "\n## 参考文献",
+        "\n# 参考文献",
+        "\n## Reference",
+        "\n# Reference",
+        "\n## 证据",
+        "\n# Evidence",
+    ]
+    body = text
+    for marker in stop_markers:
+        index = body.find(marker)
+        if index >= 0:
+            body = body[:index]
+    return body
+
+
+def _strip_figure_markers(text: str) -> str:
+    return FIGURE_MARKER_RE.sub("", text)
+
+
+def _zotero_keys_in_body(text: str) -> list[str]:
+    body = _strip_figure_markers(_strip_internal_sections(text))
+    return sorted(set(ZOTERO_KEY_RE.findall(body)))
+
+
+def _has_submission_style_citation(text: str) -> bool:
+    body = _strip_internal_sections(text)
+    return bool(NUMBERED_DEPTH_RE.search(body) or AUTHOR_YEAR_DEPTH_RE.search(body))
+
+
 def _contains_mechanism_terms(text: str) -> bool:
     lowered = text.lower()
     return any(term.lower() in lowered for term in MECHANISM_TERMS)
@@ -166,6 +245,29 @@ def validate(root: Path) -> tuple[list[Finding], dict[str, object]]:
     if drafts and not _figure_mode_present(root, card_text):
         findings.append(Finding("fail", "missing_figure_gate", "draft exists but figure_asset_check or explicit figure_mode is missing"))
 
+    figure_mode = _figure_mode(root, card_text)
+    figure_assets_available = _figure_assets_available(root)
+    if drafts and figure_assets_available and figure_mode in {"auto_insert", "post_write"}:
+        if not _has_figure_index(root):
+            findings.append(Finding("fail", "missing_figure_index", "figure assets are available but figure_index.json/md is missing"))
+        if not _has_figure_marker(combined_draft_text):
+            findings.append(Finding("fail", "missing_figure_marker", "figure assets are available but draft has no image path or [[FIGURE:...]] marker"))
+
+    if drafts:
+        zotero_keys = _zotero_keys_in_body(combined_draft_text)
+        if zotero_keys:
+            findings.append(Finding(
+                "fail",
+                "raw_zotero_key_citations",
+                "draft body contains raw Zotero keys used like citations: " + ", ".join(zotero_keys[:8]),
+            ))
+        if not _has_submission_style_citation(combined_draft_text):
+            findings.append(Finding(
+                "fail",
+                "missing_submission_style_citations",
+                "draft body lacks [n]（已读全文） or 作者（年份）（已读全文） style citations",
+            ))
+
     if mechanism_task and not decision:
         findings.append(Finding("fail", "missing_mechanism_decision", "mechanism-like task detected but mechanism_trigger_decision is missing"))
 
@@ -184,6 +286,8 @@ def validate(root: Path) -> tuple[list[Finding], dict[str, object]]:
         "draft_count": len(drafts),
         "mechanism_task_detected": mechanism_task,
         "mechanism_decision": decision,
+        "figure_mode": figure_mode,
+        "figure_assets_available": figure_assets_available,
         "status": "pass" if not any(item.severity == "fail" for item in findings) else "fail",
     }
     return findings, summary
@@ -196,6 +300,8 @@ def render(findings: list[Finding], summary: dict[str, object]) -> str:
         f"draft_count: {summary['draft_count']}",
         f"mechanism_task_detected: {summary['mechanism_task_detected']}",
         f"mechanism_decision: {summary['mechanism_decision'] or '-'}",
+        f"figure_mode: {summary['figure_mode'] or '-'}",
+        f"figure_assets_available: {summary['figure_assets_available']}",
     ]
     for item in findings:
         lines.append(f"{item.severity.upper()}: {item.code}: {item.message}")
@@ -222,4 +328,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

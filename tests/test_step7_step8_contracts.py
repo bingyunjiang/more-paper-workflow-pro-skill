@@ -62,11 +62,16 @@ class Step7Step8ContractsTest(unittest.TestCase):
         reference_index = read_rel("references/reference-index.md")
         for token in [
             "正文前硬门控",
+            "正文引文格式完成门",
             "step7_execution_card.md",
             "figure_asset_check.md",
+            "有 MinerU ZIP 时的 post_write 限制",
+            "figure_index.json",
+            "[[FIGURE:",
             "scripts/validate_step7_output.py",
             "只有正文草稿",
             "没有 `citation_audit.md`",
+            "正文仍残留 Zotero key",
             "机理类任务缺少 `mechanism_trigger_decision`",
             "该脚本只校验工件链和关键字段，不评价文章质量",
         ]:

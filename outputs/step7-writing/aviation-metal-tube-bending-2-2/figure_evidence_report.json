@@ -1,0 +1,12 @@
+{
+  "schema_version": "figure-evidence-report.v1",
+  "figure_mode": "auto_insert",
+  "status": "real_images_inserted_from_mineru_zip",
+  "records": [
+    {"figure_id": "fig1_nc_bending_schematic", "claim": "数控绕弯基本受力状态", "source": "[1]", "status": "inserted_from_mineru_zip", "risk": "schematic_not_quantitative"},
+    {"figure_id": "fig2_cross_section_defect", "claim": "截面畸变与壁厚减薄耦合", "source": "[2]", "status": "inserted_from_mineru_zip", "risk": "defect_type_support_only"},
+    {"figure_id": "fig3_mandrel_types", "claim": "芯棒类型与支撑折中", "source": "[2]", "status": "inserted_from_mineru_zip", "risk": "shape_support_not_parameter_optimum"},
+    {"figure_id": "fig4_contact_boundary_model", "claim": "绕弯接触边界", "source": "[3]", "status": "inserted_from_mineru_zip", "risk": "contact_pair_location_only"},
+    {"figure_id": "fig5_free_bending_ur", "claim": "自由弯曲 U-R 与截面畸变", "source": "[4]", "status": "inserted_from_mineru_zip", "risk": "free_bending_only"}
+  ]
+}
