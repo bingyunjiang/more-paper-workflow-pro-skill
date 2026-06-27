@@ -1223,6 +1223,32 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("没有 MinerU ZIP 但本地 PDF 可读时，允许用 PyMuPDF 直接抽取 `pdf_direct` 候选图", step7)
         self.assertIn("figure_evidence_status=pdf_direct_candidate_pending_manual_check", step7)
 
+    def test_step7_zotero_paper_writing_requires_minimum_illustrated_delivery(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        figure_contract = read_rel("references/figure-writing-interface.md")
+
+        for token in [
+            "图文并茂完成门",
+            "默认交付不能只有纯文字",
+            "`figures/` 相对路径图片已插入正文",
+            "正文保留可解析图位标记并生成 `figure_evidence_report.md/json`",
+            "`draft_risk_summary.md` 明确记录 `figure_mode=skip`、已检查资产范围、不可插图原因和后续补图动作",
+            "没有这三者之一，不得宣称 Step 7 写作完成",
+            "more-paper 写作入口默认是图文稿，而不是 text-only",
+            "figure_asset_check",
+        ]:
+            self.assertIn(token, step7)
+
+        for token in [
+            "默认交付物应当图文并茂",
+            "Markdown 不是纯文字豁免",
+            "已插入的项目内 `figures/` 相对路径图片，或可解析图位标记 + `figure_evidence_report.md/json`，或带 `figure_mode=skip` 原因的 `draft_risk_summary.md`",
+            "`figure_asset_check` 必须覆盖 Zotero child attachments、MinerU ZIP、已有 `figure_index.json`、本地图片目录和可读 PDF",
+            "没有执行该检查时，不得把无图初稿标记为完成",
+            "纯文字降级只允许两种情况",
+        ]:
+            self.assertIn(token, figure_contract)
+
     def test_step8_light_meaning_audit_trigger_exists(self):
         step8 = read_rel("agents/step_8_polishing.md")
 
