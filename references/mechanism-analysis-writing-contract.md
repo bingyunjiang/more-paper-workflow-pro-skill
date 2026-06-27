@@ -85,12 +85,14 @@ python3 scripts/audit_mechanism_paragraphs.py --draft-md 当前小节草稿.md -
 | transfer_risk | 是否存在跨材料 / 跨体系外推风险 |
 | figure_claim_binding | claim 绑定到哪张图、哪类图、哪些 panel |
 | discrimination_matrix_used | 是否使用 CDRX/DDRX/DRV/CNT 等判别矩阵 |
-| evidence_modality | `EBSD / TEM / SEM / XRD / flow_curve / mechanical_test / simulation / user_data` |
+| evidence_modality | `EBSD / TEM / SEM / XRD / flow_curve / mechanical_test / waveform / efficiency_curve / loss_breakdown / thermal_map / grid_metric / optimization_result / hardware_prototype / HIL / field_data / standard / simulation / user_data` |
 | claim_strength | `mechanism` / `numeric_comparison` / `parameter` 等句子强度 |
 | required_evidence | 当前机制 claim 的最低证据要求 |
 | downgrade_required | 证据不足时是否必须降强度 |
 
 材料/机械/工程类任务还应按需加载 `references/domain-packs/materials-mechanics-writing.md`，把材料体系、热变形条件、显微组织证据和竞争机制判别纳入 `mechanism_cards`。
+
+电力电子/充电/储能/EMS/V2G/快充/无线充电/超级电容等任务还应按需加载 `references/domain-packs/power-electronics-ev-energy-writing.md`，把拓扑、控制稳定性、效率损耗热、EMS 优化、V2G 并网约束和快充/无线充电边界纳入 `mechanism_cards` 与 `figure_table_panel_binding`。该包不作为材料论文默认规则。
 
 ## 材料机制判别字段
 

@@ -17,6 +17,9 @@
 - [ ] `references/ai-trace-taxonomy.md` — 🆕 机械化表达风险参考
 - [ ] `references/deterministic-writing-diagnostics.md` — 🆕 AI 味确定性检查规则族与映射边界
 - [ ] `references/genre-style-axis.md` — 🆕 target_genre 默认规则
+- [ ] `references/scientific-writing-quality-rubric.md` — 通用科学写作质量 rubric；仅用于可读性、段落功能和图表先行诊断，不改变 claim 强度
+- [ ] `references/section-quality-gates.md` — 摘要/引言/讨论/结论专项写作门；仅用于章节功能诊断和保守分流
+- [ ] `references/reviewer-defect-taxonomy.md` — 审稿人视角缺陷库；仅用于 review-style-polish 的问题分类，不冒充真实审稿意见
 - [ ] `references/writing-antipatterns.md` — 🆕 写作反模式回退条件
 
 ---
@@ -95,6 +98,8 @@
 | 用户直接提供初稿 `.md/.docx/文本` | 直接进入输入接收阶段 | 不要求补跑 Step 7 |
 | 初稿 + 评审意见 | 按评审意见标记修改任务 | 缺引用审计时不声明引用安全 |
 | 初稿 + 引用审计报告 | 保留引用风险和修复建议 | 不重新做完整审计 |
+| 初稿 + `scientific_writing_quality_audit.json/md` | 将章节功能、段落任务和图表先行问题并入诊断摘要与 `revision_ledger` | 不把质量审计当作证据审计 |
+| 初稿 + `engineering_claim_audit.json/md` | 将工程 claim 缺口并入 `evidence_gap / contribution_overclaim / structure_drift` 分流 | 不新增实验、仿真、标准或引用 |
 | 只有局部章节/段落 | 只润色指定范围 | 不改全篇结构和未提供章节 |
 
 Step 8 的直接入口只要求有可润色文本。评审报告、引用审计报告、Step 7 完整上下文都是质量增强输入，不是入口门。缺失时按降级规则标记风险，不能要求用户回跑 Step 7。
@@ -289,6 +294,7 @@ Step 8 不允许：
 - 若命中同时涉及术语混乱，仍保持 `issue_type=language_mechanical`，并在 `problem` 或 `evidence_basis` 中标注 `term_consistency_related`。
 - 若命中同时暴露“空泛归因贴着关键结论”，主类型仍为 `language_mechanical`，但 `next_action` 可指向 `return_to_step_7_citation_audit`。
 - 若命中机理空话、因果跳跃、图像幻觉或证明动词无证据，主类型应为 `mechanism_bluff`；Step 8 只能降强度、加边界句或回退 Step 7，不得补写新证据。
+- 若输入包含 `scientific_writing_quality_audit` 或 `engineering_claim_audit`，Step 8 只消费其中的 `severity / recommended_action / rollback_target` 做修订分流；`rollback_target` 非 `none` 的问题不得在 Step 8 内直接关闭。
 
 **双向校准规则：**
 - 防止润色不足：明显机械化表达、术语混乱、局部衔接断裂和低风险重复必须处理或说明保留原因。
@@ -322,8 +328,13 @@ Step 8 只在以下边界内执行这些层级：
 
 - `references/ai-trace-taxonomy.md`
 - `references/deterministic-writing-diagnostics.md`
+- `references/scientific-writing-quality-rubric.md`
 - `references/polish-modes.md`
 - `references/writing-antipatterns.md`
+
+其中 `scientific-writing-quality-rubric.md` 只用于 `subject_action_audit`、`old_new_flow_audit`、`paragraph_function_audit`、`figure_first_argument_plan` 和 `phrasebank_guardrail`。Step 8 可据此修复读者障碍、段落衔接和图文顺序说明，但不得改变 claim 强度，不替代证据审计，也不得把候选证据写成强结论。
+
+`section-quality-gates.md` 与 `reviewer-defect-taxonomy.md` 只服务于诊断和分流。若命中 `abstract_quality_gate / introduction_quality_gate / discussion_quality_gate / conclusion_quality_gate` 的缺失 move，Step 8 可修局部顺序和边界句；若缺失的是结果、证据、图表、基准、稳定性验证或工程约束，必须回退 Step 7/4/6。
 
 ### 8.2.1. AI 味确定性检查
 

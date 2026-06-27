@@ -48,13 +48,15 @@
   "panel_id": "",
   "caption_anchor": "",
   "text_anchor": "",
-  "evidence_modality": "EBSD|TEM|SEM|XRD|flow_curve|mechanical_test|simulation|user_data",
+  "evidence_modality": "EBSD|TEM|SEM|XRD|flow_curve|mechanical_test|waveform|efficiency_curve|loss_breakdown|thermal_map|grid_metric|optimization_result|hardware_prototype|HIL|field_data|standard|simulation|user_data",
   "support_type": "direct|partial|contextual|not_supported",
   "support_status": "support|weak-support|not-supported|cannot-judge",
   "downgrade_required": false,
   "risk_flags": []
 }
 ```
+
+材料/机械基础 `evidence_modality` 子集保持为：`EBSD|TEM|SEM|XRD|flow_curve|mechanical_test|simulation|user_data`。电力电子/能源系统任务可在此基础上扩展 `waveform / efficiency_curve / loss_breakdown / thermal_map / grid_metric / optimization_result / hardware_prototype / HIL / field_data / standard`。
 
 若 `claim_strength=mechanism / numeric_comparison / parameter`，但缺少图/表/panel、图注或正文锚点，应标记 `downgrade_required=true`，并把正文改成保守表达或写入 `evidence_gap_list.md`。
 

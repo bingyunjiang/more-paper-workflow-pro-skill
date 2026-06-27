@@ -519,6 +519,133 @@ class Step7Step8ContractsTest(unittest.TestCase):
         ]:
             self.assertIn(token, style_pack)
 
+    def test_scientific_writing_quality_rubric_is_wired_and_bounded(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        step8 = read_rel("agents/step_8_polishing.md")
+        rubric = read_rel("references/scientific-writing-quality-rubric.md")
+
+        self.assertIn("references/scientific-writing-quality-rubric.md", step7)
+        self.assertIn("references/scientific-writing-quality-rubric.md", step8)
+
+        for token in [
+            "subject_action_audit",
+            "old_new_flow_audit",
+            "paragraph_function_audit",
+            "figure_first_argument_plan",
+            "phrasebank_guardrail",
+            "不改变 claim 强度",
+            "不替代引用审计",
+            "不能把候选证据包装成强证据",
+            "topic_shift_intentional",
+            "stress_position",
+        ]:
+            self.assertIn(token, rubric + step8)
+
+    def test_power_electronics_ev_energy_domain_pack_is_wired_to_step7(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        mechanism_contract = read_rel("references/mechanism-analysis-writing-contract.md")
+        figure_contract = read_rel("references/figure-writing-interface.md")
+        domain_pack = read_rel("references/domain-packs/power-electronics-ev-energy-writing.md")
+
+        self.assertIn("references/domain-packs/power-electronics-ev-energy-writing.md", step7)
+        self.assertIn("电力电子 / 充电 / V2G / 能源系统写作领域包", domain_pack)
+        self.assertIn("不作为材料论文默认规则", domain_pack + step7 + mechanism_contract)
+
+        for token in [
+            "power_topology_card",
+            "control_and_stability_card",
+            "efficiency_loss_thermal_card",
+            "EMS_optimization_card",
+            "V2G_grid_claim_card",
+            "wireless_fast_charging_card",
+            "充电桩",
+            "储能",
+            "电力电子",
+            "EMS",
+            "V2G",
+            "快充",
+            "无线充电",
+            "超级电容",
+        ]:
+            self.assertIn(token, domain_pack + step7)
+
+        for token in [
+            "waveform",
+            "efficiency_curve",
+            "loss_breakdown",
+            "thermal_map",
+            "grid_metric",
+            "optimization_result",
+            "hardware_prototype",
+            "HIL",
+            "field_data",
+            "standard",
+        ]:
+            self.assertIn(token, domain_pack + mechanism_contract + figure_contract)
+
+    def test_power_energy_journal_style_pack_is_optional_and_specific(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        style_pack = read_rel("references/domain-packs/power-energy-journal-style.md")
+
+        self.assertIn("references/domain-packs/power-energy-journal-style.md", step7)
+        self.assertIn("仅在目标期刊或体裁明确时加载", step7)
+        self.assertIn("不得作为所有电力电子/能源论文的全局默认风格", style_pack)
+
+        for token in [
+            "IEEE Transactions / IEEE Access",
+            "Applied Energy / Energy",
+            "工程中文核心",
+            "学位论文电力电子 / 能源系统章节",
+            "application need -> technical gap -> proposed method -> contributions",
+            "系统边界",
+            "仿真和实验必须分清",
+            "如果目标期刊风格与当前证据等级冲突，以证据等级为准",
+        ]:
+            self.assertIn(token, style_pack)
+
+    def test_section_quality_gates_and_reviewer_defect_taxonomy_are_wired(self):
+        step7 = read_rel("agents/step_7_writing.md")
+        step8 = read_rel("agents/step_8_polishing.md")
+        gates = read_rel("references/section-quality-gates.md")
+        defects = read_rel("references/reviewer-defect-taxonomy.md")
+
+        for token in [
+            "references/section-quality-gates.md",
+            "references/reviewer-defect-taxonomy.md",
+            "scientific_writing_quality_audit.json",
+            "engineering_claim_audit.json",
+            "scripts/audit_scientific_writing_quality.py",
+            "scripts/audit_engineering_claims.py",
+            "reviewer_defect_report.md",
+        ]:
+            self.assertIn(token, step7 + step8)
+
+        for token in [
+            "abstract_quality_gate",
+            "introduction_quality_gate",
+            "discussion_quality_gate",
+            "conclusion_quality_gate",
+            "missing_quantified_result",
+            "generic_gap",
+            "mechanism_jump",
+            "new_claim_in_conclusion",
+        ]:
+            self.assertIn(token, gates)
+
+        for token in [
+            "novelty_and_positioning_defects",
+            "method_and_reproducibility_defects",
+            "result_and_figure_defects",
+            "power_energy_specific_defects",
+            "stability_claim_without_stability_evidence",
+            "efficiency_without_test_conditions",
+            "only_simulation_no_hardware_for_hardware_claim",
+            "ems_optimization_without_constraints",
+            "wireless_charging_without_misalignment_or_emc",
+            "不得冒充真实审稿意见",
+        ]:
+            self.assertIn(token, defects + step7 + step8)
+
     def test_step7_section_scoped_writing_and_thesis_depth_rules_exist(self):
         text = read_rel("agents/step_7_writing.md")
         command = read_rel("commands/write.md")
