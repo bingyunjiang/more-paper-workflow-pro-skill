@@ -52,6 +52,18 @@
 - 图表生成 → 路由到 `agents/step_7_writing.md`（7.14）
 - 正文生成、文献整合、证据补强、修稿路线图 → 路由到 `agents/step_7_writing.md`
 
+## When to use this Step
+
+- 用户已有草稿、章节或全文，需要保守润色、表达收口、术语一致性检查、机械化表达清理或修订后验证。
+- 用户要把 Step 7 的预审、引用审计或导师意见转成可执行的局部修订，但不需要新增文献或重写主论证。
+- 用户需要投稿/送审前的审稿式诊断摘要、严重性分级、修订账本和质量报告。
+
+## When NOT to use this Step
+
+- 用户还没有正文，需要写作、续写、综述整合或章节蓝图，去 Step 7。
+- 发现关键 claim 缺证据、引用不匹配、图表证据断裂或需要补文献，回 Step 7/4/6，而不是在 Step 8 硬修。
+- 用户要求重构研究问题、重写大纲、改贡献点或新增实验解释，回 Step 2/7。
+
 ---
 
 ## 输入要求 (Input Requirements)
@@ -94,8 +106,21 @@ Step 8 可以补局部内容，但仅限可由现有正文、Step 7 三工件、
 |------|----------|----------|--------|
 | `quick-polish` | 单段、局部章节、低风险语言润色，且不触及 claim、引用落点或章节功能 | 润色稿 + 3-5 条修改说明；必要时附“引用安全未审计”提醒 | 不生成新证据、不声称完成全文审计、不重排章节主论证 |
 | `audited-polish` | 全文章节、投稿/送审前终稿、触及 claim 强度/引用/结构的问题 | `diagnostic_summary.md`、`revision_ledger.json/md`、修改对照表、术语一致性报告、润色质量报告 | 不替代 Step 7 引用审计，不新增外部证据 |
+| `review-style-polish` | 用户要求审稿式修订、投稿前 final pass、导师意见收口，或 Step 7 预审后进入修订 | 严重性分级摘要、top fixes、`revision_ledger.json/md`、润色质量报告 | 不做编辑决定预测、不新增外部证据、不把预审意见伪装成真实审稿意见 |
 
 若 `quick-polish` 过程中发现 `evidence_gap / structure_drift / citation_misalignment / contribution_overclaim`，必须升级为 `audited-polish` 或回退 Step 7，不能继续把结构或证据问题包装成句子润色。
+
+**审稿式严重性分级：**
+
+Step 8 的严重性用于安排修订优先级，不用于预测录用结果。
+
+| 级别 | 含义 | 默认动作 |
+|------|------|----------|
+| `CRITICAL` | 阻塞当前成稿质量，Step 8 通常不能独立解决，例如核心 claim 无证据、章节功能错误、贡献点与正文不一致 | 回退 Step 7/4/6 或转人工决策 |
+| `MAJOR` | 明显影响审稿阅读或导师判断，例如多处术语漂移、关键段落衔接断裂、引用落点风险、机械化表达密集 | 进入 `revision_ledger`，优先修订或降强度 |
+| `MINOR` | 局部表达、格式、冗余和轻微机械化问题 | Step 8 可直接修改或记录为低风险建议 |
+
+`diagnostic_summary.md` 在 `review-style-polish` 中必须先列 `CRITICAL / MAJOR / MINOR` 计数，再列前三个最值得先修的问题。若存在 `CRITICAL`，不得继续宣称“终稿已完成”，只能输出可修项和回退目标。
 
 #### 默认输出顺序
 

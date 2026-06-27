@@ -67,7 +67,9 @@ related_skills:
 - `evidence_pack` 是无 Zotero/MinerU 时的本地证据包入口。
 - `full-document / review-only / abstract-only / chapter-only / continue-existing / revision-only` 仍是 Step 7 的公开模式名。
 
-## Entry examples
+## Public-first entry examples
+
+README 首屏只保留 public-first entry examples；运行时细则仍以本文件和 `agents/step_*.md` 为准。
 
 - Step 1: use the topic-clarification entry prompt in `README.md`
 - Step 5: use the direct download entry prompt in `README.md`

@@ -17,7 +17,7 @@ This guide helps readers choose the right entry point for the more-paper workflo
 
 - Use Step 5 when the task is about downloading or resolving access.
 - Use Step 6 only when the task is about library organization or attachment alignment.
-- Use Step 7 when the task is about producing or extending正文.
+- Use Step 7 when the task is about producing or extending正文草稿.
 - Use Step 8 when the task is about tightening an existing draft without adding new evidence.
 
 ## Do not use this guide as a workflow lock
