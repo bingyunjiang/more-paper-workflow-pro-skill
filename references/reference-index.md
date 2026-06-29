@@ -11,6 +11,10 @@ This index groups the reference files by function so the workflow contracts are 
 - `reviewer-protocol.md`
 - `claim-evidence-readiness.md`
 
+## Agent execution discipline
+
+- `agent-execution-discipline.md`
+
 ## Workflow guides
 
 - `entry-guide.md`

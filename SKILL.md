@@ -29,6 +29,7 @@ related_skills:
 
 - Completion gates: `references/completion-gates.md`
 - Failure triage: `references/failure-triage.md`
+- Agent execution discipline: `references/agent-execution-discipline.md`
 - Step handoff: `references/step-handoff-contract.md`
 - Update reminders: `references/update-reminder-protocol.md`
 - Direct-entry artifact graph: `.skill-state/artifact_passport.json`
@@ -40,6 +41,12 @@ related_skills:
 - `最小对比`：关键边界用最小对比例子校准。
 - `反模式命名`：把常见错误写入对应 Step 的检查项。
 - `任务定义优先于实现定义`：先判定问题、交付物和边界，再选动作。
+- `读证据先于生成`：先读取用户材料、检索结果、PDF/Zotero/已有稿件，再输出判断或正文。
+- `假设显式化`：任务边界、证据基础、数据源选择和写作范围必须先说明。
+- `最小充分产物`：只生成当前 Step 需要的最小可用产物，不强行扩展全流程。
+- `保守修改既有稿件`：润色和修订只处理明确范围，不新增未经确认的证据。
+- `失败先分层`：检索、下载、Zotero、写作失败先定位层级，再给最小补救动作。
+- `完成声明过门槛`：未满足 completion gate 时，不使用“已完成/没问题”等表达。
 - `契约变更 vs 实现变更`：改输入输出、证据等级、路由或完成标准时，视为契约变更。
 - `快速通道不跳质量门`：direct-entry 可以跳过前序流程，但不能跳过证据边界、登录门控、Zotero 写入确认、引用审计或 Step 8 保守修订边界。
 - `Checkpoint 是“当前 Step 的输入与风险确认协议”，不是线性流程锁`。
