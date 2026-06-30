@@ -24,6 +24,7 @@ For the full long-form trigger list, see `references/trigger-catalog.md`.
 
 ## Common aliases
 
+- Skill-level aliases remain supported across agents, including `more paper`, `more-paper`, `more_paper`, `morepaper`, and `more paper workflow`.
 - Chinese entry phrases remain supported across agents, including `确定研究主题`, `生成论文大纲`, `文献检索`, `批量下载`, `Zotero 文库整理`, `写论文`, and `论文润色`.
 - English entry phrases remain supported across agents, including `comprehensive search`, `outline review`, `download by paper title`, `review matrix`, `write selected chapter`, and `polish the draft`.
 - Direct-entry requests keep their current step contracts; the router files under `agents/step_*.md` remain the source of truth.
