@@ -8,6 +8,31 @@
 
 ---
 
+## v1.0.19-20260704 (2026-07-04)
+
+### Step 5 下载稳定性、恢复与诊断产物
+
+- **Step 5 稳定 manifest 落地**：真实下载入口现在写出 `download_manifest.json`，schema 为 `step5-download.v1`，统一记录每篇文献的 `status / quality / failure_reason / next_action / attempts`，供 Step 6 Zotero 和 Step 7 写作直接消费。
+- **下载尝试与 PDF pool 稳定化**：新增 `download_attempts.jsonl` 和 `pdf-附件池索引.json`，PDF pool item 支持 `pdf_diagnostics`，可识别 HTML 伪 PDF、过小 PDF、非 PDF magic 和读取失败。
+- **重跑本地 PDF 去重**：Step 5 启动时扫描输出目录已有 PDF，命中后跳过真实下载并记录 `stage=local_index,status=hit`，避免重复下载且不改用户已有 PDF 文件名。
+- **失败恢复分桶与下一步动作**：manifest 增加 `recovery_buckets` 和 `recommended_next_step`，把失败归入 `retryable / needs_login / needs_user_action / not_available / needs_metadata_fix`，让登录、验证码、人工下载、元数据修复和继续 Step 6 的路径更明确。
+- **Step 5 doctor 新增**：新增 `scripts/step5_download_doctor.py`，只诊断不下载，检查 CDP、依赖、输出目录、下载 lock 和 publisher session，输出 `ready / partial / blocked`。
+- **手动 PDF 归并新增**：新增 `scripts/step5_reconcile_pdf_pool.py`，手动下载 PDF 后可归并回 `download_manifest.json` 和 `pdf-附件池索引.json`，并追加 `manual_reconcile` attempt。
+- **失败样本轻量快照**：验证码、人工处理、PDF 探测未知等失败会写入 `step5-debug/`，只保存 URL、标题和 reason，避免保存完整 HTML。
+- **Step 5 测试覆盖增强**：扩展 `tests/test_step5_download.py`，覆盖 manifest、attempts、PDF pool、本地命中、doctor、reconcile、PDF 诊断、preflight summary。
+
+### Agent 执行纪律与完成声明收紧
+
+- **新增 Agent Execution Discipline**：新增 `references/agent-execution-discipline.md`，把“读证据先于生成、假设显式化、最小充分产物、保守修改、失败分层、完成声明过门槛”纳入运行纪律。
+- **完成门槛更保守**：`completion-gates.md` 明确完成声明必须基于已读取、已区分状态、可追溯证据，不得把计划、候选或未验证产物表述为完成。
+- **失败分诊优先**：`failure-triage.md` 强化关键失败先定位层级，再给最小补救动作，不直接建议大规模重跑、换源或改写。
+- **防截断原则公开化**：`SKILL.md` 明确机器工件禁止截断，Markdown/XLSX/PDF 仅作为展示层可截断，且不得反向污染 JSON、BibTeX、Zotero 映射或下载 manifest。
+
+### 入口触发词与跨宿主发现增强
+
+- **Skill alias 补齐**：`SKILL.md`、`trigger-catalog.md` 和 `entry-routing-index.md` 增加 `more paper / more-paper / more_paper / morepaper` 等触发别名，提升不同宿主中的 skill 发现稳定性。
+- **Artifact passport route metadata 明确**：`SKILL.md` 明确 `route_mode` 是 direct-entry handoff 的非锁定路由元数据。
+
 ## v1.0.18-20260627 (2026-06-26 至 2026-06-27)
 
 ### Step 7 写作质量基础设施重构

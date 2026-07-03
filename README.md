@@ -11,7 +11,7 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 more paper workflow pro skill `v1.0.18-20260627`
+# 📚 more paper workflow pro skill `v1.0.19-20260704`
 
 > 面向中文/双语论文写作的证据闭环工作流。覆盖定题、检索、下载、Zotero、写作与引用审计，所有关键步骤都围绕真实文献落地，而不是模型记忆。
 
@@ -624,7 +624,7 @@ python3 scripts/unified_download_router.py 检索文献表.md -o paper-temp/
 python3 scripts/unified_download_router.py --papers "10.1021/x,10.1002/y" -o paper-temp/
 ```
 
-**产出：** `download_log.md` 和 PDF 附件池；直达模式会额外生成 `direct_download_manifest.md/json`，无法唯一解析的标题进入 `unresolved_download_items.md`。英文机构登录门控会按本轮待登录 DOI 自动打开所需出版社 tab，中文 CNKI/万方门控会按本轮 source 自动打开对应文库入口。出版商路由、CDP 登录门控、失败回退和 Cloudflare 应对详见 [`agents/step_5_download.md`](agents/step_5_download.md) 与 [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md)。
+**产出：** `download_log.md`、`download_manifest.json`、`download_attempts.jsonl`、`pdf-附件池索引.json` 和 PDF 附件池。Step 5 会在重跑时识别本地已有 PDF，避免重复下载；失败项会写入明确的 `failure_reason`、恢复分桶和 `recommended_next_step`。手动补下载 PDF 后，可运行 `python3 scripts/step5_reconcile_pdf_pool.py --output paper-temp/` 归并回 manifest/PDF pool；下载前诊断可运行 `python3 scripts/step5_download_doctor.py --output paper-temp/`。英文机构登录门控会按本轮待登录 DOI 自动打开所需出版社 tab，中文 CNKI/万方门控会按本轮 source 自动打开对应文库入口。出版商路由、CDP 登录门控、失败回退和 Cloudflare 应对详见 [`agents/step_5_download.md`](agents/step_5_download.md) 与 [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md)。
 
 ### Step 6: Zotero 文库管理
 
@@ -808,6 +808,13 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
+### v1.0.19-20260704 (2026-07-04)
+- **Step 5 下载产物稳定化**：新增 `download_manifest.json`、`download_attempts.jsonl` 和 `pdf-附件池索引.json`，每篇文献都有状态、质量、失败原因、下一步动作和尝试轨迹。
+- **重跑与手动恢复更稳**：Step 5 会识别已有 PDF 跳过重复下载；新增 `step5_reconcile_pdf_pool.py`，用于把手动下载 PDF 归并回 manifest 和 PDF pool。
+- **下载诊断增强**：新增 `step5_download_doctor.py`，诊断 CDP、依赖、输出目录、lock 和 publisher session；PDF pool 支持 `pdf_diagnostics`，可识别 HTML 伪 PDF、过小 PDF 和损坏/不可读文件。
+- **失败恢复显式化**：manifest 增加 recovery buckets、publisher/domain summary 和 recommended next step，帮助区分登录、验证码、权限不足、元数据缺失和临时失败。
+- **Agent 执行纪律收紧**：新增 `agent-execution-discipline.md`，强化读证据、显式假设、失败分层、完成声明和防截断原则。
+
 ### v1.0.18-20260627 (2026-06-26 至 2026-06-27)
 - **Step 7 写作前硬门控与结构化子模式**：`full-document / chapter-only / continue-existing` 写作必须先生成 `step7_execution_card.md`；新增四个结构化子模式（`section-blueprint-first` / `pre-review` / `citation-audit` / `revision-roadmap`），统一消费同类证据工件。
 - **图文联合约束加固**：Markdown-first 不等于 text-only；正文需包含图片或可解析图位标记；`post_write` 只表示图片插入可后置。
@@ -974,7 +981,7 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 ---
 
 <a id="english"></a>
-# 📚 more paper workflow pro skill `v1.0.18-20260627`
+# 📚 more paper workflow pro skill `v1.0.19-20260704`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
@@ -1414,7 +1421,7 @@ python3 scripts/unified_download_router.py literature-table.md -o paper-temp/
 python3 scripts/unified_download_router.py --papers "10.1021/x,10.1002/y" -o paper-temp/
 ```
 
-**Output:** `download_log.md` and the PDF attachment pool. Direct mode also produces `direct_download_manifest.md/json`, with ambiguous title-only items stored in `unresolved_download_items.md`. Publisher routing, CDP login gates, fallback behavior, and Cloudflare handling are covered by [`agents/step_5_download.md`](agents/step_5_download.md) and [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md).
+**Output:** `download_log.md`, `download_manifest.json`, `download_attempts.jsonl`, `pdf-附件池索引.json`, and the PDF attachment pool. Step 5 detects existing local PDFs on rerun to avoid duplicate downloads; unresolved items keep explicit `failure_reason`, recovery buckets, and `recommended_next_step`. After manual PDF downloads, run `python3 scripts/step5_reconcile_pdf_pool.py --output paper-temp/` to reconcile files back into the manifest/PDF pool; before downloading, run `python3 scripts/step5_download_doctor.py --output paper-temp/` for diagnostics. Publisher routing, CDP login gates, fallback behavior, and Cloudflare handling are covered by [`agents/step_5_download.md`](agents/step_5_download.md) and [`references/publisher-access-matrix.md`](references/publisher-access-matrix.md).
 
 ### Step 6: Zotero Library Management
 
@@ -1546,6 +1553,13 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 ## 📋 Version History
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
+
+### v1.0.19-20260704 (2026-07-04)
+- **Step 5 artifacts are now stable**: added `download_manifest.json`, `download_attempts.jsonl`, and `pdf-附件池索引.json`, with per-paper status, quality, failure reason, next action, and attempt history.
+- **Reruns and manual recovery are safer**: Step 5 detects existing PDFs and skips duplicate downloads; `step5_reconcile_pdf_pool.py` reconciles manually downloaded PDFs back into the manifest and PDF pool.
+- **Download diagnostics were expanded**: `step5_download_doctor.py` checks CDP, dependencies, output writability, locks, and publisher sessions; PDF pool items can include `pdf_diagnostics` for HTML masquerading as PDF, tiny PDFs, and unreadable files.
+- **Failure recovery is explicit**: manifests include recovery buckets, publisher/domain summaries, and recommended next steps to separate login, captcha/manual action, unavailable full text, metadata issues, and transient failures.
+- **Agent discipline was tightened**: `agent-execution-discipline.md` records evidence-first execution, explicit assumptions, failure triage, completion gates, and anti-truncation rules.
 
 ### v1.0.18-20260627 (2026-06-26 to 2026-06-27)
 - **Step 7 pre-writing hard gates and structured sub-modes**: `full-document / chapter-only / continue-existing` writing requires a `step7_execution_card.md` gate before generating any body text.
