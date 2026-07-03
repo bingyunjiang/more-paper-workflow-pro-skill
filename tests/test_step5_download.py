@@ -22,6 +22,8 @@ import batch_resolve_pii  # noqa: E402
 import console_compat  # noqa: E402
 import download_via_scihub as scihub  # noqa: E402
 import download_via_ieee as ieee  # noqa: E402
+import step5_download_doctor as doctor  # noqa: E402
+import step5_reconcile_pdf_pool as reconcile  # noqa: E402
 
 
 class Step5DownloadTest(unittest.TestCase):
@@ -2233,6 +2235,144 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(data["items"][0]["failure_reason"], "captcha_required")
         self.assertIn("--papers", data["items"][0]["retry_hint"])
 
+    def test_write_step5_outputs_writes_manifest_attempts_and_pdf_pool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf_path = Path(tmp) / "10.1007_demo.pdf"
+            pdf_path.write_bytes(self._valid_pdf_bytes())
+
+            paths = router.write_step5_outputs(
+                tmp,
+                [
+                    {"id": "10.1007/demo", "doi": "10.1007/demo", "publisher": "springer"},
+                    {"id": "10.1002/demo", "doi": "10.1002/demo", "publisher": "wiley"},
+                ],
+                ["10.1007/demo"],
+                ["10.1002/demo"],
+                [{"round": "Generic CDP", "downloaded": ["10.1007/demo"]}],
+                {"10.1002/demo": "captcha_required"},
+            )
+            manifest = json.loads(Path(paths["manifest"]).read_text(encoding="utf-8"))
+            pool = json.loads(Path(paths["pdf_pool"]).read_text(encoding="utf-8"))
+            attempts = Path(paths["attempts"]).read_text(encoding="utf-8")
+
+        self.assertEqual(manifest["schema_version"], "step5-download.v1")
+        self.assertEqual(manifest["readiness"], "partial")
+        self.assertEqual(manifest["recovery_buckets"]["needs_user_action"], ["10.1002/demo"])
+        self.assertEqual(manifest["recommended_next_step"], "solve_captcha_or_manual_download_then_resume")
+        self.assertEqual(manifest["items"][0]["status"], "downloaded")
+        self.assertEqual(manifest["items"][0]["quality"], "pdf_verified")
+        self.assertEqual(manifest["items"][1]["failure_reason"], "captcha_required")
+        self.assertIn("local_index", attempts)
+        self.assertEqual(pool["schema_version"], "pdf-pool.v1")
+        self.assertEqual(pool["items"][0]["quality"], "pdf_verified")
+        self.assertEqual(pool["items"][0]["pdf_diagnostics"]["issue"], "ok")
+
+    def test_write_step5_outputs_adds_summary_and_failure_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = router.write_step5_outputs(
+                tmp,
+                [{
+                    "id": "10.1002/demo",
+                    "doi": "10.1002/demo",
+                    "publisher": "wiley",
+                    "article_url": "https://onlinelibrary.wiley.com/doi/10.1002/demo",
+                }],
+                [],
+                ["10.1002/demo"],
+                [],
+                {"10.1002/demo": "manual_required"},
+                preflight_summary={"total_items": 1, "local_pdf_hits": 0},
+            )
+            manifest = json.loads(Path(paths["manifest"]).read_text(encoding="utf-8"))
+            debug_exists = Path(paths["debug_snapshots"]).exists()
+
+        self.assertEqual(manifest["summary"]["publisher_summary"]["wiley"]["failure_reasons"]["manual_required"], 1)
+        self.assertEqual(manifest["summary"]["domain_summary"]["onlinelibrary.wiley.com"]["failed_or_pending"], 1)
+        self.assertEqual(manifest["summary"]["preflight"]["total_items"], 1)
+        self.assertTrue(debug_exists)
+
+    def test_diagnose_pdf_file_detects_html_saved_as_pdf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_pdf = Path(tmp) / "paper.pdf"
+            fake_pdf.write_bytes(b"<!doctype html><html>login</html>" + b"x" * 6000)
+            diagnostics = router.diagnose_pdf_file(fake_pdf)
+
+        self.assertTrue(diagnostics["looks_like_html"])
+        self.assertEqual(diagnostics["issue"], "html_saved_as_pdf")
+        self.assertEqual(router._safe_pdf_quality(fake_pdf), "pdf_unverified")
+
+    def test_step5_preflight_summary_is_non_blocking(self):
+        with patch.object(router, "check_cdp", return_value=False):
+            summary = router.build_step5_preflight_summary(
+                [{"doi": "10.1007/demo"}], "paper-temp", 9223, "chrome", local_hits=["10.1007/demo"]
+            )
+
+        self.assertEqual(summary["total_items"], 1)
+        self.assertEqual(summary["local_pdf_hits"], 1)
+        self.assertFalse(summary["cdp"]["ok"])
+
+    def test_reconcile_pdf_pool_updates_manual_downloaded_pdf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            (output / "download_manifest.json").write_text(json.dumps({
+                "schema_version": "step5-download.v1",
+                "readiness": "partial",
+                "summary": {"total": 1, "downloaded": 0, "remaining": 1},
+                "items": [{
+                    "id": "10.1007/demo",
+                    "doi": "10.1007/demo",
+                    "title": "Demo Paper",
+                    "status": "blocked",
+                    "quality": "none",
+                    "failure_reason": "manual_required",
+                    "attempts": [],
+                }],
+            }), encoding="utf-8")
+            (output / "10.1007_demo.user.pdf").write_bytes(self._valid_pdf_bytes())
+            report = reconcile.reconcile_pdf_pool(output)
+            manifest = json.loads((output / "download_manifest.json").read_text(encoding="utf-8"))
+            pool = json.loads((output / "pdf-附件池索引.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(report["reconciled"][0]["quality"], "pdf_verified")
+        self.assertEqual(manifest["readiness"], "complete")
+        self.assertEqual(manifest["items"][0]["status"], "downloaded")
+        self.assertEqual(manifest["items"][0]["failure_reason"], "")
+        self.assertEqual(pool["items"][0]["pdf_diagnostics"]["issue"], "ok")
+
+    def test_filter_local_pdf_hits_skips_existing_pdf_without_changing_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            existing = Path(tmp) / "10.1007_demo.custom-name.pdf"
+            existing.write_bytes(self._valid_pdf_bytes())
+            dois, chinese, downloaded = router.filter_local_pdf_hits(
+                ["10.1007/demo", "10.1002/demo"], [], tmp
+            )
+
+        self.assertEqual(dois, ["10.1002/demo"])
+        self.assertEqual(chinese, [])
+        self.assertEqual(downloaded, ["10.1007/demo"])
+
+    def test_main_local_pdf_hit_does_not_call_download_rounds_and_writes_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lock_path = Path(tmp) / "step5.lock"
+            (Path(tmp) / "10.1007_demo.pdf").write_bytes(self._valid_pdf_bytes())
+            argv = ["unified_download_router.py", "--papers", "10.1007/demo", "--output", tmp]
+            with patch.dict(router.os.environ, {"MORE_PAPER_STEP5_LOCK_PATH": str(lock_path)}), \
+                 patch.object(sys, "argv", argv), \
+                 patch.object(router, "check_required_deps", return_value=True), \
+                 patch.object(router, "run_scihub_round") as scihub, \
+                 patch.object(router, "run_oa_fast_round") as oa, \
+                 patch.object(router, "run_english_cdp") as english, \
+                 patch("sys.stdout", new_callable=io.StringIO):
+                router.main()
+
+            manifest = json.loads((Path(tmp) / "download_manifest.json").read_text(encoding="utf-8"))
+
+        scihub.assert_not_called()
+        oa.assert_not_called()
+        english.assert_not_called()
+        self.assertEqual(manifest["readiness"], "complete")
+        self.assertEqual(manifest["items"][0]["status"], "downloaded")
+
     def test_write_login_checkpoint_writes_pending_login_items(self):
         with tempfile.TemporaryDirectory() as tmp:
             checkpoint = router.write_login_checkpoint(
@@ -3390,6 +3530,30 @@ class Step5DownloadTest(unittest.TestCase):
         text = stdout.getvalue()
         self.assertIn("可直接尝试下载", text)
         self.assertIn("信号不足，需实际下载验证", text)
+
+    def test_step5_doctor_blocked_when_cdp_unavailable(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(doctor, "check_cdp", return_value=False), \
+             patch.object(doctor, "check_required_deps", return_value=True), \
+             patch.object(doctor, "_lock_status", return_value={"status": "absent", "running": False, "path": "lock"}):
+            report = doctor.build_doctor_report(port=9223, browser="chrome", output_dir=tmp)
+
+        self.assertEqual(report["status"], "blocked")
+        self.assertIn("cdp_not_running", report["blocking"])
+
+    def test_step5_doctor_partial_when_sessions_are_untrusted(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(doctor, "check_cdp", return_value=True), \
+             patch.object(doctor, "get_cdp_browser_product", return_value="Chrome/120"), \
+             patch.object(doctor, "cdp_browser_matches", return_value=True), \
+             patch.object(doctor, "check_required_deps", return_value=True), \
+             patch.object(doctor, "_lock_status", return_value={"status": "absent", "running": False, "path": "lock"}), \
+             patch.object(doctor, "_PUBLISHER_CONFIGS", {"springer": {"_key": "springer", "publisher_domain": "link.springer.com"}}), \
+             patch.object(doctor, "describe_publisher_session", return_value={"probe_status": "unknown", "probe_reason": "cookie probe only", "has_session": False}):
+            report = doctor.build_doctor_report(port=9223, browser="chrome", output_dir=tmp)
+
+        self.assertEqual(report["status"], "partial")
+        self.assertIn("no_trusted_publisher_session", report["warnings"])
 
     def test_get_all_cookies_via_tab_uses_tab_scoped_network_domain(self):
         class FakeWs:

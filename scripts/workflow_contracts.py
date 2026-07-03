@@ -401,6 +401,119 @@ class DownloadResult:
     attempts: list[dict[str, Any]] = field(default_factory=list)
 
 
+STEP5_DOWNLOAD_SCHEMA = "step5-download.v1"
+PDF_POOL_SCHEMA = "pdf-pool.v1"
+STEP5_READINESS_VALUES = {"blocked", "partial", "complete"}
+STEP5_ITEM_STATUSES = {"downloaded", "unresolved", "skipped", "blocked"}
+STEP5_QUALITY_VALUES = {"pdf_verified", "pdf_unverified", "metadata_only", "none"}
+
+
+@dataclass
+class Step5DownloadAttempt:
+    stage: str = ""
+    status: str = ""
+    source: str = ""
+    reason: str = ""
+    pdf_path: str = ""
+    timestamp: str = ""
+
+
+@dataclass
+class Step5DownloadItem:
+    id: str = ""
+    doi: str = ""
+    title: str = ""
+    source: str = ""
+    article_url: str = ""
+    publisher: str = ""
+    status: str = "unresolved"
+    quality: str = "none"
+    pdf_path: str = ""
+    failure_reason: str = ""
+    next_action: str = ""
+    attempts: list[dict[str, Any]] = field(default_factory=list)
+    source_id: str = ""
+
+
+@dataclass
+class Step5DownloadManifest:
+    schema_version: str = STEP5_DOWNLOAD_SCHEMA
+    run_id: str = ""
+    generated_at: str = ""
+    readiness: str = "blocked"
+    recommended_next_step: str = ""
+    summary: dict[str, Any] = field(default_factory=dict)
+    recovery_buckets: dict[str, list[str]] = field(default_factory=dict)
+    items: list[Step5DownloadItem] = field(default_factory=list)
+
+
+@dataclass
+class PdfPoolItem:
+    id: str = ""
+    doi: str = ""
+    title: str = ""
+    source: str = ""
+    source_id: str = ""
+    pdf_path: str = ""
+    quality: str = "pdf_unverified"
+    size_bytes: int = 0
+    mtime: str = ""
+    pdf_diagnostics: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class PdfPoolIndex:
+    schema_version: str = PDF_POOL_SCHEMA
+    generated_at: str = ""
+    output_dir: str = ""
+    items: list[PdfPoolItem] = field(default_factory=list)
+
+
+def _now_iso_seconds() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def step5_attempt(stage: str, status: str, *, source: str = "", reason: str = "", pdf_path: str = "") -> dict[str, Any]:
+    return asdict(Step5DownloadAttempt(
+        stage=stage,
+        status=status,
+        source=source,
+        reason=reason,
+        pdf_path=pdf_path,
+        timestamp=_now_iso_seconds(),
+    ))
+
+
+def step5_manifest_payload(manifest: Step5DownloadManifest) -> dict[str, Any]:
+    payload = asdict(manifest)
+    if payload.get("readiness") not in STEP5_READINESS_VALUES:
+        payload["readiness"] = "blocked"
+    for item in payload.get("items", []):
+        if item.get("status") not in STEP5_ITEM_STATUSES:
+            item["status"] = "unresolved"
+        if item.get("quality") not in STEP5_QUALITY_VALUES:
+            item["quality"] = "none"
+    return payload
+
+
+def pdf_pool_payload(index: PdfPoolIndex) -> dict[str, Any]:
+    return asdict(index)
+
+
+def write_step5_download_manifest(path: str | Path, manifest: Step5DownloadManifest) -> None:
+    Path(path).write_text(
+        json.dumps(step5_manifest_payload(manifest), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def write_pdf_pool_index(path: str | Path, index: PdfPoolIndex) -> None:
+    Path(path).write_text(
+        json.dumps(pdf_pool_payload(index), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
 @dataclass
 class ZoteroPlanRecord:
     record_id: str = ""

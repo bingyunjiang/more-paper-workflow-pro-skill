@@ -22,3 +22,78 @@
 - unresolved_items
 - session_status
 - readiness
+
+## Step 5 stable download manifest
+
+真实下载入口必须在输出目录写出 `download_manifest.json`，schema 为
+`step5-download.v1`。该产物用于 Step 6 Zotero 规划、Step 7 证据边界和
+失败恢复，不替代既有 `download_log.md`。
+
+```json
+{
+  "schema_version": "step5-download.v1",
+  "run_id": "",
+  "generated_at": "",
+  "readiness": "blocked | partial | complete",
+  "recommended_next_step": "",
+  "summary": {
+    "total": 0,
+    "downloaded": 0,
+    "remaining": 0,
+    "failed_or_pending": 0,
+    "publisher_summary": {},
+    "domain_summary": {},
+    "preflight": {}
+  },
+  "recovery_buckets": {
+    "retryable": [],
+    "needs_login": [],
+    "needs_user_action": [],
+    "not_available": [],
+    "needs_metadata_fix": []
+  },
+  "items": [
+    {
+      "id": "",
+      "doi": "",
+      "title": "",
+      "source": "",
+      "article_url": "",
+      "publisher": "",
+      "status": "downloaded | unresolved | skipped | blocked",
+      "quality": "pdf_verified | pdf_unverified | metadata_only | none",
+      "pdf_path": "",
+      "failure_reason": "",
+      "next_action": "",
+      "attempts": []
+    }
+  ]
+}
+```
+
+同一输出目录还应写出：
+
+- `download_attempts.jsonl`: 每篇文献的逐轮尝试记录。
+- `pdf-附件池索引.json`: 当前输出目录可复用 PDF 附件索引。
+- `step5-debug/`: 仅在验证码、人工处理、PDF 探测未知等失败时写入轻量定位信息。
+
+重跑时应先读取/扫描本地 PDF；命中有效 PDF 的条目标记为
+`status=downloaded`，并记录 `stage=local_index,status=hit` 的 attempt。
+
+## Manual reconcile
+
+手动补下 PDF 后，不应重跑全部下载。使用：
+
+```bash
+python scripts/step5_reconcile_pdf_pool.py --output paper-temp
+```
+
+该命令只扫描本地 PDF、更新 `download_manifest.json` 和
+`pdf-附件池索引.json`，并追加 `stage=manual_reconcile,status=hit` 的 attempt；
+不得改名或移动用户已有 PDF。
+
+## PDF diagnostics
+
+PDF pool item 可包含 `pdf_diagnostics`，用于诊断 HTML 伪 PDF、过小 PDF、
+损坏或无法读取的文件。Step 6/7 仍以 `quality` 为主字段，诊断字段只用于
+doctor、人工排查和失败恢复。

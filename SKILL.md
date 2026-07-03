@@ -33,6 +33,7 @@ related_skills:
 - Step handoff: `references/step-handoff-contract.md`
 - Update reminders: `references/update-reminder-protocol.md`
 - Direct-entry artifact graph: `.skill-state/artifact_passport.json`
+- Artifact passport keeps `route_mode` as non-locking route metadata for direct-entry handoff.
 
 ## Global discipline
 
@@ -51,6 +52,7 @@ related_skills:
 - `快速通道不跳质量门`：direct-entry 可以跳过前序流程，但不能跳过证据边界、登录门控、Zotero 写入确认、引用审计或 Step 8 保守修订边界。
 - `Checkpoint 是“当前 Step 的输入与风险确认协议”，不是线性流程锁`。
 - `不限制 Step 6/7 直接入口`。
+- `防截断原则`：机器工件禁止截断；Markdown/XLSX/PDF 仅作为展示层可截断，必须保留稳定回查 ID，且不得反向污染 JSON、BibTeX、Zotero 映射或下载 manifest。
 
 ## Workflow map
 
@@ -59,9 +61,13 @@ related_skills:
 - Step 3: search planning
 - Step 4: literature search, scoring, and reporting
 - Step 5: batch download routing
+  - Stable artifacts: `download_manifest.json`, `download_attempts.jsonl`, `pdf-附件池索引.json`.
+  - Manual recovery: after user-provided PDFs, run `scripts/step5_reconcile_pdf_pool.py --output <dir>` to reconcile without changing filenames.
 - Step 6: Zotero organization and attachment consistency
 - Step 7: writing, evidence matrix, style learning, citation audit
 - Step 8: conservative polishing and verification
+
+Step 4 public sequence: 4.4 筛选依据 → 4.5 五维 → 4.6 T1-T4 → 4.7 引文扩展 → 4.8 饱和 → 4.9 报告生成与完成检查。
 
 ## Step boundaries
 

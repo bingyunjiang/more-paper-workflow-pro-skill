@@ -30,7 +30,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 # Ensure scripts/ is on path
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -62,11 +62,18 @@ from generic_publisher_downloader import (
 )
 from sd_download import diagnose_sd_pii
 from workflow_contracts import (
+    PdfPoolIndex,
+    PdfPoolItem,
+    Step5DownloadItem,
+    Step5DownloadManifest,
     as_chinese_papers,
     dois_from_download_items,
     download_items_from_search_records,
     load_download_manifest,
     load_search_records,
+    step5_attempt,
+    write_pdf_pool_index,
+    write_step5_download_manifest,
 )
 
 # ── Constants ───────────────────────────────────────────────────────────────
@@ -540,7 +547,9 @@ def resolve_output_dir(args: argparse.Namespace) -> str:
             continue
         candidate = Path(raw_path).expanduser()
         if candidate.exists():
-            return str(candidate.resolve().parent / "paper-temp")
+            if not candidate.is_absolute():
+                candidate = Path.cwd() / candidate
+            return str(candidate.parent / "paper-temp")
     return DEFAULT_OUTPUT
 
 
@@ -1764,6 +1773,423 @@ def generate_download_log(output_dir: str, all_dois: list[str],
     return log_path
 
 
+STEP5_RETRYABLE_REASONS = {
+    "generic_failed",
+    "sd_failed_unknown",
+    "oa_fetch_failed",
+    "detail_click_no_effect",
+}
+STEP5_LOGIN_REASONS = {"pending_user_login", "institution_login_required", "login_required"}
+STEP5_USER_ACTION_REASONS = {"captcha_required", "manual_required", "manual_verification_required"}
+STEP5_NOT_AVAILABLE_REASONS = {"access_denied", "no_url", "fulltext_delivery_mode", "not_subscribed_or_referencework"}
+STEP5_METADATA_REASONS = {"pii_resolution_failed", "invalid_oa_candidate", "oa_whitelist_but_verification_failed"}
+
+
+def _safe_pdf_quality(path: str | Path) -> str:
+    diagnostics = diagnose_pdf_file(path)
+    return "pdf_verified" if diagnostics.get("magic") == "%PDF" and diagnostics.get("size_bytes", 0) >= OA_FAST_MIN_BYTES else "pdf_unverified"
+
+
+def diagnose_pdf_file(path: str | Path) -> dict[str, Any]:
+    """Return lightweight PDF diagnostics without parsing full content."""
+    pdf_path = Path(path)
+    diagnostics: dict[str, Any] = {
+        "exists": pdf_path.exists(),
+        "size_bytes": 0,
+        "magic": "",
+        "page_count_probe": 0,
+        "looks_like_html": False,
+        "issue": "missing",
+    }
+    if not pdf_path.exists():
+        return diagnostics
+    try:
+        with open(pdf_path, "rb") as f:
+            data = f.read(65536)
+        size = pdf_path.stat().st_size
+    except OSError as exc:
+        diagnostics["issue"] = f"read_error:{type(exc).__name__}"
+        return diagnostics
+
+    header = data[:16].lstrip()
+    lower_head = data[:512].lower()
+    looks_like_html = b"<html" in lower_head or b"<!doctype html" in lower_head
+    is_pdf = header.startswith(b"%PDF")
+    diagnostics.update({
+        "size_bytes": size,
+        "magic": "%PDF" if is_pdf else header[:8].decode("latin-1", errors="ignore"),
+        "page_count_probe": max(data.count(b"/Type /Page"), data.count(b"/Page")),
+        "looks_like_html": looks_like_html,
+    })
+    if looks_like_html:
+        diagnostics["issue"] = "html_saved_as_pdf"
+    elif not is_pdf:
+        diagnostics["issue"] = "not_pdf_magic"
+    elif size < OA_FAST_MIN_BYTES:
+        diagnostics["issue"] = "too_small"
+    else:
+        diagnostics["issue"] = "ok"
+    return diagnostics
+
+
+def _doi_pdf_basename(identifier: str) -> str:
+    return identifier.replace("/", "_").replace(":", "_")
+
+
+def _find_pdf_for_identifier(output_dir: str | Path, identifier: str) -> str:
+    if not identifier:
+        return ""
+    output = Path(output_dir)
+    candidates = [output / f"{_doi_pdf_basename(identifier)}.pdf"]
+    lowered = identifier.lower().replace("https://doi.org/", "").replace("doi:", "")
+    safe_fragment = _doi_pdf_basename(lowered).lower()
+    if output.exists():
+        candidates.extend(
+            p for p in output.glob("*.pdf")
+            if safe_fragment and safe_fragment in p.name.lower()
+        )
+    for path in candidates:
+        try:
+            if path.exists() and path.stat().st_size >= OA_FAST_MIN_BYTES:
+                return str(path)
+        except OSError:
+            continue
+    return ""
+
+
+def build_pdf_pool_index(output_dir: str, items: list[dict] | None = None) -> PdfPoolIndex:
+    output = Path(output_dir)
+    known: dict[str, dict] = {}
+    for item in items or []:
+        key = (item.get("doi") or item.get("id") or item.get("title") or "").strip()
+        if key:
+            known[key.lower()] = item
+
+    pool_items: list[PdfPoolItem] = []
+    if output.exists():
+        for idx, path in enumerate(sorted(output.glob("*.pdf")), 1):
+            stat = path.stat()
+            matched = {}
+            name_key = path.stem.lower()
+            for key, item in known.items():
+                if key and _doi_pdf_basename(key).lower() in name_key:
+                    matched = item
+                    break
+            pool_items.append(PdfPoolItem(
+                id=matched.get("id") or matched.get("source_id") or f"pdf-{idx:04d}",
+                doi=matched.get("doi", ""),
+                title=matched.get("title", ""),
+                source=matched.get("source", ""),
+                source_id=matched.get("source_id", ""),
+                pdf_path=str(path),
+                quality=_safe_pdf_quality(path),
+                size_bytes=stat.st_size,
+                mtime=datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds"),
+                pdf_diagnostics=diagnose_pdf_file(path),
+            ))
+    return PdfPoolIndex(
+        generated_at=datetime.now().isoformat(timespec="seconds"),
+        output_dir=str(output),
+        items=pool_items,
+    )
+
+
+def _recovery_buckets(failure_reasons: dict[str, str]) -> dict[str, list[str]]:
+    buckets = {
+        "retryable": [],
+        "needs_login": [],
+        "needs_user_action": [],
+        "not_available": [],
+        "needs_metadata_fix": [],
+    }
+    for identifier, reason in failure_reasons.items():
+        if reason in STEP5_LOGIN_REASONS:
+            buckets["needs_login"].append(identifier)
+        elif reason in STEP5_USER_ACTION_REASONS:
+            buckets["needs_user_action"].append(identifier)
+        elif reason in STEP5_NOT_AVAILABLE_REASONS:
+            buckets["not_available"].append(identifier)
+        elif reason in STEP5_METADATA_REASONS:
+            buckets["needs_metadata_fix"].append(identifier)
+        elif reason in STEP5_RETRYABLE_REASONS or reason.startswith("oa_fetch_failed"):
+            buckets["retryable"].append(identifier)
+        else:
+            buckets["retryable"].append(identifier)
+    return buckets
+
+
+def _recommended_next_step(readiness: str, buckets: dict[str, list[str]]) -> str:
+    if buckets.get("needs_login"):
+        return "resume_after_login"
+    if buckets.get("needs_user_action"):
+        if any(True for _ in buckets["needs_user_action"]):
+            return "solve_captcha_or_manual_download_then_resume"
+    if buckets.get("needs_metadata_fix"):
+        return "fix_metadata_then_rerun"
+    if buckets.get("retryable"):
+        return "rerun_failed_items"
+    if readiness == "partial":
+        return "proceed_to_step6_with_partial_pool"
+    return "proceed_to_step6"
+
+
+def _publisher_for_identifier(identifier: str) -> str:
+    try:
+        pub = resolve_publisher(identifier)
+        return pub.get("_key", "unknown") if pub else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _status_for_reason(reason: str) -> str:
+    if reason in STEP5_LOGIN_REASONS or reason in STEP5_USER_ACTION_REASONS:
+        return "blocked"
+    if reason in {"login_skipped_by_user"}:
+        return "skipped"
+    return "unresolved"
+
+
+def _domain_for_item(identifier: str, item: dict[str, Any]) -> str:
+    article_url = item.get("article_url", "")
+    if article_url:
+        parsed = urllib.parse.urlparse(article_url)
+        if parsed.netloc:
+            return parsed.netloc.lower()
+    try:
+        pub = resolve_publisher(identifier)
+        return pub.get("publisher_domain", "") if pub else ""
+    except Exception:
+        return ""
+
+
+def build_publisher_summary(items: list[Step5DownloadItem]) -> dict[str, dict[str, Any]]:
+    summary: dict[str, dict[str, Any]] = {}
+    for item in items:
+        key = item.publisher or item.source or "unknown"
+        bucket = summary.setdefault(key, {"total": 0, "downloaded": 0, "failed_or_pending": 0, "failure_reasons": {}})
+        bucket["total"] += 1
+        if item.status == "downloaded":
+            bucket["downloaded"] += 1
+        else:
+            bucket["failed_or_pending"] += 1
+            reason = item.failure_reason or "unknown"
+            bucket["failure_reasons"][reason] = bucket["failure_reasons"].get(reason, 0) + 1
+    return summary
+
+
+def build_domain_summary(items: list[Step5DownloadItem], item_domains: dict[str, str]) -> dict[str, dict[str, Any]]:
+    summary: dict[str, dict[str, Any]] = {}
+    for item in items:
+        identifier = item.doi or item.source_id or item.id or item.title
+        key = item_domains.get(identifier) or "unknown"
+        bucket = summary.setdefault(key, {"total": 0, "downloaded": 0, "failed_or_pending": 0, "failure_reasons": {}})
+        bucket["total"] += 1
+        if item.status == "downloaded":
+            bucket["downloaded"] += 1
+        else:
+            bucket["failed_or_pending"] += 1
+            reason = item.failure_reason or "unknown"
+            bucket["failure_reasons"][reason] = bucket["failure_reasons"].get(reason, 0) + 1
+    return summary
+
+
+def build_step5_preflight_summary(
+    items: list[dict[str, Any]],
+    output_dir: str,
+    port: int,
+    browser: str,
+    local_hits: list[str] | None = None,
+) -> dict[str, Any]:
+    local_hits = local_hits or []
+    cdp_ok = check_cdp(port)
+    browser_match = False
+    browser_product = ""
+    if cdp_ok:
+        try:
+            browser_product = get_cdp_browser_product(port)
+            browser_match = cdp_browser_matches(port, browser)
+        except Exception:
+            browser_match = False
+    return {
+        "total_items": len(items),
+        "local_pdf_hits": len(local_hits),
+        "output_dir": str(output_dir),
+        "cdp": {
+            "ok": cdp_ok,
+            "port": port,
+            "browser": browser,
+            "matches_requested_browser": browser_match,
+            "product": browser_product,
+        },
+    }
+
+
+def print_step5_preflight_summary(summary: dict[str, Any]) -> None:
+    cdp = summary.get("cdp", {})
+    status = OK if cdp.get("ok") else WARN
+    print("Step 5 preflight summary:")
+    print(f"  items:          {summary.get('total_items', 0)}")
+    print(f"  local PDF hits: {summary.get('local_pdf_hits', 0)}")
+    print(f"  output_dir:     {summary.get('output_dir', '')}")
+    print(f"  {status} CDP:        {cdp.get('ok')} ({cdp.get('product') or 'not running'})")
+
+
+def write_failure_snapshots(output_dir: str, items: list[Step5DownloadItem]) -> str:
+    snapshot_reasons = {"captcha_required", "manual_required", "pdf_probe_unknown"}
+    debug_dir = Path(output_dir) / "step5-debug"
+    written = 0
+    for item in items:
+        if item.failure_reason not in snapshot_reasons:
+            continue
+        identifier = item.doi or item.source_id or item.id or item.title
+        if not identifier:
+            continue
+        digest = hashlib.md5(identifier.encode("utf-8")).hexdigest()[:12]
+        item_dir = debug_dir / digest
+        item_dir.mkdir(parents=True, exist_ok=True)
+        (item_dir / "reason.json").write_text(json.dumps({
+            "id": item.id,
+            "doi": item.doi,
+            "title": item.title,
+            "source": item.source,
+            "publisher": item.publisher,
+            "failure_reason": item.failure_reason,
+            "next_action": item.next_action,
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        (item_dir / "final_url.txt").write_text(item.article_url or "", encoding="utf-8")
+        (item_dir / "page_title.txt").write_text(item.title or "", encoding="utf-8")
+        written += 1
+    return str(debug_dir) if written else ""
+
+
+def write_step5_outputs(
+    output_dir: str,
+    all_items: list[dict],
+    downloaded: list[str],
+    remaining: list[str],
+    round_results: list[dict],
+    failure_reasons: dict[str, str],
+    preflight_summary: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    os.makedirs(output_dir, exist_ok=True)
+    downloaded_set = set(downloaded)
+    remaining_set = set(remaining)
+    item_map: dict[str, dict] = {}
+    for idx, item in enumerate(all_items, 1):
+        key = item.get("doi") or item.get("id") or item.get("title") or f"item-{idx:04d}"
+        item_map[key] = item
+
+    manifest_items: list[Step5DownloadItem] = []
+    attempts_rows: list[dict] = []
+    item_domains: dict[str, str] = {}
+    for idx, (identifier, item) in enumerate(item_map.items(), 1):
+        reason = failure_reasons.get(identifier, "")
+        pdf_path = _find_pdf_for_identifier(output_dir, identifier)
+        status = "downloaded" if identifier in downloaded_set or pdf_path else _status_for_reason(reason)
+        quality = _safe_pdf_quality(pdf_path) if pdf_path else ("metadata_only" if item.get("title") else "none")
+        attempts: list[dict] = []
+        if pdf_path:
+            attempts.append(step5_attempt("local_index", "hit", pdf_path=pdf_path))
+        for result in round_results:
+            round_name = result.get("round", "")
+            if identifier in result.get("downloaded", []):
+                attempts.append(step5_attempt(round_name, "downloaded", source=round_name, pdf_path=pdf_path))
+        if identifier in remaining_set or reason:
+            attempts.append(step5_attempt("final", "unresolved", reason=reason))
+        attempts_rows.extend({"id": identifier, **attempt} for attempt in attempts)
+        item_domains[identifier] = _domain_for_item(identifier, item)
+        manifest_items.append(Step5DownloadItem(
+            id=item.get("id") or item.get("source_id") or f"step5-{idx:04d}",
+            doi=item.get("doi", identifier if identifier.startswith("10.") else ""),
+            title=item.get("title", ""),
+            source=item.get("source", ""),
+            source_id=item.get("source_id", ""),
+            article_url=item.get("article_url", ""),
+            publisher=item.get("publisher") or _publisher_for_identifier(identifier),
+            status=status,
+            quality=quality,
+            pdf_path=pdf_path,
+            failure_reason=reason,
+            next_action=_recommended_next_step("partial", _recovery_buckets({identifier: reason})) if reason else "",
+            attempts=attempts,
+        ))
+
+    total = len(manifest_items)
+    downloaded_count = sum(1 for item in manifest_items if item.status == "downloaded")
+    readiness = "blocked" if total and downloaded_count == 0 else "complete" if not remaining else "partial"
+    buckets = _recovery_buckets(failure_reasons)
+    publisher_summary = build_publisher_summary(manifest_items)
+    domain_summary = build_domain_summary(manifest_items, item_domains)
+    manifest = Step5DownloadManifest(
+        run_id=f"step5-{datetime.now():%Y%m%d-%H%M%S}",
+        generated_at=datetime.now().isoformat(timespec="seconds"),
+        readiness=readiness,
+        recommended_next_step=_recommended_next_step(readiness, buckets),
+        summary={
+            "total": total,
+            "downloaded": downloaded_count,
+            "remaining": len(remaining),
+            "failed_or_pending": len([i for i in manifest_items if i.status != "downloaded"]),
+            "publisher_summary": publisher_summary,
+            "domain_summary": domain_summary,
+            "preflight": preflight_summary or {},
+        },
+        recovery_buckets=buckets,
+        items=manifest_items,
+    )
+    manifest_path = os.path.join(output_dir, "download_manifest.json")
+    attempts_path = os.path.join(output_dir, "download_attempts.jsonl")
+    pool_path = os.path.join(output_dir, "pdf-附件池索引.json")
+    write_step5_download_manifest(manifest_path, manifest)
+    with open(attempts_path, "w", encoding="utf-8") as f:
+        for row in attempts_rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    write_pdf_pool_index(pool_path, build_pdf_pool_index(output_dir, [item.__dict__ for item in manifest_items]))
+    debug_path = write_failure_snapshots(output_dir, manifest_items)
+    paths = {"manifest": manifest_path, "attempts": attempts_path, "pdf_pool": pool_path}
+    if debug_path:
+        paths["debug_snapshots"] = debug_path
+    return paths
+
+
+def _input_items_for_step5_manifest(dois: list[str], chinese_papers: list[dict]) -> list[dict]:
+    items = []
+    for doi in dois:
+        items.append({"id": doi, "doi": doi, "publisher": _publisher_for_identifier(doi)})
+    for paper in chinese_papers:
+        identifier = paper.get("doi") or paper.get("source_id") or paper.get("title", "")
+        items.append({
+            "id": identifier,
+            "doi": paper.get("doi", ""),
+            "title": paper.get("title", ""),
+            "source": paper.get("source", ""),
+            "source_id": paper.get("source_id", ""),
+            "article_url": paper.get("article_url", ""),
+            "publisher": paper.get("source", ""),
+        })
+    return items
+
+
+def filter_local_pdf_hits(dois: list[str], chinese_papers: list[dict], output_dir: str) -> tuple[list[str], list[dict], list[str]]:
+    downloaded: list[str] = []
+    remaining_dois: list[str] = []
+    for doi in dois:
+        if _find_pdf_for_identifier(output_dir, doi):
+            downloaded.append(doi)
+        else:
+            remaining_dois.append(doi)
+    remaining_chinese: list[dict] = []
+    for paper in chinese_papers:
+        identifier = paper.get("doi") or paper.get("source_id") or paper.get("title", "")
+        if identifier and _find_pdf_for_identifier(output_dir, identifier):
+            downloaded.append(identifier)
+        else:
+            remaining_chinese.append(paper)
+    if downloaded:
+        print(f"  {OK} Local PDF index: {len(downloaded)} existing PDF(s) will be skipped")
+    return remaining_dois, remaining_chinese, downloaded
+
+
 def write_failed_doi_sidecar(output_dir: str, remaining: list[str],
                              failure_reasons: dict[str, str]) -> str:
     """Write structured failed DOI metadata for later replay and triage."""
@@ -2442,6 +2868,14 @@ def main():
                 if item.get("doi", "").strip()
             ]
             generate_download_log(args.output, all_dois, round_results, failure_reasons)
+            write_step5_outputs(
+                args.output,
+                _input_items_for_step5_manifest(all_dois, []),
+                downloaded,
+                remaining,
+                round_results,
+                failure_reasons,
+            )
             if remaining:
                 failed_path = os.path.join(args.output, "failed_dois.txt")
                 with open(failed_path, "w", encoding="utf-8") as f:
@@ -2488,6 +2922,14 @@ def main():
             generate_download_log(
                 args.output,
                 all_items,
+                [{"round": "Chinese CDP (resume login checkpoint)", "downloaded": downloaded}],
+                failure_reasons,
+            )
+            write_step5_outputs(
+                args.output,
+                _input_items_for_step5_manifest([], payload.get("items", [])),
+                downloaded,
+                remaining,
                 [{"round": "Chinese CDP (resume login checkpoint)", "downloaded": downloaded}],
                 failure_reasons,
             )
@@ -2733,6 +3175,19 @@ def main():
     if args.parallel_phase1:
         print(f"\n{WARN} --parallel-phase1 is deprecated and ignored: English and Chinese downloads are serialized to protect the CDP browser.")
 
+    manifest_input_items = _input_items_for_step5_manifest(dois, chinese_papers)
+    all_log_ids = [item.get("doi") or item.get("id") or item.get("title", "") for item in manifest_input_items]
+    all_log_ids = [item for item in all_log_ids if item]
+    dois, chinese_papers, local_dl = filter_local_pdf_hits(dois, chinese_papers, args.output)
+    preflight_summary = build_step5_preflight_summary(
+        manifest_input_items,
+        args.output,
+        args.port,
+        args.browser,
+        local_hits=local_dl,
+    )
+    print_step5_preflight_summary(preflight_summary)
+
     # Check CDP only for early CDP work. English Generic CDP is checked after
     # OA fast so public PDFs do not get blocked by institutional browser setup.
     has_scihub_round = bool(dois) and not args.skip_scihub and bool(_scihub_eligible_dois(dois))
@@ -2812,7 +3267,7 @@ def main():
                 )
         if preflight_login_dois:
             print(f"\n{WARN} English CDP includes {len(preflight_login_dois)} login-sensitive item(s) without confirmed access.")
-            print("  Login is checked before IEEE/Generic download loops to avoid per-paper login-wall failures.")
+            print("  Login is checked before the grouped download loop to avoid per-paper login-wall failures.")
             if args.confirmed_login:
                 print(f"{OK} --confirmed supplied: skipping preflight login prompt and attempting English CDP directly.")
                 gate_result = True
@@ -2896,26 +3351,41 @@ def main():
                     port=args.port,
                     confirmed_login=args.confirmed_login,
                 ):
+                    if args.confirmed_login:
+                        ch_dl, ch_rem, ch_failure_reasons = run_chinese_round_with_reasons(
+                            chinese_papers,
+                            args.output,
+                            args.port,
+                            confirmed_login=True,
+                        )
+                    else:
+                        ch_dl, ch_rem, ch_failure_reasons = run_chinese_round_with_reasons(
+                            chinese_papers,
+                            args.output,
+                            args.port,
+                        )
+            else:
+                if args.confirmed_login:
                     ch_dl, ch_rem, ch_failure_reasons = run_chinese_round_with_reasons(
                         chinese_papers,
                         args.output,
                         args.port,
-                        confirmed_login=args.confirmed_login,
+                        confirmed_login=True,
                     )
-            else:
-                ch_dl, ch_rem, ch_failure_reasons = run_chinese_round_with_reasons(
-                    chinese_papers,
-                    args.output,
-                    args.port,
-                    confirmed_login=args.confirmed_login,
-                )
+                else:
+                    ch_dl, ch_rem, ch_failure_reasons = run_chinese_round_with_reasons(
+                        chinese_papers,
+                        args.output,
+                        args.port,
+                    )
 
     # ═══════════════════════════════════════════════════════════════════
     # Phase 4: Merge results from all phases
     # ═══════════════════════════════════════════════════════════════════
 
-    all_downloaded = scihub_dl + ch_dl + en_dl
+    all_downloaded = local_dl + scihub_dl + ch_dl + en_dl
     round_results = (
+        ([{"round": "Local PDF index", "downloaded": local_dl}] if local_dl else []) +
         [{"round": "Sci-Hub", "downloaded": scihub_dl}] * (1 if scihub_dl else 0) +
         en_results +
         ([{"round": "Chinese CDP", "downloaded": ch_dl}] if ch_dl or (chinese_papers and not args.skip_chinese) else [])
@@ -2926,12 +3396,22 @@ def main():
     ch_dois = [p.get("doi") or p.get("title", "") for p in chinese_papers] if chinese_papers else []
     if ch_dois:
         dois = dois + ch_dois
+    log_ids = all_log_ids or dois
 
     # ── Final summary ─────────────────────────────────────────────────
     failure_reasons = {**en_failure_reasons, **ch_failure_reasons}
-    log_path = generate_download_log(args.output, dois, round_results, failure_reasons)
+    log_path = generate_download_log(args.output, log_ids, round_results, failure_reasons)
+    step5_paths = write_step5_outputs(
+        args.output,
+        manifest_input_items,
+        all_downloaded,
+        remaining,
+        round_results,
+        failure_reasons,
+        preflight_summary=preflight_summary,
+    )
 
-    total_all = len(dois)
+    total_all = len(log_ids)
     print(f"\n{'='*60}")
     print(f"Final Summary")
     print(f"{'='*60}")
@@ -2953,6 +3433,8 @@ def main():
         print(f"  Failed sidecar:  {sidecar_path}")
 
     print(f"  Download log:    {log_path}")
+    print(f"  Manifest:        {step5_paths['manifest']}")
+    print(f"  PDF pool index:  {step5_paths['pdf_pool']}")
     print(f"\n  Next step {ARROW} Step 6: Zotero library management")
     release_step5_download_lock(lock_path)
 
