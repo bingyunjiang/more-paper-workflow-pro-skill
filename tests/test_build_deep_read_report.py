@@ -86,7 +86,7 @@ class BuildDeepReadReportTest(unittest.TestCase):
             markdown = report_md.read_text(encoding="utf-8")
 
         self.assertIn("论文精读报告：Example Paper", markdown)
-        self.assertIn("Figure overview", markdown)
+        self.assertIn("Method overview", markdown)
         self.assertIn("## 7. 创新点逐条拆解", markdown)
 
     def test_cli_builds_pdf_only_report_without_figures(self):

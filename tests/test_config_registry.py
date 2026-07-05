@@ -61,7 +61,7 @@ class ConfigRegistryTest(unittest.TestCase):
 
         self.assertEqual(sd["strategy"], "generic")
         self.assertEqual(sd["provider_label"], "ScienceDirect / Elsevier")
-        self.assertEqual(ieee["strategy"], "generic")
+        self.assertEqual(ieee["strategy"], "ieee_cdp")
         self.assertEqual(ieee["provider_label"], "IEEE Xplore")
         self.assertEqual(mdpi["strategy"], "generic")
         self.assertEqual(mdpi["requires_auth"], "none")

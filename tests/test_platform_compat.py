@@ -177,6 +177,7 @@ class PlatformCompatTest(unittest.TestCase):
 
     def test_router_auto_start_uses_python_cdp_helper(self):
         with patch.object(router, "check_cdp", side_effect=[False, True]), \
+             patch.object(router, "cdp_browser_matches", return_value=True), \
              patch.object(router, "start_persistent_cdp_browser") as starter:
             self.assertTrue(router.ensure_cdp_running(9223))
         starter.assert_called_once()
@@ -184,7 +185,8 @@ class PlatformCompatTest(unittest.TestCase):
     def test_start_cdp_browser_prints_profile_and_log_on_success(self):
         argv = ["start_cdp_browser.py", "--browser", "chrome", "--port", "9223"]
         with patch.object(sys, "argv", argv), \
-             patch.object(start_cdp_browser, "check_cdp", side_effect=[False, True]), \
+             patch.object(start_cdp_browser, "check_cdp", side_effect=[False, False, True]), \
+             patch.object(start_cdp_browser, "cdp_browser_matches", return_value=True), \
              patch.object(start_cdp_browser, "start_persistent_cdp_browser"), \
              patch.object(start_cdp_browser, "get_persistent_profile_dir", return_value="/tmp/profile"), \
              patch.object(start_cdp_browser, "get_launch_log_path", return_value="/tmp/profile/cdp_launch.log"), \
