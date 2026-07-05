@@ -7,6 +7,7 @@
 - 把润色任务先做 revision scope 判定
 - 默认保守改写，不将 Step 8 变成开放式重写器
 - 按 `paper_type / language / target_genre / revision_scope` 最小加载
+- 启动正文修改前先输出 `Writing Read`，并划定 protected spans
 - Step 8 不负责主体写作；它在既有成稿基础上执行受约束补写、直接修改与修订后验证，不接管 Step 7 的完整写作、引用审计或修稿路线图。
 
 ## revision_scope
@@ -14,6 +15,13 @@
 - `local-polish`：局部润色
 - `section-revision`：章节级修订
 - `full-manuscript-pass`：全稿一轮保守精修
+
+## rewrite_scope / rewrite_level
+
+- `rewrite_scope` 控制能不能动结构：`in-place / bounded / structural`，默认 `bounded`。
+- `rewrite_level` 控制修多重：`minimal / standard / aggressive`，默认 `standard`。
+- 引用、公式、数据、图表和术语密集段落默认降到 `in-place`。
+- `aggressive` 只在用户明确允许且不新增证据时使用；触及 claim、引用、章节功能或证据边界时回 Step 7。
 
 ## 路由规则
 
@@ -47,13 +55,18 @@ Step 8 若存在 `$CWD/.skill-state/ai_trace_diagnostics.json`，应把它视为
 1. `manifest.step8.yaml`
 2. `static/core/output-contract.md`
 3. `references/polish-modes.md`
-4. `references/ai-trace-taxonomy.md`
-5. `agents/step_8_polishing.md`
+4. `references/step8-rewrite-scope.md`
+5. `references/protected-spans.md`
+6. `references/academic-ai-trace-index.md`
+7. `references/ai-trace-taxonomy.md`
+8. `agents/step_8_polishing.md`
 
 ## 输出要求
 
 Step 8 默认必须明确：
 
+- `Writing Read`：文本范围、target_genre、language、reader、evidence_state、`rewrite_scope + rewrite_level`
+- 哪些片段划入 protected spans，以及相关修改是否已通过保真回读
 - 保留了哪些原结构
 - 哪些修改属于直接修改，哪些属于局部补写
 - 哪些问题只是提醒，需回到 Step 7 处理

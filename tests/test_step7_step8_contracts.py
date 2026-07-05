@@ -843,6 +843,54 @@ class Step7Step8ContractsTest(unittest.TestCase):
             self.assertIn(token, text)
             self.assertIn(token, reference)
 
+    def test_step8_writing_read_and_protected_spans_contract_exists(self):
+        step8 = read_rel("agents/step_8_polishing.md")
+        entry = read_rel("agents/step_8_entry.md")
+        command = read_rel("commands/polish.md")
+        reference_index = read_rel("references/reference-index.md")
+        rewrite_scope = read_rel("references/step8-rewrite-scope.md")
+        protected_spans = read_rel("references/protected-spans.md")
+        ai_trace_index = read_rel("references/academic-ai-trace-index.md")
+
+        for token in [
+            "references/step8-rewrite-scope.md",
+            "references/protected-spans.md",
+            "references/academic-ai-trace-index.md",
+            "Writing Read",
+            "protected spans",
+            "保真回读",
+            "残留味回读",
+            "rewrite_scope",
+            "rewrite_level",
+        ]:
+            self.assertIn(token, step8 + entry + command + reference_index)
+
+        for token in [
+            "bounded + standard",
+            "in-place",
+            "structural",
+            "保真回读优先级高于残留味回读",
+        ]:
+            self.assertIn(token, step8 + rewrite_scope + command)
+
+        for token in [
+            "引用与文献标识",
+            "图表与公式锚点",
+            "实验/仿真参数",
+            "证据边界",
+            "责任主体",
+        ]:
+            self.assertIn(token, protected_spans)
+
+        for token in [
+            "路标词堆积",
+            "空泛价值拔高",
+            "无源归因",
+            "伪洞见尾句",
+            "Top 5-10",
+        ]:
+            self.assertIn(token, ai_trace_index)
+
     def test_step8_scientific_bluff_diagnostics_are_constrained(self):
         step8 = read_rel("agents/step_8_polishing.md")
         antipatterns = read_rel("references/writing-antipatterns.md")

@@ -19,9 +19,13 @@
 - `润色质量报告`
 
 ## 内部诊断重点
+- 正文修改前先输出 `Writing Read`：文本范围、target_genre、language、reader、evidence_state、`rewrite_scope + rewrite_level`
+- 正文修改前先划定 protected spans：引用、图表、公式、术语、参数、证据边界、责任主体、命令/路径
+- 默认使用 `bounded + standard`；引用、公式、数据、图表和术语密集段落默认降到 `in-place`
 - Step 8 会自动做 AI 味确定性检查，属于 `language_mechanical` 的诊断来源之一
 - 结果会并入 `diagnostic_summary.md`、`revision_ledger.json/md`、`润色质量报告`
 - 该检查帮助识别机械化表达、空泛套话和载体层问题
+- 学术 AI 痕迹轻量索引只定位 Top 5-10 个最影响读感和可核验性的模式，不替代证据审计
 - 它不会把用户风格偏好强行改写成统一文风
 - 它不会因为“像 AI”就直接判定稿件失败
 - 机器层结构化结果可由 `scripts/deterministic_writing_diagnostics.py` 生成，再并入 `revision_ledger`
@@ -31,6 +35,7 @@
 - Step 8 只做保守修订，不新增未经确认的证据
 - Step 8 可以降低机械感、改善衔接、压缩或扩展局部表达
 - Step 8 不替代 Step 7 的引用审计，不重写章节主体，不扩大写作范围
+- 保真回读优先于残留味回读；不能为了“更自然”删限定条件、移动关键引用或提升 claim 强度
 - 若问题本质上是证据不足、论证越界或章节范围漂移，应回退 Step 7，而不是在 Step 8 里硬修
 
 ## 常见阻塞点

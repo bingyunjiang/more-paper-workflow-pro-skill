@@ -46,6 +46,9 @@ This index groups the reference files by function so the workflow contracts are 
 
 ## Style and diagnostics
 
+- `step8-rewrite-scope.md`
+- `protected-spans.md`
+- `academic-ai-trace-index.md`
 - `writing-antipatterns.md`
 - `deterministic-writing-diagnostics.md`
 - `ai-trace-taxonomy.md`
