@@ -14,6 +14,38 @@
 - evidence adequacy
 - readability / structure
 
+## 五维锚定量表
+
+每个维度使用 1-5 分，并必须同时记录 `score / evidence_locations / reason`。没有正文位置或工件证据的裸分数无效。
+
+| 分数 | 可复现含义 |
+|---:|---|
+| 1 | 核心内容缺失，或当前结论无法成立 |
+| 2 | 存在阻塞性缺陷，必须回退补证据或重构 |
+| 3 | 可形成受限草稿，但仍有明确 MAJOR 问题 |
+| 4 | 达到内部送审水平，只剩可定位的小修或边界项 |
+| 5 | 在当前 `assessment_boundary` 和证据范围内未发现实质性缺陷 |
+
+机器工件固定为 `reviewer_scorecard.json`，schema 为 `reviewer-scorecard.v1`：
+
+```json
+{
+  "schema_version": "reviewer-scorecard.v1",
+  "draft_sha256": "当前评审稿 SHA-256",
+  "assessment_boundary": "full_document | chapter | section | abstract",
+  "scores": {
+    "originality": {"score": 3, "evidence_locations": ["Introduction"], "reason": ""},
+    "importance": {"score": 3, "evidence_locations": ["Introduction"], "reason": ""},
+    "technical_soundness": {"score": 4, "evidence_locations": ["Methods", "Results"], "reason": ""},
+    "evidence_adequacy": {"score": 4, "evidence_locations": ["citation_audit.md"], "reason": ""},
+    "readability_structure": {"score": 3, "evidence_locations": ["full_document"], "reason": ""}
+  },
+  "critical_issues": []
+}
+```
+
+Step 7 完成门：`technical_soundness >= 4`、`evidence_adequacy >= 4`、其余维度 `>= 3`，且 `critical_issues` 必须为空。进入 `evidence_closed / ready_for_step8` 时，`draft_sha256` 必须与当前稿件一致；评分只覆盖 `assessment_boundary`，不得把局部评审写成全文通过。
+
 ## 输出格式建议
 
 - `Review setup`

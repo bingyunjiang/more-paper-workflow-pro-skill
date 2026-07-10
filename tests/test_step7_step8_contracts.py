@@ -463,8 +463,17 @@ class Step7Step8ContractsTest(unittest.TestCase):
             "现象 -> 状态量/控制量 -> 作用路径 -> 证据锚点 -> 适用边界 -> 回扣本节问题",
             "没有实验、仿真或对比验证时，不得把相关性写成因果证明",
         ]:
-            self.assertIn(token, step7)
             self.assertIn(token, reference)
+
+        for token in [
+            "`mechanism_analysis`",
+            "mechanism_trigger_decision",
+            "mechanism_cards.json/md",
+            "mechanism_argument_plan.json/md",
+            "mechanism_claim_audit.json/md",
+            "references/mechanism-analysis-writing-contract.md",
+        ]:
+            self.assertIn(token, step7)
 
     def test_materials_mechanics_domain_pack_is_wired_to_step7(self):
         step7 = read_rel("agents/step_7_writing.md")
@@ -1280,6 +1289,7 @@ class Step7Step8ContractsTest(unittest.TestCase):
     def test_step7_auto_insert_figures_degrades_without_mineru_zip(self):
         step7_entry = read_rel("agents/step_7_entry.md")
         step7 = read_rel("agents/step_7_writing.md")
+        figure_contract = read_rel("references/figure-writing-interface.md")
 
         for token in [
             "## figure_mode 轴",
@@ -1301,7 +1311,7 @@ class Step7Step8ContractsTest(unittest.TestCase):
             self.assertIn(token, step7_entry)
 
         self.assertIn("没有 MinerU ZIP 但本地 PDF 可读时，允许用 PyMuPDF 直接抽取 `pdf_direct` 候选图", step7)
-        self.assertIn("figure_evidence_status=pdf_direct_candidate_pending_manual_check", step7)
+        self.assertIn("figure_evidence_status=pdf_direct_candidate_pending_manual_check", figure_contract)
 
     def test_step7_zotero_paper_writing_requires_minimum_illustrated_delivery(self):
         step7 = read_rel("agents/step_7_writing.md")

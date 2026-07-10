@@ -42,6 +42,24 @@ class WritingQualityAuditsTest(unittest.TestCase):
         self.assertIn("figure_first_argument_plan.figure_or_table_id", rule_ids)
         self.assertIn("phrasebank_guardrail.claim_strength", rule_ids)
 
+    def test_auto_mode_audits_all_named_sections_in_full_document(self):
+        payload = audit_quality_text(
+            "# 摘要\n\n问题、方法、结果均在给定工况范围内说明。\n\n"
+            "# 1 引言\n\n本文提出一种方法，但没有说明研究缺口。\n\n"
+            "# 4 讨论\n\n结果表明该方法优于基准。\n\n"
+            "# 5 结论\n\n本文结果回答了问题。"
+        )
+
+        self.assertEqual(payload["summary"]["section_type"], "multi-section")
+        self.assertEqual(
+            payload["summary"]["sections_audited"],
+            ["abstract", "introduction", "discussion", "conclusion"],
+        )
+        issue_ids = {item["issue_id"] for item in payload["issues"]}
+        self.assertIn("introduction-missing-gap", issue_ids)
+        self.assertIn("discussion-missing-limitation", issue_ids)
+        self.assertIn("conclusion-missing-scope", issue_ids)
+
     def test_engineering_claim_audit_detects_power_energy_defects(self):
         text = (
             "该V2G策略提升电网稳定性并带来显著收益。"

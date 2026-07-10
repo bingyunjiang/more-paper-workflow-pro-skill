@@ -40,6 +40,16 @@ WORKFLOW_CONTRACT_SCHEMA = "workflow-contracts.v1"
 DEFAULT_ROOT = "论文文献库"
 CONFIRM_COLLECTION = "待确认集合"
 PDF_EXTS = {".pdf"}
+ITEM_STATES = {
+    "planned", "existing_confirmed", "imported", "duplicate_candidate",
+    "metadata_conflict", "import_failed", "rejected_do_not_import",
+    "manual_confirmation_required",
+}
+ATTACHMENT_STATES = {
+    "matched_attachment", "missing_attachment", "unlinked_pdf",
+    "duplicate_attachment", "invalid_attachment", "attachment_conflict",
+    "manual_attach_required", "rejected",
+}
 
 
 def normalize_text(value: str | None) -> str:
@@ -85,6 +95,41 @@ def read_json(path: str | None, warnings: list[str]) -> Any:
     except Exception as exc:
         warnings.append(f"Could not parse JSON {path}: {exc}")
         return None
+
+
+def load_direct_records(path: str | None, warnings: list[str]) -> list[dict[str, Any]]:
+    payload = read_json(path, warnings)
+    if payload is None:
+        return []
+    if isinstance(payload, list):
+        rows = payload
+    elif isinstance(payload, dict):
+        rows = payload.get("records") or payload.get("items") or payload.get("search_results") or []
+    else:
+        rows = []
+    records: list[dict[str, Any]] = []
+    for index, row in enumerate(rows, 1):
+        if not isinstance(row, dict):
+            warnings.append(f"Direct record {index} is not an object")
+            continue
+        authors = row.get("authors") or row.get("author") or []
+        if isinstance(authors, list):
+            authors = [
+                normalize_text(author.get("family") or author.get("literal") or author.get("name")) if isinstance(author, dict) else normalize_text(author)
+                for author in authors
+            ]
+        else:
+            authors = parse_authors(str(authors))
+        records.append({
+            **row,
+            "citekey": row.get("citekey") or row.get("id") or f"direct-{index:03d}",
+            "title": normalize_text(row.get("title")),
+            "authors": [author for author in authors if author],
+            "doi": normalize_doi(row.get("doi") or row.get("DOI")),
+            "publication_title": row.get("publication_title") or row.get("container-title") or "",
+            "verification_status": row.get("verification_status") or "WARN",
+        })
+    return records
 
 
 def load_prepared_pdf_artifacts(path: str | None, warnings: list[str]) -> list[dict[str, Any]]:
@@ -464,6 +509,23 @@ def file_md5(path: Path) -> str:
     return h.hexdigest()
 
 
+def inspect_pdf(path: Path) -> tuple[str, str]:
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        return "invalid", f"read_error:{type(exc).__name__}"
+    head = data[:512].lstrip().lower()
+    if head.startswith((b"<html", b"<!doctype html")):
+        return "invalid", "html_saved_as_pdf"
+    if not data.lstrip().startswith(b"%PDF"):
+        return "invalid", "not_pdf_magic"
+    if len(data) < 5000:
+        return "invalid", "too_small"
+    if b"/Type /Page" not in data and b"/Type/Page" not in data:
+        return "invalid", "no_readable_pages"
+    return "verified", "ok"
+
+
 def scan_pdf_dirs(pdf_dirs: list[str], warnings: list[str]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     seen_hashes: dict[str, str] = {}
@@ -477,7 +539,8 @@ def scan_pdf_dirs(pdf_dirs: list[str], warnings: list[str]) -> list[dict[str, An
                 continue
             try:
                 digest = file_md5(path)
-                status = "unmatched"
+                verification_status, verification_reason = inspect_pdf(path)
+                status = "unmatched" if verification_status == "verified" else "invalid_attachment"
                 duplicate_of = ""
                 if digest in seen_hashes:
                     status = "duplicate_candidate"
@@ -493,6 +556,9 @@ def scan_pdf_dirs(pdf_dirs: list[str], warnings: list[str]) -> list[dict[str, An
                     "match_status": status,
                     "duplicate_of": duplicate_of,
                     "matched_record_id": "",
+                    "attachment_state": "unlinked_pdf" if verification_status == "verified" else "invalid_attachment",
+                    "verification_status": verification_status,
+                    "verification_reason": verification_reason,
                 })
             except Exception as exc:
                 warnings.append(f"Could not index PDF {path}: {exc}")
@@ -553,6 +619,7 @@ def match_pdfs(record: dict[str, Any], pdfs: list[dict[str, Any]]) -> tuple[str,
             "match_confidence": confidence,
             "reasons": reasons,
             "duplicate_pdf_candidate": pdf.get("match_status") == "duplicate_candidate",
+            "invalid_pdf_candidate": pdf.get("verification_status") != "verified",
         })
     candidates.sort(key=lambda c: c["match_score"], reverse=True)
     if not candidates:
@@ -561,9 +628,62 @@ def match_pdfs(record: dict[str, Any], pdfs: list[dict[str, Any]]) -> tuple[str,
     highish = [c for c in candidates if c["match_score"] >= max(45, top["match_score"] - 10)]
     if len(highish) > 1:
         return "", "", candidates, "conflict", "none"
+    if top.get("invalid_pdf_candidate"):
+        return top["path"], "manual", candidates, "invalid", "replace_invalid_pdf"
     if top.get("duplicate_pdf_candidate"):
         return top["path"], "manual", candidates, "duplicate_candidate", "skip"
     return top["path"], "manual", candidates, "found", "manual_drag"
+
+
+def normalize_item_state(import_status: str) -> str:
+    return {
+        "ready": "planned",
+        "metadata_incomplete": "metadata_conflict",
+        "manual_required": "manual_confirmation_required",
+        "rejected_do_not_import": "rejected_do_not_import",
+        "imported": "imported",
+        "existing": "existing_confirmed",
+        "failed": "import_failed",
+    }.get(import_status, "manual_confirmation_required")
+
+
+def normalize_attachment_state(attachment_status: str, confidence: str) -> str:
+    if attachment_status == "found":
+        return "matched_attachment" if confidence == "high" else "manual_attach_required"
+    return {
+        "missing": "missing_attachment",
+        "conflict": "attachment_conflict",
+        "duplicate_candidate": "duplicate_attachment",
+        "invalid": "invalid_attachment",
+        "already_attached": "matched_attachment",
+        "rejected": "rejected",
+        "unknown": "unlinked_pdf",
+    }.get(attachment_status, "unlinked_pdf")
+
+
+def apply_duplicate_states(records: list[dict[str, Any]]) -> None:
+    seen: dict[str, str] = {}
+    for record in records:
+        doi = normalize_doi(record.get("doi"))
+        source_id = normalize_key(record.get("source_id"))
+        title = normalize_key(record.get("title"))
+        authors = record.get("authors") or []
+        author = normalize_key(authors[0] if authors else "")
+        year = normalize_key(record.get("year"))
+        if doi:
+            key = f"doi:{doi.lower()}"
+        elif source_id:
+            key = f"source:{source_id}"
+        elif title and author and year:
+            key = f"tay:{title}|{author}|{year}"
+        else:
+            continue
+        if key in seen:
+            record["item_state"] = "duplicate_candidate"
+            record["duplicate_of_record_id"] = seen[key]
+            record["duplicate_match_key"] = key.split(":", 1)[0]
+        else:
+            seen[key] = record.get("record_id", "")
 
 
 def match_prepared_artifact(record: dict[str, Any], prepared_artifacts: list[dict[str, Any]]) -> dict[str, Any]:
@@ -651,6 +771,9 @@ def build_records(
             "tags": infer_tags(record, structure_rows),
             "import_method": method,
             "import_status": import_status,
+            "item_state": normalize_item_state(import_status),
+            "duplicate_of_record_id": "",
+            "duplicate_match_key": "",
             "pdf_path": pdf_path,
             "pdf_source": pdf_source,
             "pdf_match_confidence": confidence,
@@ -666,10 +789,12 @@ def build_records(
             },
             "zotero_item_key": "",
             "attachment_status": attachment_status,
+            "attachment_state": normalize_attachment_state(attachment_status, confidence),
             "attachment_action": attachment_action,
             "existing_attachment_keys": [],
             "notes": "中文元数据待补全" if metadata_incomplete else "",
         })
+    apply_duplicate_states(records)
     return records
 
 
@@ -689,14 +814,16 @@ def infer_tags(record: dict[str, Any], structure_rows: list[dict[str, Any]]) -> 
     return tags[:8]
 
 
-def compute_readiness(records: list[dict[str, Any]], blocking: list[str], nonblocking: list[str], warnings: list[str]) -> tuple[str, bool, str]:
+def compute_readiness(records: list[dict[str, Any]], blocking: list[str], nonblocking: list[str], warnings: list[str], *, has_pdf_inventory: bool = False) -> tuple[str, bool, str]:
     if blocking:
         return "blocked", False, "先补齐阻塞输入，再重跑 Step 6 计划生成。"
+    if not records and has_pdf_inventory:
+        return "partial", True, "PDF 附件清单已建立；可补充 Zotero/BibTeX/JSON 后继续匹配，或保留为 unlinked_pdf。"
     if not records:
         return "blocked", False, "未解析到文献记录，请检查 文献库.bib。"
     if nonblocking or warnings:
         return "partial", True, "可继续人工审阅对照表；缺失项可后续补齐。"
-    if any(r["attachment_status"] in {"missing", "conflict", "duplicate_candidate"} or r["import_status"] != "ready" for r in records):
+    if any(r.get("attachment_state") in {"attachment_conflict", "duplicate_attachment", "manual_attach_required"} or r.get("item_state") != "planned" for r in records):
         return "partial", True, "先处理缺 PDF、重复候选、冲突和元数据待补全项。"
     return "complete", True, "可进入 6c 创建/复用 Zotero 集合，并按 JSON 分步写入。"
 
@@ -711,7 +838,8 @@ def update_pdf_index_matches(pdfs: list[dict[str, Any]], records: list[dict[str,
             current = pdf.get("match_status", "unmatched")
             if current == "duplicate_candidate":
                 continue
-            pdf["match_status"] = rec.get("attachment_status", "matched")
+            pdf["match_status"] = rec.get("attachment_state", "unlinked_pdf")
+            pdf["attachment_state"] = rec.get("attachment_state", "unlinked_pdf")
             pdf["matched_record_id"] = rec.get("record_id", "")
             pdf["matched_citekey"] = rec.get("citekey", "")
             pdf["match_confidence"] = cand.get("match_confidence", "")
@@ -785,6 +913,7 @@ def main() -> int:
     parser.add_argument("--prepared-pdf-artifacts", help="prepared_pdf_artifacts.json from prepare_pdf_for_llm.py")
     parser.add_argument("--chinese", help="中文论文元数据.json (legacy: chinese_papers.json / chinese_metadata.json)")
     parser.add_argument("--workflow-results", help="workflow_search_results.json for chapter/secondary-chapter mapping")
+    parser.add_argument("--records-json", help="Direct-entry CSL JSON, workflow JSON, prior plan, or Zotero read-only scan")
     parser.add_argument("--output", default="文献-Zotero架构对照.json")
     parser.add_argument("--review", default="文献-Zotero架构对照.md")
     parser.add_argument("--pdf-index", default="pdf-附件池索引.json")
@@ -813,15 +942,17 @@ def main() -> int:
     if args.prepared_pdf_artifacts and not prepared_artifacts:
         nonblocking.append("Prepared PDF artifacts")
 
-    bib_records: list[dict[str, Any]] = []
-    if not args.bib or not Path(args.bib).exists():
-        blocking.append("文献库.bib")
-    else:
+    bib_records: list[dict[str, Any]] = load_direct_records(args.records_json, warnings) if args.records_json else []
+    if args.bib and Path(args.bib).exists():
         try:
-            bib_records = parse_bib(Path(args.bib))
+            bib_records.extend(parse_bib(Path(args.bib)))
         except Exception as exc:
             blocking.append("文献库.bib")
             warnings.append(f"Could not parse BibTeX: {exc}")
+    elif args.bib:
+        blocking.append("文献库.bib")
+    elif not bib_records and not pdfs:
+        blocking.append("可读取的 Zotero/BibTeX/JSON/PDF 输入")
 
     records = [] if blocking else build_records(
         bib_records,
@@ -834,13 +965,17 @@ def main() -> int:
         prepared_artifacts,
     )
     update_pdf_index_matches(pdfs, records)
-    readiness, can_continue, next_step = compute_readiness(records, blocking, nonblocking, warnings)
+    readiness, can_continue, next_step = compute_readiness(records, blocking, nonblocking, warnings, has_pdf_inventory=bool(pdfs))
+    completion_state = "plan_ready" if can_continue else "blocked"
 
     plan = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "zotero_plan",
         "workflow_contract_schema": WORKFLOW_CONTRACT_SCHEMA,
         "plan_only": True,
+        "execution_mode": "plan-only",
+        "completion_state": completion_state,
+        "direct_entry": bool(args.records_json or (args.pdf_dir and not args.bib)),
         "root_collection": root,
         "readiness": readiness,
         "can_continue": can_continue,
@@ -849,12 +984,24 @@ def main() -> int:
         "warnings": warnings,
         "recommended_next_step": next_step,
         "records": records,
+        "state_counts": {
+            "items": {state: sum(1 for record in records if record.get("item_state") == state) for state in sorted(ITEM_STATES)},
+            "attachments": {state: sum(1 for record in records if record.get("attachment_state") == state) for state in sorted(ATTACHMENT_STATES)},
+        },
+        "exceptions": {
+            "duplicate_records": [record["record_id"] for record in records if record.get("item_state") == "duplicate_candidate"],
+            "metadata_conflicts": [record["record_id"] for record in records if record.get("item_state") == "metadata_conflict"],
+            "missing_attachments": [record["record_id"] for record in records if record.get("attachment_state") == "missing_attachment"],
+            "attachment_conflicts": [record["record_id"] for record in records if record.get("attachment_state") in {"attachment_conflict", "duplicate_attachment", "invalid_attachment"}],
+            "manual_confirmation": [record["record_id"] for record in records if record.get("item_state") == "manual_confirmation_required" or record.get("attachment_state") == "manual_attach_required"],
+        },
     }
     pdf_index = {
         "schema_version": SCHEMA_VERSION,
         "pdf_count": len(pdfs),
         "warnings": warnings,
         "pdfs": pdfs,
+        "unlinked_pdf_count": sum(1 for pdf in pdfs if not pdf.get("matched_record_id")),
     }
 
     write_json(args.output, plan)

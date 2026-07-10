@@ -182,6 +182,21 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(record.paper_card.reading_depth, "metadata_only")
         self.assertEqual(record.paper_card.content_fit, "background_only")
 
+    def test_search_result_record_preserves_weighted_score_audit_fields(self):
+        record = SearchResultRecord.from_search_result({
+            "title": "Demo",
+            "_weighted_score": 18.75,
+            "_score_dimensions": {"topic_match": 4, "method_rigor": 3},
+            "_score_weights": {"topic_match": 0.35, "method_rigor": 0.2},
+            "_score_reasons": ["topic_match=4"],
+            "_score_confidence": "medium",
+            "_uncertainty_flags": ["venue_quality_unresolved"],
+        })
+        self.assertEqual(record.weighted_score, 18.75)
+        self.assertEqual(record.score_dimensions["topic_match"], 4)
+        self.assertEqual(record.score_confidence, "medium")
+        self.assertIn("venue_quality_unresolved", record.uncertainty_flags)
+
     def test_workflow_json_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "workflow.json"

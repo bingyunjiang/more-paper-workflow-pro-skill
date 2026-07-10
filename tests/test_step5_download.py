@@ -2339,6 +2339,46 @@ class Step5DownloadTest(unittest.TestCase):
         self.assertEqual(manifest["items"][0]["failure_reason"], "")
         self.assertEqual(pool["items"][0]["pdf_diagnostics"]["issue"], "ok")
 
+    def test_reconcile_rejects_invalid_pdf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            (output / "download_manifest.json").write_text(json.dumps({
+                "schema_version": "step5-download.v1",
+                "run_id": "test-run",
+                "readiness": "blocked",
+                "summary": {"total": 1, "downloaded": 0, "remaining": 1},
+                "items": [{
+                    "id": "10.1007/demo", "doi": "10.1007/demo", "status": "manual_required",
+                    "quality": "none", "failure_reason": "manual_required", "attempts": [],
+                }],
+            }), encoding="utf-8")
+            (output / "10.1007_demo.pdf").write_bytes(b"<html>login</html>" + b"x" * 6000)
+            report = reconcile.reconcile_pdf_pool(output)
+            manifest = json.loads((output / "download_manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(report["invalid"][0]["reason"], "html_saved_as_pdf")
+        self.assertEqual(manifest["items"][0]["status"], "invalid_pdf")
+        self.assertEqual(manifest["readiness"], "blocked")
+
+    def test_reconcile_title_only_match_requires_confirmation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            (output / "download_manifest.json").write_text(json.dumps({
+                "schema_version": "step5-download.v1",
+                "run_id": "test-run",
+                "readiness": "blocked",
+                "summary": {"total": 1, "downloaded": 0, "remaining": 1},
+                "items": [{
+                    "id": "item-1", "title": "A sufficiently distinctive research paper title",
+                    "status": "manual_required", "quality": "none", "failure_reason": "manual_required", "attempts": [],
+                }],
+            }), encoding="utf-8")
+            (output / "A sufficiently distinctive research paper title.pdf").write_bytes(self._valid_pdf_bytes())
+            report = reconcile.reconcile_pdf_pool(output)
+            manifest = json.loads((output / "download_manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(report["reconciled"]), 0)
+        self.assertEqual(len(report["pending_matches"]), 1)
+        self.assertEqual(manifest["items"][0]["status"], "manual_required")
+
     def test_filter_local_pdf_hits_skips_existing_pdf_without_changing_name(self):
         with tempfile.TemporaryDirectory() as tmp:
             existing = Path(tmp) / "10.1007_demo.custom-name.pdf"

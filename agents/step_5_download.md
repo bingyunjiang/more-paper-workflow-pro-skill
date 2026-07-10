@@ -417,6 +417,8 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 
 路由器自动生成 `paper-temp/download_log.md`，逐篇追踪：
 
+下载器报告成功后仍必须经过统一 PDF verifier。HTML 伪 PDF、过小文件、缺 `%PDF` 或无可读页的文件标记为 `invalid_pdf`；`download_attempts.jsonl` 采用 append-only 事件记录，不覆盖前次运行历史。
+
 | # | DOI | Status | Source | Size | Path |
 |---|-----|--------|--------|------|------|
 | 1 | `10.1016/...` | ✅ | Generic CDP | 1024KB | paper_001.pdf |
@@ -427,7 +429,7 @@ python3 scripts/unified_download_router.py 检索文献表.md --port 9225
 ### 5.7. 出版社配置
 
 所有出版社的下载策略（URL 模板、CSS 选择器、屏障检测规则）集中维护在：
-[`config/publishers.toml`](config/publishers.toml)
+[`config/publishers.toml`](../config/publishers.toml)
 
 新增出版商时，只需在该文件中添加一个 `[publishers.xxx]` 段落即可。
 
@@ -484,6 +486,8 @@ python3 scripts/auto_sd_downloader.py --browser edge --pii-map sd_pii_map.json
 - [ ] 下载已通过 `--require-login-confirm` 门控参数启动（或 Agent 已手动确认登录） 🆕
 - [ ] 下载记录完整追踪每篇论文状态
 - [ ] 下载失败的论文有明确的失败原因（非"未知错误"）
+- [ ] `python3 scripts/validate_step5_output.py paper-temp` 已通过
+- [ ] `downloaded` 条目均为 `verification_status=verified`，checkpoint 条目已计入 Failed/Pending
 
 ---
 
@@ -514,6 +518,7 @@ python3 scripts/auto_sd_downloader.py --browser edge --pii-map sd_pii_map.json
 
 ### 完成前必须确认
 - [ ] 只有在状态已分流且下载日志可追溯时，才能声称“下载完成”
+- [ ] `download_manifest.json` 的 summary/readiness 与逐条状态一致，且 Step 5 完成校验器通过
 - [ ] 未解析标题、未确认 DOI、失败条目不得被表述为已完成
 
 ### 失败分流

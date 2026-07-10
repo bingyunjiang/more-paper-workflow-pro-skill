@@ -345,6 +345,13 @@ topic:
   method_route: ""
   application_scenario: ""
   evaluation_metrics: []
+  working_hypothesis: ""
+  falsification_condition: ""
+  minimum_required_data: []
+  resource_constraints: []
+  ethical_or_access_constraints: []
+  minimum_viable_study: ""
+  topic_kill_criteria: []
 innovation:
   type: ["method|application|data|combination|review"]
   claim: ""
@@ -413,6 +420,7 @@ pre_review:
 - [ ] 预审结论为 🟢 绿灯（或 🟡 黄灯但标注了 acknowledged risk 和调整建议）
 - [ ] 🆕 检索深度已自动推断（tier + tier_reason）
 - [ ] `研究主题.md` YAML 元数据完整，且包含 Step 2/3 handoff block
+- [ ] `python3 scripts/validate_early_step_output.py step1 研究主题.md` 已通过；总分、灯号、可证伪条件和最小可行研究一致
 
 ---
 

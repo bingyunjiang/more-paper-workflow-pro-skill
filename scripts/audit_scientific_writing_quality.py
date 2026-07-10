@@ -114,10 +114,25 @@ def _mk(
 
 
 def audit_text(text: str, section_type: str = "auto") -> dict:
-    section = _infer_section_type(text) if section_type == "auto" else section_type
     issues: list[WritingQualityIssue] = []
-    if section in SECTION_RULES:
-        issues.extend(_audit_section_gate(text, section))
+    sections_audited: list[str] = []
+    if section_type == "auto":
+        section_texts = _extract_section_texts(text)
+        sections_audited = [name for name in SECTION_RULES if name in section_texts]
+        for section in sections_audited:
+            issues.extend(_audit_section_gate(section_texts[section], section))
+        section = (
+            "multi-section"
+            if len(sections_audited) > 1
+            else sections_audited[0]
+            if sections_audited
+            else "general"
+        )
+    else:
+        section = section_type
+        sections_audited = [section] if section in SECTION_RULES else []
+        if section in SECTION_RULES:
+            issues.extend(_audit_section_gate(text, section))
     issues.extend(_audit_paragraph_function(text))
     issues.extend(_audit_figure_first(text))
     issues.extend(_audit_overclaim(text))
@@ -125,6 +140,7 @@ def audit_text(text: str, section_type: str = "auto") -> dict:
     summary = {
         "schema_version": "scientific-writing-quality-audit.v1",
         "section_type": section,
+        "sections_audited": sections_audited,
         "issue_count": len(issues),
         "critical_count": sum(1 for issue in issues if issue.severity == "critical"),
         "major_count": sum(1 for issue in issues if issue.severity == "major"),
@@ -145,6 +161,31 @@ def _infer_section_type(text: str) -> str:
     if any(token in first_heading for token in ("结论", "conclusion")):
         return "conclusion"
     return "general"
+
+
+def _classify_heading(heading: str) -> str | None:
+    normalized = heading.strip().lower()
+    for section, tokens in {
+        "abstract": ("摘要", "abstract"),
+        "introduction": ("引言", "绪论", "introduction"),
+        "discussion": ("讨论", "discussion"),
+        "conclusion": ("结论", "conclusion"),
+    }.items():
+        if any(token in normalized for token in tokens):
+            return section
+    return None
+
+
+def _extract_section_texts(text: str) -> dict[str, str]:
+    headings = list(re.finditer(r"(?m)^#{1,6}\s+(.+?)\s*$", text))
+    sections: dict[str, list[str]] = {}
+    for index, heading in enumerate(headings):
+        section = _classify_heading(heading.group(1))
+        if not section:
+            continue
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(text)
+        sections.setdefault(section, []).append(text[heading.start():end])
+    return {section: "\n".join(parts) for section, parts in sections.items()}
 
 
 def _audit_section_gate(text: str, section: str) -> list[WritingQualityIssue]:
@@ -245,6 +286,7 @@ def render_markdown(payload: dict) -> str:
         "# Scientific Writing Quality Audit",
         "",
         f"- section_type: {summary['section_type']}",
+        f"- sections_audited: {', '.join(summary.get('sections_audited', [])) or '-'}",
         f"- issue_count: {summary['issue_count']}",
         f"- recommended_next_step: {summary['recommended_next_step']}",
         "",

@@ -60,9 +60,13 @@
       "source": "",
       "article_url": "",
       "publisher": "",
-      "status": "downloaded | unresolved | skipped | blocked",
+      "status": "downloaded | invalid_pdf | pending_user_login | manual_required | access_denied | unresolved | skipped | blocked",
       "quality": "pdf_verified | pdf_unverified | metadata_only | none",
       "pdf_path": "",
+      "verification_status": "verified | invalid | not_checked",
+      "verification_reason": "",
+      "verified_at": "",
+      "sha256": "",
       "failure_reason": "",
       "next_action": "",
       "attempts": []
@@ -73,12 +77,12 @@
 
 同一输出目录还应写出：
 
-- `download_attempts.jsonl`: 每篇文献的逐轮尝试记录。
+- `download_attempts.jsonl`: append-only 逐轮尝试记录；每条包含 `attempt_id/run_id/item_id/route/stage/status/verification_status/timestamp`。
 - `pdf-附件池索引.json`: 当前输出目录可复用 PDF 附件索引。
 - `step5-debug/`: 仅在验证码、人工处理、PDF 探测未知等失败时写入轻量定位信息。
 
 重跑时应先读取/扫描本地 PDF；命中有效 PDF 的条目标记为
-`status=downloaded`，并记录 `stage=local_index,status=hit` 的 attempt。
+`status=downloaded`，并记录 `stage=local_index,status=verified` 的 attempt。仅文件存在、文件够大或下载器返回成功，不足以进入 `downloaded`。
 
 ## Manual reconcile
 
@@ -89,11 +93,19 @@ python scripts/step5_reconcile_pdf_pool.py --output paper-temp
 ```
 
 该命令只扫描本地 PDF、更新 `download_manifest.json` 和
-`pdf-附件池索引.json`，并追加 `stage=manual_reconcile,status=hit` 的 attempt；
+`pdf-附件池索引.json`，并追加 `stage=manual_reconcile,status=verified|invalid` 的 attempt；
 不得改名或移动用户已有 PDF。
+
+DOI/source_id 文件名匹配可视为 `confirmed`；仅标题相似只能进入 `probable_pdf_match_requires_confirmation`，不得自动清空原失败原因。
 
 ## PDF diagnostics
 
 PDF pool item 可包含 `pdf_diagnostics`，用于诊断 HTML 伪 PDF、过小 PDF、
-损坏或无法读取的文件。Step 6/7 仍以 `quality` 为主字段，诊断字段只用于
-doctor、人工排查和失败恢复。
+无可读页、损坏或无法读取的文件。只有 `verification_status=verified` 且
+`quality=pdf_verified` 才能计入下载成功。
+
+完成声明前运行：
+
+```bash
+python3 scripts/validate_step5_output.py paper-temp
+```

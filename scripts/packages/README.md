@@ -39,6 +39,8 @@ python3 scripts/setup_zotero.py --install
 
 - **本目录由原作者维护**，升级 `zotero-mcp-server` 版本时需同步更新 wheel
 - **断网环境**：仅当目标平台与当前缓存覆盖的平台兼容时，才可完全离线安装
+- **锁定清单**：`manifest.lock.json` 记录当前缓存的文件名、大小、SHA-256 和平台标签；更新缓存后运行 `python3 scripts/check_offline_packages.py --write-manifest`
+- **重复版本治理**：`python3 scripts/check_offline_packages.py` 默认只提示重复版本；准备拆分平台 bundle 或瘦身时再使用 `--strict`
 - **更新依赖**：
   ```bash
   rm -f scripts/packages/zotero_mcp_server-*.whl

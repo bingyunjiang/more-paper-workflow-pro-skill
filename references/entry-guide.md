@@ -22,4 +22,4 @@ This guide helps readers choose the right entry point for the more-paper workflo
 
 ## Do not use this guide as a workflow lock
 
-Any step may still be entered directly if the user already has equivalent input for that step.
+Any step may still be entered conversationally if the user already has equivalent input for that step. Artifact Passport based artifact readiness starts at Step 4 and covers Step 4-8 only.

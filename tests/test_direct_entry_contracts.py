@@ -14,10 +14,18 @@ class DirectEntryContractsTest(unittest.TestCase):
     def test_entry_routing_keeps_single_public_entry_without_linear_lock(self):
         skill = read_rel("SKILL.md")
         readme = read_rel("README.md")
+        entry_guide = read_rel("references/entry-guide.md")
+        workflow_contracts = read_rel("scripts/workflow_contracts.py")
+        passport_cli = read_rel("scripts/artifact_passport.py")
 
         self.assertIn("对外只保留一个主入口", skill)
-        self.assertIn("任一 Step 仍可直接进入", skill)
-        self.assertIn("入口收敛只影响对外发现层，不影响从任一 Step 直接进入", readme)
+        self.assertIn("对话式工作流支持 Step 1-8 直接进入", skill)
+        self.assertIn("Artifact Passport 只负责 Step 4-8 的材料识别、readiness 和非锁定路由", skill)
+        self.assertIn("不影响对话式工作流从 Step 1-8 直接进入", readme)
+        self.assertIn("Artifact Passport 的材料识别与 readiness 路由只覆盖 Step 4-8", readme)
+        self.assertIn("Artifact Passport based artifact readiness starts at Step 4 and covers Step 4-8 only", entry_guide)
+        self.assertIn('DIRECT_ENTRY_STEPS = {"step4", "step5", "step6", "step7", "step8"}', workflow_contracts)
+        self.assertIn('choices=["step4", "step5", "step6", "step7", "step8"]', passport_cli)
 
     def test_step_agents_define_direct_entry_contracts(self):
         for step in range(3, 9):

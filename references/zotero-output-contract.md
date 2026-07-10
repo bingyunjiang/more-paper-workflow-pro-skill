@@ -13,6 +13,9 @@ Step 6 每次整理至少应产出“双工件”。
 - collection path
 - import status
 - attachment status
+- item state
+- attachment state
+- completion state
 - readiness
 - warnings
 
@@ -29,3 +32,19 @@ Step 6 每次整理至少应产出“双工件”。
 ## 目标
 
 让 Step 7 可以优先读 JSON，人工优先看 Markdown。
+
+## 状态契约
+
+- `item_state`: `planned / existing_confirmed / imported / duplicate_candidate / metadata_conflict / import_failed / rejected_do_not_import / manual_confirmation_required`
+- `attachment_state`: `matched_attachment / missing_attachment / unlinked_pdf / duplicate_attachment / invalid_attachment / attachment_conflict / manual_attach_required / rejected`
+- `completion_state`: `plan_ready / write_partial / write_complete / blocked`
+
+`plan_ready` 只表示整理计划可审阅，不冒充真实 Zotero 写入。Step 6 可从 Zotero 只读扫描、BibTeX、CSL/workflow JSON、既有对照表或 PDF-only 直接进入；这些入口互为替代，不要求 Step 5 已执行。
+
+真实写入应把事件追加到 `zotero_write_operations.jsonl`，并维护 `zotero_execution_state.json`。相同 `operation_id` 的成功操作必须幂等跳过。
+
+完成声明前运行：
+
+```bash
+python3 scripts/validate_step6_output.py <step6-output-dir>
+```

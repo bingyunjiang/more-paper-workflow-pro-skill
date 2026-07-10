@@ -60,7 +60,7 @@ recommended_next_step:
 - handoff 是**交接块**，不是完整报告。
 - handoff 的作用是让代理或用户跨会话恢复时，不必重新猜当前状态。
 - handoff 应与 Artifact Passport 互补：
-  - Passport 偏机读索引
+  - Passport 偏 Step 4-8 的机读材料索引与 readiness 路由
   - handoff 偏当前阶段的人类可读结论
 
 ---

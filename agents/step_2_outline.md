@@ -261,6 +261,7 @@ main_innovation_claim: ""
     "section_id": "1",
     "section_title": "绪论",
     "section_function": "建立研究背景与问题差距",
+    "rq_ids": ["RQ1"],
     "key_claims": ["..."],
     "evidence_needed": ["review", "context", "gap"],
     "evidence_basis": [],
@@ -582,6 +583,7 @@ optional_confirmation:
 - [ ] 🆕 导师视角检查完成：工作量/风险/Plan B/时间线/发表拆分策略 五项均已完成
 - [ ] 🆕 术语映射表已填充（Main Term / Aliases / Recommended page）
 - [ ] Step 3/6/7 handoff block 已生成
+- [ ] `section_blueprints.json` 中每个核心章节都有 `rq_ids / key_claims / evidence_needed / do_not_write`，且 `python3 scripts/validate_early_step_output.py step2 section_blueprints.json` 已通过
 
 ---
 

@@ -236,6 +236,7 @@ class PaperCard:
 @dataclass
 class SearchTask:
     id: str = ""
+    rq_id: str = ""
     chapter_id: str = ""
     chapter_title: str = ""
     secondary_chapter_ids: list[str] = field(default_factory=list)
@@ -269,6 +270,12 @@ class SearchResultRecord:
     warn_class: str = ""
     verified_sources: str = ""
     score: str = ""
+    weighted_score: float = 0.0
+    score_dimensions: dict[str, Any] = field(default_factory=dict)
+    score_weights: dict[str, float] = field(default_factory=dict)
+    score_reasons: list[str] = field(default_factory=list)
+    score_confidence: str = ""
+    uncertainty_flags: list[str] = field(default_factory=list)
     paper_tier: str = ""
     tier: str = ""
     evidence: str = ""
@@ -323,6 +330,12 @@ class SearchResultRecord:
             warn_class=_clean(row.get("warn_class")),
             verified_sources=_clean(row.get("verified_sources") or source),
             score=score,
+            weighted_score=float(row.get("weighted_score") or row.get("_weighted_score") or 0),
+            score_dimensions=dict(row.get("score_dimensions") or row.get("_score_dimensions") or {}),
+            score_weights=dict(row.get("score_weights") or row.get("_score_weights") or {}),
+            score_reasons=_clean_list(row.get("score_reasons") or row.get("_score_reasons")),
+            score_confidence=_clean(row.get("score_confidence") or row.get("_score_confidence")),
+            uncertainty_flags=_clean_list(row.get("uncertainty_flags") or row.get("_uncertainty_flags")),
             paper_tier=paper_tier,
             tier=_clean(row.get("search_tier") or row.get("tier")),
             evidence=_clean(row.get("evidence") or row.get("match_reason")),
@@ -404,17 +417,31 @@ class DownloadResult:
 STEP5_DOWNLOAD_SCHEMA = "step5-download.v1"
 PDF_POOL_SCHEMA = "pdf-pool.v1"
 STEP5_READINESS_VALUES = {"blocked", "partial", "complete"}
-STEP5_ITEM_STATUSES = {"downloaded", "unresolved", "skipped", "blocked"}
+STEP5_ITEM_STATUSES = {
+    "downloaded",
+    "invalid_pdf",
+    "pending_user_login",
+    "manual_required",
+    "access_denied",
+    "unresolved",
+    "skipped",
+    "blocked",
+}
 STEP5_QUALITY_VALUES = {"pdf_verified", "pdf_unverified", "metadata_only", "none"}
 
 
 @dataclass
 class Step5DownloadAttempt:
+    attempt_id: str = ""
+    run_id: str = ""
+    item_id: str = ""
+    route: str = ""
     stage: str = ""
     status: str = ""
     source: str = ""
     reason: str = ""
     pdf_path: str = ""
+    verification_status: str = ""
     timestamp: str = ""
 
 
@@ -433,6 +460,10 @@ class Step5DownloadItem:
     next_action: str = ""
     attempts: list[dict[str, Any]] = field(default_factory=list)
     source_id: str = ""
+    verification_status: str = "not_checked"
+    verification_reason: str = ""
+    verified_at: str = ""
+    sha256: str = ""
 
 
 @dataclass
@@ -459,6 +490,9 @@ class PdfPoolItem:
     size_bytes: int = 0
     mtime: str = ""
     pdf_diagnostics: dict[str, Any] = field(default_factory=dict)
+    verification_status: str = "not_checked"
+    verification_reason: str = ""
+    sha256: str = ""
 
 
 @dataclass
@@ -473,14 +507,35 @@ def _now_iso_seconds() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
-def step5_attempt(stage: str, status: str, *, source: str = "", reason: str = "", pdf_path: str = "") -> dict[str, Any]:
+def step5_attempt(
+    stage: str,
+    status: str,
+    *,
+    source: str = "",
+    reason: str = "",
+    pdf_path: str = "",
+    attempt_id: str = "",
+    run_id: str = "",
+    item_id: str = "",
+    route: str = "",
+    verification_status: str = "",
+) -> dict[str, Any]:
+    timestamp = _now_iso_seconds()
+    if not attempt_id:
+        seed = "|".join([run_id, item_id, route, stage, status, reason, pdf_path, timestamp])
+        attempt_id = "attempt-" + hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
     return asdict(Step5DownloadAttempt(
+        attempt_id=attempt_id,
+        run_id=run_id,
+        item_id=item_id,
+        route=route,
         stage=stage,
         status=status,
         source=source,
         reason=reason,
         pdf_path=pdf_path,
-        timestamp=_now_iso_seconds(),
+        verification_status=verification_status,
+        timestamp=timestamp,
     ))
 
 

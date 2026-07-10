@@ -24,6 +24,7 @@ This index groups the reference files by function so the workflow contracts are 
 - `section-blueprint-workflow.md`
 - `writing-quality-borrowing-plan.md`
 - `style-learning-workflow.md`
+- `step7-figure-marker-syntax.md`
 - `polish-modes.md`
 
 ## Writing and evidence templates

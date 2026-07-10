@@ -30,6 +30,7 @@ except Exception:
     pass
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -385,6 +386,7 @@ def resolve_figure_refs(
     figure_index_path: str | None = None,
     output_path: str | Path,
     figures_dir: str | Path | None = None,
+    report_json: str | Path | None = None,
 ) -> int:
     draft_p = Path(draft_path).expanduser().resolve()
     if not draft_p.exists():
@@ -422,6 +424,7 @@ def resolve_figure_refs(
     used_figure_ids: set[str] = set()
     resolved_count = 0
     warnings: list[str] = []
+    resolution_records: list[dict[str, Any]] = []
 
     # Process markers in reverse order to preserve positions
     markers.sort(key=lambda m: m["start"])
@@ -430,10 +433,6 @@ def resolve_figure_refs(
     for marker in markers:
         desc = marker["description"]
         context = marker["context_before"]
-        # Warn if lead-in sentence ends with period instead of comma
-        lead_in_end = context.rstrip()[-20:] if context else ""
-        if re.search(r"[。.]\s*$", lead_in_end) and not re.search(r"[,，]\s*$", lead_in_end):
-            warnings.append(f"引出句应以逗号结尾: {desc!r} ← 上一句末尾为句号")
         keywords = _description_keywords(desc, context)
 
         # Score all candidates
@@ -454,7 +453,7 @@ def resolve_figure_refs(
 
         best_fig, best_kw_score, best_q_score = available[0] if available else (None, 0, 0)
 
-        if best_fig and best_kw_score > 0:
+        if best_fig and best_kw_score > 0 and best_q_score >= 1:
             fig_number = resolved_count + 1
             block = _build_figure_block(best_fig, fig_number, desc, draft_p, _figures_dir)
             replacements.append((marker["start"], marker["end"], block))
@@ -467,18 +466,27 @@ def resolve_figure_refs(
             ]
             print(f"  [resolved] {desc!r} → {_clean(best_fig.get('figure_id'))} "
                   f"(kw={best_kw_score}, quality={qual_label})")
+            resolution_records.append({
+                "description": desc,
+                "status": "resolved",
+                "figure_id": _clean(best_fig.get("figure_id")),
+                "keyword_score": best_kw_score,
+                "quality_score": best_q_score,
+                "manual_confirmation_required": False,
+            })
         elif best_fig:
-            # Keyword score 0 but we have figures — use first unused but warn
-            fig_number = resolved_count + 1
-            block = _build_figure_block(best_fig, fig_number, desc, draft_p, _figures_dir)
-            replacements.append((marker["start"], marker["end"], block))
-            used_figure_ids.add(
-                _clean(best_fig.get("source_image_path") or best_fig.get("local_image_path"))
-            )
-            resolved_count += 1
-            print(f"  [weak match] {desc!r} → {_clean(best_fig.get('figure_id'))} "
-                  f"(no keyword overlap, quality={best_q_score})")
-            warnings.append(f"弱匹配: {desc!r} → {_clean(best_fig.get('figure_id'))}")
+            replacement = f"[[FIGURE:{desc}|status=manual_confirmation_required]]"
+            replacements.append((marker["start"], marker["end"], replacement))
+            print(f"  [manual confirmation] {desc!r} — best candidate has no keyword overlap")
+            warnings.append(f"弱匹配未插入: {desc!r} → {_clean(best_fig.get('figure_id'))}")
+            resolution_records.append({
+                "description": desc,
+                "status": "manual_confirmation_required",
+                "figure_id": _clean(best_fig.get("figure_id")),
+                "keyword_score": best_kw_score,
+                "quality_score": best_q_score,
+                "manual_confirmation_required": True,
+            })
         else:
             # No figures at all
             replacement = (
@@ -489,6 +497,14 @@ def resolve_figure_refs(
             replacements.append((marker["start"], marker["end"], replacement))
             warnings.append(f"未匹配: {desc!r}（候选池 {available_count} 张）")
             print(f"  [unresolved] {desc!r} — no matching figure in {available_count} candidates")
+            resolution_records.append({
+                "description": desc,
+                "status": "unresolved",
+                "figure_id": "",
+                "keyword_score": 0,
+                "quality_score": 0,
+                "manual_confirmation_required": True,
+            })
 
     # Apply replacements in reverse order
     result = text
@@ -509,7 +525,19 @@ def resolve_figure_refs(
         summary_lines.append("-->")
     result = result.rstrip() + "\n" + "\n".join(summary_lines) + "\n"
 
-    Path(output_path).expanduser().write_text(result, encoding="utf-8")
+    output_p = Path(output_path).expanduser()
+    output_p.write_text(result, encoding="utf-8")
+    report_path = Path(report_json).expanduser() if report_json else output_p.parent / "figure_resolution_report.json"
+    unresolved_count = sum(1 for record in resolution_records if record["status"] != "resolved")
+    report_path.write_text(json.dumps({
+        "schema_version": "figure-resolution.v1",
+        "input_draft": str(draft_p),
+        "output_draft": str(output_p),
+        "output_sha256": hashlib.sha256(result.encode("utf-8")).hexdigest(),
+        "resolved_count": resolved_count,
+        "unresolved_count": unresolved_count,
+        "records": resolution_records,
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"RESOLVED: {resolved_count}/{len(markers)} markers → {output_path}")
     if warnings:
         print(f"WARNINGS: {len(warnings)}")
@@ -536,6 +564,7 @@ def main() -> int:
     )
     parser.add_argument("--output", default=None, help="Output path (default: draft_resolved.md)")
     parser.add_argument("--figures-dir", default=None, help="Directory for extracted figures (default: <draft>/figures)")
+    parser.add_argument("--report-json", default=None, help="Structured resolution report (default: output sibling figure_resolution_report.json)")
     args = parser.parse_args()
 
     if not args.cards and not args.figure_index:
@@ -550,6 +579,7 @@ def main() -> int:
         figure_index_path=args.figure_index,
         output_path=output,
         figures_dir=args.figures_dir,
+        report_json=args.report_json,
     )
 
 

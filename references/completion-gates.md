@@ -42,6 +42,13 @@
 
 ## 3. 各 Step 最小完成门
 
+### Step 1：研究主题可交接
+
+只有同时满足以下条件，才能说“研究主题已确定”：
+- `研究主题.md` 的结构化 YAML、五维预审总分和灯号一致
+- 主研究问题、scope、至少 3 个评价指标、可证伪条件和最小可行研究均已明确
+- `validate_early_step_output.py step1` 已通过；否则只能称为“可继续聚焦版本”
+
 ### Step 2：大纲可用
 
 只有同时满足以下条件，才能说“大纲可用”：
@@ -49,6 +56,14 @@
 - 已输出 `关键词清单`
 - 已输出 `章节证据需求表`
 - 已生成 Step 3/6/7 handoff
+- `section_blueprints.json` 已通过 Step 2 验证，全部核心 RQ 均映射到章节和证据需求
+
+### Step 3：检索方案可执行
+
+只有同时满足以下条件，才能说“检索方案可执行”：
+- `检索方案.json` 已通过 Step 3 结构验证
+- `compiled_queries.json` 无 lint error，每个任务绑定 RQ、章节和证据类型
+- 每个任务已完成 pilot search；`zero-result / suspected_query_drift / too-broad` 已修复或明确阻塞
 
 ### Step 4：检索完成
 
@@ -57,6 +72,8 @@
 - 已完成评分和分级
 - 已说明文献缺口或覆盖边界
 - 已区分 VERIFIED / WARN / REJECT 或等价可信度状态
+- 五维加权评分保存子分、理由、置信度和 uncertainty flags
+- 追溯覆盖矩阵不存在 `uncovered/weak` 必需任务；分层饱和度和偏差审计已完成
 
 ### Step 5：下载完成
 
@@ -64,6 +81,7 @@
 - 已区分 `已下载 / 需登录 / 无法获取 / 待人工`
 - 下载记录可追溯
 - 未把未解析标题、未确认 DOI 或失败条目算作已完成
+- `downloaded` 条目均通过 PDF verifier，manifest summary/readiness 与 checkpoint、attempt log 一致
 - 未把源站无法下载的文献自动转向另一数据源尝试绕过
 - direct-entry PDF 目录只能标为 `unlinked_pdf` 或 existing PDF pool，除非有下载日志/manifest 明确匹配，不得说来源链完整
 
@@ -75,6 +93,7 @@
 - 已核对 PDF 附件状态
 - 已单列重复、缺附件、待人工确认项
 - direct-entry Zotero/BibTeX/PDF 对账必须区分 `matched_attachment`、`missing_attachment`、`unlinked_pdf`、`duplicate_candidate`
+- plan-only 只能声明 `plan_ready`；真实写入按 `write_partial / write_complete` 区分，且不要求 Step 4/5 产物存在
 
 ### Step 7：章节写完
 
@@ -83,6 +102,9 @@
 - 已说明引用风险状态
 - 已区分“正文完成”和“证据仍弱但先交草稿”
 - `metadata_only`、`abstract_only`、`trace_status=unlinked` 或 `confidence=inferred` 的证据关系必须进入风险说明，不能支撑强 claim
+- `reviewer_scorecard.json` 已通过锚定量表：技术可靠性/证据充分性不低于 4，其余维度不低于 3，且无 CRITICAL 未关闭项
+- 对外区分 `draft_ready / evidence_closed / ready_for_step8`；后两者要求 claim audit 和 reviewer scorecard 的 `draft_sha256` 与当前稿件一致
+- 图表自动匹配不得插入零关键词或低来源质量候选；`ready_for_step8` 的图表解析报告不得有未解决项
 
 ### Step 8：保守修订完成
 
@@ -90,6 +112,8 @@
 - 已说明本轮只处理既有正文，不新增未经确认的证据
 - 已保留或标注 artifact graph 中的证据链缺口
 - 弱证据、未链接证据或缺引用审计只被降级表达/风险提示/回退建议处理，未被升级为 confirmed
+- `论文润色稿.md` 已存在，`polish_fidelity_audit` 无硬失败；纯诊断状态 `ready_to_polish` 不得声明修订完成
+- 保真审计已覆盖标题、段落论证单元、claim/限定边界和待补证据标记；若提供 Step 7 结构化审计，其未关闭或过期风险已阻止定稿
 
 ---
 

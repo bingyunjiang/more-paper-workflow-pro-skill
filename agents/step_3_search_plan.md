@@ -149,6 +149,7 @@ search_language: 中文|英文|中英文混合
 tier: quick|standard|deep
 search_tasks:
   - id: S1
+    rq_id: RQ1
     chapter_id: ch1
     chapter_title: "绪论"
     evidence_type: "review|method|experiment|data|standard|case"
@@ -166,6 +167,7 @@ search_tasks:
       l2: ["wanfang|crossref|semantic_scholar|arxiv"]
       l3: ["pubmed"]
     recommended_commands: []
+    minimum_t1_t2: 2
     anti_patterns_checked: true
 review_protocol:
   mode: "narrative|systematic"
@@ -367,6 +369,18 @@ Step 3 可生成或更新 `retrieval_index_manifest.json`，用于告诉 Step 4 
 python3 scripts/search_by_topic.py --preflight
 ```
 
+在真实全量检索前，先执行结构验证、查询编译和 5-10 条 pilot search：
+
+```bash
+python3 scripts/validate_early_step_output.py step3 检索方案.json
+python3 scripts/lint_search_plan.py 检索方案.json \
+  --run-pilot --pilot-limit 10 \
+  --pilot-output pilot_search_results.json \
+  --output compiled_queries.json
+```
+
+pilot 必须为每个 `search_task_id` 记录 `hit_count / title_relevance_ratio / status`。`zero-result / suspected_query_drift / too-broad` 必须先修查询式，不得直接扩大到全量检索。
+
 ---
 
 ## 质量门槛 (Quality Gates)
@@ -383,6 +397,8 @@ python3 scripts/search_by_topic.py --preflight
 - [ ] 🆕 CNKI 触发条件已检测（cnki_enabled: true/false + 访问模式：IP/CDP）
 - [ ] 🆕 Wanfang 触发条件已检测（wanfang_enabled: true/false + 凭证存在性）
 - [ ] Pre-flight 检查已通过
+- [ ] Step 3 结构验证通过，`compiled_queries.json` 无 lint error
+- [ ] 每个 search task 已完成 5-10 条 pilot，状态为 `ok`；异常任务已修复或明确阻塞
 
 ---
 

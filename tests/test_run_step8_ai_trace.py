@@ -219,7 +219,7 @@ class RunStep8AiTraceTest(unittest.TestCase):
                 "Step 4/6",
             )
 
-    def test_runner_marks_direct_fix_only_case_as_ready_for_finalize(self):
+    def test_runner_marks_direct_fix_only_case_as_ready_to_polish(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / ".skill-state").mkdir()
@@ -238,21 +238,94 @@ class RunStep8AiTraceTest(unittest.TestCase):
             ledger = json.loads((root / "revision_ledger.json").read_text(encoding="utf-8"))
             self.assertEqual(
                 ledger["ai_trace_diagnostics"]["step8_decision"]["overall_status"],
-                "ready_for_finalize",
+                "ready_to_polish",
             )
             self.assertEqual(
                 ledger["ai_trace_diagnostics"]["step8_decision"]["next_action"],
-                "finalize_polished_draft",
+                "apply_polish_and_verify",
             )
             self.assertEqual(
                 ledger["ai_trace_diagnostics"]["status_contract"]["readiness"],
-                "complete",
+                "partial",
             )
             self.assertTrue(ledger["ai_trace_diagnostics"]["status_contract"]["can_continue"])
+            self.assertFalse((root / "论文润色稿.md").exists())
+            self.assertTrue(ledger["ai_trace_diagnostics"]["status_contract"]["warnings"])
             self.assertEqual(
                 ledger["ai_trace_diagnostics"]["status_contract"]["recommended_next_step"],
                 "Step 8",
             )
+
+    def test_runner_only_finalizes_existing_polished_draft_after_fidelity_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".skill-state").mkdir()
+            (root / "论文初稿.md").write_text(
+                "值得注意的是，在25 °C条件下，该方法可能使效率提高12%[3]。",
+                encoding="utf-8",
+            )
+            (root / "论文润色稿.md").write_text(
+                "在25 °C条件下，该方法可能将效率提高12%[3]。",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--project-root", str(root)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            ledger = json.loads((root / "revision_ledger.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(ledger["ai_trace_diagnostics"]["step8_decision"]["overall_status"], "ready_for_finalize")
+        self.assertEqual(ledger["ai_trace_diagnostics"]["status_contract"]["readiness"], "complete")
+        self.assertEqual(ledger["ai_trace_diagnostics"]["polish_fidelity"]["status"], "pass")
+
+    def test_runner_blocks_polished_draft_when_fidelity_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".skill-state").mkdir()
+            (root / "论文初稿.md").write_text("在25 °C条件下，效率可能提高12%[3]。", encoding="utf-8")
+            (root / "论文润色稿.md").write_text("效率证明提高15%[3]。", encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--project-root", str(root)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            ledger = json.loads((root / "revision_ledger.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(ledger["ai_trace_diagnostics"]["step8_decision"]["overall_status"], "not_ready_requires_rollback")
+        self.assertEqual(ledger["ai_trace_diagnostics"]["status_contract"]["recommended_next_step"], "Step 8")
+        self.assertTrue(ledger["ai_trace_diagnostics"]["status_contract"]["blocking"])
+
+    def test_runner_inherits_unresolved_structured_step7_evidence_risk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".skill-state").mkdir()
+            draft = "在25 °C条件下，该方法可能使效率提高12%[3]。"
+            (root / "论文初稿.md").write_text(draft, encoding="utf-8")
+            (root / "论文润色稿.md").write_text("在25 °C条件下，该方法可能将效率提高12%[3]。", encoding="utf-8")
+            import hashlib
+            (root / "claim_evidence_audit.json").write_text(json.dumps({
+                "schema_version": "claim-evidence-audit.v1",
+                "draft_sha256": hashlib.sha256(draft.encode("utf-8")).hexdigest(),
+                "summary": {"unresolved_count": 1},
+                "records": [],
+            }), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--project-root", str(root)],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            ledger = json.loads((root / "revision_ledger.json").read_text(encoding="utf-8"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        diagnostics = ledger["ai_trace_diagnostics"]
+        self.assertEqual(diagnostics["step7_evidence_gate"]["status"], "unresolved")
+        self.assertEqual(diagnostics["step8_decision"]["overall_status"], "not_ready_requires_rollback")
+        self.assertEqual(diagnostics["status_contract"]["recommended_next_step"], "Step 7")
 
 
 if __name__ == "__main__":

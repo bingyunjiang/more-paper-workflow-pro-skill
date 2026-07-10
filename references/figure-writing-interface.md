@@ -85,8 +85,10 @@
 - `figure_asset_check` 必须覆盖 Zotero child attachments、MinerU ZIP、已有 `figure_index.json`、本地图片目录和可读 PDF；没有执行该检查时，不得把无图初稿标记为完成
 - 纯文字降级只允许两种情况：用户明确要求纯文字，或 `figure_asset_check` 后确认没有可用图片/候选图。两种情况都必须记录 `figure_mode=skip`、已检查资产范围和后续补图动作
 - Markdown 初稿也是图文稿承载层：已确认图片应使用项目内 `figures/` 相对路径插入；尚未确认的图片应保留可解析图位和 `figure_evidence_report` 缺口，而不是删除图位
-- 没有 MinerU ZIP 但本地 PDF 可读时，允许通过 PyMuPDF 直接抽取 `pdf_direct` 候选图；该候选必须标记为低置信、无 caption、待人工确认
+- 没有 MinerU ZIP 但本地 PDF 可读时，允许通过 PyMuPDF 直接抽取 `pdf_direct` 候选图；该候选必须标记为低置信、无 caption、待人工确认，并记录 `figure_evidence_status=pdf_direct_candidate_pending_manual_check`
 - 没有 MinerU ZIP 且 PDF 不可读或无候选图时，才只保留正文图位占位，不自动选图
 - 任何 `figure_mode=skip` 都必须记录跳过原因、已检查资产范围和后续补图动作
 - 没有 figure/table/panel 绑定时，不得自动写“如图 X 所示”“图中可见”“由图证明”
+- 图位描述与候选图关键词得分为 0，或候选图缺少最低来源质量时，不得自动插入；必须保留 `manual_confirmation_required` 图位，并写入 `figure_resolution_report.json`
+- `ready_for_step8` 要求 `figure_resolution_report.json.output_sha256` 与当前稿件一致，且 `unresolved_count=0`；`figure_mode=skip` 不适用此门
 - 具体图形设计和导出细节可继续由现有图表参考处理

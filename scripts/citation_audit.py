@@ -33,6 +33,7 @@ except Exception:
     pass
 
 import json
+import hashlib
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -41,6 +42,7 @@ import sys
 import re
 import os
 from dataclasses import dataclass, field, asdict
+from datetime import datetime, timezone
 from typing import Optional
 
 # ── Data Models ──────────────────────────────────────────────────────────────
@@ -593,6 +595,88 @@ def _resolve_doi_for_citation(
     return ""
 
 
+def classify_claim_requirement(claim: str) -> tuple[str, str]:
+    lowered = claim.lower()
+    if re.search(r"首次|首创|创新|first|novel|state[- ]of[- ]the[- ]art", lowered):
+        return "novelty", "search_coverage"
+    if re.search(r"机理|机制|因果|主导|作用路径|mechanism|causal|dominant", lowered):
+        return "mechanism", "full_text"
+    if re.search(r"\d+(?:\.\d+)?\s*(?:%|°c|℃|k|v|a|w|pa|hz|mm|cm)", lowered):
+        return "numeric_comparison", "page_or_table"
+    if re.search(r"普遍|总体|趋势|多数|generally|trend|most studies", lowered):
+        return "trend", "multi_source"
+    return "background", "abstract_ok"
+
+
+def _chunk_anchor(citation: CitationRef, prepared_chunks: list[dict]) -> tuple[str, str]:
+    doi = citation.doi.lower().strip()
+    title = (citation.title or _extract_title_from_bib(citation.bib_entry)).lower().strip()
+    if not doi and not title:
+        return "", ""
+    for chunk in prepared_chunks:
+        blob = json.dumps(chunk, ensure_ascii=False).lower()
+        if doi and doi not in blob:
+            continue
+        if not doi and title not in blob:
+            continue
+        anchor = chunk.get("chunk_id") or chunk.get("id") or chunk.get("pages") or chunk.get("page")
+        return "full_text", str(anchor or "prepared_chunk_unanchored")
+    return "", ""
+
+
+def build_claim_evidence_payload(manuscript_text: str, results: list[AuditResult], prepared_chunks: list[dict]) -> dict:
+    records: list[dict] = []
+    unresolved = 0
+    for index, result in enumerate(results, 1):
+        citation = result.citation
+        claim_strength, required_evidence = classify_claim_requirement(citation.claim_sentence)
+        chunk_depth, chunk_anchor = _chunk_anchor(citation, prepared_chunks)
+        reading_depth = chunk_depth or ("abstract_only" if result.abstract and not result.abstract.startswith("（") else "metadata_only")
+        evidence_anchor = chunk_anchor or (f"abstract:{citation.doi}" if reading_depth == "abstract_only" and citation.doi else "")
+        if result.support_level == "❌ 不支撑":
+            support_grade = "not_supported"
+            action = "replace_or_remove"
+        elif result.support_level == "⚠️ 无法判断":
+            support_grade = "metadata_only_candidate"
+            action = "supplement_pdf_or_fulltext"
+        elif result.support_level == "🟡 弱支撑":
+            support_grade = "partial"
+            action = "supplement_pdf_or_fulltext"
+        elif required_evidence == "abstract_ok":
+            support_grade = "background"
+            action = "retain"
+        else:
+            support_grade = "partial"
+            action = "supplement_pdf_or_fulltext"
+        downgrade_required = action != "retain"
+        resolution_status = "closed" if not downgrade_required else "open"
+        if resolution_status != "closed":
+            unresolved += 1
+        records.append({
+            "claim_segment_id": f"S{index:03d}",
+            "claim_text": citation.claim_sentence,
+            "claim_strength": claim_strength,
+            "required_evidence": required_evidence,
+            "citation_marker": citation.marker,
+            "doi": citation.doi,
+            "support_grade": support_grade,
+            "reading_depth": reading_depth,
+            "evidence_anchor": evidence_anchor,
+            "downgrade_required": downgrade_required,
+            "recommended_action": action,
+            "resolution_status": resolution_status,
+            "automated_assessment_boundary": "abstract_screening_plus_available_chunk_trace",
+        })
+    return {
+        "schema_version": "claim-evidence-audit.v1",
+        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "draft_sha256": hashlib.sha256(manuscript_text.encode("utf-8")).hexdigest(),
+        "assessment_boundary": "Automated screening does not replace interpretive full-text review for strong claims.",
+        "summary": {"record_count": len(records), "unresolved_count": unresolved},
+        "records": records,
+    }
+
+
 def _extract_title_from_bib(bib_entry: str) -> str:
     if not bib_entry:
         return ""
@@ -619,6 +703,11 @@ def main():
         "--output", "-o",
         default="引用审计报告.md",
         help="Output audit report path (default: 引用审计报告.md)",
+    )
+    parser.add_argument(
+        "--output-json",
+        default="claim_evidence_audit.json",
+        help="Structured claim-level audit JSON (default: claim_evidence_audit.json)",
     )
     parser.add_argument(
         "--lit-table",
@@ -751,8 +840,12 @@ def main():
 
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(report)
+    claim_payload = build_claim_evidence_payload(md_text, results, prepared_chunks)
+    with open(args.output_json, "w", encoding="utf-8") as f:
+        json.dump(claim_payload, f, ensure_ascii=False, indent=2)
 
     print(f"✅ 审计报告已保存: {args.output}")
+    print(f"✅ Claim evidence audit saved: {args.output_json}")
 
     # Print summary
     counts = {"✅ 支撑": 0, "🟡 弱支撑": 0, "❌ 不支撑": 0, "⚠️ 无法判断": 0}

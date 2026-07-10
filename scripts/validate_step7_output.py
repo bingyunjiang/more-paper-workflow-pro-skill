@@ -16,6 +16,7 @@ except Exception:
     pass
 
 import argparse
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -54,6 +55,13 @@ AUTHOR_YEAR_DEPTH_RE = re.compile(
     r"[（(](?:19|20)\d{2}[）)](?:（已读(?:全文|摘要)|（仅元数据）)"
 )
 FIGURE_MARKER_RE = re.compile(r"(\[\[FIGURE:[^\]]+\]\]|!\[[^\]]*\]\([^)]+\))")
+REVIEWER_SCORE_THRESHOLDS = {
+    "originality": 3,
+    "importance": 3,
+    "technical_soundness": 4,
+    "evidence_adequacy": 4,
+    "readability_structure": 3,
+}
 
 
 @dataclass
@@ -216,17 +224,113 @@ def _contains_mechanism_terms(text: str) -> bool:
     return any(term.lower() in lowered for term in MECHANISM_TERMS)
 
 
-def validate(root: Path) -> tuple[list[Finding], dict[str, object]]:
+def _draft_sha256(drafts: list[Path]) -> str:
+    combined = "\n".join(_read_text(path) for path in drafts)
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()
+
+
+def _target_state(card_text: str, explicit: str) -> str:
+    if explicit != "auto":
+        return explicit
+    match = re.search(r"(?:target_state|completion_target)\s*[:=]\s*(draft_ready|evidence_closed|ready_for_step8)", card_text)
+    return match.group(1) if match else "draft_ready"
+
+
+def _validate_reviewer_scorecard(root: Path, draft_sha256: str, require_freshness: bool) -> list[Finding]:
+    path = root / "reviewer_scorecard.json"
+    if not path.exists():
+        return [Finding("fail", "missing_reviewer_scorecard", "draft exists but reviewer_scorecard.json is missing")]
+    payload = _load_json(path)
+    if not isinstance(payload, dict) or payload.get("schema_version") != "reviewer-scorecard.v1":
+        return [Finding("fail", "invalid_reviewer_scorecard", "reviewer_scorecard.json has an invalid schema")]
+
+    findings: list[Finding] = []
+    scorecard_hash = payload.get("draft_sha256")
+    if require_freshness and scorecard_hash != draft_sha256:
+        findings.append(Finding("fail", "stale_reviewer_scorecard", "reviewer scorecard is not bound to the current draft_sha256"))
+    elif scorecard_hash and scorecard_hash != draft_sha256:
+        findings.append(Finding("warn", "stale_reviewer_scorecard", "reviewer scorecard hash differs from the current draft"))
+    boundary = payload.get("assessment_boundary")
+    if not isinstance(boundary, str) or not boundary.strip():
+        findings.append(Finding("fail", "missing_review_assessment_boundary", "review scorecard lacks assessment_boundary"))
+    scores = payload.get("scores")
+    if not isinstance(scores, dict):
+        return findings + [Finding("fail", "invalid_reviewer_scores", "reviewer scorecard scores must be an object")]
+
+    for axis, threshold in REVIEWER_SCORE_THRESHOLDS.items():
+        record = scores.get(axis)
+        if not isinstance(record, dict):
+            findings.append(Finding("fail", f"missing_reviewer_axis_{axis}", f"reviewer scorecard lacks {axis}"))
+            continue
+        score = record.get("score")
+        if not isinstance(score, (int, float)) or isinstance(score, bool) or not 1 <= score <= 5:
+            findings.append(Finding("fail", f"invalid_reviewer_score_{axis}", f"{axis} score must be between 1 and 5"))
+        elif score < threshold:
+            findings.append(Finding("fail", f"reviewer_score_below_gate_{axis}", f"{axis} score {score} is below {threshold}"))
+        locations = record.get("evidence_locations")
+        if not isinstance(locations, list) or not any(str(item).strip() for item in locations):
+            findings.append(Finding("fail", f"missing_reviewer_evidence_{axis}", f"{axis} lacks evidence_locations"))
+        if not isinstance(record.get("reason"), str) or not record["reason"].strip():
+            findings.append(Finding("fail", f"missing_reviewer_reason_{axis}", f"{axis} lacks a scoring reason"))
+
+    critical = payload.get("critical_issues")
+    if not isinstance(critical, list):
+        findings.append(Finding("fail", "invalid_reviewer_critical_issues", "critical_issues must be a list"))
+    elif critical:
+        findings.append(Finding("fail", "reviewer_critical_issues_open", f"{len(critical)} CRITICAL reviewer issue(s) remain open"))
+    return findings
+
+
+def _validate_claim_evidence_audit(root: Path, draft_sha256: str) -> tuple[list[Finding], dict[str, object]]:
+    path = root / "claim_evidence_audit.json"
+    if not path.exists():
+        return [Finding("fail", "missing_claim_evidence_audit", "claim_evidence_audit.json is required for evidence closure")], {}
+    payload = _load_json(path)
+    if not isinstance(payload, dict) or payload.get("schema_version") != "claim-evidence-audit.v1":
+        return [Finding("fail", "invalid_claim_evidence_audit", "claim_evidence_audit.json has an invalid schema")], {}
+    findings: list[Finding] = []
+    if payload.get("draft_sha256") != draft_sha256:
+        findings.append(Finding("fail", "stale_claim_evidence_audit", "claim evidence audit does not match the current draft"))
+    records = payload.get("records")
+    if not isinstance(records, list):
+        return findings + [Finding("fail", "invalid_claim_evidence_records", "claim evidence records must be a list")], payload
+    required_fields = {
+        "claim_segment_id", "claim_text", "claim_strength", "required_evidence", "support_grade",
+        "reading_depth", "evidence_anchor", "downgrade_required", "recommended_action", "resolution_status",
+    }
+    for index, record in enumerate(records, 1):
+        if not isinstance(record, dict):
+            findings.append(Finding("fail", "invalid_claim_evidence_record", f"claim record {index} is not an object"))
+            continue
+        missing = sorted(field for field in required_fields if field not in record)
+        if missing:
+            findings.append(Finding("fail", "incomplete_claim_evidence_record", f"claim record {index} lacks {', '.join(missing)}"))
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    unresolved = summary.get("unresolved_count")
+    if not isinstance(unresolved, int):
+        findings.append(Finding("fail", "missing_claim_unresolved_count", "claim audit summary lacks unresolved_count"))
+    elif unresolved > 0:
+        findings.append(Finding("fail", "unresolved_claim_evidence", f"{unresolved} claim evidence issue(s) remain unresolved"))
+    return findings, payload
+
+
+def validate(root: Path, target_state: str = "auto") -> tuple[list[Finding], dict[str, object]]:
     findings: list[Finding] = []
     drafts = _find_drafts(root)
     card_text = _execution_card_text(root)
-    combined_draft_text = "\n".join(_read_text(path)[:5000] for path in drafts)
+    combined_draft_text = "\n".join(_read_text(path) for path in drafts)
+    draft_hash = _draft_sha256(drafts) if drafts else ""
+    requested_state = _target_state(card_text, target_state)
+    require_evidence_closure = requested_state in {"evidence_closed", "ready_for_step8"}
     task_text = "\n".join([card_text, combined_draft_text])
     mechanism_task = _contains_mechanism_terms(task_text)
     decision = _mechanism_decision(root, card_text)
 
     if drafts and not (root / "step7_execution_card.md").exists():
         findings.append(Finding("fail", "missing_execution_card", "draft exists but step7_execution_card.md is missing"))
+
+    if drafts:
+        findings.extend(_validate_reviewer_scorecard(root, draft_hash, require_evidence_closure))
 
     if drafts and not _exists_any(
         root,
@@ -237,10 +341,15 @@ def validate(root: Path) -> tuple[list[Finding], dict[str, object]]:
 
     if drafts and not _exists_any(
         root,
-        ["citation_audit.md", "引用审计报告.md", "claim_evidence_audit.md"],
-        ["*citation*audit*.md", "*引用审计*.md", "*claim*evidence*audit*.md"],
+        ["citation_audit.md", "引用审计报告.md", "claim_evidence_audit.md", "claim_evidence_audit.json"],
+        ["*citation*audit*.md", "*引用审计*.md", "*claim*evidence*audit*.md", "*claim*evidence*audit*.json"],
     ):
         findings.append(Finding("fail", "missing_citation_audit", "draft exists but citation/claim evidence audit is missing"))
+
+    claim_audit: dict[str, object] = {}
+    if drafts and require_evidence_closure:
+        claim_findings, claim_audit = _validate_claim_evidence_audit(root, draft_hash)
+        findings.extend(claim_findings)
 
     if drafts and not _figure_mode_present(root, card_text):
         findings.append(Finding("fail", "missing_figure_gate", "draft exists but figure_asset_check or explicit figure_mode is missing"))
@@ -252,6 +361,15 @@ def validate(root: Path) -> tuple[list[Finding], dict[str, object]]:
             findings.append(Finding("fail", "missing_figure_index", "figure assets are available but figure_index.json/md is missing"))
         if not _has_figure_marker(combined_draft_text):
             findings.append(Finding("fail", "missing_figure_marker", "figure assets are available but draft has no image path or [[FIGURE:...]] marker"))
+        if requested_state == "ready_for_step8":
+            report = _load_json(root / "figure_resolution_report.json")
+            if not isinstance(report, dict):
+                findings.append(Finding("fail", "missing_figure_resolution_report", "ready_for_step8 requires figure_resolution_report.json"))
+            else:
+                if report.get("output_sha256") != draft_hash:
+                    findings.append(Finding("fail", "stale_figure_resolution_report", "figure resolution report does not match the current draft"))
+                if report.get("unresolved_count", 0) > 0:
+                    findings.append(Finding("fail", "unresolved_figure_matches", "figure resolution report contains unresolved matches"))
 
     if drafts:
         zotero_keys = _zotero_keys_in_body(combined_draft_text)
@@ -281,6 +399,8 @@ def validate(root: Path) -> tuple[list[Finding], dict[str, object]]:
             if not _exists_any(root, names):
                 findings.append(Finding("fail", f"missing_{code}", f"mechanism task entered analysis but {code} is missing"))
 
+    has_failures = any(item.severity == "fail" for item in findings)
+    completion_state = "blocked" if has_failures else requested_state
     summary = {
         "root": str(root),
         "draft_count": len(drafts),
@@ -288,7 +408,11 @@ def validate(root: Path) -> tuple[list[Finding], dict[str, object]]:
         "mechanism_decision": decision,
         "figure_mode": figure_mode,
         "figure_assets_available": figure_assets_available,
-        "status": "pass" if not any(item.severity == "fail" for item in findings) else "fail",
+        "draft_sha256": draft_hash,
+        "target_state": requested_state,
+        "completion_state": completion_state,
+        "claim_audit_present": bool(claim_audit),
+        "status": "pass" if not has_failures else "fail",
     }
     return findings, summary
 
@@ -302,6 +426,9 @@ def render(findings: list[Finding], summary: dict[str, object]) -> str:
         f"mechanism_decision: {summary['mechanism_decision'] or '-'}",
         f"figure_mode: {summary['figure_mode'] or '-'}",
         f"figure_assets_available: {summary['figure_assets_available']}",
+        f"target_state: {summary['target_state']}",
+        f"completion_state: {summary['completion_state']}",
+        f"draft_sha256: {summary['draft_sha256'] or '-'}",
     ]
     for item in findings:
         lines.append(f"{item.severity.upper()}: {item.code}: {item.message}")
@@ -311,11 +438,12 @@ def render(findings: list[Finding], summary: dict[str, object]) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate Step 7 output artifacts before treating a draft as complete.")
     parser.add_argument("output_dir", help="Step 7 output directory")
+    parser.add_argument("--target-state", choices=("auto", "draft_ready", "evidence_closed", "ready_for_step8"), default="auto")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
     args = parser.parse_args()
 
     root = Path(args.output_dir).expanduser().resolve()
-    findings, summary = validate(root)
+    findings, summary = validate(root, args.target_state)
     if args.json:
         print(json.dumps({
             "summary": summary,

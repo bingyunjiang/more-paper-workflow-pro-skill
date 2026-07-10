@@ -2623,12 +2623,19 @@ def score_results(results, topic_keywords):
     This is a heuristic — final scoring should be reviewed by the user.
     Returns dict of doi -> score string (e.g. "Tier 1 | Score: 22/25 | S1").
     """
-    current_year = 2026
+    current_year = time.gmtime().tm_year
+    weights = {
+        "topic_match": 0.35,
+        "method_rigor": 0.20,
+        "source_quality": 0.15,
+        "recency": 0.15,
+        "impact": 0.15,
+    }
     tier_map = {}
 
     for r in results:
-        score = 0
         reasons = []
+        uncertainty_flags = []
 
         # 1. Topic match (title + abstract keyword overlap)
         title_lower = r.get("title", "").lower()
@@ -2638,28 +2645,48 @@ def score_results(results, topic_keywords):
         kw_matches_abstract = sum(1 for kw in topic_keywords if kw.lower() in abstract_lower)
         # Title match counts double, abstract match counts once
         topic_score = min(5, kw_matches_title * 2 + kw_matches_abstract)
-        score += topic_score
-        if topic_score >= 4:
-            reasons.append("title_match")
+        if not abstract.strip():
+            topic_score = min(topic_score, 4)
+            uncertainty_flags.append("no_abstract_uncertain")
+        reasons.append(f"topic_match={topic_score}: title_hits={kw_matches_title}, abstract_hits={kw_matches_abstract}")
 
         # 2. Method match (from abstract text)
-        method_score = 2  # default low (no abstract or no signal)
+        method_score = 1
         if abstract:
             abs_lower = abstract_lower
             has_experiment = any(w in abs_lower for w in _experiment_kw)
             has_simulation = any(w in abs_lower for w in _simulation_kw)
-            if has_experiment:
+            has_validation = any(w in abs_lower for w in {
+                "validation", "validated", "baseline", "control group", "benchmark",
+                "statistical", "sensitivity", "uncertainty", "reproducibility",
+            })
+            if has_experiment and has_validation:
                 method_score = 5
+            elif has_experiment:
+                method_score = 4
+            elif has_simulation and has_validation:
+                method_score = 4
             elif has_simulation:
                 method_score = 3
             else:
-                method_score = 3  # has abstract but no clear method signal
-        score += method_score
+                method_score = 2
+                uncertainty_flags.append("method_rigor_uncertain")
+        else:
+            uncertainty_flags.append("method_rigor_unavailable")
+        reasons.append(f"method_rigor={method_score}: abstract method/validation signals")
 
         # 3. Source quality (heuristic by venue presence)
-        venue = r.get("venue", "?")
-        source_score = 3 if venue and venue != "?" else 1
-        score += source_score
+        venue = r.get("venue") or r.get("journal") or ""
+        source = str(r.get("source") or "").lower()
+        if venue and venue != "?":
+            source_score = 3
+        elif source in {"openalex", "crossref", "semantic_scholar", "pubmed", "cnki", "wanfang"}:
+            source_score = 2
+            uncertainty_flags.append("venue_quality_unresolved")
+        else:
+            source_score = 1
+            uncertainty_flags.append("source_quality_unresolved")
+        reasons.append(f"source_quality={source_score}: venue={venue or 'missing'}, source={source or 'unknown'}")
 
         # 4. Recency
         year = r.get("year", "?")
@@ -2676,35 +2703,65 @@ def score_results(results, topic_keywords):
                 recency_score = 2
         except (ValueError, TypeError):
             recency_score = 2
-        score += recency_score
+        reasons.append(f"recency={recency_score}: publication_year={year}")
 
         # 5. Citations
-        citations = r.get("citations", 0)
-        if citations >= 100:
+        citations = r.get("citations", 0) or 0
+        try:
+            citations = int(citations)
+        except (TypeError, ValueError):
+            citations = 0
+            uncertainty_flags.append("citation_count_invalid")
+        try:
+            paper_age = max(1, current_year - int(year) + 1)
+        except (TypeError, ValueError):
+            paper_age = 5
+            uncertainty_flags.append("publication_year_unknown")
+        citations_per_year = citations / paper_age
+        if citations_per_year >= 20:
             cite_score = 5
-        elif citations >= 50:
+        elif citations_per_year >= 10:
             cite_score = 4
-        elif citations >= 10:
+        elif citations_per_year >= 3:
             cite_score = 3
-        elif citations > 0:
+        elif citations_per_year > 0:
             cite_score = 2
         else:
-            cite_score = 1
-        score += cite_score
+            cite_score = 2 if paper_age <= 2 else 1
+            if paper_age <= 2:
+                uncertainty_flags.append("recent_unindexed")
+        reasons.append(f"impact={cite_score}: citations_per_year={citations_per_year:.2f}")
+
+        dimensions = {
+            "topic_match": topic_score,
+            "method_rigor": method_score,
+            "source_quality": source_score,
+            "recency": recency_score,
+            "impact": cite_score,
+        }
+        weighted_score = round(sum(dimensions[name] * weights[name] for name in weights) * 5, 2)
+        score = int(round(weighted_score))
+        confidence = "high" if not uncertainty_flags else "medium" if len(uncertainty_flags) <= 2 else "low"
 
         # Determine tier
-        if score >= 20:
+        if weighted_score >= 20 and topic_score >= 4 and method_score >= 3 and confidence != "low":
             tier = "Tier 1"
-        elif score >= 15:
+        elif weighted_score >= 15:
             tier = "Tier 2"
-        elif score >= 10:
+        elif weighted_score >= 10:
             tier = "Tier 3"
         else:
             tier = "Tier 4"
 
         r["_score"] = score
+        r["_weighted_score"] = weighted_score
         r["_tier"] = tier
-        tier_map[r.get("doi", "")] = f"{tier} | Score: {score}/25"
+        r["_score_dimensions"] = dimensions
+        r["_score_weights"] = weights
+        r["_score_reasons"] = reasons
+        r["_score_confidence"] = confidence
+        r["_uncertainty_flags"] = sorted(set(uncertainty_flags))
+        tier_map[r.get("doi", "")] = f"{tier} | Score: {weighted_score:.2f}/25"
 
     return tier_map
 

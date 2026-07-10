@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""Validate mode-specific Step 6 Zotero planning and write artifacts."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+from build_zotero_plan import ATTACHMENT_STATES, ITEM_STATES
+
+
+@dataclass
+class Finding:
+    severity: str
+    code: str
+    message: str
+
+
+def _read_json(path: Path) -> object | None:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def validate(root: Path, mode: str = "auto") -> tuple[list[Finding], dict[str, object]]:
+    findings: list[Finding] = []
+    plan_path = root / "文献-Zotero架构对照.json"
+    plan = _read_json(plan_path)
+    if not isinstance(plan, dict) or plan.get("artifact_type") != "zotero_plan":
+        findings.append(Finding("fail", "invalid_zotero_plan", "文献-Zotero架构对照.json is missing or invalid"))
+        return findings, {"root": str(root), "status": "fail", "mode": mode}
+
+    effective_mode = plan.get("execution_mode", "plan-only") if mode == "auto" else mode
+    if effective_mode not in {"plan-only", "local", "cloud", "skip"}:
+        findings.append(Finding("fail", "invalid_execution_mode", f"unsupported execution mode: {effective_mode}"))
+    records = plan.get("records") if isinstance(plan.get("records"), list) else []
+    for index, record in enumerate(records, 1):
+        if not isinstance(record, dict):
+            findings.append(Finding("fail", "invalid_record", f"record {index} is not an object"))
+            continue
+        if record.get("item_state") not in ITEM_STATES:
+            findings.append(Finding("fail", "invalid_item_state", f"record {index} has invalid item_state"))
+        if record.get("attachment_state") not in ATTACHMENT_STATES:
+            findings.append(Finding("fail", "invalid_attachment_state", f"record {index} has invalid attachment_state"))
+
+    pdf_index = _read_json(root / "pdf-附件池索引.json")
+    if not isinstance(pdf_index, dict):
+        findings.append(Finding("fail", "missing_pdf_index", "pdf-附件池索引.json is missing or invalid"))
+
+    expected_item_counts = {state: sum(1 for record in records if record.get("item_state") == state) for state in sorted(ITEM_STATES)}
+    expected_attachment_counts = {state: sum(1 for record in records if record.get("attachment_state") == state) for state in sorted(ATTACHMENT_STATES)}
+    state_counts = plan.get("state_counts") if isinstance(plan.get("state_counts"), dict) else {}
+    if state_counts.get("items") != expected_item_counts or state_counts.get("attachments") != expected_attachment_counts:
+        findings.append(Finding("fail", "state_count_mismatch", "state_counts do not match records"))
+
+    if effective_mode in {"plan-only", "skip"}:
+        if plan.get("blocking_missing") or not plan.get("can_continue") or plan.get("completion_state") != "plan_ready":
+            findings.append(Finding("fail", "plan_not_ready", "plan-only output is not ready for review"))
+    else:
+        if not plan.get("cp_zotero_write_confirmed"):
+            findings.append(Finding("fail", "missing_write_confirmation", "CP-ZOTERO-WRITE confirmation is missing"))
+        state = _read_json(root / "zotero_execution_state.json")
+        if not isinstance(state, dict) or not isinstance(state.get("operations"), dict):
+            findings.append(Finding("fail", "missing_execution_state", "Zotero execution state is missing"))
+        if plan.get("completion_state") == "write_complete":
+            open_item_states = {"planned", "duplicate_candidate", "metadata_conflict", "import_failed", "manual_confirmation_required"}
+            open_attachment_states = {"unlinked_pdf", "duplicate_attachment", "invalid_attachment", "attachment_conflict", "manual_attach_required"}
+            if any(record.get("item_state") in open_item_states for record in records):
+                findings.append(Finding("fail", "open_item_states", "write_complete contains unresolved item states"))
+            if any(record.get("attachment_state") in open_attachment_states for record in records):
+                findings.append(Finding("fail", "open_attachment_states", "write_complete contains unresolved attachment states"))
+
+    status = "pass" if not any(item.severity == "fail" for item in findings) else "fail"
+    return findings, {
+        "root": str(root),
+        "status": status,
+        "mode": effective_mode,
+        "completion_state": plan.get("completion_state", ""),
+        "record_count": len(records),
+        "direct_entry": bool(plan.get("direct_entry")),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Validate Step 6 Zotero artifacts.")
+    parser.add_argument("output_dir")
+    parser.add_argument("--mode", choices=("auto", "plan-only", "local", "cloud", "skip"), default="auto")
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+    findings, summary = validate(Path(args.output_dir).expanduser().resolve(), args.mode)
+    if args.json:
+        print(json.dumps({"summary": summary, "findings": [asdict(item) for item in findings]}, ensure_ascii=False, indent=2))
+    else:
+        print(f"STEP6_VALIDATION: {summary['status']}")
+        for item in findings:
+            print(f"{item.severity.upper()}: {item.code}: {item.message}")
+    return 0 if summary["status"] == "pass" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

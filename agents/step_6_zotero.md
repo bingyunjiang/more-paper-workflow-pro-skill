@@ -249,6 +249,19 @@ Agent 收到上述口令后，应默认执行：
 
 `scripts/build_zotero_plan.py` 是 plan-only 入口：可在缺少部分输入时继续生成 readiness、blocking_missing、nonblocking_missing、warnings、recommended_next_step。它不调用 Zotero MCP，不修改 Zotero 文库。
 
+```bash
+# JSON / Zotero 只读扫描 direct-entry
+python3 scripts/build_zotero_plan.py --records-json zotero_readonly_scan.json
+
+# PDF-only direct-entry，不依赖 Step 5
+python3 scripts/build_zotero_plan.py --pdf-dir ./user-pdfs
+
+# 真实 Zotero 写入后追加幂等操作事件
+python3 scripts/zotero_operation_journal.py --output-dir . \
+  --operation-type create_item --target-id stable-001 \
+  --status success --zotero-key ABCD1234 --checkpoint-confirmed
+```
+
 **可选增强提示：**
 
 如果用户已安装 Zotero，并计划写带图综述、图文版 Word 文档或需要批量复用图表候选，建议在 Zotero 中安装 `llm-for-zotero` 插件，并尽量对核心 PDF 执行 MinerU 解析。解析结果通常会以 `LLM-for-Zotero-MinerU-cache-*.zip` 附件回挂到同一 Zotero 条目，供 Step 7 复用。该提示不构成入口门槛；没有插件或 ZIP 时，Step 7 仍可走 Zotero fulltext、PDF 原文或本地 `evidence_pack`。
@@ -488,7 +501,9 @@ python3 scripts/citation_audit.py 论文初稿.md \
       },
       "zotero_item_key": "",
       "import_status": "pending|ready|metadata_incomplete|manual_required",
+      "item_state": "planned|existing_confirmed|imported|duplicate_candidate|metadata_conflict|import_failed|rejected_do_not_import|manual_confirmation_required",
       "attachment_status": "missing|found|already_attached|duplicate_candidate|conflict|unknown|rejected",
+      "attachment_state": "matched_attachment|missing_attachment|unlinked_pdf|duplicate_attachment|invalid_attachment|attachment_conflict|manual_attach_required|rejected",
       "attachment_action": "skip|manual_drag|add_from_file_then_merge|wait_for_attach_tool|none",
       "existing_attachment_keys": [],
       "notes": ""
@@ -805,15 +820,17 @@ zotero_get_collections()
 
 ## 质量门槛 (Quality Gates)
 
-- [ ] `文献库.bib` 已存在，且只包含 Step 4 筛选后文献。
-- [ ] `zotero-架构.md` 与 Step 2 大纲章节一一对应。
-- [ ] `文献-Zotero架构对照.md/json` 覆盖每个 BibTeX 条目。
+- [ ] 已识别本轮 direct-entry 输入；Zotero 只读扫描、BibTeX、CSL/workflow JSON、既有对照或 PDF-only 均可独立进入，不要求 Step 5。
+- [ ] 有大纲时，`zotero-架构.md` 与大纲章节一一对应；无大纲 direct-entry 时明确使用待确认/现有集合结构。
+- [ ] `文献-Zotero架构对照.md/json` 覆盖本轮所有可读取文献记录；PDF-only 模式允许仅生成未链接附件清单。
 - [ ] `文献-Zotero架构对照.json` 所有机器字段完整无截断。
 - [ ] `pdf-附件池索引.json` 已扫描所有 PDF 来源目录。
 - [ ] Zotero 集合树与 `zotero-架构.json` 一致。
 - [ ] T1/T2/T3 条目已导入 Zotero 并进入对应集合。
 - [ ] T1/T2/T3 条目 PDF 附件状态已判断；缺失、重复、冲突、已存在项已分别列入清单。
 - [ ] 重复条目、缺 DOI、缺 PDF、待人工确认项已单独报告。
+- [ ] `item_state / attachment_state / completion_state` 已写入，`python3 scripts/validate_step6_output.py <output-dir>` 已通过。
+- [ ] 如执行真实写入，`zotero_write_operations.jsonl` 与 `zotero_execution_state.json` 已生成，成功 operation 可幂等恢复。
 
 ---
 
