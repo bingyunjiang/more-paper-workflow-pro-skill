@@ -808,7 +808,7 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
-### v1.0.19-20260704 (2026-07-04)
+###v1.0.19-2 0260704 (2026-07-04)
 - **Step 5 下载产物稳定化**：新增 `download_manifest.json`、`download_attempts.jsonl` 和 `pdf-附件池索引.json`，每篇文献都有状态、质量、失败原因、下一步动作和尝试轨迹。
 - **重跑与手动恢复更稳**：Step 5 会识别已有 PDF 跳过重复下载；新增 `step5_reconcile_pdf_pool.py`，用于把手动下载 PDF 归并回 manifest 和 PDF pool。
 - **下载诊断增强**：新增 `step5_download_doctor.py`，诊断 CDP、依赖、输出目录、lock 和 publisher session；PDF pool 支持 `pdf_diagnostics`，可识别 HTML 伪 PDF、过小 PDF 和损坏/不可读文件。
