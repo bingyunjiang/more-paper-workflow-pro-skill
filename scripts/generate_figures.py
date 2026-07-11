@@ -38,7 +38,10 @@ import sys
 import os
 import re
 import csv
+import importlib.util
+import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 # Import shared figure utilities
@@ -114,6 +117,87 @@ CHART_TYPES = {
         "data_format": "x + y_mean + y_lower + y_upper",
     },
 }
+
+
+REPRODUCTION_DEPENDENCIES = {
+    "matplotlib": "matplotlib",
+    "numpy": "numpy",
+    "Pillow": "PIL",
+    "pandas": "pandas",
+    "openpyxl": "openpyxl",
+    "scikit-image": "skimage",
+    "pypdf": "pypdf",
+}
+
+
+def is_visualspec(path: str | os.PathLike[str] | None) -> bool:
+    """Return whether a JSON input uses the scientificfigure VisualSpec schema."""
+    if not path:
+        return False
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return False
+    schema = payload.get("schema") if isinstance(payload, dict) else None
+    return isinstance(schema, str) and schema.startswith("scientificfigure.visualspec.")
+
+
+def select_figure_backend(
+    requested: str,
+    *,
+    spec_path: str | os.PathLike[str] | None = None,
+    source_path: str | os.PathLike[str] | None = None,
+) -> str:
+    """Resolve the CLI backend without weakening an explicit user choice."""
+    if requested in {"quick", "reproduction"}:
+        return requested
+    if source_path or is_visualspec(spec_path):
+        return "reproduction"
+    return "quick"
+
+
+def missing_reproduction_dependencies() -> list[str]:
+    return [
+        distribution
+        for distribution, module in REPRODUCTION_DEPENDENCIES.items()
+        if importlib.util.find_spec(module) is None
+    ]
+
+
+def run_reproduction_backend(args) -> int:
+    if not args.spec:
+        print("ERROR: reproduction backend requires --spec with a VisualSpec JSON file.", file=sys.stderr)
+        return 2
+    missing = missing_reproduction_dependencies()
+    if missing:
+        requirements = Path(__file__).resolve().parents[1] / "requirements-figures.txt"
+        print(
+            "ERROR: reproduction backend dependencies are missing: " + ", ".join(missing),
+            file=sys.stderr,
+        )
+        print(
+            f'Install them with: "{sys.executable}" -m pip install -r "{requirements}"',
+            file=sys.stderr,
+        )
+        return 2
+
+    command = [
+        sys.executable,
+        str(Path(__file__).with_name("run_reproduction.py")),
+        "--spec",
+        str(args.spec),
+        "--out-dir",
+        str(args.output),
+        "--qa-profile",
+        args.qa_profile,
+    ]
+    if args.source:
+        command.extend(["--source", str(args.source)])
+    if args.custom_renderer:
+        command.extend(["--script", str(args.custom_renderer)])
+    if args.require_strict:
+        command.append("--require-strict")
+    return subprocess.call(command)
 
 
 # ── Figure Specification ─────────────────────────────────────────────────────
@@ -391,7 +475,7 @@ def generate_figure_checklist(specs: list[FigureSpec], output_dir: str) -> str:
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
-def main():
+def main() -> int:
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -429,6 +513,26 @@ def main():
         "--test",
         help="Generate a test figure of given type and exit",
     )
+    parser.add_argument(
+        "--backend", choices=["auto", "quick", "reproduction"], default="auto",
+        help="Figure backend. Auto selects reproduction for VisualSpec or --source inputs.",
+    )
+    parser.add_argument(
+        "--source",
+        help="Reference image for reproduction visual QA; auto-selects the reproduction backend.",
+    )
+    parser.add_argument(
+        "--require-strict", action="store_true",
+        help="Require strict reproduction closure (requires --source).",
+    )
+    parser.add_argument(
+        "--qa-profile", choices=["semantic", "visual", "trace"], default="semantic",
+        help="QA profile used by the reproduction backend.",
+    )
+    parser.add_argument(
+        "--custom-renderer",
+        help="Custom renderer accepting --spec/--out-dir/--script for complex figures.",
+    )
 
     args = parser.parse_args()
 
@@ -437,7 +541,7 @@ def main():
         print("── 可用图表类型 ──")
         for key, info in CHART_TYPES.items():
             print(f"  {key:20s} {info['name']:10s} {info['description']}")
-        return
+        return 0
 
     # --preview-colors
     if args.preview_colors:
@@ -454,14 +558,14 @@ def main():
         fig.savefig(path, bbox_inches="tight")
         plt.close(fig)
         print(f"✅ 色彩预览已保存: {path}")
-        return
+        return 0
 
     # --test
     if args.test:
         chart_type = args.test
         if chart_type not in CHART_TYPES:
             print(f"❌ 未知图表类型: {chart_type}")
-            return
+            return 2
         import matplotlib.pyplot as plt
         with nature_style():
             if chart_type == "grouped_bar":
@@ -501,7 +605,15 @@ def main():
             export_figure(fig, path.replace('.svg', ''), ['svg'])
             plt.close(fig)
             print(f"✅ 测试图表已保存: {path}")
-        return
+        return 0
+
+    backend = select_figure_backend(
+        args.backend,
+        spec_path=args.spec,
+        source_path=args.source,
+    )
+    if backend == "reproduction":
+        return run_reproduction_backend(args)
 
     # Main flow
     specs = []
@@ -536,11 +648,11 @@ def main():
     else:
         parser.print_help()
         print("\n💡 提示：使用 --list-types 查看可用图表类型")
-        return
+        return 0
 
     if not specs:
         print("⚠️ 未找到图表规格。请在稿件中添加 <!-- figure: chart_type, data=file.csv --> 注释，或使用 --spec 指定 JSON 规格文件。")
-        return
+        return 2
 
     # Generate figures
     os.makedirs(args.output, exist_ok=True)
@@ -562,6 +674,7 @@ def main():
         f.write(checklist_md)
     print(f"\n✅ 图表清单: {checklist_path}")
     print(f"   成功: {success}/{len(specs)}")
+    return 0 if success == len(specs) else 2
 
 
 def _now():
@@ -570,4 +683,4 @@ def _now():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -116,6 +116,10 @@
 - `evidence_closed / ready_for_step8` 才要求 `reviewer_scorecard.json` 通过锚定量表：技术可靠性/证据充分性不低于 4，其余维度不低于 3，且无 CRITICAL 未关闭项
 - 对外区分 `draft_ready / evidence_closed / ready_for_step8`；后两者要求 claim audit 和 reviewer scorecard 的 `draft_sha256` 与当前稿件一致
 - 图表自动匹配不得插入零关键词或低来源质量候选；`ready_for_step8` 的图表解析报告不得有未解决项
+- 生成新图时必须记录 `figure_backend`；只插入已有资产用 `not_applicable`，不得伪装成已执行绘图
+- `figure_backend=reproduction` 时，只有 `run_report.status=ok`、manifest 状态合格且 bundle `verify.py` 通过，才能声明复现完成
+- `semantic_near_pass` 必须公开偏差；`render_only / not_strict / failed` 不得作为复现完成态
+- 图形复现状态不得替代 claim evidence audit；复现通过不能自动证明正文 claim 获得支持
 
 ### Step 8：保守修订完成
 

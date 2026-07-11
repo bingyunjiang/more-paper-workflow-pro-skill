@@ -475,6 +475,13 @@ class WorkflowContractsTest(unittest.TestCase):
                 visual_support="pending",
                 evidence_status="text_caption_aligned",
                 recommended_action="retain",
+                generation_backend="reproduction",
+                visualspec_path="visualspec.json",
+                reproduction_bundle="figures/fig_3_bundle",
+                manifest_path="figures/fig_3_bundle/reproduction_manifest.json",
+                reproduction_status="semantic_near_pass",
+                qa_profile="semantic",
+                verification_status="pass",
             )
         ]
         payload = figure_evidence_payload(records, {"step": "7.11"})
@@ -485,6 +492,8 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(payload["records"][0]["figure_risk_note"], "visual confirmation pending")
         self.assertEqual(payload["records"][0]["evidence_status"], "text_caption_aligned")
         self.assertEqual(payload["records"][0]["recommended_action"], "retain")
+        self.assertEqual(payload["records"][0]["generation_backend"], "reproduction")
+        self.assertEqual(payload["records"][0]["verification_status"], "pass")
 
 
 if __name__ == "__main__":

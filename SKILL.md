@@ -1,11 +1,12 @@
 ---
 name: more-paper-workflow-pro-skill
-description: Use when the user asks for the more-paper academic workflow (more paper, more-paper, more_paper, morepaper): research topic clarification, outline and keyword generation, structured literature search plans, multi-source literature search and scoring, paper PDF download routing (Sci-Hub/IEEE/ScienceDirect), Zotero library organization, review matrices, paper writing, citation audit, or polishing. Especially useful for Chinese or English thesis, dissertation, literature review, PRISMA-style search logs, and GB/T 7714 references. 学术论文全流程：确定研究主题，生成大纲，文献检索，下载，Zotero，综述矩阵，论文写作，润色。
+description: >-
+  Use when the user asks for the more-paper academic workflow (more paper, more-paper, more_paper, morepaper): research topic clarification, outline and keyword generation, structured literature search plans, multi-source literature search and scoring, paper PDF download routing (Sci-Hub/IEEE/ScienceDirect), Zotero library organization, review matrices, paper writing, scientific figure generation or reproduction, plot digitization, figure semantic/vector QA, citation audit, or polishing. Especially useful for Chinese or English thesis, dissertation, literature review, PRISMA-style search logs, reproducible publication figures, and GB/T 7714 references. 学术论文全流程：确定研究主题，生成大纲，文献检索，下载，Zotero，综述矩阵，论文写作，科研绘图与复现，润色。
 ---
 
 ## Skill metadata
 
-version: v1.0.20-20260711 (2026-07-11)
+version: v1.0.21-20260712 (2026-07-12)
 author: Dr. Jiang Bingyun（江博士）
 wechat: Bingyunjiang
 category: research
@@ -22,6 +23,7 @@ related_skills:
 - 参考文件的功能分组见 `references/reference-index.md`，新增或重排 reference 前先更新索引。
 - Cross-agent entry vocabulary lives in `references/entry-routing-index.md`.
 - Full trigger vocabulary lives in `references/trigger-catalog.md`.
+- Scientific figure backend selection and strict reproduction live in `references/scientific-figure-reproduction.md`.
 - Platform-specific launch hints live in thin adapter files such as `agents/openai.yaml` and `.claude-plugin/marketplace.json`.
 - Step-specific runtime contracts remain in `agents/step_*.md` and `references/*.md`.
 
@@ -34,6 +36,7 @@ related_skills:
 - Update reminders: `references/update-reminder-protocol.md`
 - Direct-entry artifact graph: `.skill-state/artifact_passport.json`（Artifact Passport 只负责 Step 4-8 的材料识别、readiness 和非锁定路由，不覆盖 Step 1-3 的前期构思合同。）
 - Artifact Passport keeps `route_mode` as non-locking route metadata for Step 4-8 direct-entry handoff.
+- Require a dedicated runnable script for every reproduced figure, or a documented per-figure function when a batch runner is the stable entrypoint; record every path in manifest `per_figure_scripts`.
 
 ## Global discipline
 
@@ -64,7 +67,7 @@ related_skills:
   - Stable artifacts: `download_manifest.json`, `download_attempts.jsonl`, `pdf-附件池索引.json`.
   - Manual recovery: after user-provided PDFs, run `scripts/step5_reconcile_pdf_pool.py --output <dir>` to reconcile without changing filenames.
 - Step 6: Zotero organization and attachment consistency
-- Step 7: writing, evidence matrix, style learning, citation audit
+- Step 7: writing, evidence matrix, style learning, automatic quick/reproduction figure routing, citation audit
 - Step 8: conservative polishing and verification
 
 Step 4 public sequence: 4.4 筛选依据 → 4.5 五维 → 4.6 T1-T4 → 4.7 引文扩展 → 4.8 饱和 → 4.9 报告生成与完成检查。
@@ -72,7 +75,7 @@ Step 4 public sequence: 4.4 筛选依据 → 4.5 五维 → 4.6 T1-T4 → 4.7 �
 ## Step boundaries
 
 - Step 1-6 负责定题、检索、下载和证据整理。
-- Step 7 负责正文写作、证据矩阵、风格学习、图表与引用审计。
+- Step 7 负责正文写作、证据矩阵、风格学习、图表生成/复现与引用审计；普通数据图走 quick，原图重绘、数字化和严格 QA 自动走 reproduction。
 - Step 8 负责成稿级精修、终验和保守修订。
 - `README.md` 只保留对外简洁入口，不承载运行态真相。
 - 入口收敛不等于流程拦截；对话式工作流的 Step 1-8 都可以按 direct-entry 合同进入，Artifact Passport 的材料/readiness 路由范围保持 Step 4-8。

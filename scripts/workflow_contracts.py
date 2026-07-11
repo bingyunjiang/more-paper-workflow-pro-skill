@@ -887,6 +887,13 @@ class FigureEvidenceRecord:
     visual_support: str = ""
     evidence_status: str = ""
     recommended_action: str = ""
+    generation_backend: str = ""
+    visualspec_path: str = ""
+    reproduction_bundle: str = ""
+    manifest_path: str = ""
+    reproduction_status: str = ""
+    qa_profile: str = ""
+    verification_status: str = ""
 
 
 def infer_download_hint(doi: str, source: str, article_url: str) -> str:

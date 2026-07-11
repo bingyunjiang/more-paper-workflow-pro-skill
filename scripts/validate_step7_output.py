@@ -172,6 +172,65 @@ def _figure_mode(root: Path, card_text: str) -> str:
     return ""
 
 
+def _figure_backend(root: Path, card_text: str) -> str:
+    texts = [card_text]
+    for name in ["figure_asset_check.md", "draft_risk_summary.md"]:
+        path = root / name
+        if path.exists():
+            texts.append(_read_text(path))
+    for text in texts:
+        match = re.search(r"figure_backend\s*[:=]\s*(auto|quick|reproduction|not_applicable)", text)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _validate_figure_evidence_report(
+    root: Path,
+    *,
+    figure_backend: str,
+    require_evidence_closure: bool,
+) -> list[Finding]:
+    path = root / "figure_evidence_report.json"
+    if figure_backend == "reproduction" and not path.exists():
+        return [Finding("fail", "missing_figure_evidence_report", "reproduction backend requires figure_evidence_report.json")]
+    if not path.exists():
+        return []
+    payload = _load_json(path)
+    if not isinstance(payload, dict) or payload.get("schema_version") != "figure-evidence.v1":
+        return [Finding("fail", "invalid_figure_evidence_report", "figure_evidence_report.json has an invalid schema")]
+    records = payload.get("records")
+    if not isinstance(records, list):
+        return [Finding("fail", "invalid_figure_evidence_records", "figure evidence records must be a list")]
+
+    findings: list[Finding] = []
+    required = {
+        "generation_backend", "visualspec_path", "reproduction_bundle", "manifest_path",
+        "reproduction_status", "qa_profile", "verification_status",
+    }
+    complete_statuses = {"semantic_strict_pass", "semantic_validated_pass", "semantic_near_pass"}
+    for index, record in enumerate(records, 1):
+        if not isinstance(record, dict):
+            findings.append(Finding("fail", "invalid_figure_evidence_record", f"figure record {index} is not an object"))
+            continue
+        if record.get("generation_backend") != "reproduction":
+            continue
+        missing = sorted(field for field in required if not record.get(field))
+        if missing:
+            findings.append(Finding("fail", "incomplete_reproduction_record", f"figure record {index} lacks {', '.join(missing)}"))
+            continue
+        status = str(record.get("reproduction_status"))
+        if require_evidence_closure and status not in complete_statuses:
+            findings.append(Finding("fail", "figure_reproduction_not_complete", f"figure record {index} has non-complete status {status}"))
+        elif not require_evidence_closure and status not in complete_statuses:
+            findings.append(Finding("warn", "figure_reproduction_not_complete", f"figure record {index} remains {status}"))
+        if require_evidence_closure and record.get("verification_status") != "pass":
+            findings.append(Finding("fail", "figure_bundle_not_verified", f"figure record {index} bundle verification did not pass"))
+        if status == "semantic_near_pass" and not record.get("figure_risk_note"):
+            findings.append(Finding("fail", "missing_figure_deviation", f"figure record {index} is near-pass but has no deviation note"))
+    return findings
+
+
 def _figure_assets_available(root: Path) -> bool:
     texts: list[str] = []
     for name in ["figure_asset_check.md", "figure_asset_check.json", "step7_execution_card.md"]:
@@ -371,7 +430,14 @@ def validate(root: Path, target_state: str = "auto") -> tuple[list[Finding], dic
         findings.append(Finding("fail", "missing_figure_gate", "draft exists but figure_asset_check or explicit figure_mode is missing"))
 
     figure_mode = _figure_mode(root, card_text)
+    figure_backend = _figure_backend(root, card_text)
     figure_assets_available = _figure_assets_available(root)
+    if drafts:
+        findings.extend(_validate_figure_evidence_report(
+            root,
+            figure_backend=figure_backend,
+            require_evidence_closure=require_evidence_closure,
+        ))
     if drafts and figure_assets_available and figure_mode in {"auto_insert", "post_write"}:
         if not _has_figure_index(root):
             findings.append(Finding("fail", "missing_figure_index", "figure assets are available but figure_index.json/md is missing"))
@@ -429,6 +495,7 @@ def validate(root: Path, target_state: str = "auto") -> tuple[list[Finding], dic
         "mechanism_task_detected": mechanism_task,
         "mechanism_decision": decision,
         "figure_mode": figure_mode,
+        "figure_backend": figure_backend,
         "figure_assets_available": figure_assets_available,
         "draft_sha256": draft_hash,
         "target_state": requested_state,
@@ -447,6 +514,7 @@ def render(findings: list[Finding], summary: dict[str, object]) -> str:
         f"mechanism_task_detected: {summary['mechanism_task_detected']}",
         f"mechanism_decision: {summary['mechanism_decision'] or '-'}",
         f"figure_mode: {summary['figure_mode'] or '-'}",
+        f"figure_backend: {summary['figure_backend'] or '-'}",
         f"figure_assets_available: {summary['figure_assets_available']}",
         f"target_state: {summary['target_state']}",
         f"completion_state: {summary['completion_state']}",

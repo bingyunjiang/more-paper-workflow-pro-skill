@@ -248,9 +248,23 @@ This file keeps the long-form trigger vocabulary out of `SKILL.md` frontmatter w
 - `数据可视化`
 - `科研数据图`
 - `论文配图`
+- `论文原图重绘`
+- `截图重绘`
+- `曲线数字化`
+- `科学图形复现`
+- `图形语义审计`
+- `矢量图验证`
+- `可复现图表`
+- `VisualSpec`
+- `figure manifest`
+- `figure checksums`
 - `Generate figures`
 - `Create publication figures`
 - `Make charts for paper`
+- `Reproduce scientific figure`
+- `Redraw paper figure`
+- `Digitize plot`
+- `Audit figure semantics`
 - `引用审计`
 - `参考文献审计`
 - `检查引用是否准确`

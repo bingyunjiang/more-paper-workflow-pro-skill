@@ -1,7 +1,7 @@
 interface:
   display_name: "More Paper Workflow Pro"
-  short_description: "Academic workflow for research topic clarification, outline generation, literature search, batch PDF download, Zotero organization, paper writing, citation audit, and polishing."
-  default_prompt: "Use $more-paper-workflow-pro-skill when the user asks to determine a research topic, generate a paper outline, search literature, batch download PDFs, organize Zotero, write a paper, audit citations, or polish a draft."
+  short_description: "Research workflow with reproducible scientific figures"
+  default_prompt: "Use $more-paper-workflow-pro-skill when the user asks to plan research, search literature, manage PDFs or Zotero, write a paper, generate or reproduce scientific figures, digitize plots, audit citations, or polish a draft."
 
 policy:
   allow_implicit_invocation: true

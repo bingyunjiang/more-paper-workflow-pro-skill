@@ -11,7 +11,7 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 more paper workflow pro skill `v1.0.20-20260711`
+# 📚 more paper workflow pro skill `v1.0.21-20260712`
 
 > 面向中文/双语论文写作的证据闭环工作流。覆盖定题、检索、下载、Zotero文献管理、论文写作与润色，所有关键步骤都围绕真实文献落地，而不是模型记忆。
 
@@ -48,6 +48,7 @@
 - 不是把高风险动作静默做完，而是在登录态、外部写入、证据不足或引用高风险时明确停手
 - 不是为了“看起来聪明”，而是优先压制幻觉：直接读 PDF 原文，RAG 最多只做候选定位加速
 - 不是堆平台依赖，而是尽量走跨平台、低额外成本路径：Chrome/Edge 自动检测，多数检索源免费可用，脚本自带依赖检查和失败回退
+- 不是只把已有图片贴进论文，而是能在 Step 7 自动区分快速数据出图与严格科学图形复现，并为重绘、数字化和可复现交付生成语义/矢量 QA、manifest 与 checksums
 
 [![中文海报](posters/story/more-paper-long-scroll.png)](https://www.bilibili.com/video/BV1hzjE6jEmo/?vd_source=45e56689c0324bcaf7fe9c9cd13fca01)
 
@@ -214,7 +215,7 @@ Get-Content -Encoding UTF8 .\README.md
 - **Step 1-4 检索与筛选**：定题、大纲、检索式、多源检索、相关性评分、引文验证和饱和度分析，输出检索表、报告和 BibTeX
 - **Step 5 下载路由**：已有 DOI、标题、URL、BibTeX 或参考文献列表时，可直达下载；统一记录成功、失败原因和恢复建议
 - **Step 6 Zotero 对齐**：把大纲、BibTeX、中文元数据、PDF 附件池和 Zotero 集合映射到同一套可追溯结构
-- **Step 7 写作与审计**：按章节读取证据，生成章节蓝图、写作理由矩阵、草稿、图表草案和引用审计结果
+- **Step 7 写作与审计**：按大纲对应的 Zotero 子集合逐节读取证据，不扫整个文库；生成章节蓝图、写作理由矩阵、草稿、图表草案和引用审计结果
 - **Step 8 润色与修订**：先诊断，再做保守修订；遇到证据缺口、结构漂移或引用错配时回退，而不是硬润色
 - **跨平台运行**：Chrome/Edge 自动检测，脚本自带依赖检查；详细执行规则以 [`SKILL.md`](SKILL.md) 和 [`agents/step_*.md`](agents/) 为准
 
@@ -591,6 +592,12 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
 
+### v1.0.21-20260712 (2026-07-12)
+
+- Step 7 统一图形任务路由：可信数据普通出图使用 `quick`；论文原图或截图重绘、曲线数字化、严格 QA 与可复现交付使用 `reproduction`；已有图片仅插入时不运行绘图代码。
+- 严格图形工作流以 VisualSpec v2 驱动 PNG/SVG/PDF 输出，并完成整图与 panel 评分、语义审计、矢量验证、manifest、环境锁定、完整性校验和可移植性验证。
+- `figure_evidence_report` 分别记录图形生成、复现验证与正文证据状态，图形 QA 结果不会替代 claim 到原文、图注和 panel 的证据审计。
+
 ### v1.0.20-20260711 (2026-07-10 至 2026-07-11)
 
 - Step 1-4 增加真实小样本证据校准、低负担交互记录、关键词语料审计、检索后局部协调和按来源能力编译查询，补强 PRISMA-S、发现轮次与元数据溯源。
@@ -763,11 +770,13 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 ---
 
 <a id="english"></a>
-# 📚 more paper workflow pro skill `v1.0.20-20260711`
+# 📚 more paper workflow pro skill `v1.0.21-20260712`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
 > An evidence-centered academic workflow for bilingual and Chinese paper writing. It connects topic definition, literature search, download routing, Zotero, drafting, citation audit, and polishing around real documents rather than model memory.
+
+Step 7 automatically keeps ordinary trusted-data charts on the quick backend and routes paper-figure redraws, plot digitization, semantic/vector audits, and reproducible deliveries through the strict reproduction backend.
 
 ## 📑 Table of Contents
 
@@ -1226,6 +1235,12 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 ## 📋 Version History
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
+
+### v1.0.21-20260712 (2026-07-12)
+
+- Step 7 uses one figure-task router: `quick` handles ordinary trusted-data charts, `reproduction` handles redraws, digitization, strict QA, and portable reproducible delivery, while existing assets can be inserted without running figure code.
+- The strict figure workflow uses VisualSpec v2 to produce PNG/SVG/PDF outputs and verifies whole-image and panel similarity, semantics, vector integrity, manifests, environment locks, checksums, and portability.
+- `figure_evidence_report` keeps generation, reproduction verification, and manuscript evidence states separate; figure QA never replaces claim-to-source, caption, or panel auditing.
 
 ### v1.0.20-20260711 (2026-07-10 to 2026-07-11)
 

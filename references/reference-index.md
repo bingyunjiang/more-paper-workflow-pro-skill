@@ -32,6 +32,7 @@ This index groups the reference files by function so the workflow contracts are 
 - `writing-quality-borrowing-plan.md`
 - `style-learning-workflow.md`
 - `step7-figure-marker-syntax.md`
+- `scientific-figure-reproduction.md`：普通数据出图与严格复现后端的自动选择、VisualSpec、QA、bundle 和状态边界。
 - `polish-modes.md`
 
 ## Writing and evidence templates
@@ -62,3 +63,10 @@ This index groups the reference files by function so the workflow contracts are 
 - `ai-trace-taxonomy.md`
 - `nature-figure-style-guide.md`
 - `nature-color-schemes.md`
+- `DIGITIZATION_WORKFLOW.md`
+- `EXPORT_REQUIREMENTS.md`
+- `FREEZE_POLICY.md`
+- `QA_PROFILES.md`
+- `VISUALSPEC_V2_PROTOCOL.md`
+- `export-backends.md`
+- `r-rendering.md`

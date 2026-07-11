@@ -8,6 +8,16 @@
 
 ---
 
+## v1.0.21-20260712 (2026-07-12)
+
+### Step 7 科学图形证据闭环
+
+- `generate_figures.py` 统一处理 `auto / quick / reproduction`：VisualSpec 或参考图进入严格复现，显式选择优先；严格环境依赖不完整时明确中止并给出安装指引。
+- 图形工作流覆盖 VisualSpec、数据解析、Matplotlib/R 渲染、曲线数字化、视觉与 panel 评分、语义审计、矢量验证、优化循环、环境策略、manifest、bundle lock、checksums 和可移植性验证。
+- `figure_mode` 与 `figure_backend` 各自表达任务状态和执行方式：已有资产仅插入使用 `not_applicable`，普通可信数据图使用 `quick`，原图重绘、数字化和严格交付使用 `reproduction`。
+- 图表证据合同分别记录 backend、VisualSpec、bundle、manifest、QA profile 和 verification；复现状态与正文 claim 的证据等级保持独立。
+- 严格绘图依赖通过 `requirements-figures.txt` 管理，协议校验、示例闭环和 release acceptance 共同约束发布质量。
+
 ## v1.0.20-20260711 (2026-07-10 至 2026-07-11)
 
 ### Step 1-2 早期研究校准与低负担交互

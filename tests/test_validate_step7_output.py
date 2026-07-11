@@ -151,14 +151,16 @@ class ValidateStep7OutputTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def write_minimum_artifacts(self, out: Path, figure_mode: str = "skip") -> None:
+    def write_minimum_artifacts(self, out: Path, figure_mode: str = "skip", figure_backend: str = "") -> None:
+        backend_line = f"- figure_backend: {figure_backend}" if figure_backend else ""
         (out / "step7_execution_card.md").write_text(
             "\n".join([
                 "# Step 7 Execution Card",
                 "- mechanism_trigger_decision: enter_mechanism_analysis",
                 f"- figure_mode: {figure_mode}",
+                backend_line,
                 "- risk_status: citations_checked",
-            ]),
+            ]).replace("\n\n", "\n"),
             encoding="utf-8",
         )
         (out / "evidence_matrix.md").write_text("# Evidence\n", encoding="utf-8")
@@ -168,6 +170,65 @@ class ValidateStep7OutputTest(unittest.TestCase):
         (out / "mechanism_argument_plan.md").write_text("# Mechanism Argument Plan\n", encoding="utf-8")
         (out / "mechanism_claim_audit.md").write_text("# Mechanism Claim Audit\n", encoding="utf-8")
         self.write_reviewer_scorecard(out)
+
+    def test_reproduction_backend_requires_figure_evidence_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            self.write_minimum_artifacts(out, figure_backend="reproduction")
+            (out / "journal_paper_draft.md").write_text(
+                "# 方法\n\n当前复现图仍需登记。\n",
+                encoding="utf-8",
+            )
+            result = self.run_validator(out, "draft_ready")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing_figure_evidence_report", result.stdout)
+
+    def test_near_pass_reproduction_requires_deviation_note(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            self.write_minimum_artifacts(out, figure_backend="reproduction")
+            (out / "journal_paper_draft.md").write_text("# 方法\n\n当前复现图。\n", encoding="utf-8")
+            (out / "figure_evidence_report.json").write_text(json.dumps({
+                "schema_version": "figure-evidence.v1",
+                "records": [{
+                    "generation_backend": "reproduction",
+                    "visualspec_path": "visualspec.json",
+                    "reproduction_bundle": "figures/fig_1_bundle",
+                    "manifest_path": "figures/fig_1_bundle/reproduction_manifest.json",
+                    "reproduction_status": "semantic_near_pass",
+                    "qa_profile": "semantic",
+                    "verification_status": "pass",
+                    "figure_risk_note": "",
+                }],
+            }), encoding="utf-8")
+            result = self.run_validator(out, "draft_ready")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing_figure_deviation", result.stdout)
+
+    def test_strict_reproduction_record_passes_draft_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            self.write_minimum_artifacts(out, figure_backend="reproduction")
+            (out / "journal_paper_draft.md").write_text("# 方法\n\n当前复现图。\n", encoding="utf-8")
+            (out / "figure_evidence_report.json").write_text(json.dumps({
+                "schema_version": "figure-evidence.v1",
+                "records": [{
+                    "generation_backend": "reproduction",
+                    "visualspec_path": "visualspec.json",
+                    "reproduction_bundle": "figures/fig_1_bundle",
+                    "manifest_path": "figures/fig_1_bundle/reproduction_manifest.json",
+                    "reproduction_status": "semantic_strict_pass",
+                    "qa_profile": "semantic",
+                    "verification_status": "pass",
+                    "figure_risk_note": "",
+                }],
+            }), encoding="utf-8")
+            result = self.run_validator(out, "draft_ready")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("figure_backend: reproduction", result.stdout)
 
     def write_reviewer_scorecard(self, out: Path, technical_soundness: int = 4) -> None:
         scores = {}

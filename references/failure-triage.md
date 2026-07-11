@@ -35,6 +35,10 @@ Next Action:
 | 映射层 | 集合归属错误、条目匹配错误、附件路径对不上 |
 | 证据层 | 只有摘要、没有 PDF、证据不能支撑 claim |
 | 蓝图层 | 章节目标不清、体裁风格不明确、论证计划不足 |
+| 绘图依赖层 | Matplotlib、scikit-image、pypdf 等严格后端依赖缺失 |
+| 绘图协议层 | VisualSpec、数据映射、坐标轴、单位或 renderer 能力不合法 |
+| 绘图 QA 层 | 视觉、panel、语义或矢量验证未通过 |
+| 绘图完整性层 | bundle lock、manifest、checksums、portability 或 verify 失败 |
 
 ---
 
@@ -115,6 +119,21 @@ Next Action:
 
 **Next Action**
 - 先区分“文献不足”还是“论证计划不足”，不要直接让模型硬写
+
+### E. 科学绘图故障
+
+**Observed Symptom**
+- 严格绘图无法启动、导出存在但 QA 不通过，或复现包验证失败
+
+**Likely Layer**
+- 依赖层 / VisualSpec 与数据层 / renderer 层 / QA 层 / 完整性层
+
+**Required Evidence**
+- 依赖预检、`run_report.json` 当前失败 stage、对应日志、manifest 和 `verify.py` 输出
+
+**Next Action**
+- 只修复当前失败层；自动选择 reproduction 后不得改走 quick 来掩盖失败
+- 缺依赖时安装 `requirements-figures.txt`；协议错误先校验 VisualSpec；QA 失败保留真实状态和偏差
 
 ---
 

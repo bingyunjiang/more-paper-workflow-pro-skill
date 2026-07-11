@@ -33,6 +33,13 @@
 - replacement_hint
 - figure_risk_note
 - risk_flags
+- generation_backend
+- visualspec_path
+- reproduction_bundle
+- manifest_path
+- reproduction_status
+- qa_profile
+- verification_status
 
 ## 图-表-panel 绑定矩阵
 
@@ -92,3 +99,23 @@
 - 图位描述与候选图关键词得分为 0，或候选图缺少最低来源质量时，不得自动插入；必须保留 `manual_confirmation_required` 图位，并写入 `figure_resolution_report.json`
 - `ready_for_step8` 要求 `figure_resolution_report.json.output_sha256` 与当前稿件一致，且 `unresolved_count=0`；`figure_mode=skip` 不适用此门
 - 具体图形设计和导出细节可继续由现有图表参考处理
+- `figure_mode=skip` 时不运行绘图；只插入已有资产时使用 `generation_backend=not_applicable`
+- 普通可信数据出图使用 `generation_backend=quick`；论文原图/截图重绘、数字化、严格 QA 或可复现交付使用 `generation_backend=reproduction`
+- `reproduction` 模式必须记录 VisualSpec、bundle、manifest、QA profile 和 `verify.py` 结果；详细协议见 `scientific-figure-reproduction.md`
+- 图形复现通过只证明产物完整性，不能自动把 `support_status` 升级为 `support`
+
+## 可复现图表报告扩展
+
+```json
+{
+  "generation_backend": "quick|reproduction|not_applicable",
+  "visualspec_path": "visualspec.json",
+  "reproduction_bundle": "figures/fig_1_bundle",
+  "manifest_path": "figures/fig_1_bundle/reproduction_manifest.json",
+  "reproduction_status": "semantic_strict_pass|semantic_validated_pass|semantic_near_pass|render_only|not_strict|failed",
+  "qa_profile": "semantic|visual|trace",
+  "verification_status": "pass|failed|not_run"
+}
+```
+
+`semantic_near_pass` 必须带视觉偏差；`render_only/not_strict/failed` 不得声明复现完成。原图能否支撑正文 claim 继续由图注、正文锚点、panel 绑定和来源证据共同决定。
