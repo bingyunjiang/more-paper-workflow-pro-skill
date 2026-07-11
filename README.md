@@ -21,13 +21,11 @@
 - [🎯 适合谁？不适合谁？](#适合谁不适合谁)
 - [⚡ Quick Start / 装完第一句话](#-quick-start--装完第一句话)
 - [📦 你会得到什么产物](#-你会得到什么产物)
-- [🧭 为什么和普通 AI 写论文工具不一样](#-为什么和普通-ai-写论文工具不一样)
 - [🛑 不会做什么 / 何时停手问你](#-不会做什么--何时停手问你)
 - [📋 工作流一览](#-工作流一览)
-- [🚀 安装仅是参考](#-安装仅是参考)
+- [🚀 安装参考](#-安装参考)
+- [🧱 核心能力速览](#-核心能力速览)
 - [📖 使用指南](#-使用指南)
-- [✨ 功能特性](#-功能特性)
-- [🏆 核心优势](#-核心优势)
 - [🛡️ 论文质量防线](#-论文质量防线)
 - [📂 项目结构](#-项目结构)
 - [❓ 常见问题](#-常见问题)
@@ -39,10 +37,17 @@
 ### 为什么需要这个工具
 
 很多 AI 写论文工具把问题简化成“生成一段文本”，但论文真正麻烦的地方是证据、引用和边界是否站得住。  
-这个 skill 不负责替你一键写完，而是把学术写作拆成 8 个可见、可中断、可回溯的步骤，让检索、下载、Zotero、写作和引用审计形成闭环。
+这个 skill 不负责替你一键写完，而是把学术写作拆成 8 个可见、可中断、可回溯的步骤，让检索、下载、Zotero、写作和引用审计形成闭环。默认口径是先发散、后收敛、候选池先保留。每一步都要有输入边界、候选池、输出工件和失败回退。  
 
-它的默认口径是先发散、后收敛、候选池先保留。每一步都要有输入边界、候选池、输出工件和失败回退。  
-执行纪律也不另开一套复杂入口，而是嵌在现有 8 步里：不新增公开入口，先做任务定义，再做实现选择；先把主题、假设、路线和反例放进候选池，再把当前轮收敛成一个执行包；双向校准、最小对比和反模式命名只服务现有 8 步。
+它的核心区别可以直接概括为几件事：
+
+- 不是“主题 -> 直接出正文”，而是从定题、检索、下载、Zotero 到写作与引用审计的 8 步透明流程
+- 不是靠模型记忆拼参考文献，而是围绕真实 PDF、BibTeX、Zotero 和附件一致性来组织证据
+- 不是只会生成文本，而是会产出 `研究主题.md`、`文献库.bib`、`download_manifest.json`、`文献-Zotero架构对照.md/json`、章节蓝图、引用审计报告等中间工件
+- 不是默认线性重跑，而是支持从 Step 5 下载、Step 7 写作等位置 direct-entry，只要你已经有等价输入
+- 不是把高风险动作静默做完，而是在登录态、外部写入、证据不足或引用高风险时明确停手
+- 不是为了“看起来聪明”，而是优先压制幻觉：直接读 PDF 原文，RAG 最多只做候选定位加速
+- 不是堆平台依赖，而是尽量走跨平台、低额外成本路径：Chrome/Edge 自动检测，多数检索源免费可用，脚本自带依赖检查和失败回退
 
 [![中文海报](posters/story/more-paper-long-scroll.png)](https://www.bilibili.com/video/BV1hzjE6jEmo/?vd_source=45e56689c0324bcaf7fe9c9cd13fca01)
 
@@ -137,21 +142,6 @@ python3 scripts/run_step8_ai_trace.py --project-root examples/demo/step8-ai-trac
 
 完整展示层见 [`examples/showcase/README.md`](examples/showcase/README.md)。
 
-## 🧭 为什么和普通 AI 写论文工具不一样
-
-这套流程学的是执行纪律，不是只学某个领域模板。每一步都尽量做到：输入边界清楚、候选池不丢、输出工件可落盘、失败时能回退。
-
-| 维度 | 普通 AI 写论文工具 | More Paper Workflow |
-|------|--------------------|---------------------|
-| 写作方式 | 主题 -> 直接生成正文 | 8 步透明流程，每步可见可中断 |
-| 参考文献 | 模型记忆或模糊检索 | 围绕真实 PDF、BibTeX、Zotero 运作 |
-| 下载问题 | 通常不处理 | Step 5 专门处理统一下载路由 |
-| 文库管理 | 通常没有 | Step 6 把大纲、BibTeX、PDF、Zotero 对齐 |
-| 写后验证 | 很少做 | Step 7.16 引用审计，Step 8 只做该做的润色 |
-| 用户控制 | 生成后审阅 | 高风险写入前明确停手确认 |
-
-![中文海报](posters/screens/screen-1.png)
-
 ## 🛑 不会做什么 / 何时停手问你
 
 这个 skill 的严谨性来自“会停手”，而不是“什么都自动做”。
@@ -165,6 +155,7 @@ python3 scripts/run_step8_ai_trace.py --project-root examples/demo/step8-ai-trac
 - 不会把 README 当运行时真相；真正执行边界以 [`SKILL.md`](SKILL.md) 和 [`agents/step_*.md`](agents/) 为准
 - 入口收敛只影响对外发现层，不影响对话式工作流从 Step 1-8 直接进入；Artifact Passport 的材料识别与 readiness 路由只覆盖 Step 4-8
 - 6 种稳定写作模式仍然保留：`full-document / review-only / abstract-only / chapter-only / continue-existing / revision-only`
+- 自然技能原则不新增公开入口，仍服务现有 8 步：先做任务定义，再做实现选择；双向校准、最小对比和反模式命名用于澄清任务边界；快速通道不跳质量门
 
 ## 📋 工作流一览
 
@@ -218,135 +209,16 @@ Get-Content -Encoding UTF8 .\README.md
 - Marketplace 元数据已放在 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)
 - GitHub 仓库描述、topics、release 说明等平台元数据属于发布动作，需要在仓库托管平台上同步维护
 
-## 📖 简介
+## 🧱 核心能力速览
 
-**More Paper Workflow Pro Skill** 是一套完整的学术文献工作流工具链，覆盖从研究方向确定到论文润色投稿的全过程。脚本、Step 文档、出版社配置和路由阶段以 `python3 scripts/check_doc_contracts.py --json` 生成的仓库概览为准，可独立使用或接入 **Claude Code / Codex / Hermes / OpenClaw** 等任意支持 Claude 模型的 AI Agent 平台实现对话式编排。
+- **Step 1-4 检索与筛选**：定题、大纲、检索式、多源检索、相关性评分、引文验证和饱和度分析，输出检索表、报告和 BibTeX
+- **Step 5 下载路由**：已有 DOI、标题、URL、BibTeX 或参考文献列表时，可直达下载；统一记录成功、失败原因和恢复建议
+- **Step 6 Zotero 对齐**：把大纲、BibTeX、中文元数据、PDF 附件池和 Zotero 集合映射到同一套可追溯结构
+- **Step 7 写作与审计**：按章节读取证据，生成章节蓝图、写作理由矩阵、草稿、图表草案和引用审计结果
+- **Step 8 润色与修订**：先诊断，再做保守修订；遇到证据缺口、结构漂移或引用错配时回退，而不是硬润色
+- **跨平台运行**：Chrome/Edge 自动检测，脚本自带依赖检查；详细执行规则以 [`SKILL.md`](SKILL.md) 和 [`agents/step_*.md`](agents/) 为准
 
-完整学术文献检索和写作工作流（8 步法）：①交互式确定研究主题 → ②生成大纲/关键词 → ③制定检索方案 → ④多渠道检索+评分并导出 BibTeX → **⑤统一路由下载（Sci-Hub / OA fast / IEEE CDP / Generic CDP / Chinese CDP 分阶段路由）** → ⑥Zotero 文库管理（架构生成+BibTeX 条目入库+PDF 附件关联+一致性检查） → ⑦论文写作（含文献证据矩阵+目标体裁/文档风格学习+GB/T 7714 完整规范+图表生成+引用审计） → ⑧论文润色。
-
-
-### 设计哲学：AI 辅助 ≠ AI 替代
-
-| 维度 | 大多数 AI 工具 | More Paper Workflow |
-|------|-------------|-------------------|
-| **生成模式** | 黑箱：主题→论文 | 透明管线：8 步，每步可见可改 |
-| **参考文献** | AI 凭记忆编造 | 从 Zotero 读取真实 PDF 全文 |
-| **用户控制** | 生成后审阅 | 每步确认，每步可中断修改 |
-| **成稿修订** | 多依赖人工通读 | 诊断问题、执行局部修订、保留验证记录 |
-| **PDF 获取** | 不管下载 | Sci-Hub / OA fast / IEEE CDP / Generic CDP / Chinese CDP 分阶段路由 |
-| **设计哲学** | 替你做研究 | 辅助你做研究 |
-
-### 一句话概括
-
-> 研究定题 → 文献检索 → 相关性评分 → 统一路由下载 → Zotero 入库与 PDF 附件一致性检查 → 文献证据矩阵+目标体裁/文档风格学习 → 根据文献写作（可完整写作、只写指定章节或续写已有草稿，含图表生成+引用审计） → 润色与保守修订，一站式完成学术研究文献工作。
-
-### 核心能力
-
-**🔧 文献检索与筛选（Step 1-4）**
-- AI 辅助交互式定题，5 轮对话厘清研究方向
-- Semantic Scholar / Crossref / OpenAlex 三源并行检索，DOI 去重合并
-- T1→T2→T3 三级回退路由，6 领域路由规则（医学/工程/CS/综述/中文）
-- 引文验证 + 饱和度分析（发现曲线） + 检索报告（.md+.xlsx+.pdf+.bib）
-
-![中文海报](posters/step3-4_search-routing-poster.png)
-
-**📥 PDF 批量下载（Step 5）——核心突破**
-- **统一下载路由**：单一入口自动路由，按 Sci-Hub / OA fast / IEEE CDP / Generic CDP / Chinese CDP 分阶段执行；覆盖范围以 `config/publishers.toml` 和生成摘要为准
-- **直达下载模式**：已有 DOI、标题、URL、BibTeX 或参考文献列表时，可跳过前置检索，先归一化为下载清单再路由下载
-- **通用下载引擎**：策略 A（直连 PDF URL）→ 策略 B（CSS 选择器提取），支持补充材料下载
-- **出版社配置知识库**：集中管理 DOI 前缀、URL 模板、屏障检测规则；当前配置数量以 `scripts/check_doc_contracts.py --json` 为准
-- 通过 Chrome/Edge **CDP 协议**操控真实浏览器，绕过 Cloudflare/Akamai 反爬
-- 15 个反检测 Chrome flag + `warmup_profile()` 预热函数
-- 支持 PDF probe、浏览器会话复用和 **SSO 机构登录**（需要时手动确认）
-
-![中文海报](posters/Step5_download-routing-poster.png)
-
-**📚 Zotero 文库AI管理（Step 6）**
-- 按论文大纲AI生成集合结构和标签方案
-- 结合 Step 4 `文献库.bib` 与 Zotero 架构生成 `文献-Zotero架构对照.md/json`
-- 通过 Zotero MCP 创建集合、导入 BibTeX 条目、关联 PDF 附件池中的文件
-- CNKI/万方中文文献不依赖 DOI 入库，使用 `source_id` + 详情页 URL + 中文元数据生成 CSL JSON 条目
-- 环境检测脚本一键诊断 Zotero 配置状态
-- **一致性检查**：Zotero 集合树、BibTeX 条目、PDF 附件三者互相可追溯
-- **能力索引**：生成 `capability_index.json/md`，说明当前 Zotero、BibTeX、workflow JSON、PDF 与附件池能支持哪些后续 Step
-
-![中文海报](posters/Step6_zotero-planning-poster-tech.png)
-
-**✍️ 论文写作与润色（Step 7-8）**
-- 按大纲对应的 Zotero 子集合逐节读取证据，不扫整个文库；当前只写当前小节，不提前展开后续小节
-- 直接读 PDF 抑制大模型幻觉——引用精确性高于 RAG 分块方案
-- **文献综述矩阵**：13 列结构化证据提取，按证据优先级逐级回退
-- **目标体裁/文档风格学习**：支持期刊论文、学位论文、会议论文和已有草稿，生成章节蓝皮书 + 写作理由书
-- 6 种稳定写作模式（full-document / review-only / abstract-only / chapter-only / continue-existing / revision-only）
-- 学位论文写作默认按博士论文深度推进，关键论点优先采用“英文基础/国际研究 + 中文工程场景文献”联合支撑
-- 试写阶段默认使用作者-年份格式，并逐条标注 `（已读全文）/（已读摘要）/（仅元数据）`
-- **修稿教练（7.12）**：把审稿意见拆成 `revision_roadmap.md`、`response_letter_skeleton.md`、`evidence_gap_list.md`
-- 文献综述专属写作模式（8 节骨架 + 7 条写作纪律）
-- GB/T 7714-2015 完整引用格式规范（排序/作者/类型代码/缺失处理）
-- **科研图表生成**：按论文用途生成可审阅的图表草案与图表清单
-- **写后引用审计**：三层审计（`format_status` / `mapping_status` / `evidence_status`），逐条验证引用准确性，生成审计报告
-- **质量防线体系**：升级为前中后段联动的质量防线（选题预审→大纲评审→文献评分→章节论证计划→段落自查→引文评估→修稿/复评→写后引用审计→润色诊断）
-- PyMuPDF 多进程批量提取（<20 篇按需精读 / ≥20 篇全量并行）
-- 论文润色：结构精炼 + 术语统一 + 受约束补写 + 修订后验证
-
-![中文海报](posters/Step7_writing-poster-tech.png)
-![中文海报](posters/screens/screen-9.png)
-
-## ✨ 功能特性
-
-| # | 功能 | 说明 |
-|---|------|------|
-| 1 | **交互式研究主题定义** | 多轮对话厘清研究方向，产出结构化主题文档 |
-| 2 | **自动生成论文大纲与关键词** | 基于研究主题生成章节结构、中英文关键词清单 |
-| 3 | **结构化检索方案设计** | 拆分子课题、构建关键词组合、选定检索源 |
-| 4 | **多渠道论文检索** | Semantic Scholar / Crossref / OpenAlex 多源，3 条策略路线，DOI 去重合并 |
-| 5 | **相关性评分与筛选** | 五维评分（主题、方法、质量、时效、引用），T1-T4 分级 |
-| 6 | **批量 PDF 下载** | 统一下载路由自动分发：Sci-Hub / OA fast / IEEE CDP / Generic CDP / Chinese CDP，成功以 PDF verifier 和 manifest 记录为准 |
-| 7 | **统一路由下载入口** | 单一入口自动路由，按 Step 5 四阶段路由执行 |
-| 8 | **通用出版社下载引擎** | CSS 选择器策略 A（直连）→ 策略 B（文章页提取），支持补充材料 |
-| 9 | **出版社配置知识库** | 集中管理 DOI 前缀、URL 模板、CSS 选择器；数量由配置文件生成校验 |
-| 10 | **混合下载策略** | 先 `/pdfft` 直连（8s 快拒），失败则文章页提取 `?md5=` URL 后再捕获 |
-| 11 | **Chrome + Edge 并行下载** | 双浏览器独立会话，速度翻倍，自动绕过 Cloudflare |
-| 12 | **IEEE 两步走下载（备用）** | 导航文章页 → 点击 PDF 按钮 → 检测新标签页 → Fetch 捕获 |
-| 13 | **生成 Zotero 文库架构** | 按论文大纲自动生成集合结构和标签方案 |
-| 14 | **BibTeX/中文元数据-Zotero 架构对照** | 英文用 BibTeX/DOI，CNKI/万方用 source_id + 详情页元数据生成文献归属表 |
-| 15 | **PDF 附件一致性检查** | 将下载 PDF 关联到 Zotero 条目，检查缺附件/错集合/重复条目 |
-| 16 | **PDF 全文批量提取** | PyMuPDF 多进程并行提取，A/B 方案按文献量自动切换 |
-| 17 | **跨平台浏览器管理** | `CHROME_PATH`/`EDGE_PATH` 环境变量或 `--browser-path` 参数覆盖 |
-| 18 | **依赖自动检测** | 启动时检查 `websocket-client`/`PyMuPDF`，缺失即打印安装指引 |
-| 19 | 🆕 **文献综述矩阵** | 13 列结构化证据提取，笔记→标注→元数据→全文逐级回退 |
-| 20 | 🆕 **综述 DOCX 写作** | 8 节骨架 + 观点分组/合并引用/对比表达 7 条写作纪律 |
-| 21 | 🆕 **GB/T 7714 完整规范** | 中英排序、作者格式、7 种文献类型代码、缺失元数据处理 |
-| 22 | 🆕 **T1→T2→T3 检索路由** | 6 领域分级回退链，预检 + 布尔查询 + 多策略检索 |
-| 23 | 🆕 **引文验证与饱和度分析** | DOI 格式校验 + 元数据完整性检查 + 指数拟合文献覆盖率估算 |
-| 24 | 🆕 **检索报告（4 格式）** | 合并去重评分后导出为 .md + .xlsx + .pdf + .bib |
-| 25 | 🆕 **arXiv 辅助检索** | CS/AI 信号触发的 arXiv L2 条件检索 |
-| 26 | 🆕 **RCS 主题匹配度评鉴** | 4 级锚定 + 5 种旗标的主题相关性评估 |
-| 27 | 🆕 **Agent 模块化** | Step 主文档保持统一结构，触发词与入口词表下沉到 reference 索引并接受结构校验 |
-| 28 | 🆕 **目标体裁/文档风格学习** | 分析期刊/学位论文/会议论文/已有草稿风格 + 章节蓝皮书 + 写作理由书 + 格式合规检查 |
-| 29 | 🆕 **科研图表生成** | 按论文用途生成可审阅的图表草案与图表清单 |
-| 30 | 🆕 **写后引用审计** | 逐条验证引用准确性，生成审计报告 |
-| 31 | 🆕 **错误日志与决策日志** | 跨会话 AI 错误积累修正 + 结构性决策记录 |
-| 32 | 🆕 **术语标准化贯穿** | Step 2→3→7→8 术语别名映射与一致性强制 |
-| 33 | 🆕 **论文质量防线** | 6 道评审节点（选题预审→大纲评审→文献评分→段落自查→引文评估→成稿评审） |
-
-## 🏆 核心优势
-
-- **一站到底** —— 8 步全流程覆盖，从定题到润色一站式完成
-- **反爬边界清楚** —— 真实浏览器 CDP 协议处理 Cloudflare/Akamai 场景，下载成功以 PDF probe、manifest 和失败分桶记录为准
-- **全平台零配置** —— Chrome/Edge 路径自动检测，macOS/Windows/Linux 即装即用
-- **分层可拆** —— 每个 Step 独立运行，按需组合，不必从头开始
-- **零 API 费用** —— Semantic Scholar / Crossref / OpenAlex / Sci-Hub 全部免费
-- **双浏览器并行** —— Chrome + Edge 自动检测，有则加速，无则单浏览器正常运行
-- **断点续跑** —— 中断恢复不重复工作，支持无人值守批量下载
-- **抑制幻觉** —— 直接读 PDF 原文而非向量分块，引用精确性远高于 RAG 方案
-- **代码模块化** —— 统一封装 CDP 连接、标签管理、PDF 捕获、跨平台浏览器管理
-- **依赖自检** —— 启动时检查，缺失即打印安装指令
-- **Cloudflare 自动应对** —— 检测到 Turnstile 验证自动等待 60s 自行通过
-
-![中文海报](posters/screens/screen-2.png)
-
-> 本项目的集成的 Zotero MCP 基于 [54yyyu/zotero-mcp](https://github.com/54yyyu/zotero-mcp)，感谢原作者的开源贡献。
+> 本项目集成的 Zotero MCP 基于 [54yyyu/zotero-mcp](https://github.com/54yyyu/zotero-mcp)，感谢原作者的开源贡献。
 
 ### 直接读 PDF vs RAG 分块
 
@@ -400,95 +272,6 @@ Step 1.4          Step 2.2          Step 4        Step 7.7/7.8/7.10       Step 7
 | **Step 7.12/7.14 修稿与复评** | 评审后 / 修稿后 | 量化+叙事+闭环 | 问题拆解、claim 变化、修稿动作、上轮问题是否关闭、是否引入新问题 | 未关闭问题或新问题需要继续 revision-only 或回退上游 Step |
 | **Step 7.16 写后引用审计** | 初稿或修稿后 | 三层审计 | `format_status / mapping_status / evidence_status` + `recommended_action`；必要时图表证据子路径 | 高风险引用不能带入定稿；必须按动作建议修复 |
 | **Step 8 诊断优先润色** | 引用审计后 | 诊断+分流 | `evidence_gap / structure_drift / language_mechanical / contribution_overclaim / citation_misalignment` 哪些还能在本层修 | `ready_to_polish / ready_with_warnings / not_ready_requires_rollback`；保真终验后才可 `ready_for_finalize` |
-
----
-
-## 📋 工作流一览
-
-```
-Step 1: 交互式确定研究主题（v2.0 增强版）          → 研究主题.md
-Step 2: 生成论文大纲与关键词（含大纲评审+术语映射）  → 大纲关键词.md
-Step 3: 生成文献检索方案（T1→T2→T3 分级路由）      → 检索方案.md
-Step 4: 多渠道检索+评分筛选（4.2验证→4.9完成）    → 检索文献表.md / .xlsx / .pdf / .bib
-Step 5: 统一下载路由（Sci-Hub→Generic CDP） → paper-temp/ PDFs
-Step 6: Zotero 文库管理（架构+BibTeX条目+PDF附件一致性） → zotero-架构.md + 文献-Zotero架构对照.md/json + pdf-附件池索引.json + Zotero
-Step 7: 论文写作（文献证据矩阵+目标体裁/文档风格+图表+引用审计） → 文献证据矩阵.csv + 论文初稿或指定章节.md/.docx
-Step 8: 润色与保守修订（诊断、局部修订、验证）      → 论文润色稿.md
-```
-
-![中文海报](posters/screens/screen-8.png)
----
-
-## 🚀 安装参考
-建议把网址 https://github.com/bingyunjiang/more-paper-workflow-pro-skill 发给Claude code/Codex/Hermes/OpenClaw等对话框，让其自行下载和配置。
-
-如果你希望在 Step 1 选题阶段直接弹窗收集信息，可以在对话里明确加一句：`选题阶段用弹窗即可`。
-
-以下是不建议的安装方式：
-### 方式一：Hermes/OpenClaw/Claude Code Skills
-
-```bash
-pip install hermes-agent
-hermes skill install more-paper-workflow-pro-skill
-```
-
-### 方式二：独立脚本
-
-```bash
-git clone https://github.com/bingyunjiang/more-paper-workflow-pro-skill.git
-cd more-paper-workflow-pro-skill
-pip install websocket-client
-```
-
-### 系统要求
-
-| 组件 | 要求 | 说明 |
-|------|------|------|
-| 操作系统 | macOS / Windows 10+ / Linux | 全平台支持 |
-| Python | 3.9+（推荐 3.11+） | 兼容至 3.14 |
-| 浏览器 | Google Chrome（必选） | 自动检测路径，或设 `CHROME_PATH` 环境变量 |
-| 浏览器（可选） | Microsoft Edge | 并行下载加速，自动检测或设 `EDGE_PATH` |
-| Python 依赖 | `pip install websocket-client` | CDP 协议通信（脚本启动时自动检查） |
-| Python 依赖（可选） | `pip install pymupdf` | Step 8 批量 PDF 文本提取 |
-| 机构权限 | ScienceDirect 访问 | IP 或 SSO/CARSI/Shibboleth（仅 SD 下载需要） |
-
-### 自动升级提醒
-
-Skill 启动时会通过 `scripts/check_skill_update.py` 做一次轻量更新检查：比较 `SKILL.md` / `README.md` / `CHANGELOG.md` 的本地版本，并在 git 仓库可用时比较远程 `HEAD`。默认 24 小时最多检查一次，不会自动更新。
-
-```bash
-python3 scripts/check_skill_update.py --force
-```
-
-- 关闭提醒：`MORE_PAPER_SKILL_UPDATE_CHECK=0`
-- 调整频率：`MORE_PAPER_SKILL_UPDATE_INTERVAL_HOURS=6`
-- 只做本地元数据检查：`python3 scripts/check_skill_update.py --no-network --force`
-- 运行时弹窗检查：`python3 scripts/check_skill_update.py --json`
-- 生成标准提醒文本：`python3 scripts/check_skill_update.py --json | python3 scripts/render_update_prompt.py`
-- 执行升级（含失败回退提示）：`python3 scripts/perform_skill_upgrade.py --json`
-- 记录用户选择：`python3 scripts/check_skill_update.py --record-choice snooze_today`
-
-当 `--json` 返回 `should_prompt=true` 时，宿主应做一次软提醒。若宿主支持原生弹窗/按钮，优先提供 `升级 / 本次跳过 / 今日不再提醒` 三选项；若不支持，则降级为结构化文本提醒。
-
-完整宿主无关协议见：`references/update-reminder-protocol.md`。只要宿主支持“显示文本 + 接收用户回复 + 执行命令”，即可兼容。
-
-### 跨平台浏览器检测
-
-脚本自动查找 Chrome/Edge，无需手动配置路径。检测顺序：
-
-1. 环境变量 `CHROME_PATH` / `EDGE_PATH`
-2. 系统 PATH（`shutil.which`）
-3. 平台默认安装路径
-
-未找到浏览器时会打印安装指引。也可以手动指定：
-
-```bash
-python scripts/start_cdp_browser.py --port 9223 --url https://www.sciencedirect.com/
-```
-
-macOS/Linux 旧入口仍可用：`bash scripts/start_cdp_chrome.sh --port 9223`；Windows 原生环境不需要安装 bash。
-
----
 
 ## 📖 使用指南
 
@@ -984,96 +767,42 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
-A complete academic literature retrieval and writing workflow (8-step method): ① Interactive research topic definition → ② Outline & keyword generation → ③ Search strategy design → ④ Multi-source search + relevance scoring + BibTeX export → **⑤ Unified download routing across Sci-Hub / OA fast / IEEE CDP / Generic CDP / Chinese CDP phases** → ⑥ Zotero library management (architecture + BibTeX items + PDF attachment consistency) → ⑦ Paper writing (literature evidence matrix + target genre/document style learning + GB/T 7714 citations + figure generation + citation audit) → ⑧ Paper polishing.
-
-### Document Roles: Source of Truth
-
-| File | Role | Best for |
-|------|------|----------|
-| `README.md` | GitHub overview + quick start | Capabilities, installation, workflow overview, common triggers |
-| `SKILL.md` | Skill entrypoint and runtime routing | Triggers, agent routing, global dependencies, runtime conventions |
-| `agents/step_*.md` | Authoritative execution rules for each Step | Inputs/outputs, detailed flow, quality gates, troubleshooting |
-
-> If README details conflict with `agents/step_*.md`, follow `agents/step_*.md`. README intentionally stays as an overview to avoid duplicating runtime rules.
-
----
+> An evidence-centered academic workflow for bilingual and Chinese paper writing. It connects topic definition, literature search, download routing, Zotero, drafting, citation audit, and polishing around real documents rather than model memory.
 
 ## 📑 Table of Contents
 
-- [📖 Introduction](#Introduction)
-- [🎯 Who Is This For?](#Who-Is-This-For)
-- [✨ Features](#Features)
-- [🏆 Key Advantages](#Key-Advantages)
-- [🛡️ Quality Defense Line](#Quality-Defense-Line)
-- [📋 Workflow Overview](#Workflow-Overview)
-- [🚀 Installation (Reference Only)](#Installation-Reference-Only)
-- [📖 Usage Guide](#Usage-Guide)
-- [📂 Project Structure](#Project-Structure)
-- [❓ FAQ](#FAQ)
-- [📋 Version History](#Version-History)
-- [👥 Contributors](#Contributors)
-- [📄 License](#License)
-- [🔗 Links](#Links)
-
-## 📖 Introduction
-
-**More Paper Workflow Pro Skill** is a complete academic literature workflow toolchain, covering everything from research direction identification to polished manuscript submission. Script counts, Step documents, publisher configuration, and routing phases are generated from repository facts by `python3 scripts/check_doc_contracts.py --json`, keeping the overview aligned with the runtime contracts.
-
-### In One Sentence
-
-> Research topic → Literature search → Relevance scoring → Unified download routing → Zotero library and PDF attachment consistency → Literature evidence matrix + target genre/document style learning → Full writing, selected-section writing, or continuation of an existing draft with figures + citation audit → Paper polishing / AI-trace removal.
+- [Why This Tool](#why-this-tool)
+- [🎯 Who Is This For?](#who-is-this-for)
+- [⚡ Quick Start](#quick-start)
+- [📦 What You Get](#what-you-get)
+- [🛑 What It Will Not Do](#what-it-will-not-do)
+- [📋 Workflow Overview](#workflow-overview)
+- [🚀 Installation (Reference Only)](#installation-reference-only)
+- [🧱 Capability Snapshot](#capability-snapshot)
+- [🛡️ Quality Defense Line](#quality-defense-line)
+- [📖 Usage Guide](#usage-guide)
+- [📂 Project Structure](#project-structure)
+- [❓ FAQ](#faq)
+- [📋 Version History](#version-history)
+- [👥 Contributors](#contributors)
+- [📄 License](#license)
+- [🔗 Links](#links)
 
 ### Why This Tool
 
-Why does AI keep making up references when you ask it to write a paper? Because most AI academic tools treat "paper writing" as "text generation" — whether the cited references actually exist or the arguments have any basis, they simply don't care. **A good AI tool should not replace the researcher's judgment.** It should make searches more systematic, give scoring criteria for filtering, and base writing on actual paper content.
+Many AI writing tools reduce academic work to "generate some text." The hard part of a paper is not just prose: it is whether the evidence exists, whether citations can be traced, and whether every claim stays inside its evidence boundary.
 
-This tool deliberately does NOT do "one-click paper generation." Instead, it follows the traditional 8-step research process, assisting you through each stage. Every step produces visible output files; every reference comes from a PDF you actually have.
+This skill does not try to write a trustworthy paper in one click. It breaks academic work into 8 visible, interruptible, and recoverable steps so search, download routing, Zotero, writing, and citation audit form a closed loop.
 
-### Core Capabilities
+The core differences are simple:
 
-**🔧 Literature Search & Filtering (Step 1-4)**
-- AI-assisted interactive topic definition, 5 rounds of dialogue to clarify research direction
-- Semantic Scholar / Crossref / OpenAlex three-source parallel search, DOI deduplication
-- T1→T2→T3 tiered routing, 6 domain routing rules (Medicine/Engineering/CS/Review/Chinese)
-- Citation validation + saturation analysis (discovery curve) + search report (.md+.xlsx+.pdf+.bib)
-
-**📥 PDF Batch Download (Step 5) — Core Breakthrough**
-- **Unified download router**: single entry auto-routing across Sci-Hub / OA fast / IEEE CDP / Generic CDP / Chinese CDP phases; success is proven by PDF probe and manifest records
-- **Direct download mode**: if DOI, title, URL, BibTeX, or reference-list input already exists, skip earlier search steps, normalize into a download manifest, then route downloads
-- **Generic download engine**: Strategy A (direct PDF URL) → Strategy B (CSS selector extraction), supports supplementary material
-- **Publisher config knowledge base**: `config/publishers.toml` centrally manages DOI prefixes, URL templates, and barrier detection rules; the current count is generated by `scripts/check_doc_contracts.py --json`
-- Controls real browsers via Chrome/Edge **CDP protocol**, bypassing Cloudflare/Akamai anti-bot systems
-- 15 anti-detection Chrome flags + `warmup_profile()` preheating
-- Supports PDF probing, browser-session reuse, and **SSO institutional login** when confirmation is needed
-- Design principle: PDF access is proven by actual PDF probe, not by IP or cookie assumptions
-
-**📚 AI-Powered Zotero Library Management (Step 6)**
-- AI generates collection structure and tag scheme based on paper outline
-- Generates `文献-Zotero架构对照.md/json` from Step 4 `文献库.bib` and the Zotero architecture
-- Uses Zotero MCP to create collections, import BibTeX items, and attach files from the PDF attachment pool
-- CNKI/Wanfang Chinese papers do not rely on DOI import; they use `source_id` + detail-page URL + Chinese metadata to create CSL JSON items
-- One-click environment diagnostic script for Zotero configuration
-- **Consistency checks**: collection tree, BibTeX items, and PDF attachments remain traceable to each other
-
-**✍️ Paper Writing & Polishing (Step 7-8)**
-- Chapter-by-chapter reading of PDF originals as knowledge base, interactive citation confirmation
-- Direct PDF reading suppresses LLM hallucinations — citation accuracy exceeds RAG chunking approaches
-- 6 stable writing modes (full-document / review-only / abstract-only / chapter-only / continue-existing / revision-only)
-- **Revision coach (7.12)**: turns reviewer comments into `revision_roadmap.md`, `response_letter_skeleton.md`, and `evidence_gap_list.md`
-- Literature review writing mode (8-section skeleton + 7 writing disciplines)
-- GB/T 7714-2015 complete citation standard
-- **Figure generation (Step 7.15)**: generate reviewable figure drafts and figure inventories for paper use
-- **Figure insertion (Step 7.17)**: bind正文引出句、图/表、图后解释句 into one evidence chain; support auto-insert and post-write modes when MinerU ZIP or equivalent assets exist
-- **Post-writing citation audit (Step 7.16)**: 3-layer audit (`format_status` / `mapping_status` / `evidence_status`) plus `recommended_action` for every citation
-- **Quality defense system**: upgraded linked gates across planning, drafting, revision, audit, and polishing (topic→outline→search→argument plan→paragraph→citation→revision/rereview→audit→polish diagnostics)
-- PyMuPDF multi-process batch extraction (<20 papers on-demand / ≥20 papers full parallel)
-- Paper polishing: structure refinement + terminology unification + constrained revision + post-revision verification
-
-**🤖 Agent Orchestration Layer**
-- Main Step files keep a shared skeleton, while trigger vocabulary and entry routing live in reference indexes and are covered by structured checks
-- Cross-session error log + decision log + terminology aliases throughout the workflow
-
----
+- It uses an 8-step transparent workflow rather than jumping from topic to final draft
+- It organizes claims around real PDFs, BibTeX, Zotero items, and attachment consistency
+- It produces intermediate artifacts such as `research-topic.md`, `library.bib`, `download_manifest.json`, Zotero mapping files, section blueprints, and citation audit reports
+- It supports direct entry into later steps such as Step 5 download or Step 7 writing when you already have equivalent inputs
+- It stops before high-risk actions involving login state, external writes, missing evidence, or unsafe citations
+- It treats direct PDF reading as the primary evidence layer; RAG, if introduced later, is only a candidate-location accelerator
+- It stays practical: Chrome/Edge auto-detection, free search sources where possible, dependency checks, and explicit fallback paths
 
 ## 🎯 Who Is This For?
 
@@ -1081,40 +810,104 @@ This tool deliberately does NOT do "one-click paper generation." Instead, it fol
 
 - You've been burned by AI-fabricated references and distrust "one-click paper generators"
 - You want AI to boost efficiency, not make decisions — you keep full control
-- You're writing a review, thesis, or grant proposal requiring systematic management of 50–200+ references
-- You have institutional access to Elsevier or IEEE (campus VPN works)
-- You already use Zotero but find manual library organization exhausting
+- You are writing a review, thesis, coursework paper, journal article, or grant proposal
+- You already use or plan to build a Zotero library
+- You are willing to move step by step instead of asking for a "paper in 3 minutes"
 
 ### ❌ This might not be for you if:
 
-- "Enter a title, get a paper in 3 minutes" is your core need — this tool deliberately avoids that
-- You lack institutional access AND need many papers published after 2021
+- You want a one-click trustworthy paper generator
+- You do not want any human confirmation points
+- You do not care whether citations are real or evidence is traceable
 
----
+## ⚡ Quick Start
 
-## ✨ Features
+README keeps only the shortest public entry points. Runtime rules, fallback behavior, and Step boundaries live in [`SKILL.md`](SKILL.md) and [`agents/`](agents/).
 
-Feature details are maintained in the Chinese overview, `SKILL.md`, `agents/step_*.md`, and the structured inventory from:
+### 1. Topic Entry
 
-```bash
-python3 scripts/check_doc_contracts.py --json
+```text
+I want to study HFO refrigerant substitution in aero-engine lubrication systems. Please run more paper workflow from Step 1, produce a research-topic clarification result, and tell me how to move into Step 2.
 ```
 
-This English section intentionally avoids duplicating long capability tables so entry docs stay smaller and runtime claims remain generated from repository facts.
+- Best for: you have a direction but not a final topic
+- Triggers: Step 1
+- Immediate output: `research-topic.md`-style result
 
-## 🏆 Key Advantages
+### 2. Direct Download Entry
 
-- **End-to-End** — 8-step full workflow, from topic definition to polishing, all in one place
-- **Anti-Bot Breakthrough** — Real browser CDP protocol bypasses Cloudflare/Akamai, 96% download success rate
-- **Cross-Platform Zero Config** — Chrome/Edge path auto-detection, works on macOS/Windows/Linux out of the box
-- **Layered & Detachable** — Each Step runs independently; compose as needed without starting from scratch
-- **Zero API Costs** — Semantic Scholar / Crossref / OpenAlex / Sci-Hub all free
-- **Dual-Browser Parallel** — Chrome + Edge auto-detection; accelerates when both available, single-browser fallback otherwise
-- **Resumable** — Interruption recovery without redundant work; supports unattended batch download
-- **Hallucination Suppression** — Direct PDF reading instead of vector chunking; citation accuracy far exceeds RAG approaches
-- **Code Modularity** — `cdp_utils.py` unified CDP encapsulation: connection, tab management, PDF capture, cross-platform browser management
-- **Dependency Self-Check** — Checks `websocket-client`/`PyMuPDF` at startup, prints install instructions if missing
-- **Cloudflare Auto-Handling** — Detects Turnstile verification, auto-waits 60s for self-resolution
+```text
+Please go directly to Step 5. Use these DOI values to build a download manifest and explain the routing. Do not rerun earlier search steps: 10.1016/j.est.2024.113105; 10.1109/ACCESS.2024.3399912; 10.1016/j.energy.2022.125097
+```
+
+Subscription publisher PDFs usually require institutional login. For first Step 5 use, start a CDP browser and complete SSO in the same Chrome/Edge window before download routing.
+
+- Best for: you already have DOI, BibTeX, titles, URLs, or a reference list
+- Triggers: Step 5
+- Immediate output: `download_manifest.json`, routing preview, unresolved item list
+
+### 3. Writing Entry
+
+```text
+I already have a Zotero library, PDF attachments, and a section draft. Please go directly to Step 7, first generate a section blueprint for "2.3 Research status of HFO refrigerant substitution", and tell me what evidence is still missing.
+```
+
+- Best for: you already have Zotero / PDFs / draft material
+- Triggers: Step 7
+- Immediate output: section blueprint, evidence gaps, or selected-section draft
+
+## 📦 What You Get
+
+This skill produces files, not just chat replies:
+
+- Step 1: `research-topic.md`
+- Step 4: literature table `.md/.xlsx/.pdf`, `library.bib`, `step4-dashboard/`
+- Step 5: `download_manifest.json`, unresolved item list, PDF attachment pool
+- Step 6: literature-Zotero mapping `.md/.json`, `capability_index.json/md`
+- Step 7: section blueprints, writing rationale matrix, section draft or full draft
+- Step 7.16: citation audit result
+- Step 8: polished manuscript and quality report
+
+## 🛑 What It Will Not Do
+
+The rigor comes from knowing when to stop:
+
+- It does not promise one-click trustworthy papers
+- It does not insert unverified citations into key conclusions
+- It does not silently choose Step 6 `cloud` mode
+- It does not force a full linear rerun when equivalent direct-entry inputs exist
+- It does not pretend login-gated access, external writes, or high-risk actions have completed
+- README is not the runtime source of truth; [`SKILL.md`](SKILL.md) and [`agents/step_*.md`](agents/) define execution boundaries
+
+## 📋 Workflow Overview
+
+```text
+Step 1: Interactive topic definition                    -> research-topic.md
+Step 2: Outline and keyword generation                   -> outline-keywords.md
+Step 3: Search strategy design                           -> search-plan.md
+Step 4: Multi-source search and scoring                  -> literature table / library.bib / dashboard
+Step 5: Unified download routing                         -> PDF pool / download manifest
+Step 6: Zotero library management                        -> Zotero architecture / mapping / capability index
+Step 7: Paper writing with evidence and citation audit    -> draft / section draft / audit report
+Step 8: Polishing and conservative revision              -> polished manuscript / quality report
+```
+
+## 🚀 Installation (Reference Only)
+
+The recommended way is to send this URL to Claude Code / Codex / Hermes / OpenClaw and let the runtime download and configure the skill:
+
+- `https://github.com/bingyunjiang/more-paper-workflow-pro-skill`
+
+The repository keeps reference commands because different runtimes expose different install paths. The simplest success check is to paste one Quick Start prompt and see whether the expected Step and output artifacts are recognized.
+
+## 🧱 Capability Snapshot
+
+- **Step 1-4 Search and filtering**: topic clarification, outline, search strategy, multi-source search, scoring, citation validation, saturation analysis, reports, and BibTeX
+- **Step 5 Download routing**: DOI/title/URL/BibTeX/reference-list input can go straight into download routing with explicit success/failure/recovery records
+- **Step 6 Zotero alignment**: outline, BibTeX, Chinese metadata, PDF attachment pool, and Zotero collections become one traceable structure
+- **Step 7 Writing and audit**: section-level evidence reading, section blueprints, writing rationale matrix, draft generation, figure drafts, and citation audit
+- **Step 8 Polishing and revision**: diagnose first, revise conservatively, and roll back when evidence gaps, structure drift, or citation mismatches cannot be fixed locally
+- **Cross-platform runtime**: Chrome/Edge auto-detection and dependency checks; detailed behavior lives in [`SKILL.md`](SKILL.md) and [`agents/step_*.md`](agents/)
 
 > This project's Zotero MCP integration is based on [54yyyu/zotero-mcp](https://github.com/54yyyu/zotero-mcp). Thanks to the original author for the open-source contribution.
 
@@ -1133,8 +926,6 @@ Citation accuracy is paramount in paper writing. This tool uses **direct PDF rea
 > RAG preprocessing is only worthwhile for massive literature collections (>200 papers). This tool's Step 4 literature table + Step 6 Zotero architecture already handle classification; on-demand deep reading is sufficient for writing.
 
 > If RAG is added later, it will be strictly limited to a **candidate retrieval accelerator**: RAG finds where evidence might exist, while Zotero notes / annotations / direct PDF reading confirm whether it is real evidence. RAG outputs will never directly become manuscript citations or audit conclusions.
-
----
 
 ## 🛡️ Quality Defense Line
 
@@ -1171,95 +962,6 @@ Qualitative       Quantitative      Quantitative  controls                  deci
 | **Step 7.12/7.14 Revision & Rereview** | After review / after revision | Quant+Narrative+closure | roadmap / claim delta / issue closure / new issue detection | Unresolved issues loop back |
 | **Step 7.16 Citation Audit** | After draft or revision | 3-layer audit | `format_status / mapping_status / evidence_status` + `recommended_action` | High-risk citations must be fixed before finalization |
 | **Step 8 Polish Diagnostics** | After audit | Diagnostic + routing | `evidence_gap / structure_drift / language_mechanical（含 AI 味确定性检查） / contribution_overclaim / citation_misalignment` | finalize / warn / rollback |
-
----
-
-## 📋 Workflow Overview
-
-```
-Step 1: Interactive research topic definition (v2.0 enhanced)    → research-topic.md
-Step 2: Outline & keyword generation (with review + term mapping) → outline-keywords.md
-Step 3: Search strategy design (T1→T2→T3 tiered routing)          → search-plan.md
-Step 4: Multi-source search + scoring (4.2 validation→4.9 complete) → literature-table.md / .xlsx / .pdf / .bib / step4-dashboard/
-Step 5: Unified download routing (Sci-Hub→Generic CDP)    → paper-temp/ PDFs
-Step 6: Zotero library management (architecture + BibTeX + PDF consistency) → zotero-architecture.md + Zotero mapping + Zotero
-Step 7: Paper writing (literature evidence matrix + target genre/document style + figures + audit) → evidence-matrix.csv + paper draft or selected chapter.md/.docx
-Step 8: Paper polishing and conservative revision (diagnose, revise, verify) → paper-polished.md
-```
-
-### Design Philosophy: AI Assists, Not Replaces
-
-| Dimension | Most AI Tools | More Paper Workflow |
-|------|-------------|-------------------|
-| **Generation** | Black box: topic → paper | Transparent pipeline: 8 steps, each visible & editable |
-| **References** | AI fabricates from memory | Reads real PDFs from Zotero |
-| **User Control** | Review after generation | Confirm at every step; resume from any step |
-| **Final revision** | Mostly manual read-through | Diagnose issues, apply local revisions, keep verification records |
-| **PDF Access** | Not addressed | Unified router: Sci-Hub / OA fast / IEEE CDP / Generic CDP / Chinese CDP phases |
-| **Philosophy** | Do the research for you | Assist you in doing research |
-
----
-
-## 🚀 Installation (Reference Only)
-
-The recommended way is to send the URL `https://github.com/bingyunjiang/more-paper-workflow-pro-skill` to Claude Code / Codex / Hermes / OpenClaw — they will download and configure it automatically.
-
-The following methods are NOT recommended:
-
-### Method 1: Hermes/OpenClaw/Claude Code Skills
-
-```bash
-pip install hermes-agent
-hermes skill install more-paper-workflow-pro-skill
-```
-
-### Method 2: Standalone Scripts
-
-```bash
-git clone https://github.com/bingyunjiang/more-paper-workflow-pro-skill.git
-cd more-paper-workflow-pro-skill
-pip install websocket-client
-```
-
-### System Requirements
-
-| Component | Requirement | Notes |
-|------|------|------|
-| OS | macOS / Windows 10+ / Linux | Full cross-platform support |
-| Python | 3.9+ (recommended 3.11+) | Compatible up to 3.14 |
-| Browser | Google Chrome (required) | Auto-detected, or set `CHROME_PATH` env var |
-| Browser (optional) | Microsoft Edge | Parallel download acceleration, auto-detected or set `EDGE_PATH` |
-| Python Deps | `pip install websocket-client` | CDP protocol communication (auto-checked at startup) |
-| Python Deps (optional) | `pip install pymupdf` | Step 8 batch PDF text extraction |
-| Institution Access | ScienceDirect access | IP or SSO/CARSI/Shibboleth (SD download only) |
-
-### Automatic Update Reminder
-
-On skill startup, `scripts/check_skill_update.py` performs a lightweight update check: it compares local `SKILL.md` / `README.md` / `CHANGELOG.md` versions and, when this is a git checkout, compares the remote `HEAD`. It is throttled to once every 24 hours by default, only prints a suggested command, and never updates files automatically.
-
-```bash
-python3 scripts/check_skill_update.py --force
-```
-
-- Disable reminder: `MORE_PAPER_SKILL_UPDATE_CHECK=0`
-- Change frequency: `MORE_PAPER_SKILL_UPDATE_INTERVAL_HOURS=6`
-- Local metadata only: `python3 scripts/check_skill_update.py --no-network --force`
-
-### Cross-Platform Browser Detection
-
-Scripts automatically find Chrome/Edge, no manual path configuration needed. Detection order:
-
-1. Environment variables `CHROME_PATH` / `EDGE_PATH`
-2. System PATH (`shutil.which`)
-3. Platform default install paths
-
-Installation guidance is printed if no browser is found. Manual override:
-
-```bash
-python3 scripts/auto_sd_downloader.py --browser-path "/custom/path/chrome"
-```
-
----
 
 ## 📖 Usage Guide
 
