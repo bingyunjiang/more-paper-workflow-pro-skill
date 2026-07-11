@@ -8,6 +8,44 @@
 
 ---
 
+## v1.0.20-20260711 (2026-07-10 至 2026-07-11)
+
+### Step 1-2 早期研究校准与低负担交互
+
+- 新增 `references/early-research-evidence-calibration.md`，要求选题和大纲先用小样本真实检索校准，不再把截断样本写成数据库总量；以 `observed_count / relevance_ratio / source_agreement / representative_records / query_sensitivity` 表达早期证据。
+- Step 1 增加 `evidence_calibration` 与最小 `interaction_record`，区分用户提供、系统推断、临时假设和未决问题；检索不可用时允许继续，但必须标记 `provisional`。
+- Step 2 增加 `outline_baseline`、关键词来源与语料命中审计，并新增 `reconcile_step2_after_search.py`，支持正式检索后局部回写大纲，而不重做整个前序流程。
+
+### Step 3-4 检索编译、来源能力与可追溯执行
+
+- 新增 `config/search_source_capabilities.json`、`references/search-source-capability-evidence.md` 和 `scripts/search_query_compilers.py`，基于官方文档与在线探针区分 OpenAlex、Crossref、Semantic Scholar、PubMed、arXiv、CNKI/万方的 `exact / degraded / manual_required / invalid` 编译能力。
+- Step 3 强化 systematic 模式和 PRISMA-S 字段，检索计划现在记录执行语境、来源范围、年份、文献类型、筛选标准、去重方案、查询版本与更新策略；lint 会识别不受支持的布尔语法、单一术语例外和需客户端复核的降级查询。
+- Step 4 记录 `discovered_sources / metadata_sources / discovery_round(s) / discovery_strategy`，保留多来源发现与元数据补全溯源；覆盖审计同步检查来源能力、查询执行和扩展轮次。
+- 中文检索登录页改为非阻塞预开，新增登录 tab 回归测试，支持用户回答选题问题时并行完成 CNKI/万方登录。
+
+### Step 5-6 工件耐久性、恢复状态与 Zotero 执行审计
+
+- JSON 工件改用原子写入，JSONL journal 增加稳定 ID 去重；登录、验证码和人工恢复 checkpoint 解决后保留并转为 `resolved`，仍有剩余项时保持 pending，避免恢复状态被覆盖或重复执行。
+- Step 5 校验器新增 checkpoint 重复项、验证码状态和 durable journal 检查；手动 PDF reconciliation 与统一下载路由对齐新的关闭语义。
+- Step 6 增加 Zotero plan/execution 新鲜度校验、操作 journal 与完成态审计，`write_complete` 必须有与当前计划一致的成功操作记录，过期执行不能通过完成门。
+
+### Step 7 博士学位论文整篇闭环
+
+- 新增 `references/doctoral-dissertation-writing-contract.md`、`scripts/audit_doctoral_thesis_readiness.py` 和 `scripts/doctoral_chapter_cycle.py`，用 `doctoral_thesis_map.json` 约束中心问题、RQ、结果、贡献、新颖性边界、可复现性、反证和跨章综合。
+- 逐章写作采用 `prepare -> write -> close -> incremental audit`，通过章节逻辑快照、关闭记录、冲突检查和原子回写防止抢写后章、重复贡献、RQ 漏答与贡献强度漂移。
+- 完成状态区分 `provisional / doctoral_ready / blocked`；Step 7 可直接进入且不补跑 Step 1-6，但只有稿件哈希和八类论证闭环通过审计后才能声明 `evidence_closed / ready_for_step8`。
+- Step 7 校验器显式区分 `draft_ready` 与 `evidence_closed`，草稿态允许保留待补引文，高完成态继续要求证据映射、审稿评分与引用审计。
+
+### Step 8 作者责任、作者声音与 AI 使用边界
+
+- 新增 `references/authorial-revision-and-ai-use.md` 与 `authorial_revision_record.json` 合同，把修订分为 `editorial_only / author_confirmed / requires_author_input`，核心贡献、因果、方法、局限和实践含义必须保留作者确认。
+- 明确 Step 8 目标是准确性、连贯性、体裁适配和真实作者声音，不承诺“通过 AIGC 检测”，不以检测分数为优化目标，也不通过错别字、随机句式或虚假引用伪装人工写作。
+- 局部低风险润色可直接进入且不要求补跑 Step 7；高风险智识修改在作者未确认时只能输出带标记草案，不能进入 `ready_for_finalize`。
+
+### 测试与合同覆盖
+
+- 新增检索源编译、博士论文 readiness、逐章循环、Step 2 检索后协调和中文登录 tab 等测试，并扩展 Step 1-8 direct-entry、完成门、工件耐久性与 Zotero 执行一致性回归覆盖。
+
 ## v1.0.19-20260704 (2026-07-04)
 
 ### Step 5 下载稳定性、恢复与诊断产物

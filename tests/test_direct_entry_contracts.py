@@ -28,7 +28,7 @@ class DirectEntryContractsTest(unittest.TestCase):
         self.assertIn('choices=["step4", "step5", "step6", "step7", "step8"]', passport_cli)
 
     def test_step_agents_define_direct_entry_contracts(self):
-        for step in range(3, 9):
+        for step in range(1, 9):
             matches = [
                 p for p in (ROOT / "agents").glob(f"step_{step}_*.md")
                 if not p.name.endswith("_entry.md")
@@ -36,7 +36,7 @@ class DirectEntryContractsTest(unittest.TestCase):
             self.assertGreaterEqual(len(matches), 1, f"expected at least one main agent file for step {step}")
             text = matches[0].read_text(encoding="utf-8")
             self.assertIn("Direct-entry input contract", text, matches[0].name)
-            self.assertRegex(text, r"不要求.*回跑|不要求.*补跑", matches[0].name)
+            self.assertRegex(text, r"不要求.*回跑|不要求.*补跑|不要求.*其他 Step", matches[0].name)
 
     def test_checkpoint_protocol_is_not_linear_lock(self):
         skill = read_rel("SKILL.md")
@@ -63,6 +63,21 @@ class DirectEntryContractsTest(unittest.TestCase):
         self.assertIn("进入 Step 6 后，必须先确认 Zotero 模式：`local` / `cloud` / `skip`", step6)
         self.assertIn("不得静默默认 cloud", step6)
         self.assertIn("plan-only", step6)
+
+    def test_step4_direct_entry_repairs_queries_without_linear_rollback(self):
+        step4 = read_rel("agents/step_4_search_score.md")
+        gates = read_rel("references/completion-gates.md")
+        triage = read_rel("references/failure-triage.md")
+
+        for token in [
+            "Direct-entry 局部修复合同",
+            "basis_origin=step4_reconstructed",
+            "不要求用户回到 Step 1/2/3",
+            "只有用户明确要求重新定题、重做大纲或制定完整检索方案时",
+        ]:
+            self.assertIn(token, step4)
+        self.assertIn("不得把回跑前序 Step 作为完成门", gates)
+        self.assertIn("不要求回跑 Step 1/2/3", triage)
 
 
 if __name__ == "__main__":

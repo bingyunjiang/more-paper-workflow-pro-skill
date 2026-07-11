@@ -258,9 +258,12 @@ python3 scripts/build_zotero_plan.py --pdf-dir ./user-pdfs
 
 # 真实 Zotero 写入后追加幂等操作事件
 python3 scripts/zotero_operation_journal.py --output-dir . \
-  --operation-type create_item --target-id stable-001 \
+  --operation-type create_item --target-id zrec-0123456789abcdef \
+  --plan-fingerprint zplan-0123456789abcdef0123 \
   --status success --zotero-key ABCD1234 --checkpoint-confirmed
 ```
+
+`record_id` 由 DOI/source_id/标题-作者-年份和 citekey 的稳定身份生成，不使用输入序号；同一输入重排后 ID 不变。`plan_fingerprint` 绑定集合路径、导入方式和附件动作；新计划不得复用旧计划的 success operation。
 
 **可选增强提示：**
 
@@ -446,6 +449,7 @@ python3 scripts/citation_audit.py 论文初稿.md \
 ```json
 {
   "schema_version": "1.2",
+  "plan_fingerprint": "zplan-0123456789abcdef0123",
   "root_collection": "从大纲解析出的论文标题",
   "readiness": "complete|partial|blocked",
   "can_continue": true,
@@ -455,7 +459,7 @@ python3 scripts/citation_audit.py 论文初稿.md \
   "recommended_next_step": "",
   "records": [
     {
-      "record_id": "stable-001",
+      "record_id": "zrec-0123456789abcdef",
       "citekey": "zhang2024_example",
       "source": "cnki",
       "source_id": "cnki.a1b2c3d4",
@@ -523,6 +527,7 @@ python3 scripts/citation_audit.py 论文初稿.md \
 6. 前序映射缺失时，才依据 BibTeX `note` 中的 `subtopic`、`Tier`、`Score` 字段匹配集合。
 7. 再次降级时，才依据 title / abstract / keywords 与 `zotero-架构.md` 的集合名、标签说明匹配。
 8. 不确定归属时不要硬分配，放入 `待确认` 集合或在对照表中标注「待人工确认」。
+9. 同一个 PDF 若被两个不同 record 高置信命中，所有相关记录统一标为 `attachment_conflict + manual_review_shared_pdf`；不得按处理顺序把文件静默分给最后一个条目。
 
 **中文文献元数据规则：**
 - `cnki.xxx` / `wanfang.xxx` 是内部 source id，不是真实 DOI。
@@ -746,6 +751,7 @@ zotero_get_collections()
 - 附件池中未匹配 PDF 必须列入「未关联 PDF 清单」，不得静默忽略。
 - Zotero 条目：不得只导入元数据却未移动到推荐集合，除非 JSON 记录标记为「待人工确认」。
 - 已有同 DOI / 同 hash / 同名同大小附件时，必须标记 `already_attached` 或 `duplicate_candidate`，不得重复挂载。
+- `write_complete` 时，每个非 REJECT、非 existing 的 record_id 必须存在当前 `plan_fingerprint` 下的 success operation；只存在 state 文件或旧计划 success 不算完成。
 
 **附件动作规则：**
 | 情况 | attachment_status | attachment_action |
@@ -831,6 +837,9 @@ zotero_get_collections()
 - [ ] 重复条目、缺 DOI、缺 PDF、待人工确认项已单独报告。
 - [ ] `item_state / attachment_state / completion_state` 已写入，`python3 scripts/validate_step6_output.py <output-dir>` 已通过。
 - [ ] 如执行真实写入，`zotero_write_operations.jsonl` 与 `zotero_execution_state.json` 已生成，成功 operation 可幂等恢复。
+- [ ] `record_id` 为内容稳定 ID，`plan_fingerprint` 已写入计划和每条操作；操作 payload 变化不会被旧幂等记录静默跳过。
+- [ ] 同一 PDF 被多个条目争用时已统一标为 attachment conflict，没有发生最后写入覆盖。
+- [ ] `write_complete` 已逐 record 验证当前计划 success operation，operation log 行合法且 event_id 唯一。
 
 ---
 
@@ -844,6 +853,7 @@ zotero_get_collections()
 - [ ] `pdf-附件池索引.json` 已生成并更新匹配状态
 - [ ] 如果 `skip` 或 plan-only：readiness、blocking_missing、nonblocking_missing、recommended_next_step 已写入
 - [ ] 如果执行 Zotero 写入：`CP-ZOTERO-WRITE` 已确认，集合创建完成并通过一致性检查
+- [ ] 中断恢复只重放当前 `plan_fingerprint` 下未 success 的 operation；`zotero_execution_state.json` 通过临时文件原子替换更新
 - [ ] PDF 附件状态与建议动作已写回；高风险挂载动作已等待人工确认
 
 ### 错误日志更新

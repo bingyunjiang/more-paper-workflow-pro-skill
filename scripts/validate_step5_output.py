@@ -72,10 +72,25 @@ def validate(root: Path) -> tuple[list[Finding], dict[str, object]]:
 
     for checkpoint_name in ("login_checkpoint.json", "chinese_login_checkpoint.json"):
         checkpoint = _read_json(root / checkpoint_name)
-        if not isinstance(checkpoint, dict) or checkpoint.get("status") != "pending_user_login":
+        if not isinstance(checkpoint, dict) or checkpoint.get("status") not in {"pending_user_login", "pending_captcha_verification"}:
             continue
-        for pending in checkpoint.get("items", []):
+        checkpoint_items = checkpoint.get("items")
+        if not isinstance(checkpoint_items, list):
+            findings.append(Finding("fail", "invalid_checkpoint_items", f"{checkpoint_name} items must be a list"))
+            continue
+        seen_checkpoint_ids: set[str] = set()
+        for pending in checkpoint_items:
+            if not isinstance(pending, dict):
+                findings.append(Finding("fail", "invalid_checkpoint_item", f"{checkpoint_name} contains a non-object item"))
+                continue
             identifier = pending.get("doi") or pending.get("source_id") or pending.get("id") or pending.get("title")
+            if not identifier:
+                findings.append(Finding("fail", "checkpoint_item_missing_identifier", f"{checkpoint_name} contains an item without identifier"))
+                continue
+            if str(identifier) in seen_checkpoint_ids:
+                findings.append(Finding("fail", "duplicate_checkpoint_item", f"{checkpoint_name} repeats {identifier}"))
+                continue
+            seen_checkpoint_ids.add(str(identifier))
             matching = next((item for item in items if identifier in {item.get("doi"), item.get("source_id"), item.get("id"), item.get("title")}), None)
             if identifier in identifiers and matching and matching.get("status") == "downloaded":
                 continue

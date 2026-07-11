@@ -9,7 +9,7 @@
 用户研究方向
   → ① 提取核心概念（2-4 个）
   → ② 识别子领域（决定 L2 路由：CS 交叉 vs 传统工科）
-  → ③ 为每个概念列出同义词/缩写/相关术语（≥2 个）
+  → ③ 为每个概念列出同义词/缩写/相关术语（通常 ≥2 个）
   → ④ 组装布尔查询：(concept1 OR synonym) AND (concept2 OR synonym)
   → ⑤ 添加排除词（NOT 噪音方向）
   → ⑥ 反模式检查
@@ -68,7 +68,7 @@ C3 — 验证: ("experimental" OR "test rig" OR "measurement" OR "prototype")
 
 ### 3.1 同义词展开
 
-每个概念块至少包含 **2 个**同义词，推荐 **3-5 个**：
+每个概念块通常至少包含 **2 个**有效变体，推荐 **3-5 个**。若该概念只有一个稳定的规范名称，可使用单词，但必须记录 `single_canonical_term_reason`：
 
 | 展开类型 | 示例 |
 |---------|------|
@@ -113,8 +113,8 @@ C3 — 验证: ("experimental" OR "test rig" OR "measurement" OR "prototype")
 | 2 | 🔴 CNKI/万方检索不带 `--language zh` | ❌ 中文数据库中混有英文论文（中国期刊英文发表），这些论文难以通过 CDP 下载，必须在检索阶段排除。始终使用 `--language zh` |
 | 3 | `AND "human"` | ❌ 一半相关论文不含此词；依赖主题聚类而非关键词 |
 | 4 | AND 块数 > 4 | ❌ 召回率断崖下跌；拆分多查询 |
-| 5 | 单概念无双同义词 | ⚠️ 至少 2 个同义词/块，否则遗漏大量变体表述 |
-| 6 | 用全文 `search=` 代替 `title.search=` | ⚠️ 全文搜索噪音大，优先标题搜索，零结果时再 fallback |
+| 5 | 单概念无变体且无理由 | ⚠️ 通常至少 2 个变体/块；规范单词例外须记录理由 |
+| 6 | 跨来源硬套字段语法 | ⚠️ 字段范围必须按 endpoint 官方能力编译；OpenAlex 旧 `title.search` 已 deprecated，PubMed `[tiab]` 也不能套给其他来源 |
 | 7 | 排除词用方法学术语 | ⚠️ 如 `NOT "simulation"` 会误杀含实验+仿真的论文 |
 | 8 | 用缩写不作全称展开 | ⚠️ "CFD" 应同时匹配 "computational fluid dynamics" |
 
@@ -138,46 +138,21 @@ C3 — 验证: ("experimental" OR "test rig" OR "measurement" OR "prototype")
 | **Review type** | 找已有综述 | `filter=type:review` |
 | **CN author filter** | 找国内团队 | `filter=authorships.institutions.country_code:CN` |
 
-## 6. 各 API 布尔语法对照
+## 6. 各来源编译边界
 
-统一布尔表达式需要按各 API 翻译：
+来源语法不得凭经验维护在 Markdown 表中。机器真相见 `config/search_source_capabilities.json`，查证依据见 `references/search-source-capability-evidence.md`，实现见 `scripts/search_query_compilers.py`。
 
-| 语义 | OpenAlex | Semantic Scholar | Crossref | Wanfang (PQ) | CNKI 🆕 |
-|------|----------|-----------------|----------|-----------------|---------|
-| AND | `AND`（`search=` 参数） | 空格（隐式 AND） | `AND`（`query=` 参数） | `AND`（PQ 语法） | `并且`（POST `txt_N_relation=#CNKI_AND`） |
-| OR | `OR` | `+` 强制包含 | `OR` | `OR`（同义词括号内） | `或者`（POST `txt_N_relation=#CNKI_OR`） |
-| NOT | 不原生支持，用过滤器替代 | `-` 排除 | 不原生支持 | `NOT 标题:term` | `不含`（POST `txt_N_relation=#CNKI_NOT`） |
-| 精确短语 | `"exact phrase"` | `"exact phrase"` | `"exact phrase"` | `"exact phrase"` | `txt_N_special1=%`（模糊）或 `=`（精确） |
-| 标题限定 | `filter=title.search:...` | `title:` 字段 | `query.title=...` | `标题:term` | `txt_N_sel=TI`（篇名） |
+| 来源/endpoint | 当前合同 | 处理规则 |
+|--------------|----------|----------|
+| OpenAlex `/works?search=` | `exact` | 官方支持大写 `AND/OR/NOT`、短语和邻近；通配使用 `search.exact`；约 4 KB URL 上限需拆分求并集 |
+| Semantic Scholar `/paper/search` | `degraded` | 官方明确不支持特殊语法；只传 plain text，概念块由客户端复核 |
+| Semantic Scholar `/paper/search/bulk` | `exact` | 官方支持 `+`、`|`、`-`、短语、前缀、模糊和邻近；不得套用到普通 search endpoint |
+| Crossref `/works` relevance query | `degraded` | `query.title/query.bibliographic` 用于候选召回，不声称服务端保真执行集合布尔；客户端复核概念块 |
+| PubMed | `exact` + caveat | 使用 `AND/OR/NOT`、字段标签、短语、通配和邻近；保留 ATM/phrase-index 警告 |
+| arXiv API | `exact` | 使用字段前缀及 `AND/OR/ANDNOT`，括号和短语需正确 URL 编码 |
+| CNKI/万方 CDP | `manual_required` | 当前 UI adapter 行为，不声称稳定公开 API；默认只检索中文，UI 漂移后重新 probe |
 
-### 翻译示例
-
-**统一布尔表达式：**
-```
-(cold plate OR liquid cooling OR microchannel) AND (topology optimization OR generative design) NOT (PCM OR phase change)
-```
-
-**→ OpenAlex:**
-```
-search=cold plate OR liquid cooling OR microchannel AND topology optimization OR generative design
-filter=title.search:cold plate|liquid cooling|microchannel
-```
-
-**→ Semantic Scholar:**
-```
-+cold plate +"topology optimization" -PCM -"phase change"
-```
-（S2 用 `+` 表示强制包含，`-` 表示排除，空格为隐式 AND）
-
-**→ Crossref:**
-```
-query=(cold plate OR liquid cooling) AND (topology optimization OR generative design)
-```
-
-**→ Wanfang (PQ):**
-```
-标题:("cold plate" OR "liquid cooling") AND 标题:("topology optimization" OR "generative design") NOT 标题:"PCM"
-```
+统一概念块必须先形成语义 AST，再由来源编译器翻译。任何 `degraded` 结果都必须输出 `dropped_semantics / post_filter_required / degradation_reason`，不得只留下一个看似可执行的字符串。
 
 ## 7. 年份启发式
 

@@ -66,6 +66,8 @@ from workflow_contracts import (
     PdfPoolItem,
     Step5DownloadItem,
     Step5DownloadManifest,
+    append_jsonl_durable,
+    atomic_write_json,
     as_chinese_papers,
     dois_from_download_items,
     download_items_from_search_records,
@@ -2253,9 +2255,7 @@ def write_step5_outputs(
     attempts_path = os.path.join(output_dir, "download_attempts.jsonl")
     pool_path = os.path.join(output_dir, "pdf-附件池索引.json")
     write_step5_download_manifest(manifest_path, manifest)
-    with open(attempts_path, "a", encoding="utf-8") as f:
-        for row in attempts_rows:
-            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    append_jsonl_durable(attempts_path, attempts_rows)
     write_pdf_pool_index(pool_path, build_pdf_pool_index(output_dir, [item.__dict__ for item in manifest_items]))
     debug_path = write_failure_snapshots(output_dir, manifest_items)
     paths = {"manifest": manifest_path, "attempts": attempts_path, "pdf_pool": pool_path}
@@ -2543,8 +2543,7 @@ def write_login_checkpoint(output_dir: str, stage: str, dois: list[str],
         "items": items,
         "rerun_hint": "python3 scripts/unified_download_router.py --resume-login-checkpoint paper-temp/login_checkpoint.json --output paper-temp/ --confirmed",
     }
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    atomic_write_json(path, payload)
     return path
 
 
@@ -2580,9 +2579,23 @@ def write_chinese_login_checkpoint(
         "items": items,
         "rerun_hint": "python3 scripts/unified_download_router.py --resume-chinese-login-checkpoint paper-temp/chinese_login_checkpoint.json --output paper-temp/ --require-login-confirm",
     }
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    atomic_write_json(path, payload)
     return path
+
+
+def resolve_login_checkpoint(checkpoint_path: str | Path, *, downloaded: list[str], remaining: list[str]) -> None:
+    """Close a checkpoint without deleting its recovery audit trail."""
+    path = Path(checkpoint_path)
+    if not path.exists() or remaining:
+        return
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    payload["status"] = "resolved"
+    payload["resolved_at"] = datetime.now().isoformat(timespec="seconds")
+    payload["resolved_items"] = list(dict.fromkeys(downloaded))
+    atomic_write_json(path, payload)
 
 
 def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
@@ -2602,7 +2615,9 @@ def resume_from_chinese_login_checkpoint(checkpoint_path: str, output_dir: str,
 
     gate = show_chinese_login_gate(papers, port=port, confirmed_login=confirmed_login)
     if gate is True:
-        return run_chinese_round(papers, output_dir, port, confirmed_login=confirmed_login)
+        downloaded, remaining = run_chinese_round(papers, output_dir, port, confirmed_login=confirmed_login)
+        resolve_login_checkpoint(checkpoint_path, downloaded=downloaded, remaining=remaining)
+        return downloaded, remaining
     if gate is False:
         print("Chinese download skipped by user.")
         return [], [paper.get("doi") or paper.get("title", "") for paper in papers]
@@ -2630,12 +2645,14 @@ def resume_from_chinese_login_checkpoint_with_reasons(
 
     gate = show_chinese_login_gate(papers, port=port, confirmed_login=confirmed_login)
     if gate is True:
-        return run_chinese_round_with_reasons(
+        downloaded, remaining, reasons = run_chinese_round_with_reasons(
             papers,
             output_dir,
             port,
             confirmed_login=confirmed_login,
         )
+        resolve_login_checkpoint(checkpoint_path, downloaded=downloaded, remaining=remaining)
+        return downloaded, remaining, reasons
     if gate is False:
         print("Chinese download skipped by user.")
         remaining = [paper.get("doi") or paper.get("title", "") for paper in papers]
@@ -2704,6 +2721,7 @@ def resume_from_login_checkpoint(checkpoint_path: str, output_dir: str, port: in
             doi: _post_confirmed_login_failure_reason(reason)
             for doi, reason in failure_reasons.items()
         }
+        resolve_login_checkpoint(checkpoint_path, downloaded=downloaded, remaining=remaining)
         return downloaded, remaining, round_results, failure_reasons
 
     login_retry_dois = _filter_login_required_dois(remaining, failure_reasons)
@@ -2720,6 +2738,7 @@ def resume_from_login_checkpoint(checkpoint_path: str, output_dir: str, port: in
         )
         print(f"{WARN} Some resumed DOI(s) still require login; checkpoint refreshed: {refreshed}")
 
+    resolve_login_checkpoint(checkpoint_path, downloaded=downloaded, remaining=remaining)
     return downloaded, remaining, round_results, failure_reasons
 
 

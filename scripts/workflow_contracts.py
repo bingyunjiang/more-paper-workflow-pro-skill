@@ -21,7 +21,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 import re
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -265,6 +267,11 @@ class SearchResultRecord:
     secondary_chapter_titles: list[str] = field(default_factory=list)
     evidence_type: str = ""
     query: str = ""
+    discovered_sources: list[str] = field(default_factory=list)
+    metadata_sources: dict[str, str] = field(default_factory=dict)
+    discovery_round: int = 0
+    discovery_rounds: list[int] = field(default_factory=list)
+    discovery_strategy: str = ""
     verification_status: str = ""
     verification_confidence: str = ""
     warn_class: str = ""
@@ -325,6 +332,11 @@ class SearchResultRecord:
             secondary_chapter_titles=_clean_list(row.get("secondary_chapter_titles")),
             evidence_type=_clean(row.get("evidence_type")),
             query=_clean(row.get("query") or row.get("_query")),
+            discovered_sources=_clean_list(row.get("discovered_sources") or [source]),
+            metadata_sources=dict(row.get("metadata_sources") or {}),
+            discovery_round=int(row.get("discovery_round") or 0),
+            discovery_rounds=[int(item) for item in row.get("discovery_rounds") or [] if str(item).isdigit()],
+            discovery_strategy=_clean(row.get("discovery_strategy") or row.get("_strategy")),
             verification_status=_clean(row.get("verification_status")),
             verification_confidence=_clean(row.get("verification_confidence")),
             warn_class=_clean(row.get("warn_class")),
@@ -551,22 +563,71 @@ def step5_manifest_payload(manifest: Step5DownloadManifest) -> dict[str, Any]:
     return payload
 
 
+def atomic_write_text(path: str | Path, text: str, *, encoding: str = "utf-8") -> None:
+    """Durably replace a text artifact without exposing a partial file."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent))
+    try:
+        with os.fdopen(fd, "w", encoding=encoding) as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_name, target)
+    except Exception:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def atomic_write_json(path: str | Path, payload: object) -> None:
+    atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def append_jsonl_durable(path: str | Path, rows: list[dict[str, Any]], *, dedupe_key: str = "attempt_id") -> int:
+    """Append complete JSONL rows, skipping event IDs already present."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    existing: set[str] = set()
+    if target.exists() and dedupe_key:
+        for line in target.read_text(encoding="utf-8", errors="replace").splitlines():
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            key = str(value.get(dedupe_key) or "") if isinstance(value, dict) else ""
+            if key:
+                existing.add(key)
+    pending = []
+    for row in rows:
+        key = str(row.get(dedupe_key) or "") if dedupe_key else ""
+        if key and key in existing:
+            continue
+        pending.append(row)
+        if key:
+            existing.add(key)
+    if not pending:
+        return 0
+    with target.open("a", encoding="utf-8") as handle:
+        for row in pending:
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    return len(pending)
+
+
 def pdf_pool_payload(index: PdfPoolIndex) -> dict[str, Any]:
     return asdict(index)
 
 
 def write_step5_download_manifest(path: str | Path, manifest: Step5DownloadManifest) -> None:
-    Path(path).write_text(
-        json.dumps(step5_manifest_payload(manifest), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    atomic_write_json(path, step5_manifest_payload(manifest))
 
 
 def write_pdf_pool_index(path: str | Path, index: PdfPoolIndex) -> None:
-    Path(path).write_text(
-        json.dumps(pdf_pool_payload(index), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    atomic_write_json(path, pdf_pool_payload(index))
 
 
 @dataclass

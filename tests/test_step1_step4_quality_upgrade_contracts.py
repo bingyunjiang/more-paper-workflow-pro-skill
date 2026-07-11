@@ -21,7 +21,7 @@ class Step1Step4QualityUpgradeContractsTest(unittest.TestCase):
             self.assertIn(token, step1 + completion)
         for token in ["rq_ids", "validate_early_step_output.py step2"]:
             self.assertIn(token, step2 + completion)
-        for token in ["compiled_queries.json", "pilot_search_results.json", "suspected_query_drift"]:
+        for token in ["compiled_queries.json", "pilot_search_results.json", "concept_block_dropout", "seed_miss", "low_precision"]:
             self.assertIn(token, step3 + completion)
         for token in [
             "research_traceability_matrix.json", "stratified_search_audit.json",

@@ -1,0 +1,110 @@
+{
+  "schema_version": "search-source-capabilities.v1",
+  "verified_at": "2026-07-11",
+  "sources": {
+    "openalex": {
+      "interface": "official_api",
+      "endpoint": "https://api.openalex.org/works",
+      "documentation_url": "https://developers.openalex.org/guides/searching",
+      "evidence_status": "documented_and_probe_verified",
+      "capabilities": {
+        "and": "documented",
+        "or": "documented",
+        "not": "documented",
+        "exact_phrase": "documented",
+        "wildcard": "documented_search_exact_only",
+        "proximity": "documented",
+        "fuzzy": "documented"
+      },
+      "limits": ["request URL is limited to about 4 KB; split long OR lists and union IDs"]
+    },
+    "crossref": {
+      "interface": "official_api",
+      "endpoint": "https://api.crossref.org/works",
+      "documentation_url": "https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
+      "evidence_status": "documented_and_probe_verified",
+      "capabilities": {
+        "query_title": "documented",
+        "query_bibliographic": "documented",
+        "and": "not_verified_as_set_boolean",
+        "or": "not_verified_as_set_boolean",
+        "not": "not_verified_as_set_boolean",
+        "exact_phrase": "not_verified_as_set_phrase"
+      },
+      "limits": ["query parameters are relevance queries, not a verified systematic-review Boolean language", "use client-side concept-block filtering"]
+    },
+    "semantic_scholar": {
+      "interface": "official_api",
+      "endpoint": "https://api.semanticscholar.org/graph/v1/paper/search",
+      "documentation_url": "https://api.semanticscholar.org/api-docs/graph",
+      "evidence_status": "documented",
+      "capabilities": {
+        "special_query_syntax": "unsupported",
+        "plain_text": "documented"
+      },
+      "limits": ["official Swagger states that no special query syntax is supported", "hyphenated terms yield no matches and should be normalized to spaces"]
+    },
+    "semantic_scholar_bulk": {
+      "interface": "official_api",
+      "endpoint": "https://api.semanticscholar.org/graph/v1/paper/search/bulk",
+      "documentation_url": "https://api.semanticscholar.org/api-docs/graph",
+      "evidence_status": "documented",
+      "capabilities": {
+        "and": "documented_plus_operator",
+        "or": "documented_pipe_operator",
+        "not": "documented_minus_operator",
+        "exact_phrase": "documented",
+        "wildcard": "documented_prefix_only",
+        "proximity": "documented",
+        "fuzzy": "documented"
+      },
+      "limits": ["capabilities apply to /paper/search/bulk, not /paper/search"]
+    },
+    "pubmed": {
+      "interface": "official_web_and_eutils_query_language",
+      "endpoint": "https://pubmed.ncbi.nlm.nih.gov/",
+      "documentation_url": "https://pubmed.ncbi.nlm.nih.gov/help/",
+      "evidence_status": "documented",
+      "capabilities": {
+        "and": "documented",
+        "or": "documented",
+        "not": "documented",
+        "exact_phrase": "documented_with_phrase_index_caveat",
+        "field_tags": "documented",
+        "wildcard": "documented_minimum_four_characters",
+        "proximity": "documented_title_title_abstract_affiliation"
+      },
+      "limits": ["quoted phrases may fall back when absent from the phrase index", "field tags and wildcards change Automatic Term Mapping behavior"]
+    },
+    "arxiv": {
+      "interface": "official_api",
+      "endpoint": "https://export.arxiv.org/api/query",
+      "documentation_url": "https://info.arxiv.org/help/api/user-manual.html",
+      "evidence_status": "documented",
+      "capabilities": {
+        "and": "documented",
+        "or": "documented",
+        "not": "documented_as_andnot",
+        "exact_phrase": "documented",
+        "field_prefixes": "documented"
+      },
+      "limits": ["use field prefixes such as ti, abs, cat, au and all", "URL-encode grouping and phrase characters"]
+    },
+    "cnki": {
+      "interface": "cdp_web_adapter",
+      "endpoint": "interactive advanced-search UI",
+      "documentation_url": "",
+      "evidence_status": "observed_ui_unstable",
+      "capabilities": {"structured_relations": "adapter_observed", "public_api_contract": "unavailable"},
+      "limits": ["do not claim official API-exact compilation", "re-probe after UI signature changes", "default workflow scope is Chinese-language records"]
+    },
+    "wanfang": {
+      "interface": "cdp_web_adapter",
+      "endpoint": "interactive search UI",
+      "documentation_url": "",
+      "evidence_status": "observed_ui_unstable",
+      "capabilities": {"structured_relations": "adapter_observed", "public_api_contract": "unavailable"},
+      "limits": ["do not claim official API-exact compilation", "re-probe after UI signature changes", "default workflow scope is Chinese-language records"]
+    }
+  }
+}

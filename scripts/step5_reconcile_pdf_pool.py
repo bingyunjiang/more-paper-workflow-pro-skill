@@ -25,7 +25,7 @@ from unified_download_router import (
     build_pdf_pool_index,
     diagnose_pdf_file,
 )
-from workflow_contracts import step5_attempt, write_pdf_pool_index
+from workflow_contracts import append_jsonl_durable, atomic_write_json, step5_attempt, write_pdf_pool_index
 
 
 def _norm(value: str) -> str:
@@ -173,14 +173,12 @@ def reconcile_pdf_pool(output_dir: str | Path, manifest_name: str = "download_ma
     summary["failed_or_pending"] = summary["remaining"]
     summary["manual_reconciled"] = len(changed)
 
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(manifest_path, manifest)
     pool_path = output / "pdf-附件池索引.json"
     write_pdf_pool_index(pool_path, build_pdf_pool_index(str(output), items))
 
     attempts_path = output / "download_attempts.jsonl"
-    with attempts_path.open("a", encoding="utf-8") as f:
-        for row in attempt_rows:
-            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    append_jsonl_durable(attempts_path, attempt_rows)
 
     return {
         "schema_version": "step5-reconcile.v1",
@@ -218,7 +216,7 @@ def main() -> int:
     if args.json_path:
         path = Path(args.output) / "step5_reconcile_report.json" if args.json_path == "AUTO" else Path(args.json_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        atomic_write_json(path, report)
         print(f"  report: {path}")
     return 0
 

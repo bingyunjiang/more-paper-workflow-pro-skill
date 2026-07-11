@@ -75,6 +75,19 @@ def normalize_doi(value: str | None) -> str:
     return value.strip().rstrip(".")
 
 
+def stable_record_id(record: dict[str, Any]) -> str:
+    doi = normalize_doi(record.get("doi"))
+    source_id = normalize_key(record.get("source_id"))
+    title = normalize_key(record.get("title"))
+    authors = record.get("authors") or []
+    first_author = normalize_key(authors[0] if authors else "")
+    year = normalize_key(record.get("year"))
+    citekey = normalize_key(record.get("citekey"))
+    identity = f"doi:{doi.lower()}" if doi else f"source:{source_id}" if source_id else f"tay:{title}|{first_author}|{year}" if title else f"citekey:{citekey}"
+    instance = citekey or f"{title}|{first_author}|{year}"
+    return "zrec-" + hashlib.sha256(f"{identity}|{instance}".encode("utf-8")).hexdigest()[:16]
+
+
 def parse_authors(value: str | None) -> list[str]:
     value = normalize_text(value)
     if not value:
@@ -686,6 +699,14 @@ def apply_duplicate_states(records: list[dict[str, Any]]) -> None:
             seen[key] = record.get("record_id", "")
 
 
+def ensure_unique_record_ids(records: list[dict[str, Any]]) -> None:
+    occurrences: dict[str, int] = {}
+    for record in records:
+        base = str(record.get("record_id") or stable_record_id(record))
+        occurrences[base] = occurrences.get(base, 0) + 1
+        record["record_id"] = base if occurrences[base] == 1 else f"{base}-dup{occurrences[base]}"
+
+
 def match_prepared_artifact(record: dict[str, Any], prepared_artifacts: list[dict[str, Any]]) -> dict[str, Any]:
     record_pdf = str(record.get("pdf_path", "")).strip()
     citekey = normalize_key(record.get("citekey"))
@@ -745,7 +766,7 @@ def build_records(
         primary_collection_path = choose_collection(record, root, structure_rows, has_structure)
         secondary_collection_paths = choose_secondary_collections(record, root, structure_rows, has_structure)
         records.append({
-            "record_id": f"stable-{idx:03d}",
+            "record_id": stable_record_id(record),
             "citekey": record.get("citekey", ""),
             "source": source,
             "source_id": source_id,
@@ -794,8 +815,27 @@ def build_records(
             "existing_attachment_keys": [],
             "notes": "中文元数据待补全" if metadata_incomplete else "",
         })
+    ensure_unique_record_ids(records)
     apply_duplicate_states(records)
+    apply_pdf_assignment_conflicts(records)
     return records
+
+
+def apply_pdf_assignment_conflicts(records: list[dict[str, Any]]) -> None:
+    by_path: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        path = str(record.get("pdf_path") or "").strip()
+        if path and record.get("attachment_state") not in {"invalid_attachment", "duplicate_attachment", "rejected"}:
+            by_path.setdefault(path, []).append(record)
+    for path, owners in by_path.items():
+        distinct = {record.get("record_id") for record in owners}
+        if len(distinct) <= 1:
+            continue
+        for record in owners:
+            record["attachment_status"] = "conflict"
+            record["attachment_state"] = "attachment_conflict"
+            record["attachment_action"] = "manual_review_shared_pdf"
+            record["shared_pdf_record_ids"] = sorted(str(item) for item in distinct if item)
 
 
 def infer_tags(record: dict[str, Any], structure_rows: list[dict[str, Any]]) -> list[str]:
@@ -845,11 +885,28 @@ def update_pdf_index_matches(pdfs: list[dict[str, Any]], records: list[dict[str,
             pdf["match_confidence"] = cand.get("match_confidence", "")
 
 
+def plan_fingerprint(records: list[dict[str, Any]], root_collection: str) -> str:
+    material = {
+        "root_collection": root_collection,
+        "records": [{
+            "record_id": record.get("record_id"),
+            "import_method": record.get("import_method"),
+            "collection_path": record.get("collection_path"),
+            "pdf_path": record.get("pdf_path"),
+            "attachment_action": record.get("attachment_action"),
+        } for record in sorted(records, key=lambda item: str(item.get("record_id") or ""))],
+    }
+    canonical = json.dumps(material, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return "zplan-" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:20]
+
+
 def write_json(path: str, data: Any) -> None:
     p = Path(path)
     if p.parent and str(p.parent) != ".":
         p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, p)
 
 
 def truncate(value: Any, limit: int = 80) -> str:
@@ -977,6 +1034,7 @@ def main() -> int:
         "completion_state": completion_state,
         "direct_entry": bool(args.records_json or (args.pdf_dir and not args.bib)),
         "root_collection": root,
+        "plan_fingerprint": plan_fingerprint(records, root),
         "readiness": readiness,
         "can_continue": can_continue,
         "blocking_missing": blocking,

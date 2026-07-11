@@ -62,9 +62,22 @@ def validate(root: Path, mode: str = "auto") -> tuple[list[Finding], dict[str, o
     else:
         if not plan.get("cp_zotero_write_confirmed"):
             findings.append(Finding("fail", "missing_write_confirmation", "CP-ZOTERO-WRITE confirmation is missing"))
+        if not plan.get("plan_fingerprint"):
+            findings.append(Finding("fail", "missing_plan_fingerprint", "write mode requires plan_fingerprint"))
         state = _read_json(root / "zotero_execution_state.json")
         if not isinstance(state, dict) or not isinstance(state.get("operations"), dict):
             findings.append(Finding("fail", "missing_execution_state", "Zotero execution state is missing"))
+            operations = {}
+        else:
+            operations = state["operations"]
+            for operation_id, operation in operations.items():
+                if not isinstance(operation, dict):
+                    findings.append(Finding("fail", "invalid_execution_operation", f"operation {operation_id} is invalid"))
+                    continue
+                if not operation.get("operation_type") or not operation.get("target_id") or not operation.get("status"):
+                    findings.append(Finding("fail", "incomplete_execution_operation", f"operation {operation_id} lacks required fields"))
+                if plan.get("plan_fingerprint") and operation.get("plan_fingerprint") != plan.get("plan_fingerprint"):
+                    findings.append(Finding("fail", "stale_execution_operation", f"operation {operation_id} belongs to a different plan"))
         if plan.get("completion_state") == "write_complete":
             open_item_states = {"planned", "duplicate_candidate", "metadata_conflict", "import_failed", "manual_confirmation_required"}
             open_attachment_states = {"unlinked_pdf", "duplicate_attachment", "invalid_attachment", "attachment_conflict", "manual_attach_required"}
@@ -72,6 +85,36 @@ def validate(root: Path, mode: str = "auto") -> tuple[list[Finding], dict[str, o
                 findings.append(Finding("fail", "open_item_states", "write_complete contains unresolved item states"))
             if any(record.get("attachment_state") in open_attachment_states for record in records):
                 findings.append(Finding("fail", "open_attachment_states", "write_complete contains unresolved attachment states"))
+            successful_targets = {
+                str(operation.get("target_id")) for operation in operations.values()
+                if isinstance(operation, dict) and operation.get("status") == "success"
+            }
+            required_targets = {
+                str(record.get("record_id")) for record in records
+                if record.get("item_state") not in {"rejected_do_not_import", "existing_confirmed"}
+            }
+            missing_targets = sorted(required_targets - successful_targets)
+            if missing_targets:
+                findings.append(Finding(
+                    "fail", "records_without_successful_operation",
+                    "write_complete lacks successful operations for: " + ", ".join(missing_targets[:12]),
+                ))
+
+            log_path = root / "zotero_write_operations.jsonl"
+            if not log_path.exists():
+                findings.append(Finding("fail", "missing_operation_log", "write_complete requires zotero_write_operations.jsonl"))
+            else:
+                seen_event_ids: set[str] = set()
+                for line_number, line in enumerate(log_path.read_text(encoding="utf-8").splitlines(), 1):
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        findings.append(Finding("fail", "invalid_operation_log_row", f"operation log line {line_number} is invalid JSON"))
+                        continue
+                    event_id = str(event.get("event_id") or "")
+                    if not event_id or event_id in seen_event_ids:
+                        findings.append(Finding("fail", "invalid_operation_event_id", f"operation log line {line_number} has missing/duplicate event_id"))
+                    seen_event_ids.add(event_id)
 
     status = "pass" if not any(item.severity == "fail" for item in findings) else "fail"
     return findings, {

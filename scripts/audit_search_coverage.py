@@ -33,7 +33,8 @@ def _round_saturation(records: list[dict]) -> dict:
     rounds: dict[int, set[str]] = defaultdict(set)
     for index, record in enumerate(records):
         try:
-            round_id = int(record.get("discovery_round") or record.get("search_round") or 0)
+            known_rounds = record.get("discovery_rounds") if isinstance(record.get("discovery_rounds"), list) else []
+            round_id = min([int(item) for item in known_rounds if str(item).isdigit()] or [int(record.get("discovery_round") or record.get("search_round") or 0)])
         except (TypeError, ValueError):
             round_id = 0
         key = str(record.get("doi") or record.get("source_id") or record.get("title") or index)
@@ -54,7 +55,11 @@ def _round_saturation(records: list[dict]) -> dict:
 def audit_search_coverage(search_plan: dict, search_results: object) -> dict:
     records = _records(search_results)
     traceability = build_coverage_matrix(search_plan, search_results)
-    sources = Counter(str(r.get("source") or "unknown").lower() for r in records)
+    sources: Counter[str] = Counter()
+    for record in records:
+        discovered = record.get("discovered_sources") if isinstance(record.get("discovered_sources"), list) else []
+        for source in discovered or [record.get("source") or "unknown"]:
+            sources[str(source).lower()] += 1
     languages = Counter(str(r.get("language") or r.get("lang") or "unknown").lower() for r in records)
     venues = Counter(str(r.get("venue") or r.get("journal") or "unknown") for r in records)
     years = Counter(str(r.get("year") or "unknown") for r in records)

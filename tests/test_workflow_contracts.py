@@ -197,6 +197,19 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(record.score_confidence, "medium")
         self.assertIn("venue_quality_unresolved", record.uncertainty_flags)
 
+    def test_search_result_record_preserves_discovery_provenance(self):
+        record = SearchResultRecord.from_search_result({
+            "title": "Demo", "source": "openalex",
+            "discovered_sources": ["openalex", "crossref"],
+            "metadata_sources": {"abstract": "openalex", "doi": "crossref"},
+            "discovery_round": 2, "discovery_rounds": [1, 2], "discovery_strategy": "cited",
+        })
+        self.assertEqual(record.discovered_sources, ["openalex", "crossref"])
+        self.assertEqual(record.metadata_sources["doi"], "crossref")
+        self.assertEqual(record.discovery_round, 2)
+        self.assertEqual(record.discovery_rounds, [1, 2])
+        self.assertEqual(record.discovery_strategy, "cited")
+
     def test_workflow_json_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "workflow.json"

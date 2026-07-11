@@ -11,6 +11,8 @@
 - [ ] `大纲关键词.md` — Step 2 产出（章节大纲 + 关键词清单 + 章节证据需求表）
 - [ ] `研究主题.md` — Step 1 产出（tier/search_tier + 聚焦主题 + 预审结论）
 - [ ] `references/search-query-frameworks.md` — 检索查询框架参考（概念块布尔模型 + PICO + 反模式清单）
+- [ ] `references/search-source-capability-evidence.md` — 各来源官方语法证据、endpoint 边界和降级规则
+- [ ] `config/search_source_capabilities.json` — 来源能力机器真相；未经查证的能力不得编译为 exact
 - [ ] `manifest.step3.yaml` — 🆕 Step 3 workflow 入口定义
 - [ ] `references/workflows/search-plan-standard.md` — 🆕 常规检索方案
 - [ ] `references/workflows/search-plan-citation-expansion.md` — 🆕 引文扩展方案
@@ -133,7 +135,7 @@ Step 2 产出（大纲关键词.md）
   → ① 领域识别：判断工科子领域（机械/电气/土木/材料/控制/信号/AI...）
   → ② 读取章节证据需求表：按章节ID + 证据类型生成 search_tasks
   → ③ 框架选择：Concept Block（工科默认）/ PICO / Methods-focused
-  → ④ 概念块拆解：每个概念块 ≥2 同义词 + 可选排除词
+  → ④ 概念块拆解：每块通常 ≥2 个变体；唯一规范术语可保留单词并记录理由
   → ⑤ 组装布尔查询：(syn1 OR syn2) AND (syn3 OR syn4) NOT (excl)
   → ⑥ 反模式检查（8 项）
   → ⑦ 读 Step 2 产出中的「检索语言」字段 → 中文→L1 CNKI→L2 Wanfang；英文→L1 OpenAlex→L2 Crossref→L2 Semantic Scholar→L3 PubMed
@@ -145,8 +147,19 @@ Step 2 产出（大纲关键词.md）
 `检索方案.json` 必须包含机器可读的 `search_tasks`，供 Step 4 执行；`检索方案.md` 负责展示同一内容的可读视图：
 
 ```yaml
-search_language: 中文|英文|中英文混合
-tier: quick|standard|deep
+plan_mode: standard|deep|systematic
+execution_context: step3_planning|step4_direct_entry
+retrieval_language: zh|en|mixed
+source_scope: [openalex, crossref, semantic_scholar_bulk]
+publication_year_range: {from: 2000, to: null}
+document_types: [journal_article, conference_paper]
+known_relevant_records: []
+inclusion_criteria: []
+exclusion_criteria: []
+deduplication_plan: {keys: [doi, normalized_title], software: "", version: ""}
+query_versions: [{version: v1, date: YYYY-MM-DD, reason: initial}]
+search_update_policy: {rerun_before_submission: true, last_search_max_age_days: 90}
+core_research_question_ids: [RQ1]
 search_tasks:
   - id: S1
     rq_id: RQ1
@@ -155,9 +168,12 @@ search_tasks:
     evidence_type: "review|method|experiment|data|standard|case"
     question_to_answer: ""
     framework: "concept_block|pico|methods_focused"
+    required: true
     query_blocks:
       - name: "研究对象"
         terms: ["term1", "term2"]
+        required: true
+        single_canonical_term_reason: ""
       - name: "方法"
         terms: ["term3", "term4"]
     exclusion_terms: []
@@ -167,14 +183,22 @@ search_tasks:
       l2: ["wanfang|crossref|semantic_scholar|arxiv"]
       l3: ["pubmed"]
     recommended_commands: []
+    source_compilation: {}
     minimum_t1_t2: 2
+    known_relevant_records: []
+    pilot_acceptance_criteria:
+      min_title_abstract_precision_proxy: 0.5
+      require_all_concept_blocks: true
+      min_seed_recall: 1.0
     anti_patterns_checked: true
 review_protocol:
-  mode: "narrative|systematic"
-  prisma_like: true|false
-  screening_priority: "title_first|abstract_first|mixed"
-inclusion_criteria: []
-exclusion_criteria: []
+  databases: []
+  platforms: []
+  search_dates: []
+  full_strategies: []
+  controlled_vocabulary: []
+  supplementary_sources: []
+  press_review: {status: pending, reviewer: "", date: null, findings: []}
 retrieval_index_manifest:
   schema_version: "retrieval-index.v1"
   index_scope: "search_plan"
@@ -191,7 +215,8 @@ retrieval_index_manifest:
 - `question_to_answer` 必须来自章节证据需求表，不得凭空新增
 - `query_blocks` 优先使用关键词清单中的核心词、同义词/缩写、方法词、场景词、指标词
 - `exclusion_terms` 优先来自关键词清单的排除词
-- `review_protocol` 仅在综述 / 系统综述任务下强制填写；普通研究型任务可省略
+- `review_protocol` 在 `plan_mode=systematic` 时强制填写；普通与 deep 模式可省略
+- 每个来源必须保存 `compile_status=exact|degraded|manual_required|invalid`；`degraded` 必须带 `post_filter_required=true` 和丢失语义，`manual_required` 不得声称官方 API 精确编译
 - 关键词分层只用于检索表达层，不等于 Zotero 分类层；它服务于检索式构造、召回控制和路由，不负责文献归档。
 - `query_blocks` 默认保留核心词、同义词/缩写、方法词、场景词、指标词和排除词；上位词/下位词只在检索过窄、过散或需要扩召回时补入。
 
@@ -266,8 +291,8 @@ Step 3 可生成或更新 `retrieval_index_manifest.json`，用于告诉 Step 4 
 | 2 | 🔴 CNKI/万方检索不带 `--language zh` | ❌ 中文库中混有英文论文，必须加 `--language zh` |
 | 3 | 无意义限定词 | ❌ `AND "human"` 等 |
 | 4 | AND 块数 > 4 | ❌ 召回率断崖下跌 |
-| 5 | 单概念无双同义词 | ⚠️ 每个概念块至少 2 个同义词 |
-| 6 | 全文搜索优先 | ⚠️ 优先 `title.search` |
+| 5 | 单概念无变体且无理由 | ⚠️ 通常至少 2 个变体；唯一规范术语须写 `single_canonical_term_reason` |
+| 6 | 跨来源硬套字段语法 | ⚠️ 字段限制必须由 source capability 决定；不得把 OpenAlex 旧 `title.search`、PubMed `[tiab]` 或网页字段语法互相套用 |
 | 7 | 排除词用方法学术语 | ⚠️ 如 `NOT "simulation"` 会误杀 |
 
 ### 3.5. 工科检索分层架构
@@ -280,7 +305,7 @@ Step 3 可生成或更新 `retrieval_index_manifest.json`，用于告诉 Step 4 
                          同一论文出现在两个源 → Step 4.3 评分「主题匹配度」+1。
                          两库高度重叠，并行再合并是最高效策略。
   → 🔴 必须加 --language zh   ← CNKI 和万方数据库中包含中文学术期刊发表的英文论文。
-                                  这些英文论文难以通过 CDP 下载管线获取，应在检索阶段排除。
+                                  本 workflow 将中文源定位为中文学术记录补充，英文文献由 OpenAlex 等英文源覆盖。
                                   --language zh 会：(1) CNKI 端设置 isinEn=0 停用中英文扩展；
                                   (2) 万方端设置 lang=chi URL 参数；(3) 结果级标题语言检测安全网。
 
@@ -298,7 +323,7 @@ Step 3 可生成或更新 `retrieval_index_manifest.json`，用于告诉 Step 4 
 检索语言: 中英文混合 → 按子课题拆分，分别走中文/英文路由
 ```
 
-> **为什么中文不走 OpenAlex？** OpenAlex 的中文文献覆盖率仅 24%，且 92% 的中文论文被错标为英文。CNKI + 万方是中文学术文献的可靠覆盖组合。
+> **中英文路由边界：** CNKI + 万方默认只承担中文学术记录；英文文献交由 OpenAlex、Crossref、Semantic Scholar、arXiv 和条件性 PubMed。这是来源分工与质量边界，不是下载阶段的限制。
 
 #### 3.5.1. CNKI 触发条件 🆕
 
@@ -369,7 +394,7 @@ Step 3 可生成或更新 `retrieval_index_manifest.json`，用于告诉 Step 4 
 python3 scripts/search_by_topic.py --preflight
 ```
 
-在真实全量检索前，先执行结构验证、查询编译和 5-10 条 pilot search：
+在真实全量检索前，先执行结构验证、查询编译和 pilot search（standard 默认 10 条，deep/systematic 可用 20 条）：
 
 ```bash
 python3 scripts/validate_early_step_output.py step3 检索方案.json
@@ -379,7 +404,15 @@ python3 scripts/lint_search_plan.py 检索方案.json \
   --output compiled_queries.json
 ```
 
-pilot 必须为每个 `search_task_id` 记录 `hit_count / title_relevance_ratio / status`。`zero-result / suspected_query_drift / too-broad` 必须先修查询式，不得直接扩大到全量检索。
+pilot 必须为每个 `search_task_id` 记录 `hit_count / title_abstract_precision_proxy / required_block_coverage / seed_recall / status`。`zero-result / concept_block_dropout / seed_miss / low_precision` 必须先在当前 Step 3 修查询式；仅当执行上下文明确为 `step4_direct_entry` 时在 Step 4 就地修复，均不强制回跑前序 Step。
+
+`compiled_queries.json` 还必须保留 `source_compilation`：
+
+- OpenAlex 使用当前官方 `search=` 布尔语法；长 URL 超过约 4 KB 时拆分 OR 列表并按 work ID 求并集。
+- Semantic Scholar `/paper/search` 只能使用 plain text，不得传入 `AND/OR/NOT`；需要布尔语义时显式选择 `/paper/search/bulk`。
+- Crossref `query.title/query.bibliographic` 只作为相关性候选召回；概念块 AND/OR/NOT 由 Step 4 客户端复核。
+- PubMed 和 arXiv 使用各自官方字段与布尔语法。
+- CNKI/万方使用 CDP 网页 adapter，状态为 `manual_required`；UI 变化时重新 probe。
 
 ---
 
@@ -387,7 +420,7 @@ pilot 必须为每个 `search_task_id` 记录 `hit_count / title_relevance_ratio
 
 - [ ] 领域识别和框架选择正确
 - [ ] `search_tasks` 已生成，且每个任务绑定章节ID、证据类型和检索问题
-- [ ] 每个概念块 ≥ 2 个同义词
+- [ ] 每个概念块有 ≥ 2 个有效变体，或已记录唯一规范术语理由
 - [ ] AND 块数 ≤ 4
 - [ ] 反模式检查 8 项全部通过（含 🔴 `--language zh` 检查）
 - [ ] L1→L2→L3 分层路由分配合理
@@ -398,7 +431,9 @@ pilot 必须为每个 `search_task_id` 记录 `hit_count / title_relevance_ratio
 - [ ] 🆕 Wanfang 触发条件已检测（wanfang_enabled: true/false + 凭证存在性）
 - [ ] Pre-flight 检查已通过
 - [ ] Step 3 结构验证通过，`compiled_queries.json` 无 lint error
-- [ ] 每个 search task 已完成 5-10 条 pilot，状态为 `ok`；异常任务已修复或明确阻塞
+- [ ] 每个来源的 `source_compilation` 已生成；没有 `invalid`，所有 `degraded/manual_required` 均有降级或人工探针说明
+- [ ] 每个 search task 已完成 pilot，所有必需概念块在标题+摘要中均有覆盖，种子文献召回和精度代理达标
+- [ ] `plan_mode=systematic` 时，PRISMA-S 可复现字段和 PRESS 审核记录已齐全
 
 ---
 

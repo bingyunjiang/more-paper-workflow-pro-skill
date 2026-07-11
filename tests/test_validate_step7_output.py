@@ -31,13 +31,33 @@ class ValidateStep7OutputTest(unittest.TestCase):
                 "# 受力与变形特征\n\n这里直接写正文，但没有工件链。\n",
                 encoding="utf-8",
             )
-            result = self.run_validator(out)
+            result = self.run_validator(out, "evidence_closed")
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing_execution_card", result.stdout)
         self.assertIn("missing_citation_audit", result.stdout)
         self.assertIn("missing_figure_gate", result.stdout)
         self.assertIn("missing_mechanism_decision", result.stdout)
+
+    def test_draft_ready_direct_entry_does_not_require_evidence_closure_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            (out / "journal_paper_draft.md").write_text(
+                "# 方法草稿\n\n当前段落仍需补充正式引文。\n",
+                encoding="utf-8",
+            )
+            (out / "step7_execution_card.md").write_text(
+                "# Step 7 Execution Card\n\n- target_state: draft_ready\n- figure_mode: skip\n- risk_status: citations_pending\n",
+                encoding="utf-8",
+            )
+            result = self.run_validator(out, "draft_ready")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("completion_state: draft_ready", result.stdout)
+        self.assertIn("draft_without_submission_style_citations", result.stdout)
+        self.assertNotIn("missing_reviewer_scorecard", result.stdout)
+        self.assertNotIn("missing_evidence_mapping", result.stdout)
+        self.assertNotIn("missing_citation_audit", result.stdout)
 
     def test_passes_when_required_step7_artifacts_exist(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -51,6 +71,7 @@ class ValidateStep7OutputTest(unittest.TestCase):
                     "# Step 7 Execution Card",
                     "- mechanism_trigger_decision: enter_mechanism_analysis",
                     "- figure_mode: skip",
+                    "- risk_status: citations_checked",
                 ]),
                 encoding="utf-8",
             )
@@ -78,7 +99,7 @@ class ValidateStep7OutputTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("raw_zotero_key_citations", result.stdout)
-        self.assertIn("missing_submission_style_citations", result.stdout)
+        self.assertIn("draft_without_submission_style_citations", result.stdout)
 
     def test_fails_on_raw_zotero_key_after_first_5000_characters(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -90,7 +111,7 @@ class ValidateStep7OutputTest(unittest.TestCase):
                 "后文误留原始条目键 `99QWSQ5K`（已读全文）。\n",
                 encoding="utf-8",
             )
-            result = self.run_validator(out)
+            result = self.run_validator(out, "evidence_closed")
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("raw_zotero_key_citations", result.stdout)
@@ -136,6 +157,7 @@ class ValidateStep7OutputTest(unittest.TestCase):
                 "# Step 7 Execution Card",
                 "- mechanism_trigger_decision: enter_mechanism_analysis",
                 f"- figure_mode: {figure_mode}",
+                "- risk_status: citations_checked",
             ]),
             encoding="utf-8",
         )
@@ -180,7 +202,7 @@ class ValidateStep7OutputTest(unittest.TestCase):
                 "# 方法\n\n正文采用编号引文[1]（已读全文）。\n",
                 encoding="utf-8",
             )
-            result = self.run_validator(out)
+            result = self.run_validator(out, "evidence_closed")
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("reviewer_score_below_gate_technical_soundness", result.stdout)

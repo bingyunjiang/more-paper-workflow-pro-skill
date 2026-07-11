@@ -34,7 +34,7 @@
    - 候选证据、候选 DOI、候选集合归属、候选写作论点，不能被表述成已确认事实。
 
 5. **direct-entry 入口敏感**
-   - 用户从 Step 5/6/7/8 直接进入时，只检查当前入口的最小产物、风险标记和下一步输入，不强制要求补齐前序 Step。
+   - 用户从任何 Step 直接进入时，只检查当前入口的最小产物、风险标记和下一步输入，不强制要求补齐前序 Step。
    - `artifact_passport.json` / artifact graph 中 `inferred`、`unlinked`、`conflict` 关系不得说成 `confirmed`。
    - 只有用户明确要求“全链路可追溯”时，缺失 Step 4→5→6→7 关系才作为阻塞；默认只作为 gaps/risks 呈现。
 
@@ -47,6 +47,7 @@
 只有同时满足以下条件，才能说“研究主题已确定”：
 - `研究主题.md` 的结构化 YAML、五维预审总分和灯号一致
 - 主研究问题、scope、至少 3 个评价指标、可证伪条件和最小可行研究均已明确
+- `evidence_calibration.status` 为 `executed` 或 `user_supplied`，且至少有 2 条可回查代表记录；若为 `unavailable`，只能称为“暂定选题/可继续聚焦版本”
 - `validate_early_step_output.py step1` 已通过；否则只能称为“可继续聚焦版本”
 
 ### Step 2：大纲可用
@@ -56,14 +57,19 @@
 - 已输出 `关键词清单`
 - 已输出 `章节证据需求表`
 - 已生成 Step 3/6/7 handoff
+- 已按核心章节检查小样本召回、术语来源和歧义；`evidence_calibration.status=unavailable` 时只能称为“可继续校准的大纲版本”
 - `section_blueprints.json` 已通过 Step 2 验证，全部核心 RQ 均映射到章节和证据需求
+- 输出状态为 `outline_baseline`；该状态足以进入 Step 3，不冒充正式检索后的 `evidence_validated`
 
 ### Step 3：检索方案可执行
 
 只有同时满足以下条件，才能说“检索方案可执行”：
 - `检索方案.json` 已通过 Step 3 结构验证
 - `compiled_queries.json` 无 lint error，每个任务绑定 RQ、章节和证据类型
-- 每个任务已完成 pilot search；`zero-result / suspected_query_drift / too-broad` 已修复或明确阻塞
+- 每个任务已完成 pilot search；`zero-result / concept_block_dropout / seed_miss / low_precision` 已在当前执行 Step 修复或明确阻塞，不强制回跑前序 Step
+- pilot 已基于标题+摘要检查必需概念块覆盖；有已知相关文献时已计算 seed recall
+- 每个来源已通过已查证的 endpoint-specific compiler；无 `invalid`，所有 `degraded/manual_required` 均记录丢失语义、客户端复核或当前 UI 探针要求
+- `plan_mode=systematic` 时已记录数据库与平台、完整查询式、检索日期、边界及理由、去重方法、补充检索和 PRESS 审核
 
 ### Step 4：检索完成
 
@@ -73,7 +79,10 @@
 - 已说明文献缺口或覆盖边界
 - 已区分 VERIFIED / WARN / REJECT 或等价可信度状态
 - 五维加权评分保存子分、理由、置信度和 uncertainty flags
+- direct-entry 缺少 Step 1/2/3 产物，或出现零结果、查询漂移、过宽和证据空洞时，已在 Step 4 内重建并修复最小检索依据；不得把回跑前序 Step 作为完成门
+- 若局部修复实质改变研究对象、核心 RQ 或纳入边界，已在 Step 4 内取得用户确认并保存 before/after 决策记录
 - 追溯覆盖矩阵不存在 `uncovered/weak` 必需任务；分层饱和度和偏差审计已完成
+- 存在 Step 2 基线时已生成 Step 2 检索对账和证据校准版；无基线或局部任务时已记录 `not_applicable`，不得因此阻塞 direct-entry
 
 ### Step 5：下载完成
 
@@ -94,6 +103,7 @@
 - 已单列重复、缺附件、待人工确认项
 - direct-entry Zotero/BibTeX/PDF 对账必须区分 `matched_attachment`、`missing_attachment`、`unlinked_pdf`、`duplicate_candidate`
 - plan-only 只能声明 `plan_ready`；真实写入按 `write_partial / write_complete` 区分，且不要求 Step 4/5 产物存在
+- `write_complete` 必须有当前 `plan_fingerprint` 的逐记录 success operation、合法追加日志和原子状态快照；旧计划日志、共享 PDF 冲突或缺失 record operation 不得放行
 
 ### Step 7：章节写完
 
@@ -102,7 +112,8 @@
 - 已说明引用风险状态
 - 已区分“正文完成”和“证据仍弱但先交草稿”
 - `metadata_only`、`abstract_only`、`trace_status=unlinked` 或 `confidence=inferred` 的证据关系必须进入风险说明，不能支撑强 claim
-- `reviewer_scorecard.json` 已通过锚定量表：技术可靠性/证据充分性不低于 4，其余维度不低于 3，且无 CRITICAL 未关闭项
+- `draft_ready` 只要求当前写作范围的草稿、执行边界和风险说明；不得因缺少 Step 1-6、证据矩阵、引用审计或 reviewer scorecard 把入口标为 blocked
+- `evidence_closed / ready_for_step8` 才要求 `reviewer_scorecard.json` 通过锚定量表：技术可靠性/证据充分性不低于 4，其余维度不低于 3，且无 CRITICAL 未关闭项
 - 对外区分 `draft_ready / evidence_closed / ready_for_step8`；后两者要求 claim audit 和 reviewer scorecard 的 `draft_sha256` 与当前稿件一致
 - 图表自动匹配不得插入零关键词或低来源质量候选；`ready_for_step8` 的图表解析报告不得有未解决项
 

@@ -20,7 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from cdp_utils import check_cdp, list_tabs, start_persistent_cdp_browser
+from cdp_utils import check_cdp, create_tab, list_tabs, start_persistent_cdp_browser
 
 
 CNKI_URL = "https://kns.cnki.net/kns8s/"
@@ -36,32 +36,18 @@ def _load_queries(path: Path) -> list[dict]:
 
 
 def _navigate_initial_tabs(port: int) -> None:
-    """Best-effort tab positioning for the visible login browser."""
+    """Open missing Chinese database tabs without replacing unrelated pages."""
     try:
-        import websocket
-
         pages = [t for t in list_tabs(port) if t.get("type") == "page"]
-        if not pages:
-            return
-
-        targets = [(pages[0], CNKI_URL)]
-        if len(pages) > 1:
-            targets.append((pages[1], WANFANG_URL))
-
-        for page, url in targets:
-            ws_url = page.get("webSocketDebuggerUrl")
-            if not ws_url:
+        open_urls = [str(page.get("url", "")).lower() for page in pages]
+        targets = [
+            (CNKI_URL, ("cnki.net", "中国知网")),
+            (WANFANG_URL, ("wanfangdata.com.cn", "万方")),
+        ]
+        for url, markers in targets:
+            if any(any(marker.lower() in current for marker in markers) for current in open_urls):
                 continue
-            ws = websocket.create_connection(ws_url, timeout=10)
-            try:
-                ws.send(json.dumps({
-                    "id": 1,
-                    "method": "Page.navigate",
-                    "params": {"url": url},
-                }))
-                ws.recv()
-            finally:
-                ws.close()
+            create_tab(port, url)
     except Exception:
         pass
 
@@ -175,6 +161,11 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=9223, help="CDP debug port")
     parser.add_argument("--output-dir", default=".", help="Output directory")
     parser.add_argument("--login-only", action="store_true", help="Only start browser and wait for login")
+    parser.add_argument(
+        "--open-login-tabs",
+        action="store_true",
+        help="Start/reuse CDP, open CNKI and Wanfang login tabs, then return without waiting",
+    )
     parser.add_argument("--browser", choices=("chrome", "edge"), default="chrome")
     args = parser.parse_args()
 
@@ -182,7 +173,7 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     queries: list[dict] = []
-    if not args.login_only:
+    if not args.login_only and not args.open_login_tabs:
         if not args.queries_file:
             print("ERROR: queries.json required", flush=True)
             return 1
@@ -203,6 +194,11 @@ def main() -> int:
         return 1
 
     _navigate_initial_tabs(args.port)
+
+    if args.open_login_tabs:
+        print("CHINESE_LOGIN_TABS_OPENED", flush=True)
+        print("请在 Step 1 互动期间完成 CNKI 与万方的机构账号/CARSI 登录；后续预检索会复用当前 CDP 会话。", flush=True)
+        return 0
 
     if args.login_only:
         if not _wait_for_login_confirmation():

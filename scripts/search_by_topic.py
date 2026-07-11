@@ -359,20 +359,71 @@ def search_semantic_scholar(query, limit=20, use_cache=True):
     return results
 
 
-def search_crossref(query, limit=20, use_cache=True):
+def search_semantic_scholar_bulk(query, limit=20, use_cache=True):
+    """Search the Boolean-capable Semantic Scholar bulk endpoint."""
+    if use_cache:
+        key = _cache_key(query, "semantic_scholar_bulk", limit)
+        cached = _cache_get(key)
+        if cached is not None:
+            print(f"  Semantic Scholar bulk: cache hit ({len(cached)} results)", flush=True)
+            return cached
+
+    params = urllib.parse.urlencode({
+        "query": query,
+        "fields": "title,authors,externalIds,year,venue,citationCount,abstract",
+    })
+    url = f"https://api.semanticscholar.org/graph/v1/paper/search/bulk?{params}"
+    api_key = os.environ.get("S2_API_KEY", "")
+    headers = {"User-Agent": "Hermes/1.0"}
+    if api_key:
+        headers["x-api-key"] = api_key
+    try:
+        _throttle_semantic_scholar_if_anonymous(api_key)
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read())
+    except Exception as exc:
+        print(f"  Semantic Scholar bulk error: {exc}", flush=True)
+        return []
+
+    results = []
+    for paper in data.get("data", [])[:limit]:
+        external_ids = paper.get("externalIds") or {}
+        doi = external_ids.get("DOI", "")
+        if not doi:
+            continue
+        results.append({
+            "doi": doi,
+            "title": paper.get("title") or "?",
+            "year": paper.get("year") or "?",
+            "venue": paper.get("venue") or "?",
+            "authors": [author.get("name", "?") for author in paper.get("authors", [])],
+            "citations": paper.get("citationCount", 0) or 0,
+            "abstract": paper.get("abstract", "") or "",
+            "source": "semantic_scholar_bulk",
+        })
+    if use_cache:
+        _cache_set(key, results)
+    return results
+
+
+def search_crossref(query, limit=20, use_cache=True, query_params=None):
     """Search Crossref API. Free, generous rate limits."""
     if use_cache:
-        key = _cache_key(query, "crossref", limit)
+        key = _cache_key(query, "crossref", limit, json.dumps(query_params or {}, sort_keys=True))
         cached = _cache_get(key)
         if cached is not None:
             print(f"  Crossref: cache hit ({len(cached)} results)", flush=True)
             return cached
-    params = urllib.parse.urlencode({
+    params_payload = {
         "query.title": query,
         "rows": min(limit, 100),
         "sort": "relevance",
         "order": "desc"
-    })
+    }
+    params_payload.update(query_params or {})
+    params_payload["rows"] = min(limit, 100)
+    params = urllib.parse.urlencode(params_payload)
     url = f"https://api.crossref.org/works?{params}"
     req = urllib.request.Request(url, headers={
         "User-Agent": "Hermes/1.0 (mailto:research@example.com)"
@@ -411,19 +462,22 @@ def search_crossref(query, limit=20, use_cache=True):
     return results
 
 
-def search_openalex(query, limit=20, use_cache=True):
+def search_openalex(query, limit=20, use_cache=True, query_params=None):
     """Search OpenAlex API. Free, no key needed."""
     if use_cache:
-        key = _cache_key(query, "openalex", limit)
+        key = _cache_key(query, "openalex", limit, json.dumps(query_params or {}, sort_keys=True))
         cached = _cache_get(key)
         if cached is not None:
             print(f"  OpenAlex: cache hit ({len(cached)} results)", flush=True)
             return cached
-    params = urllib.parse.urlencode({
+    params_payload = {
         "search": query,
         "per_page": min(limit, 50),
         "sort": "relevance_score:desc"
-    })
+    }
+    params_payload.update(query_params or {})
+    params_payload["per_page"] = min(limit, 50)
+    params = urllib.parse.urlencode(params_payload)
     url = f"https://api.openalex.org/works?{params}"
 
     results = []
@@ -1902,6 +1956,7 @@ def search_cnki(query, limit=20, use_cache=True, strategy="", language="any"):
 
 SOURCE_FUNCTIONS = {
     "semantic_scholar": search_semantic_scholar,
+    "semantic_scholar_bulk": search_semantic_scholar_bulk,
     "crossref": search_crossref,
     "openalex": search_openalex,
     "wanfang": search_wanfang,
@@ -1911,6 +1966,8 @@ SOURCE_FUNCTIONS = {
 SOURCE_ALIASES = {
     "semantic": "semantic_scholar",
     "ss": "semantic_scholar",
+    "semantic_bulk": "semantic_scholar_bulk",
+    "ss_bulk": "semantic_scholar_bulk",
     "cr": "crossref",
     "oa": "openalex",
     "wf": "wanfang",
@@ -2098,12 +2155,18 @@ def build_query(concept_blocks, source, strategy="relevance"):
                 parts.append(f"{prefix}{t}{suffix}")
         for ex in not_terms:
             parts.append(f"-{ex}")
-        return {"q": " ".join(parts)}
+        return {
+            "q": " ".join(parts),
+            "strategy_requested": strategy,
+            "strategy_applied": "relevance",
+            "strategy_degraded": strategy != "relevance",
+        }
 
     elif source == "crossref":
         query = " AND ".join(and_clauses)
         # Crossref uses query.title for title-focused search
-        return {"query.title": query, "sort": "relevance", "order": "desc"}
+        sort_map = {"relevance": "relevance", "cited": "is-referenced-by-count", "recent": "published"}
+        return {"query.title": query, "sort": sort_map.get(strategy, "relevance"), "order": "desc"}
 
     elif source == "wanfang":
         # Wanfang PQ query: 标题:(term1 OR term2) AND 标题:(term3) NOT 标题:excl
@@ -2320,6 +2383,54 @@ def verify_dois_from_file(filepath):
     return valid, invalid, incomplete
 
 
+def _normalized_title_words(value):
+    return set(re.findall(r"[a-z0-9]+|[\u4e00-\u9fff]", str(value or "").lower()))
+
+
+def _title_agreement(left, right):
+    a = _normalized_title_words(left)
+    b = _normalized_title_words(right)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / max(len(a), len(b))
+
+
+def verify_search_results(results, verifier=verify_doi):
+    """Attach trust states without treating temporary API failure as invalid DOI."""
+    for record in results:
+        doi = record.get("doi")
+        source = str(record.get("source") or "").lower()
+        if not doi:
+            if source in {"cnki", "wanfang"} and (record.get("source_id") or record.get("article_url")):
+                record["verification_status"] = "VERIFIED_LOCAL"
+                record["verification_confidence"] = "medium"
+                record["verified_sources"] = source
+                record["warn_class"] = ""
+            else:
+                record["verification_status"] = "WARN"
+                record["verification_confidence"] = "low"
+                record["warn_class"] = "missing_identifier"
+            continue
+        valid, metadata = verifier(doi)
+        if not valid:
+            record["verification_status"] = "WARN"
+            record["verification_confidence"] = "low"
+            record["warn_class"] = "doi_verification_unavailable"
+            continue
+        agreement = _title_agreement(record.get("title"), metadata.get("title"))
+        if agreement < 0.5:
+            record["verification_status"] = "WARN"
+            record["verification_confidence"] = "low"
+            record["warn_class"] = "metadata_mismatch"
+        else:
+            record["verification_status"] = "VERIFIED"
+            record["verification_confidence"] = "high" if agreement >= 0.8 else "medium"
+            record["warn_class"] = ""
+        sources = [str(record.get("source") or "").strip(), "crossref"]
+        record["verified_sources"] = ",".join(dict.fromkeys(item for item in sources if item))
+    return results
+
+
 # ── Deduplication ───────────────────────────────────────────────────────────
 
 def _normalize_doi_key(value):
@@ -2345,6 +2456,28 @@ def _normalize_author_key(authors):
 
 
 def _prefer_richer_record(existing, candidate):
+    discovered_sources = []
+    for record in (existing, candidate):
+        for source in [record.get("source"), *(record.get("discovered_sources") or [])]:
+            source = str(source or "").strip()
+            if source and source not in discovered_sources:
+                discovered_sources.append(source)
+    existing["discovered_sources"] = discovered_sources
+    discovery_rounds = sorted({
+        int(value) for record in (existing, candidate)
+        for value in ([record.get("discovery_round")] + list(record.get("discovery_rounds") or []))
+        if str(value or "").isdigit() and int(value) > 0
+    })
+    existing["discovery_rounds"] = discovery_rounds
+    if discovery_rounds:
+        existing["discovery_round"] = discovery_rounds[0]
+    metadata_sources = dict(existing.get("metadata_sources") or {})
+    for field in ("title", "authors", "abstract", "article_url", "year", "venue", "citations", "doi"):
+        if existing.get(field) and field not in metadata_sources:
+            metadata_sources[field] = existing.get("source", "")
+        if candidate.get(field) and (not existing.get(field) or field == "abstract" and len(str(candidate.get(field))) > len(str(existing.get(field)))):
+            metadata_sources[field] = candidate.get("source", "")
+    existing["metadata_sources"] = metadata_sources
     existing_score = 0
     candidate_score = 0
     for field in ("authors", "abstract", "article_url", "year", "venue", "source_id"):
@@ -2359,7 +2492,43 @@ def _prefer_richer_record(existing, candidate):
         elif ca_val:
             candidate_score += 1
     if candidate_score > existing_score:
+        preserved = {
+            "discovered_sources": discovered_sources,
+            "metadata_sources": metadata_sources,
+            "discovery_rounds": discovery_rounds,
+            "discovery_round": discovery_rounds[0] if discovery_rounds else 0,
+        }
         existing.update(candidate)
+        existing.update(preserved)
+
+
+def _effective_hits(results, topic_keywords=None):
+    """Count deduplicated records with a plausible identifier and topic signal."""
+    unique = deduplicate(results)
+    keywords = [str(item).strip().lower() for item in (topic_keywords or []) if str(item).strip()]
+    effective = []
+    for record in unique:
+        if not (record.get("doi") or record.get("source_id") or record.get("article_url")):
+            continue
+        if keywords:
+            haystack = f"{record.get('title', '')} {record.get('abstract', '')}".lower()
+            if not any(keyword in haystack for keyword in keywords):
+                continue
+        effective.append(record)
+    return effective
+
+
+def _tag_discovery(records, *, source, round_id, strategy="relevance", query=""):
+    for record in records:
+        record.setdefault("discovered_sources", [source])
+        if source not in record["discovered_sources"]:
+            record["discovered_sources"].append(source)
+        record["discovery_round"] = round_id
+        rounds = {int(item) for item in record.get("discovery_rounds") or [] if str(item).isdigit()}
+        rounds.add(round_id)
+        record["discovery_rounds"] = sorted(rounds)
+        record["discovery_strategy"] = strategy
+        record["_query"] = query
 
 
 def deduplicate(results):
@@ -2815,7 +2984,8 @@ Examples:
     # Search mode
     parser.add_argument("query", nargs="?", help="Search query string")
     parser.add_argument("--source", choices=["semantic", "crossref", "openalex", "wanfang", "wf",
-                                              "cnki", "cn", "all", "semantic_scholar"],
+                                              "cnki", "cn", "all", "semantic_scholar",
+                                              "semantic_scholar_bulk", "semantic_bulk", "ss_bulk"],
                         default="all",
                         help="Search source (default: all). Use --t1/--t2/--t3 for routing.")
     parser.add_argument("--t1", help="Primary source (T1). Options: semantic_scholar, crossref, openalex, wanfang, cnki")
@@ -2881,6 +3051,8 @@ Examples:
 
     # Scoring
     parser.add_argument("--score", action="store_true", help="Auto-score results with heuristics")
+    parser.add_argument("--verify-metadata", action="store_true",
+                        help="Verify DOI/title metadata and write VERIFIED/WARN trust fields")
 
     args = parser.parse_args()
 
@@ -2938,6 +3110,7 @@ Examples:
             cited_by_limit=args.cited_by_limit,
             existing_dois=existing_dois,
         )
+        _tag_discovery(results, source="openalex_citation_network", round_id=3, strategy="citation_network", query=args.citation_network)
 
         # Auto-score if keywords provided
         if args.score or args.keywords:
@@ -2999,16 +3172,24 @@ Examples:
 
             for strat in strategies:
                 query_params = build_query(blocks, source_canon, strat)
-                query_str = query_params.pop("q", query_params.pop("search", args.query))
+                query_str = query_params.get("q", query_params.get("search", query_params.get("query.title", args.query)))
 
                 print(f"  [{sq_id}:{strat}] {source_canon}: {query_str[:80]}...", flush=True)
                 if source_canon in ("cnki", "wanfang"):
                     results = SOURCE_FUNCTIONS[source_canon](query_str, args.limit, use_cache=not args.no_cache, language=args.language)
+                elif source_canon in ("openalex", "crossref"):
+                    results = SOURCE_FUNCTIONS[source_canon](
+                        query_str, args.limit, use_cache=not args.no_cache, query_params=query_params,
+                    )
                 else:
                     results = SOURCE_FUNCTIONS[source_canon](query_str, args.limit, use_cache=not args.no_cache)
                 print(f"  [{sq_id}:{strat}] {source_canon}: {len(results)} results", flush=True)
                 # Tag results with sub-query ID and strategy
+                _tag_discovery(results, source=source_canon, round_id=strategies.index(strat) + 1, strategy=strat, query=query_str)
                 for r in results:
+                    if query_params.get("strategy_degraded"):
+                        r["strategy_degraded"] = True
+                        r["strategy_applied"] = query_params.get("strategy_applied")
                     r["_sub_query"] = sq_id
                     r["_strategy"] = strat
                 all_results.extend(results)
@@ -3027,7 +3208,8 @@ Examples:
         if args.t1:
             # T1->T2->T3 routing mode
             sources = [(args.t1, "T1"), (args.t2, "T2"), (args.t3, "T3")]
-            for src, label in sources:
+            fallback_keywords = [w.strip().lower() for w in args.query.split() if len(w.strip()) > 3]
+            for round_id, (src, label) in enumerate(sources, 1):
                 if not src:
                     continue
                 src_canon = _resolve_source(src)
@@ -3042,35 +3224,50 @@ Examples:
                 else:
                     results = SOURCE_FUNCTIONS[src_canon](args.query, args.limit, use_cache=not args.no_cache)
                 print(f"  [{label}] {src_canon}: {len(results)} results", flush=True)
+                _tag_discovery(results, source=src_canon, round_id=round_id, query=args.query)
                 all_results.extend(results)
 
-                # If T1 returned enough, skip T2/T3 — unless --parallel is set
-                if not args.parallel and label == "T1" and len(results) >= args.min_results:
-                    print(f"  T1 returned >= {args.min_results}, skipping T2/T3 "
+                # Use deduplicated, topically plausible records for fallback decisions.
+                effective_count = len(_effective_hits(all_results, fallback_keywords))
+                if not args.parallel and label == "T1" and effective_count >= args.min_results:
+                    print(f"  T1 returned >= {args.min_results} effective unique results, skipping T2/T3 "
                           f"(use --parallel to force both)")
                     break
         else:
             # Legacy mode: --source
             if args.source in ("semantic", "semantic_scholar", "all"):
                 print("  Querying Semantic Scholar...", flush=True)
-                all_results.extend(search_semantic_scholar(args.query, args.limit, use_cache=not args.no_cache))
+                results = search_semantic_scholar(args.query, args.limit, use_cache=not args.no_cache)
+                _tag_discovery(results, source="semantic_scholar", round_id=1, query=args.query)
+                all_results.extend(results)
             if args.source in ("crossref", "all"):
                 print("  Querying Crossref...", flush=True)
-                all_results.extend(search_crossref(args.query, args.limit, use_cache=not args.no_cache))
+                results = search_crossref(args.query, args.limit, use_cache=not args.no_cache)
+                _tag_discovery(results, source="crossref", round_id=1, query=args.query)
+                all_results.extend(results)
             if args.source in ("openalex", "all"):
                 print("  Querying OpenAlex...", flush=True)
-                all_results.extend(search_openalex(args.query, args.limit, use_cache=not args.no_cache))
+                results = search_openalex(args.query, args.limit, use_cache=not args.no_cache)
+                _tag_discovery(results, source="openalex", round_id=1, query=args.query)
+                all_results.extend(results)
             if args.source in ("wanfang", "wf", "all"):
                 print("  Querying Wanfang Data...", flush=True)
-                all_results.extend(search_wanfang(args.query, args.limit, use_cache=not args.no_cache, language=args.language))
+                results = search_wanfang(args.query, args.limit, use_cache=not args.no_cache, language=args.language)
+                _tag_discovery(results, source="wanfang", round_id=2, query=args.query)
+                all_results.extend(results)
             if args.source in ("cnki", "cn", "all"):
                 print("  Querying CNKI...", flush=True)
-                all_results.extend(search_cnki(args.query, args.limit, use_cache=not args.no_cache, strategy=args.strategy if args.strategy and args.strategy != "all" else "", language=args.language))
+                results = search_cnki(args.query, args.limit, use_cache=not args.no_cache, strategy=args.strategy if args.strategy and args.strategy != "all" else "", language=args.language)
+                _tag_discovery(results, source="cnki", round_id=2, strategy=args.strategy, query=args.query)
+                all_results.extend(results)
 
     # Deduplicate
     unique = deduplicate(all_results)
     unique.sort(key=lambda x: -(int(x.get("year", 0) or 0)))
     workflow_unique = list(unique)
+
+    if args.verify_metadata:
+        verify_search_results(workflow_unique)
 
     # Filter no-DOI
     if not args.include_no_doi:

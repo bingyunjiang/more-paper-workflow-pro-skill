@@ -118,6 +118,16 @@ def _execution_card_text(root: Path) -> str:
     return _read_text(card) if card.exists() else ""
 
 
+def _risk_boundary_present(root: Path, card_text: str) -> bool:
+    if (root / "draft_risk_summary.md").exists() or (root / "draft_risk_summary.json").exists():
+        return True
+    return bool(re.search(
+        r"(?:risk_status|citation_risk|evidence_gaps?|risk_boundary)\s*[:=]\s*\S+",
+        card_text,
+        flags=re.IGNORECASE,
+    ))
+
+
 def _mechanism_decision(root: Path, card_text: str) -> str:
     for path in [
         root / "mechanism_trigger_decision.json",
@@ -328,18 +338,24 @@ def validate(root: Path, target_state: str = "auto") -> tuple[list[Finding], dic
 
     if drafts and not (root / "step7_execution_card.md").exists():
         findings.append(Finding("fail", "missing_execution_card", "draft exists but step7_execution_card.md is missing"))
+    if drafts and not _risk_boundary_present(root, card_text):
+        findings.append(Finding(
+            "fail",
+            "missing_draft_risk_boundary",
+            "draft_ready requires a risk_status/citation_risk/evidence_gap boundary or draft_risk_summary artifact",
+        ))
 
-    if drafts:
+    if drafts and require_evidence_closure:
         findings.extend(_validate_reviewer_scorecard(root, draft_hash, require_evidence_closure))
 
-    if drafts and not _exists_any(
+    if drafts and require_evidence_closure and not _exists_any(
         root,
         ["evidence_matrix.md", "综述矩阵.md", "deep_read_cards.md", "evidence_pack.json"],
         ["*evidence_matrix*.md", "*deep_read_cards*.json", "*deep_read_cards*.md"],
     ):
         findings.append(Finding("fail", "missing_evidence_mapping", "draft exists but no evidence matrix, deep_read_cards, or evidence_pack was found"))
 
-    if drafts and not _exists_any(
+    if drafts and require_evidence_closure and not _exists_any(
         root,
         ["citation_audit.md", "引用审计报告.md", "claim_evidence_audit.md", "claim_evidence_audit.json"],
         ["*citation*audit*.md", "*引用审计*.md", "*claim*evidence*audit*.md", "*claim*evidence*audit*.json"],
@@ -379,11 +395,17 @@ def validate(root: Path, target_state: str = "auto") -> tuple[list[Finding], dic
                 "raw_zotero_key_citations",
                 "draft body contains raw Zotero keys used like citations: " + ", ".join(zotero_keys[:8]),
             ))
-        if not _has_submission_style_citation(combined_draft_text):
+        if require_evidence_closure and not _has_submission_style_citation(combined_draft_text):
             findings.append(Finding(
                 "fail",
                 "missing_submission_style_citations",
                 "draft body lacks [n]（已读全文） or 作者（年份）（已读全文） style citations",
+            ))
+        elif not require_evidence_closure and not _has_submission_style_citation(combined_draft_text):
+            findings.append(Finding(
+                "warn",
+                "draft_without_submission_style_citations",
+                "draft_ready may continue without closed citations, but citation safety has not been established",
             ))
 
     if mechanism_task and not decision:

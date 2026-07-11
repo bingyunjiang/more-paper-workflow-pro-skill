@@ -722,6 +722,9 @@ class Step7Step8ContractsTest(unittest.TestCase):
         ]:
             self.assertIn(token, text)
 
+        for token in ["doctoral_thesis_map.json", "prepare -> write -> close -> incremental audit", "原子回写", "doctoral_ready", "不补跑 Step 1-6", "必须记录作者确认"]:
+            self.assertIn(token, text)
+
         self.assertIn("按大纲对应的 Zotero 子集合取证；不扫整个 Zotero 文库", command)
         self.assertIn("每次只写一个当前小节，不提前展开后续小节", command)
         self.assertIn("写 `1.1` 就只读 `1.1` 对应集合", mapping)
@@ -837,6 +840,8 @@ class Step7Step8ContractsTest(unittest.TestCase):
         self.assertIn("AI 味确定性检查", command)
         self.assertIn("AI 味确定性检查", readme)
         self.assertIn("载体清洁度检查", readme)
+        for token in ["authorial_revision_record.json", "editorial_only / author_confirmed / requires_author_input", "不承诺检测结果", "不得承诺“通过 AIGC 检测”", "不要求补跑 Step 7"]:
+            self.assertIn(token, text)
 
         for token in [
             "套话短语规则",

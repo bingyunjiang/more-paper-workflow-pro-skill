@@ -1,5 +1,10 @@
 # Reference Index
 
+## 博士写作与作者责任
+
+- `doctoral-dissertation-writing-contract.md`：博士论文整篇研究问题、结果、贡献、可复现性和跨章综合闭环。
+- `authorial-revision-and-ai-use.md`：Step 8 作者声音、修订责任、AI 使用披露及检测器边界。
+
 This index groups the reference files by function so the workflow contracts are easier to navigate and maintain.
 
 ## Runtime contracts
@@ -10,6 +15,8 @@ This index groups the reference files by function so the workflow contracts are 
 - `citation-audit-contract.md`
 - `reviewer-protocol.md`
 - `claim-evidence-readiness.md`
+- `early-research-evidence-calibration.md`
+- `search-source-capability-evidence.md`
 
 ## Agent execution discipline
 

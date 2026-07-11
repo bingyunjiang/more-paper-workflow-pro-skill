@@ -13,6 +13,18 @@ import yaml
 STEP1_SCORE_AXES = ["originality", "importance", "feasibility", "literature_support", "method_readiness"]
 STEP2_REQUIRED = ["section_id", "section_title", "section_function", "key_claims", "evidence_needed", "do_not_write"]
 STEP3_REQUIRED = ["id", "rq_id", "chapter_id", "evidence_type", "question_to_answer", "query_blocks", "route", "tier"]
+STEP3_TOP_REQUIRED = [
+    "plan_mode", "execution_context", "retrieval_language", "source_scope",
+    "publication_year_range", "document_types", "inclusion_criteria",
+    "exclusion_criteria", "deduplication_plan", "query_versions", "search_update_policy",
+]
+STEP3_SOURCES = {
+    "openalex", "crossref", "semantic_scholar", "semantic_scholar_bulk",
+    "arxiv", "pubmed", "cnki", "wanfang",
+}
+CALIBRATION_STATUSES = {"executed", "user_supplied", "unavailable"}
+KEYWORD_ORIGINS = {"user", "topic", "corpus", "controlled_vocabulary"}
+KEYWORD_ACTIONS = {"keep", "qualify", "expand", "exclude"}
 
 
 def _frontmatter(text: str) -> dict:
@@ -33,10 +45,65 @@ def _nonempty(value: object) -> bool:
     return value is not None
 
 
+def _validate_calibration(value: object, prefix: str) -> list[str]:
+    if not isinstance(value, dict):
+        return [f"{prefix} is required"]
+    errors = []
+    status = value.get("status")
+    if status not in CALIBRATION_STATUSES:
+        errors.append(f"{prefix}.status must be executed, user_supplied, or unavailable")
+    if not _nonempty(value.get("sources_attempted")):
+        errors.append(f"{prefix}.sources_attempted is required")
+    if not _nonempty(value.get("queries")):
+        errors.append(f"{prefix}.queries is required")
+    if status in {"executed", "user_supplied"}:
+        records = value.get("representative_records")
+        if not isinstance(records, list) or len(records) < 2:
+            errors.append(f"{prefix}.representative_records must contain at least 2 records")
+        else:
+            for index, record in enumerate(records):
+                if not isinstance(record, dict) or not _nonempty(record.get("title")):
+                    errors.append(f"{prefix}.representative_records[{index}].title is required")
+                if not isinstance(record, dict) or not _nonempty(record.get("doi") or record.get("source_id")):
+                    errors.append(f"{prefix}.representative_records[{index}] needs doi or source_id")
+    if status == "unavailable" and not _nonempty(value.get("limitations")):
+        errors.append(f"{prefix}.limitations is required when calibration is unavailable")
+    return errors
+
+
+def _validate_keyword_audit(value: object) -> list[str]:
+    if not isinstance(value, list) or not value:
+        return ["keyword_audit must contain at least one audited term"]
+    errors = []
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            errors.append(f"keyword_audit[{index}] must be an object")
+            continue
+        if not _nonempty(item.get("term")):
+            errors.append(f"keyword_audit[{index}].term is required")
+        if item.get("origin") not in KEYWORD_ORIGINS:
+            errors.append(f"keyword_audit[{index}].origin is invalid")
+        observed = item.get("observed_in_records")
+        if not isinstance(observed, int) or isinstance(observed, bool) or observed < 0:
+            errors.append(f"keyword_audit[{index}].observed_in_records must be a non-negative integer")
+        if item.get("ambiguity") not in {"none", "low", "high"}:
+            errors.append(f"keyword_audit[{index}].ambiguity is invalid")
+        if item.get("action") not in KEYWORD_ACTIONS:
+            errors.append(f"keyword_audit[{index}].action is invalid")
+    return errors
+
+
 def validate_step1(path: Path) -> list[str]:
     data = _frontmatter(path.read_text(encoding="utf-8", errors="replace"))
     errors = []
     topic = data.get("topic") if isinstance(data.get("topic"), dict) else {}
+    interaction = data.get("interaction_record") if isinstance(data.get("interaction_record"), dict) else {}
+    if interaction.get("answer_burden") != "minimal":
+        errors.append("interaction_record.answer_burden must be minimal")
+    for field in ["user_supplied", "inferred", "assumed", "unresolved_blocking", "unresolved_nonblocking"]:
+        if not isinstance(interaction.get(field), list):
+            errors.append(f"interaction_record.{field} must be a list")
+    errors.extend(_validate_calibration(data.get("evidence_calibration"), "evidence_calibration"))
     for field in ["focused_topic", "primary_rq", "scope_boundaries", "evaluation_metrics"]:
         if not _nonempty(topic.get(field)):
             errors.append(f"topic.{field} is required")
@@ -80,6 +147,11 @@ def validate_step2(path: Path) -> list[str]:
     if not isinstance(sections, list) or not sections:
         return ["section_blueprints must contain a non-empty section list"]
     errors = []
+    if isinstance(payload, dict):
+        if payload.get("outline_state") not in {"outline_baseline", "search_calibrated", "evidence_validated"}:
+            errors.append("outline_state must be outline_baseline, search_calibrated, or evidence_validated")
+        errors.extend(_validate_calibration(payload.get("evidence_calibration"), "evidence_calibration"))
+        errors.extend(_validate_keyword_audit(payload.get("keyword_audit")))
     seen = set()
     rq_coverage = set()
     for index, section in enumerate(sections):
@@ -110,7 +182,27 @@ def validate_step3(path: Path) -> list[str]:
     if not isinstance(tasks, list) or not tasks:
         return ["search_tasks must be a non-empty list"]
     errors = []
+    for field in STEP3_TOP_REQUIRED:
+        if not _nonempty(payload.get(field)):
+            errors.append(f"{field} is required")
+    if payload.get("plan_mode") not in {"standard", "deep", "systematic"}:
+        errors.append("plan_mode must be standard, deep, or systematic")
+    if payload.get("execution_context") not in {"step3_planning", "step4_direct_entry"}:
+        errors.append("execution_context must be step3_planning or step4_direct_entry")
+    if payload.get("retrieval_language") not in {"zh", "en", "mixed"}:
+        errors.append("retrieval_language must be zh, en, or mixed")
+    include = {str(item).strip().lower() for item in payload.get("inclusion_criteria", []) if str(item).strip()}
+    exclude = {str(item).strip().lower() for item in payload.get("exclusion_criteria", []) if str(item).strip()}
+    overlap = sorted(include & exclude)
+    if overlap:
+        errors.append("inclusion/exclusion criteria conflict: " + ", ".join(overlap))
+    if payload.get("plan_mode") == "systematic":
+        protocol = payload.get("review_protocol") if isinstance(payload.get("review_protocol"), dict) else {}
+        for field in ["databases", "platforms", "search_dates", "full_strategies", "controlled_vocabulary", "supplementary_sources", "press_review"]:
+            if not _nonempty(protocol.get(field)):
+                errors.append(f"review_protocol.{field} is required for systematic mode")
     seen = set()
+    rq_coverage = set()
     for index, task in enumerate(tasks):
         if not isinstance(task, dict):
             errors.append(f"search_tasks[{index}] must be an object")
@@ -122,13 +214,28 @@ def validate_step3(path: Path) -> list[str]:
         if task_id in seen:
             errors.append(f"duplicate search task id: {task_id}")
         seen.add(task_id)
+        rq_coverage.add(str(task.get("rq_id") or ""))
+        if task.get("tier") not in {"quick", "standard", "deep"}:
+            errors.append(f"search_tasks[{index}].tier is invalid")
+        if task.get("framework") not in {"concept_block", "pico", "peo", "methods_focused", "pcc", "spider"}:
+            errors.append(f"search_tasks[{index}].framework is invalid")
+        route = task.get("route") if isinstance(task.get("route"), dict) else {}
+        sources = [str(source).strip().lower() for level in ("l1", "l2", "l3") for source in route.get(level, []) or []]
+        if not sources:
+            errors.append(f"search_tasks[{index}].route needs at least one source")
+        for source in sources:
+            if source not in STEP3_SOURCES:
+                errors.append(f"search_tasks[{index}].route contains unsupported source: {source}")
         blocks = task.get("query_blocks") or []
         if len(blocks) > 4:
             errors.append(f"search_tasks[{index}] has more than 4 AND blocks")
         for block_index, block in enumerate(blocks):
             terms = block.get("terms", []) if isinstance(block, dict) else []
-            if len({str(term).strip().lower() for term in terms if str(term).strip()}) < 2:
+            if len({str(term).strip().lower() for term in terms if str(term).strip()}) < 2 and not _nonempty(block.get("single_canonical_term_reason") if isinstance(block, dict) else None):
                 errors.append(f"search_tasks[{index}].query_blocks[{block_index}] needs at least 2 unique terms")
+    for rq_id in payload.get("core_research_question_ids", []) or []:
+        if str(rq_id) not in rq_coverage:
+            errors.append(f"research question is not mapped to any search task: {rq_id}")
     return errors
 
 

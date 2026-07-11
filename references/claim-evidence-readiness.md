@@ -28,7 +28,7 @@
 
 ## Step 7 完成状态
 
-- `draft_ready`：当前写作范围的正文和风险说明已形成；允许摘要级、元数据级或待补证据项，不要求 Step 1-6 工件存在。
+- `draft_ready`：当前写作范围的正文、执行边界和风险说明已形成；允许摘要级、元数据级、无正式引文或待补证据项，不要求 Step 1-6、证据矩阵、引用审计或 reviewer scorecard 存在。此状态只表示“草稿可继续”，不得声明引用安全或证据闭环。
 - `evidence_closed`：`claim_evidence_audit.json` 与当前稿件 `draft_sha256` 一致，`unresolved_count=0`，reviewer scorecard 同样绑定当前稿件。
 - `ready_for_step8`：在 `evidence_closed` 基础上，当前写作范围内的图表解析和必要质量门也已关闭。
 
