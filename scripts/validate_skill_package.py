@@ -63,7 +63,7 @@ def scan_zip(path: Path) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate a More Paper Workflow Pro package.")
+    parser = argparse.ArgumentParser(description="Validate a more-paper-workflow package.")
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--zip", type=Path)
     parser.add_argument("--json-out", type=Path)

@@ -33,7 +33,7 @@
 - 小字号，半透明，居中
 
 ### 2. 标题
-- **More Paper Workflow Pro Skill** `v1.0.1`
+- **more-paper-workflow** `v1.0.1`
 - 副标题：完整学术文献检索和写作工作流
 
 ### 3. 核心亮点（3 列图标 + 数据）
@@ -57,7 +57,7 @@
 - 📝 **Step 8 润色增强** — 句长波动检测 + 段落节奏优化
 
 ### 6. 底部
-- GitHub: `bingyunjiang/More-paper-workflow-pro-skill`
+- GitHub: `bingyunjiang/more-paper-workflow`
 - 小字：`pip install websocket-client && python3 scripts/auto_sd_downloader.py`
 
 ### 7. 作者信息

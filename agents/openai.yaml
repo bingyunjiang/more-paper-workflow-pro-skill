@@ -1,7 +1,7 @@
 interface:
-  display_name: "More Paper Workflow Pro"
+  display_name: "more-paper-workflow"
   short_description: "Research workflow with reproducible scientific figures"
-  default_prompt: "Use $more-paper-workflow-pro-skill when the user asks to plan research, search literature, manage PDFs or Zotero, write a paper, generate or reproduce scientific figures, digitize plots, audit citations, or polish a draft."
+  default_prompt: "Use $more-paper-workflow when the user asks to plan research, search literature, manage PDFs or Zotero, write a paper, generate or reproduce scientific figures, digitize plots, audit citations, or polish a draft."
 
 policy:
   allow_implicit_invocation: true

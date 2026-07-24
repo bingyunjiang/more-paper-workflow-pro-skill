@@ -1,10 +1,10 @@
 {
-  "name": "more-paper-workflow-pro-skill",
-  "version": "1.0.16",
+  "name": "more-paper-workflow",
+  "version": "1.0.22",
   "description": "中文/双语论文的证据闭环学术工作流：从定题、检索、下载、Zotero 到写作与引用审计，全程基于真实文献。",
   "author": {
     "name": "Dr. Jiang Bingyun"
   },
-  "repository": "https://github.com/bingyunjiang/more-paper-workflow-pro-skill",
+  "repository": "https://github.com/bingyunjiang/more-paper-workflow",
   "license": "CC-BY-NC-SA-4.0"
 }

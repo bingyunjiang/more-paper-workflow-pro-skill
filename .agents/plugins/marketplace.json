@@ -1,14 +1,14 @@
 {
-  "name": "more-paper-workflow-pro-skill",
+  "name": "more-paper-workflow",
   "interface": {
-    "displayName": "More Paper Workflow Pro"
+    "displayName": "more-paper-workflow"
   },
   "plugins": [
     {
-      "name": "more-paper-workflow-pro-skill",
+      "name": "more-paper-workflow",
       "source": {
         "source": "local",
-        "path": "./plugins/more-paper-workflow-pro-skill"
+        "path": "./plugins/more-paper-workflow"
       },
       "policy": {
         "installation": "AVAILABLE",

@@ -41,7 +41,7 @@ def build_prompt(payload: dict) -> str:
     remote_head = short_sha(payload.get("remote_head"))
     update_command = payload.get("update_command") or "git pull --ff-only"
     lines = [
-        "检测到 More Paper Workflow Pro Skill 有新版本可用。",
+        "检测到 more-paper-workflow 有新版本可用。",
         "",
         f"- 当前版本：{skill_version}",
         f"- 远程版本：{remote_head}",

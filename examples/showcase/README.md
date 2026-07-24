@@ -1,6 +1,6 @@
 # Showcase
 
-本目录用于展示 `more-paper-workflow-pro-skill` 的关键中间产物和最终产物样例，帮助用户理解每个 Step 会生成什么，而不是只看流程说明。
+本目录用于展示 `more-paper-workflow` 的关键中间产物和最终产物样例，帮助用户理解每个 Step 会生成什么，而不是只看流程说明。
 
 建议优先查看：
 

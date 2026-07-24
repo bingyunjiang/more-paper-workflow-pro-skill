@@ -11,8 +11,9 @@ This file keeps the long-form trigger vocabulary out of `SKILL.md` frontmatter w
 - `more paper workflow`
 - `more-paper workflow`
 - `more_paper workflow`
-- `more paper workflow pro skill`
-- `more-paper-workflow-pro-skill`
+- `more-paper-workflow`
+- `more paper workflow pro skill`（legacy compatibility alias）
+- `more-paper-workflow-pro-skill`（legacy compatibility alias）
 
 ## Step 1: 确定研究主题
 

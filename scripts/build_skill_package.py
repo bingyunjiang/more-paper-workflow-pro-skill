@@ -31,7 +31,7 @@ def build_package(root: Path, output: Path | None = None) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build a portable More Paper Workflow Pro skill ZIP.")
+    parser = argparse.ArgumentParser(description="Build a portable more-paper-workflow ZIP.")
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()

@@ -8,6 +8,14 @@
 
 ---
 
+## v1.0.22-20260724 (2026-07-24)
+
+### `more series` 品牌与 Skill 更名
+
+- 主名称由 `more-paper-workflow-pro-skill` 缩短为 `more-paper-workflow`，并在 README 中加入全小写系列品牌 `more series`。
+- 与 `more-comic-digitizer` 统一采用 `more-<领域>-<核心能力>` 命名体系；旧全名继续作为兼容触发别名。
+- 同步更新 GitHub 地址、Skill frontmatter、Claude/Codex 插件元数据、安装入口、升级提示、缓存与打包路径、推广材料和测试期望。
+
 ## v1.0.21-20260712 (2026-07-12)
 
 ### Step 7 科学图形证据闭环

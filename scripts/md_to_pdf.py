@@ -6,7 +6,7 @@
 """
 统一 Markdown → PDF 转换器。
 
-自动识别文件类型，将 More Paper Workflow Pro Skill 各环节产出的
+自动识别文件类型，将 more-paper-workflow 各环节产出的
 Markdown 文件一键转换为带页眉/页脚/表格/页码的 A4 PDF 报告。
 
 复用 generate_report_pdf.py 的 ReportPDF 引擎 + 字体检测。

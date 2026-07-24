@@ -43,7 +43,7 @@ def run_step(name: str, cmd: list[str], *, timeout: int = 180) -> dict[str, Any]
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run scientific figure release acceptance for More Paper Workflow Pro.")
+    parser = argparse.ArgumentParser(description="Run scientific figure release acceptance for more-paper-workflow.")
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
 
@@ -55,7 +55,7 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="more-paper-figure-release-") as tmp:
         workspace = Path(tmp)
-        zip_path = workspace / "more-paper-workflow-pro-skill.zip"
+        zip_path = workspace / "more-paper-workflow.zip"
         baseline = workspace / "baseline"
         bundle = workspace / "bundle"
         spec = ROOT / "examples" / "line_plot" / "visualspec_v2.json"

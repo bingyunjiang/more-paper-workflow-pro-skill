@@ -1,4 +1,4 @@
-# More Paper Workflow Pro — Python Dependencies
+# more-paper-workflow — Python Dependencies
 # 安装：pip install -r requirements.txt
 # 可选依赖（已注释）：pip install -r requirements.txt --no-deps 后按需安装
 

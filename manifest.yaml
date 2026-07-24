@@ -1,5 +1,5 @@
 version: 0.1.0
-name: more-paper-workflow-pro-skill
+name: more-paper-workflow
 description: Top-level routing manifest for the more-paper workflow skeleton.
 
 axes:

@@ -1,5 +1,5 @@
-[![Claude Code](https://img.shields.io/badge/Claude_Code-Skill-6B46F7?logo=anthropic&logoColor=white)](https://github.com/bingyunjiang/More-paper-workflow-pro-skill)
-[![Codex](https://img.shields.io/badge/Codex-Skill-0B1120?logo=openai&logoColor=white)](https://github.com/bingyunjiang/More-paper-workflow-pro-skill)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-Skill-6B46F7?logo=anthropic&logoColor=white)](https://github.com/bingyunjiang/more-paper-workflow)
+[![Codex](https://img.shields.io/badge/Codex-Skill-0B1120?logo=openai&logoColor=white)](https://github.com/bingyunjiang/more-paper-workflow)
 [![Hermes](https://img.shields.io/badge/Hermes-Skill-FF6B35?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0tMSAxNy45M2MtMy45NS0uNDktNy0zLjg1LTctNy45MyAwLS40NC4wNC0uODcuMTEtMS4yOWwxLjg4IDEuODhjLjEuMTEuMjYuMjYuNDcuNDQgMi4yMiAxLjk3IDMuMjYgMi44NyAzLjI2IDIuODcuMjYgMCAuNTItLjEzLjc4LS4zOSAxLjI2LTEuMjYgMS4xMi0zLjI5LS4zMy00Ljg2bC0xLjg5LTEuODljLS4yMi0uMjItLjMzLS4zMy0uNDQtLjQ0LS40Ny0uNDctLjQ3LTEuMjQgMC0xLjcxLjQ3LS40NyAxLjI0LS40NyAxLjcxIDBsLjQ0LjQ0Yy4wMi4wMi4wNC4wNCAxLjQyIDEuNDJsLjIyLS4wNGMxLjY4LS4zMSAzLjI0LjQ2IDMuOTcgMi4wMi0xLjU5IDEuMTktMy4yOSAxLjg5LTQuOTcgMi4wOHoiLz48L3N2Zz4=)](https://github.com/nousresearch/hermes-skills)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Skill-00B4D8?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0tMSAxNy45M2MtMy45NS0uNDktNy0zLjg1LTctNy45MyAwLS40NC4wNC0uODcuMTEtMS4yOWwxLjg4IDEuODhjLjEuMTEuMjYuMjYuNDcuNDQgMi4yMiAxLjk3IDMuMjYgMi44NyAzLjI2IDIuODcuMjYgMCAuNTItLjEzLjc4LS4zOSAxLjI2LTEuMjYgMS4xMi0zLjI5LS4zMy00Ljg2bC0xLjg5LTEuODljLS4yMi0uMjItLjMzLS4zMy0uNDQtLjQ0LS40Ny0uNDctLjQ3LTEuMjQgMC0xLjcxLjQ3LS40NyAxLjI0LS40NyAxLjcxIDBsLjQ0LjQ0Yy4wMi4wMi4wNC4wNCAxLjQyIDEuNDJsLjIyLS4wNGMxLjY4LS4zMSAzLjI0LjQ2IDMuOTcgMi4wMi0xLjU5IDEuMTktMy4yOSAxLjg5LTQuOTcgMi4wOHoiLz48L3N2Zz4=)](https://github.com/openclaw/openclaw)
 [![Platform](https://img.shields.io/badge/macOS_|_Windows_|_Linux-lightgrey?logo=apple)]()
@@ -11,9 +11,11 @@
 [**中文**](#chinese) &nbsp;|&nbsp; [**English**](#english)
 
 <a id="chinese"></a>
-# 📚 more paper workflow pro skill `v1.0.21-20260712`
+# 📚 more-paper-workflow `v1.0.22-20260724`
 
 > 面向中文/双语论文写作的证据闭环工作流。覆盖定题、检索、下载、Zotero文献管理、论文写作与润色，所有关键步骤都围绕真实文献落地，而不是模型记忆。
+
+> **more series** 成员 · 遵循 `more-<领域>-<核心能力>` 命名体系。系列项目：[more-comic-digitizer](https://github.com/bingyunjiang/more-comic-digitizer)。
 
 ## 📑 目录
 
@@ -178,7 +180,7 @@ Step 8: 润色与保守修订（诊断、局部修订、回退）        → 论
 
 当前最稳妥的公共使用方式，是把仓库地址交给支持 Skill 的对话式运行时，由它读取 `README.md`、`SKILL.md` 和 `agents/*.md` 后按需执行：
 
-- `https://github.com/bingyunjiang/more-paper-workflow-pro-skill`
+- `https://github.com/bingyunjiang/more-paper-workflow`
 
 ### 本仓库参考安装
 
@@ -241,7 +243,7 @@ Get-Content -Encoding UTF8 .\README.md
 
 ## 🛡️ 论文质量防线
 
-More Paper Workflow 在 8 步流程中嵌入了 **前中后段联动的质量防线**，形成逐层收紧、逐层分流的质量控制体系。设计原则：**越早发现问题，修复成本越低；越靠近成稿，越要区分“还能在当前层修”还是“必须回退补证据/补结构”。**
+more-paper-workflow 在 8 步流程中嵌入了 **前中后段联动的质量防线**，形成逐层收紧、逐层分流的质量控制体系。设计原则：**越早发现问题，修复成本越低；越靠近成稿，越要区分“还能在当前层修”还是“必须回退补证据/补结构”。**
 
 ### 防线总图
 
@@ -285,7 +287,7 @@ Step 1.4          Step 2.2          Step 4        Step 7.7/7.8/7.10       Step 7
 **推荐启动语：**
 
 ```text
-采用 more paper workflow pro skill，从 Step 1 开始帮我确定研究主题。
+采用 more-paper-workflow，从 Step 1 开始帮我确定研究主题。
 请先诊断我的研究阶段，再引导我完成选题聚焦、预检索和选题预审。
 ```
 
@@ -524,7 +526,7 @@ Step 8 可以检查明显的机械化表达、重复性问题和读者理解障�
 ## 📂 项目结构
 
 ```
-More-paper-workflow-pro-skill/
+more-paper-workflow/
 ├── README.md                       ← GitHub 展示与快速开始
 ├── SKILL.md                        ← Skill 入口、触发词、Agent 路由
 ├── agents/                         ← Step 1-8 权威执行规则
@@ -591,6 +593,12 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 ## 📋 版本历史
 
 完整版本历史请参见 [CHANGELOG.md](CHANGELOG.md)。以下为各版本要点：
+
+### v1.0.22-20260724 (2026-07-24)
+
+- Skill 与 GitHub 仓库主名称由 `more-paper-workflow-pro-skill` 缩短为 `more-paper-workflow`，旧名称继续作为兼容触发别名。
+- README 加入全小写系列品牌 `more series`，并与 `more-comic-digitizer` 统一采用 `more-<领域>-<核心能力>` 命名体系。
+- 同步更新插件元数据、安装地址、升级提示、打包路径、推广材料和测试契约。
 
 ### v1.0.21-20260712 (2026-07-12)
 
@@ -770,11 +778,13 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 ---
 
 <a id="english"></a>
-# 📚 more paper workflow pro skill `v1.0.21-20260712`
+# 📚 more-paper-workflow `v1.0.22-20260724`
 
 > **Author:** Dr. Jiang Bingyun　|　**WeChat:** Bingyunjiang　|　**Email:** bingyunjiang@qq.com
 
 > An evidence-centered academic workflow for bilingual and Chinese paper writing. It connects topic definition, literature search, download routing, Zotero, drafting, citation audit, and polishing around real documents rather than model memory.
+
+> A member of **more series**, following the `more-<domain>-<core-capability>` naming system. Sibling project: [more-comic-digitizer](https://github.com/bingyunjiang/more-comic-digitizer).
 
 Step 7 automatically keeps ordinary trusted-data charts on the quick backend and routes paper-figure redraws, plot digitization, semantic/vector audits, and reproducible deliveries through the strict reproduction backend.
 
@@ -905,7 +915,7 @@ Step 8: Polishing and conservative revision              -> polished manuscript 
 
 The recommended way is to send this URL to Claude Code / Codex / Hermes / OpenClaw and let the runtime download and configure the skill:
 
-- `https://github.com/bingyunjiang/more-paper-workflow-pro-skill`
+- `https://github.com/bingyunjiang/more-paper-workflow`
 
 The repository keeps reference commands because different runtimes expose different install paths. The simplest success check is to paste one Quick Start prompt and see whether the expected Step and output artifacts are recognized.
 
@@ -938,7 +948,7 @@ Citation accuracy is paramount in paper writing. This tool uses **direct PDF rea
 
 ## 🛡️ Quality Defense Line
 
-More Paper Workflow now embeds a **linked quality defense system across planning, drafting, revision, audit, and polishing**. Design principle: **the earlier you catch a problem, the cheaper it is to fix; the later the stage, the more important it is to decide whether the issue can still be fixed locally or must be rolled back for evidence or structure repair.**
+more-paper-workflow now embeds a **linked quality defense system across planning, drafting, revision, audit, and polishing**. Design principle: **the earlier you catch a problem, the cheaper it is to fix; the later the stage, the more important it is to decide whether the issue can still be fixed locally or must be rolled back for evidence or structure repair.**
 
 ### Defense Line Overview
 
@@ -983,7 +993,7 @@ If you are not sure how to start, copy one of the prompts below. Step 1 first di
 **Recommended starter:**
 
 ```text
-Use More Paper Workflow Pro Skill and start from Step 1 to help me define my research topic.
+Use more-paper-workflow and start from Step 1 to help me define my research topic.
 First diagnose my research stage, then guide me through topic focusing, pre-search, and topic review.
 ```
 
@@ -1165,7 +1175,7 @@ See [`agents/step_8_polishing.md`](agents/step_8_polishing.md) for the authorita
 ## 📂 Project Structure
 
 ```
-More-paper-workflow-pro-skill/
+more-paper-workflow/
 ├── README.md                       ← GitHub overview and quick start
 ├── SKILL.md                        ← Skill entrypoint, triggers, agent routing
 ├── agents/                         ← Authoritative Step 1-8 execution rules
@@ -1235,6 +1245,12 @@ On macOS, the system `python3` defaults to 3.9. All scripts in this toolkit are 
 ## 📋 Version History
 
 Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are highlights:
+
+### v1.0.22-20260724 (2026-07-24)
+
+- Renamed the Skill and GitHub repository from `more-paper-workflow-pro-skill` to `more-paper-workflow`; the former name remains a compatibility trigger.
+- Added the lowercase `more series` brand and aligned the project with `more-comic-digitizer` under the `more-<domain>-<core-capability>` naming system.
+- Synchronized plugin metadata, installation URLs, update prompts, package paths, promotional sources, and test contracts.
 
 ### v1.0.21-20260712 (2026-07-12)
 

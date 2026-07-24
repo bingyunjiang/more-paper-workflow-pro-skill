@@ -16,7 +16,7 @@
   <rect width="100%" height="100%" fill="url(#grid)" opacity=".72"/>
   <circle cx="900" cy="655" r="460" fill="url(#glow)"/>
 
-<text x="64" y="62" class="title">More Paper Workflow Pro Skill</text>
+<text x="64" y="62" class="title">more-paper-workflow</text>
 <text x="64" y="92" class="sub">Function Call Cloud / 工程工作量图 / 脚本规模 + Skill 行数 + CodeGraph 索引规模</text>
 <text x="64" y="114" class="tiny">Static repository summary only. Runtime dispatch and third-party internals are not counted as call edges.</text>
 <rect x="64" y="150" width="154" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.2"/>

@@ -3,7 +3,7 @@
 通用「大纲评审 PDF 报告生成器」模板
 =====================================
 
-所属 Skill: More Paper Workflow Pro Skill — Step 2b 大纲评审
+所属 Skill: more-paper-workflow — Step 2b 大纲评审
 用途: 将结构化评审数据渲染为 A4 中文 PDF 报告
 依赖: fpdf2 (`pip install fpdf2`)
 中文字体: macOS STHeiti（其他系统需替换 add_font 路径）
@@ -29,7 +29,7 @@
 
 数据结构说明: 见本文件末尾的 EXAMPLE_DATA 或运行 --example 查看。
 
-Author: More Paper Workflow Pro Skill v1.0.2+
+Author: more-paper-workflow v1.0.2+
 """
 
 import datetime
@@ -167,7 +167,7 @@ class ReportPDF:
     # ── 封面 ──────────────────────────────────────────────────────────
 
     def cover_page(self, title: str, subtitle: str, meta: list[str],
-                   framework: str = "More Paper Workflow Pro Skill — Step 2b"):
+                   framework: str = "more-paper-workflow — Step 2b"):
         """生成封面。
 
         Args:
@@ -402,7 +402,7 @@ class ReviewData:
 
         # ── 评审信息 ──
         review = d.get("review", {})
-        self.review_framework = review.get("framework", "More Paper Workflow Pro Skill — Step 2b")
+        self.review_framework = review.get("framework", "more-paper-workflow — Step 2b")
         self.review_date = review.get("date", datetime.date.today().strftime("%Y-%m-%d"))
         self.review_weighted_score = review.get("weighted_score", None)
 
@@ -500,7 +500,7 @@ def generate_report(data: dict | ReviewData, output_path: str | None = None,
         data = ReviewData(data)
 
     r = ReportPDF(font_paths)
-    r.pdf.set_creator("More Paper Workflow Pro Skill v1.0.2+")
+    r.pdf.set_creator("more-paper-workflow v1.0.2+")
 
     # ═══════════════════════════════════════════════════════════════════
     # 封面
@@ -806,7 +806,7 @@ EXAMPLE_DATA = {
         "keywords": ["方向一", "方向二"],
     },
     "review": {
-        "framework": "More Paper Workflow Pro Skill — Step 2b",
+        "framework": "more-paper-workflow — Step 2b",
         "date": "2026-06-02",
         "weighted_score": 5.85,
         "dimensions": [
@@ -906,7 +906,7 @@ EXAMPLE_DATA = {
         "urgent": ["P0 项一", "P0 项二"],
         "logic": ["P1 项一"],
         "practical": ["P2 项一"],
-        "conclusion": "评审框架：More Paper Workflow Pro Skill v1.0.2 — Step 2b 大纲评审",
+        "conclusion": "评审框架：more-paper-workflow v1.0.2 — Step 2b 大纲评审",
     },
 }
 

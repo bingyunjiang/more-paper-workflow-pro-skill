@@ -1,6 +1,6 @@
 # PDF Processing Policy
 
-本文件定义 `more-paper-workflow-pro-skill` 在 Step 6/7/8 中处理 PDF 的统一口径。目标不是把本 skill 改造成全文解析平台，而是在保持 `JSON + Zotero` 主链的前提下，让 PDF 读取更稳定、可回查、可审计。
+本文件定义 `more-paper-workflow` 在 Step 6/7/8 中处理 PDF 的统一口径。目标不是把本 skill 改造成全文解析平台，而是在保持 `JSON + Zotero` 主链的前提下，让 PDF 读取更稳定、可回查、可审计。
 
 ## 1. 总原则
 

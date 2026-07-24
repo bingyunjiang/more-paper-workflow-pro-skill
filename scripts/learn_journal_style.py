@@ -557,7 +557,7 @@ def main():
     elif args.zotero_collection:
         print("⚠️ Zotero 模式需要在 SKILL.md 对话中通过 Zotero MCP 工具调用。")
         print(f"   目标集合: {args.zotero_collection}")
-        print("   请通过 /more-paper-workflow-pro-skill → Step 6f 触发")
+        print("   请通过 /more-paper-workflow → Step 6f 触发")
         return
     else:
         print("❌ 请指定范文来源: --pdf-dir, --text-dir, 或 --zotero-collection")

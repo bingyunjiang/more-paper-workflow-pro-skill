@@ -1,4 +1,4 @@
-# more-paper-workflow-pro-skill 工作流架构契约
+# more-paper-workflow 工作流架构契约
 
 本文档记录当前 skill 的运行边界和标准产物链。它不是用户快速开始页；`README.md` 继续作为 GitHub 对外概览，运行时规则以 `SKILL.md` 与 `agents/step_*.md` 为准。
 

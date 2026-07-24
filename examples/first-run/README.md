@@ -1,6 +1,6 @@
 # First Run
 
-本目录提供第一次接触 `more-paper-workflow-pro-skill` 时最该看的 3 条入口和最小真实产物，帮助用户在不通读整份 README 的情况下，快速理解：
+本目录提供第一次接触 `more-paper-workflow` 时最该看的 3 条入口和最小真实产物，帮助用户在不通读整份 README 的情况下，快速理解：
 
 - 输入应该长什么样
 - 会触发到哪个 Step

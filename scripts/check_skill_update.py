@@ -3,7 +3,7 @@
 # Licensed under CC BY-NC-SA 4.0 — Attribution-NonCommercial-ShareAlike 4.0 International
 # https://creativecommons.org/licenses/by-nc-sa/4.0/
 """
-Best-effort update reminder for More Paper Workflow Pro Skill.
+Best-effort update reminder for more-paper-workflow.
 
 The script never mutates the skill repository. It only compares local metadata
 and, when available, the git remote HEAD, then prints a short reminder.
@@ -53,7 +53,7 @@ def parse_skill_version(root: Path) -> str | None:
 
 
 def parse_readme_version(root: Path) -> str | None:
-    match = re.search(r"more paper workflow pro skill\s+`([^`]+)`", read_text(root / "README.md"), re.I)
+    match = re.search(r"more-paper-workflow\s+`([^`]+)`", read_text(root / "README.md"), re.I)
     return match.group(1) if match else None
 
 
@@ -85,7 +85,7 @@ def state_path() -> Path:
         base = Path(cache_root)
     else:
         base = Path.home() / ".cache"
-    return base / "more-paper-workflow-pro-skill" / "update-check.json"
+    return base / "more-paper-workflow" / "update-check.json"
 
 
 def load_state(path: Path) -> dict:
@@ -124,7 +124,7 @@ def is_suppressed(state: dict, remote_head: str | None, now_ts: float) -> tuple[
 
 
 def print_reminder(lines: list[str]) -> None:
-    print("🔔 More Paper Workflow Pro Skill 更新提醒")
+    print("🔔 more-paper-workflow 更新提醒")
     for line in lines:
         print(line)
 
@@ -266,7 +266,7 @@ def main(argv: list[str] | None = None) -> int:
     elif lines:
         print_reminder(lines)
     elif not args.quiet:
-        print(f"✅ More Paper Workflow Pro Skill 已是当前可见版本：{skill_version or 'unknown'}")
+        print(f"✅ more-paper-workflow 已是当前可见版本：{skill_version or 'unknown'}")
     return 0
 
 

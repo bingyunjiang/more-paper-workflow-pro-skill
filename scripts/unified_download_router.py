@@ -122,7 +122,7 @@ def step5_download_lock_path() -> Path:
     override = os.environ.get("MORE_PAPER_STEP5_LOCK_PATH", "").strip()
     if override:
         return Path(override).expanduser()
-    return Path.home() / ".cache" / "more-paper-workflow-pro-skill" / "step5_download.lock"
+    return Path.home() / ".cache" / "more-paper-workflow" / "step5_download.lock"
 
 
 def _pid_is_running(pid: int) -> bool:

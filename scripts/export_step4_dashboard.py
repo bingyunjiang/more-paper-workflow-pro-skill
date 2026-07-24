@@ -252,7 +252,7 @@ INDEX_HTML = """<!doctype html>
   <body>
     <header class="topbar">
       <div>
-        <p class="eyebrow">More Paper Workflow</p>
+        <p class="eyebrow">more-paper-workflow</p>
         <h1>Step 4 检索结果 Dashboard</h1>
         <p class="subtitle">展示层来自 workflow_search_results.json，不替代机器主工件。</p>
       </div>

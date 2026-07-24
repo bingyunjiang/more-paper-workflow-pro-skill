@@ -221,7 +221,7 @@ class ReportPDF:
         self.pdf.ln(8)
         self.pdf.set_font(self.font_name, "", 8)
         self.pdf.set_text_color(160, 160, 160)
-        self.pdf.cell(0, 6, "由 Dr. Jiang 的 More Paper Workflow Pro Skill 生成",
+        self.pdf.cell(0, 6, "由 Dr. Jiang 的 more-paper-workflow 生成",
                       align="C")
 
     def add_heading(self, text: str, level: int = 1):

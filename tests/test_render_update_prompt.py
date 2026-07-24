@@ -33,7 +33,7 @@ class RenderUpdatePromptTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         text = result.stdout
         for token in [
-            "检测到 More Paper Workflow Pro Skill 有新版本可用。",
+            "检测到 more-paper-workflow 有新版本可用。",
             "当前版本：v1.0.14-20260618",
             "远程版本：abcdef1",
             "建议更新命令：cd /tmp/repo && git pull --ff-only",

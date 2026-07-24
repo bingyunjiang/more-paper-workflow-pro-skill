@@ -18,7 +18,7 @@ CDP 的 Fetch 拦截涉及精确的 WebSocket 事件时序：
 
 ```python
 import sys
-sys.path.insert(0, "More-Paper-Workflow-Pro-Skill/scripts")
+sys.path.insert(0, "more-paper-workflow/scripts")
 from cdp_utils import (create_tab, wait_for_tab_url, get_tab_ws_url,
                         capture_pdf_via_fetch, close_all_tabs)
 

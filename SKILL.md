@@ -1,23 +1,26 @@
 ---
-name: more-paper-workflow-pro-skill
+name: more-paper-workflow
 description: >-
-  Use when the user asks for the more-paper academic workflow (more paper, more-paper, more_paper, morepaper): research topic clarification, outline and keyword generation, structured literature search plans, multi-source literature search and scoring, paper PDF download routing (Sci-Hub/IEEE/ScienceDirect), Zotero library organization, review matrices, paper writing, scientific figure generation or reproduction, plot digitization, figure semantic/vector QA, citation audit, or polishing. Especially useful for Chinese or English thesis, dissertation, literature review, PRISMA-style search logs, reproducible publication figures, and GB/T 7714 references. 学术论文全流程：确定研究主题，生成大纲，文献检索，下载，Zotero，综述矩阵，论文写作，科研绘图与复现，润色。
+  Use when the user asks for more-paper-workflow or its legacy names more-paper-workflow-pro-skill and more paper workflow pro skill (more paper, more-paper, more_paper, morepaper): research topic clarification, outline and keyword generation, structured literature search plans, multi-source literature search and scoring, paper PDF download routing (Sci-Hub/IEEE/ScienceDirect), Zotero library organization, review matrices, paper writing, scientific figure generation or reproduction, plot digitization, figure semantic/vector QA, citation audit, or polishing. Especially useful for Chinese or English thesis, dissertation, literature review, PRISMA-style search logs, reproducible publication figures, and GB/T 7714 references. 学术论文全流程：确定研究主题，生成大纲，文献检索，下载，Zotero，综述矩阵，论文写作，科研绘图与复现，润色。
 ---
 
 ## Skill metadata
 
-version: v1.0.21-20260712 (2026-07-12)
+version: v1.0.22-20260724 (2026-07-24)
 author: Dr. Jiang Bingyun（江博士）
 wechat: Bingyunjiang
 category: research
 license: CC BY-NC-SA 4.0
+series: more series
 related_skills:
+  - more-comic-digitizer: "A sibling skill in more series for traceable, non-destructive digitization of children's hand-drawn comics."
   - science-direct-cdp-pipeline: "Overlaps on CDP ScienceDirect download; this skill adds the full 8-step workflow from topic definition to paper polishing."
   - zotero-review-matrix-skill: "Source of literature-review-matrix-schema, literature-review-docx-guide, and gbt7714-2015-citation-format references. Integrated into Step 7 writing preparation and writing."
 
 ## Entry routing
 
 - 对外只保留一个主入口 `README.md` / `SKILL.md`，用户只需要记一个入口。
+- 主名称统一为 `more-paper-workflow`；旧名称 `more-paper-workflow-pro-skill` 仅作为兼容触发别名保留。
 - 对话式工作流支持 Step 1-8 直接进入，不把前序流程当成硬门槛。
 - 快速导流先看 `references/entry-guide.md`，按任务意图选 Step，再回到对应 `agents/step_*.md`。
 - 参考文件的功能分组见 `references/reference-index.md`，新增或重排 reference 前先更新索引。
