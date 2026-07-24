@@ -50,7 +50,8 @@
 - 不是把高风险动作静默做完，而是在登录态、外部写入、证据不足或引用高风险时明确停手
 - 不是为了“看起来聪明”，而是优先压制幻觉：直接读 PDF 原文，RAG 最多只做候选定位加速
 - 不是堆平台依赖，而是尽量走跨平台、低额外成本路径：Chrome/Edge 自动检测，多数检索源免费可用，脚本自带依赖检查和失败回退
-- 不是只把已有图片贴进论文，而是能在 Step 7 自动区分快速数据出图与严格科学图形复现，并为重绘、数字化和可复现交付生成语义/矢量 QA、manifest 与 checksums
+- Step 7 默认保留并插入论文 PDF/MinerU 原图；只有用户明确要求生成、重绘或数字化时，才启动 quick/reproduction，并为重绘、数字化和可复现交付生成语义/矢量 QA、manifest 与 checksums
+- 原图插入后会提醒可选的图表重绘、曲线数字化、可编辑 SVG/PDF 与严格 QA 能力；未获明确指令时不会自动重绘
 
 [![中文海报](posters/story/more-paper-long-scroll.png)](https://www.bilibili.com/video/BV1hzjE6jEmo/?vd_source=45e56689c0324bcaf7fe9c9cd13fca01)
 
@@ -605,6 +606,9 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
   [`docs/rename-migration-v1.0.22.md`](docs/rename-migration-v1.0.22.md)。
 - 宿主提示词重复烟测见
   [`docs/prompt-host-smoke-test.md`](docs/prompt-host-smoke-test.md)。
+- 新增原生 `figure_evidence_pipeline.py`，以源文件 SHA-256、原始像素坐标和显式轴锚点建立图表数字化证据链。
+- 彩色栅格折线候选提取输出 CSV、覆盖图和证据报告；只有原始分辨率 overlay 明确复核后才生成 VisualSpec。
+- Step 7 分别记录 `extraction_status / render_status / delivery_status`，图形发布验收新增 `digitization_contract`。
 
 ### v1.0.21-20260712 (2026-07-12)
 
@@ -792,7 +796,11 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 
 > A member of **more series**, following the `more-<domain>-<core-capability>` naming system. Sibling project: [more-comic-digitizer](https://github.com/bingyunjiang/more-comic-digitizer).
 
-Step 7 automatically keeps ordinary trusted-data charts on the quick backend and routes paper-figure redraws, plot digitization, semantic/vector audits, and reproducible deliveries through the strict reproduction backend.
+Step 7 preserves and inserts original PDF/MinerU figures by default. Quick or
+reproduction plotting starts only after an explicit request to generate,
+redraw, digitize, or create an editable version. After original-image
+insertion, the workflow reminds the user once that redraw, curve digitization,
+editable SVG/PDF, and strict QA are available; the reminder is not authorization.
 
 ## 📑 Table of Contents
 
@@ -1265,6 +1273,13 @@ Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are hig
   for legacy-name and installation migration guidance.
 - See [`docs/prompt-host-smoke-test.md`](docs/prompt-host-smoke-test.md) for
   repeatable Codex, Claude, and Hermes prompt smoke tests.
+- Added the native `figure_evidence_pipeline.py` with source SHA-256 locking,
+  original-pixel coordinates, explicit axis anchors, and a candidate color-line
+  extractor.
+- Digitized CSV and overlay evidence remain separate from rendering; VisualSpec
+  is materialized only after explicit original-resolution overlay review.
+- Step 7 now separates extraction, rendering, and delivery states, and figure
+  release acceptance includes the `digitization_contract` gate.
 
 ### v1.0.21-20260712 (2026-07-12)
 

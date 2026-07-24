@@ -40,6 +40,12 @@
 - reproduction_status
 - qa_profile
 - verification_status
+- figure_asset_action
+- figure_transform_authorization
+- extraction_project_path
+- extraction_report_path
+- extraction_status
+- value_delivery_authorized
 
 ## 图-表-panel 绑定矩阵
 
@@ -100,9 +106,17 @@
 - `ready_for_step8` 要求 `figure_resolution_report.json.output_sha256` 与当前稿件一致，且 `unresolved_count=0`；`figure_mode=skip` 不适用此门
 - 具体图形设计和导出细节可继续由现有图表参考处理
 - `figure_mode=skip` 时不运行绘图；只插入已有资产时使用 `generation_backend=not_applicable`
-- 普通可信数据出图使用 `generation_backend=quick`；论文原图/截图重绘、数字化、严格 QA 或可复现交付使用 `generation_backend=reproduction`
+- 论文 PDF/MinerU/本地原图默认直接插入：`figure_asset_action=insert_original`、`generation_backend=not_applicable`、`figure_transform_authorization=not_required`
+- 用户明确要求从可信数据生成新图时使用 `generation_backend=quick`
+- 用户明确要求论文原图/截图重绘、数字化、严格 QA 或可复现交付时使用 `generation_backend=reproduction`，并记录 `figure_transform_authorization=explicit_user_request`
+- 原图插入完成后应提醒用户本 skill 具有图表重绘、曲线数字化、可编辑 SVG/PDF 和严格 QA 能力；提醒只出现一次且不构成重绘授权
 - `reproduction` 模式必须记录 VisualSpec、bundle、manifest、QA profile 和 `verify.py` 结果；详细协议见 `scientific-figure-reproduction.md`
 - 图形复现通过只证明产物完整性，不能自动把 `support_status` 升级为 `support`
+- 数字化值进入正文数值比较、参数或趋势 claim 前，必须绑定
+  `figure_project.result.json` 与 `extraction_report.json`；若
+  `value_delivery_authorized=false`，只能保留图位、缺口或保守定性描述。
+- 官方源数据验证不得覆盖图片提取 CSV；两者必须以独立工件进入
+  `figure_evidence_report`。
 
 ## 可复现图表报告扩展
 
@@ -114,7 +128,13 @@
   "manifest_path": "figures/fig_1_bundle/reproduction_manifest.json",
   "reproduction_status": "semantic_strict_pass|semantic_validated_pass|semantic_near_pass|render_only|not_strict|failed",
   "qa_profile": "semantic|visual|trace",
-  "verification_status": "pass|failed|not_run"
+  "verification_status": "pass|failed|not_run",
+  "figure_asset_action": "insert_original|generate_new|redraw|digitize",
+  "figure_transform_authorization": "not_required|explicit_user_request",
+  "extraction_project_path": "figures/fig_1/figure_project.result.json",
+  "extraction_report_path": "figures/fig_1/extraction_report.json",
+  "extraction_status": "needs_review|authorized_candidate|partial_visible|not_extracted|failed",
+  "value_delivery_authorized": false
 }
 ```
 

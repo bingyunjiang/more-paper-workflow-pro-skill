@@ -482,6 +482,12 @@ class WorkflowContractsTest(unittest.TestCase):
                 reproduction_status="semantic_near_pass",
                 qa_profile="semantic",
                 verification_status="pass",
+                figure_asset_action="digitize",
+                figure_transform_authorization="explicit_user_request",
+                extraction_project_path="figures/fig_3/figure_project.result.json",
+                extraction_report_path="figures/fig_3/extraction_report.json",
+                extraction_status="authorized_candidate",
+                value_delivery_authorized=True,
             )
         ]
         payload = figure_evidence_payload(records, {"step": "7.11"})
@@ -494,6 +500,13 @@ class WorkflowContractsTest(unittest.TestCase):
         self.assertEqual(payload["records"][0]["recommended_action"], "retain")
         self.assertEqual(payload["records"][0]["generation_backend"], "reproduction")
         self.assertEqual(payload["records"][0]["verification_status"], "pass")
+        self.assertEqual(payload["records"][0]["figure_asset_action"], "digitize")
+        self.assertEqual(
+            payload["records"][0]["figure_transform_authorization"],
+            "explicit_user_request",
+        )
+        self.assertEqual(payload["records"][0]["extraction_status"], "authorized_candidate")
+        self.assertTrue(payload["records"][0]["value_delivery_authorized"])
 
 
 if __name__ == "__main__":

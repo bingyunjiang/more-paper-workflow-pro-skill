@@ -1344,6 +1344,20 @@ class Step7Step8ContractsTest(unittest.TestCase):
         ]:
             self.assertIn(token, figure_contract)
 
+    def test_original_figure_insertion_reminds_without_authorizing_redraw(self):
+        step7_entry = read_rel("agents/step_7_entry.md")
+        step7 = read_rel("agents/step_7_writing.md")
+        figure_contract = read_rel("references/figure-writing-interface.md")
+        reminder = (
+            "已按论文原图插入。本 skill 也支持图表重绘、曲线数字化、可编辑"
+        )
+
+        self.assertIn(reminder, step7_entry)
+        self.assertIn(reminder, step7)
+        self.assertIn("提醒不构成授权", step7_entry)
+        self.assertIn("不得因为已提醒而运行绘图代码", step7)
+        self.assertIn("提醒只出现一次且不构成重绘授权", figure_contract)
+
     def test_step8_light_meaning_audit_trigger_exists(self):
         step8 = read_rel("agents/step_8_polishing.md")
 

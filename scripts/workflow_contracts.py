@@ -894,6 +894,12 @@ class FigureEvidenceRecord:
     reproduction_status: str = ""
     qa_profile: str = ""
     verification_status: str = ""
+    figure_asset_action: str = ""  # insert_original | generate_new | redraw | digitize
+    figure_transform_authorization: str = ""  # explicit_user_request | not_required
+    extraction_project_path: str = ""
+    extraction_report_path: str = ""
+    extraction_status: str = ""
+    value_delivery_authorized: bool = False
 
 
 def infer_download_hint(doi: str, source: str, article_url: str) -> str:

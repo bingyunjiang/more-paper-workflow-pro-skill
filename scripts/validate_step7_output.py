@@ -215,6 +215,26 @@ def _validate_figure_evidence_report(
             continue
         if record.get("generation_backend") != "reproduction":
             continue
+        asset_action = str(record.get("figure_asset_action") or "")
+        transform_authorization = str(
+            record.get("figure_transform_authorization") or ""
+        )
+        if asset_action not in {"redraw", "digitize"}:
+            findings.append(
+                Finding(
+                    "fail",
+                    "reproduction_without_transform_action",
+                    f"figure record {index} uses reproduction without redraw/digitize action",
+                )
+            )
+        if transform_authorization != "explicit_user_request":
+            findings.append(
+                Finding(
+                    "fail",
+                    "figure_transform_not_explicitly_authorized",
+                    f"figure record {index} lacks explicit user authorization for redraw/digitize",
+                )
+            )
         missing = sorted(field for field in required if not record.get(field))
         if missing:
             findings.append(Finding("fail", "incomplete_reproduction_record", f"figure record {index} lacks {', '.join(missing)}"))
@@ -228,6 +248,53 @@ def _validate_figure_evidence_report(
             findings.append(Finding("fail", "figure_bundle_not_verified", f"figure record {index} bundle verification did not pass"))
         if status == "semantic_near_pass" and not record.get("figure_risk_note"):
             findings.append(Finding("fail", "missing_figure_deviation", f"figure record {index} is near-pass but has no deviation note"))
+        extraction_status = str(record.get("extraction_status") or "")
+        if extraction_status:
+            extraction_required = {"extraction_project_path", "extraction_report_path"}
+            extraction_missing = sorted(
+                field for field in extraction_required if not record.get(field)
+            )
+            if extraction_missing:
+                findings.append(
+                    Finding(
+                        "fail",
+                        "incomplete_digitization_record",
+                        f"figure record {index} lacks {', '.join(extraction_missing)}",
+                    )
+                )
+            if extraction_status == "authorized_candidate":
+                if record.get("value_delivery_authorized") is not True:
+                    findings.append(
+                        Finding(
+                            "fail",
+                            "digitized_values_not_authorized",
+                            f"figure record {index} claims authorized_candidate without value delivery authorization",
+                        )
+                    )
+            elif record.get("value_delivery_authorized") is True:
+                findings.append(
+                    Finding(
+                        "fail",
+                        "digitization_status_authorization_conflict",
+                        f"figure record {index} authorizes values with extraction status {extraction_status}",
+                    )
+                )
+            elif require_evidence_closure:
+                findings.append(
+                    Finding(
+                        "fail",
+                        "digitization_not_complete",
+                        f"figure record {index} has non-authorized extraction status {extraction_status}",
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        "warn",
+                        "digitization_not_complete",
+                        f"figure record {index} remains {extraction_status}",
+                    )
+                )
     return findings
 
 

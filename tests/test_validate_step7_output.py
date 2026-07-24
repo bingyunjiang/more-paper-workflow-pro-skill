@@ -199,6 +199,8 @@ class ValidateStep7OutputTest(unittest.TestCase):
                     "reproduction_status": "semantic_near_pass",
                     "qa_profile": "semantic",
                     "verification_status": "pass",
+                    "figure_asset_action": "redraw",
+                    "figure_transform_authorization": "explicit_user_request",
                     "figure_risk_note": "",
                 }],
             }), encoding="utf-8")
@@ -222,6 +224,8 @@ class ValidateStep7OutputTest(unittest.TestCase):
                     "reproduction_status": "semantic_strict_pass",
                     "qa_profile": "semantic",
                     "verification_status": "pass",
+                    "figure_asset_action": "redraw",
+                    "figure_transform_authorization": "explicit_user_request",
                     "figure_risk_note": "",
                 }],
             }), encoding="utf-8")
@@ -229,6 +233,64 @@ class ValidateStep7OutputTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("figure_backend: reproduction", result.stdout)
+
+    def test_digitized_reproduction_requires_authorized_extraction_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            self.write_minimum_artifacts(out, figure_backend="reproduction")
+            (out / "journal_paper_draft.md").write_text("# 结果\n\n数字化结果。\n", encoding="utf-8")
+            (out / "figure_evidence_report.json").write_text(json.dumps({
+                "schema_version": "figure-evidence.v1",
+                "records": [{
+                    "generation_backend": "reproduction",
+                    "visualspec_path": "visualspec.json",
+                    "reproduction_bundle": "figures/fig_1_bundle",
+                    "manifest_path": "figures/fig_1_bundle/reproduction_manifest.json",
+                    "reproduction_status": "semantic_strict_pass",
+                    "qa_profile": "semantic",
+                    "verification_status": "pass",
+                    "figure_asset_action": "digitize",
+                    "figure_transform_authorization": "explicit_user_request",
+                    "figure_risk_note": "",
+                    "extraction_project_path": "figures/fig_1/figure_project.result.json",
+                    "extraction_report_path": "figures/fig_1/extraction_report.json",
+                    "extraction_status": "authorized_candidate",
+                    "value_delivery_authorized": False
+                }],
+            }), encoding="utf-8")
+            result = self.run_validator(out, "draft_ready")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("digitized_values_not_authorized", result.stdout)
+
+    def test_reproduction_requires_explicit_user_transform_authorization(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            self.write_minimum_artifacts(out, figure_backend="reproduction")
+            (out / "journal_paper_draft.md").write_text(
+                "# 结果\n\n原论文图片应直接插入。\n",
+                encoding="utf-8",
+            )
+            (out / "figure_evidence_report.json").write_text(json.dumps({
+                "schema_version": "figure-evidence.v1",
+                "records": [{
+                    "generation_backend": "reproduction",
+                    "visualspec_path": "visualspec.json",
+                    "reproduction_bundle": "figures/fig_1_bundle",
+                    "manifest_path": "figures/fig_1_bundle/reproduction_manifest.json",
+                    "reproduction_status": "semantic_strict_pass",
+                    "qa_profile": "semantic",
+                    "verification_status": "pass",
+                    "figure_asset_action": "insert_original",
+                    "figure_transform_authorization": "not_required",
+                    "figure_risk_note": ""
+                }],
+            }), encoding="utf-8")
+            result = self.run_validator(out, "draft_ready")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("reproduction_without_transform_action", result.stdout)
+        self.assertIn("figure_transform_not_explicitly_authorized", result.stdout)
 
     def write_reviewer_scorecard(self, out: Path, technical_soundness: int = 4) -> None:
         scores = {}

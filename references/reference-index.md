@@ -63,7 +63,7 @@ This index groups the reference files by function so the workflow contracts are 
 - `ai-trace-taxonomy.md`
 - `nature-figure-style-guide.md`
 - `nature-color-schemes.md`
-- `DIGITIZATION_WORKFLOW.md`
+- `DIGITIZATION_WORKFLOW.md`：原图/PDF 数字化的源文件锁定、坐标校准、候选折线提取、授权状态、覆盖/残差审计与官方源数据分离规则。
 - `EXPORT_REQUIREMENTS.md`
 - `FREEZE_POLICY.md`
 - `QA_PROFILES.md`

@@ -109,6 +109,7 @@ def main() -> int:
         steps = [
             ("environment_preflight", [sys.executable, str(SCRIPTS / "check_environment.py")]),
             ("root_package", [sys.executable, str(SCRIPTS / "validate_skill_package.py"), "--root", str(ROOT)]),
+            ("digitization_contract", [sys.executable, str(ROOT / "tests" / "test_figure_evidence_pipeline.py")]),
             ("build_zip", [sys.executable, str(SCRIPTS / "build_skill_package.py"), "--root", str(ROOT), "--out", str(zip_path)]),
             ("zip_package", [sys.executable, str(SCRIPTS / "validate_skill_package.py"), "--root", str(ROOT), "--zip", str(zip_path)]),
             ("render_baseline", [sys.executable, str(SCRIPTS / "render_matplotlib.py"), "--spec", str(spec), "--out-dir", str(baseline)]),

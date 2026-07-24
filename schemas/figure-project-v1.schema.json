@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "morepaper.figure_project.v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "project_root",
+    "input",
+    "chart",
+    "routing",
+    "evidence_contract",
+    "extraction_status",
+    "render_status",
+    "delivery_status"
+  ],
+  "properties": {
+    "schema": {"const": "morepaper.figure_project.v1"},
+    "project_root": {"const": "."},
+    "input": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["path", "display_name", "sha256", "size_bytes", "media_type", "coordinate_space"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "display_name": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "media_type": {"enum": ["raster_image", "pdf"]},
+        "coordinate_space": {"enum": ["original_raster_pixels", "pdf_points"]},
+        "width_px": {"type": "integer", "minimum": 1},
+        "height_px": {"type": "integer", "minimum": 1},
+        "page_count": {"type": "integer", "minimum": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"media_type": {"const": "raster_image"}}},
+          "then": {"required": ["width_px", "height_px"]}
+        },
+        {
+          "if": {"properties": {"media_type": {"const": "pdf"}}},
+          "then": {"required": ["page_count"]}
+        }
+      ]
+    },
+    "chart": {
+      "type": "object",
+      "required": ["chart_type", "chart_type_verified"],
+      "properties": {
+        "chart_type": {"type": "string"},
+        "chart_type_verified": {"type": "boolean"}
+      }
+    },
+    "routing": {
+      "type": "object",
+      "required": ["status", "support_level", "extractor", "value_delivery_authorized"],
+      "properties": {
+        "status": {"type": "string"},
+        "support_level": {"enum": ["unknown", "unsupported", "planned", "candidate", "stable"]},
+        "extractor": {"type": "string"},
+        "value_delivery_authorized": {"type": "boolean"}
+      }
+    },
+    "evidence_contract": {
+      "type": "object",
+      "required": [
+        "source_identity_required",
+        "measure_original_coordinates_only",
+        "minimum_axis_anchors_per_axis",
+        "missing_values_are_not_interpolated",
+        "overlay_review_required",
+        "official_source_data_validation_is_separate"
+      ]
+    },
+    "extraction_status": {
+      "enum": ["not_run", "needs_configuration", "needs_review", "authorized_candidate", "partial_visible", "not_extracted", "failed"]
+    },
+    "render_status": {"enum": ["not_run", "rendered", "validated", "failed"]},
+    "delivery_status": {"enum": ["working", "validated", "failed"]}
+  }
+}
