@@ -24,22 +24,67 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def fixed_env() -> dict[str, str]:
+def fixed_env(mplconfig: Path | None = None) -> dict[str, str]:
     env = dict(os.environ)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["MPLBACKEND"] = "Agg"
+    if mplconfig is not None:
+        mplconfig.mkdir(parents=True, exist_ok=True)
+        env["MPLCONFIGDIR"] = str(mplconfig)
     for key in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
         env[key] = "1"
     return env
 
 
-def run_step(name: str, cmd: list[str], *, timeout: int = 180) -> dict[str, Any]:
-    completed = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=timeout, env=fixed_env())
-    return {
+def run_step(
+    name: str,
+    cmd: list[str],
+    *,
+    timeout: int = 180,
+    mplconfig: Path | None = None,
+) -> dict[str, Any]:
+    try:
+        completed = subprocess.run(
+            cmd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=timeout,
+            env=fixed_env(mplconfig),
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+        stderr = exc.stderr.decode() if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+        return {
+            "name": name,
+            "status": "failed",
+            "returncode": None,
+            "failure_type": "timeout",
+            "timeout_seconds": timeout,
+            "stdout": stdout.strip(),
+            "stderr": stderr.strip(),
+        }
+    result = {
         "name": name,
         "status": "pass" if completed.returncode == 0 else "failed",
         "returncode": completed.returncode,
     }
+    if completed.returncode != 0:
+        result["stdout"] = completed.stdout.strip()
+        result["stderr"] = completed.stderr.strip()
+    return result
+
+
+def parse_environment_failure(result: dict[str, Any]) -> list[str]:
+    if result.get("name") != "environment_preflight" or result.get("status") != "failed":
+        return []
+    try:
+        payload = json.loads(result.get("stdout") or "{}")
+    except json.JSONDecodeError:
+        return []
+    missing = payload.get("missing_required")
+    return [str(item) for item in missing] if isinstance(missing, list) else []
 
 
 def main() -> int:
@@ -58,9 +103,11 @@ def main() -> int:
         zip_path = workspace / "more-paper-workflow.zip"
         baseline = workspace / "baseline"
         bundle = workspace / "bundle"
+        mplconfig = workspace / "mplconfig"
         spec = ROOT / "examples" / "line_plot" / "visualspec_v2.json"
 
         steps = [
+            ("environment_preflight", [sys.executable, str(SCRIPTS / "check_environment.py")]),
             ("root_package", [sys.executable, str(SCRIPTS / "validate_skill_package.py"), "--root", str(ROOT)]),
             ("build_zip", [sys.executable, str(SCRIPTS / "build_skill_package.py"), "--root", str(ROOT), "--out", str(zip_path)]),
             ("zip_package", [sys.executable, str(SCRIPTS / "validate_skill_package.py"), "--root", str(ROOT), "--zip", str(zip_path)]),
@@ -70,7 +117,7 @@ def main() -> int:
             ("portability", [sys.executable, str(SCRIPTS / "validate_portability.py"), "--root", str(bundle)]),
         ]
         for name, cmd in steps:
-            result = run_step(name, cmd, timeout=240)
+            result = run_step(name, cmd, timeout=240, mplconfig=mplconfig)
             details[name] = result
             checks[name] = result["status"]
             if result["status"] != "pass":
@@ -84,12 +131,30 @@ def main() -> int:
             checks["official_example"] = "missing_manifest"
 
     status = "pass" if all(value in {"pass", "semantic_strict_pass"} for value in checks.values()) and checks.get("official_example") == "semantic_strict_pass" else "failed"
+    failed_steps = [
+        name
+        for name, value in checks.items()
+        if value not in {"pass", "semantic_strict_pass"}
+    ]
+    environment_result = details.get("environment_preflight", {})
+    missing_dependencies = parse_environment_failure(environment_result)
     report = {
         "schema": "morepaper.figure_release_acceptance.v1",
         "version": version,
         "status": status,
         "checks": checks,
         "details": details,
+        "failure_stage": failed_steps[0] if failed_steps else None,
+        "failure_type": (
+            "missing_dependency"
+            if missing_dependencies
+            else (
+                str(details.get(failed_steps[0], {}).get("failure_type", "step_failed"))
+                if failed_steps
+                else None
+            )
+        ),
+        "missing_dependencies": missing_dependencies,
     }
     output = args.json_out or ROOT / "release_acceptance.json"
     write_json(output, report)

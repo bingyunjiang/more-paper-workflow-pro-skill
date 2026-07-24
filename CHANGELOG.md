@@ -15,6 +15,14 @@
 - 主名称由 `more-paper-workflow-pro-skill` 缩短为 `more-paper-workflow`，并在 README 中加入全小写系列品牌 `more series`。
 - 与 `more-comic-digitizer` 统一采用 `more-<领域>-<核心能力>` 命名体系；旧全名继续作为兼容触发别名。
 - 同步更新 GitHub 地址、Skill frontmatter、Claude/Codex 插件元数据、安装入口、升级提示、缓存与打包路径、推广材料和测试期望。
+- 顶层 manifest 补齐 Step 1-8 权威路由，Step 7 将六种公开写作模式与
+  `write / citation-audit / figure / pre-review` 专项操作拆分为独立轴。
+- Codex 插件改为以仓库根目录为自包含插件根，并补充结构、引用、版本和
+  manifest 一致性校验。
+- 新增中英文 Step 1/5/7/8 提示词验收、宿主烟测协议和 Step 5 独立进程
+  CLI 烟测。
+- 科研图形发布验收增加依赖预检、失败子进程输出和临时 Matplotlib 缓存，
+  更名迁移指南明确旧别名与旧安装副本的处理方式。
 
 ## v1.0.21-20260712 (2026-07-12)
 

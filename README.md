@@ -599,6 +599,12 @@ ScienceDirect、CNKI、万方等下载需要机构订阅（IP 或 SSO）。Sci-H
 - Skill 与 GitHub 仓库主名称由 `more-paper-workflow-pro-skill` 缩短为 `more-paper-workflow`，旧名称继续作为兼容触发别名。
 - README 加入全小写系列品牌 `more series`，并与 `more-comic-digitizer` 统一采用 `more-<领域>-<核心能力>` 命名体系。
 - 同步更新插件元数据、安装地址、升级提示、打包路径、推广材料和测试契约。
+- 补齐 Step 1-8 顶层路由，并统一 Step 7 六种公开写作模式与专项操作轴。
+- Codex 插件改为自包含根插件，新增结构/版本/路由校验与中英文提示词验收。
+- 发布验收增加依赖预检和失败诊断；迁移说明见
+  [`docs/rename-migration-v1.0.22.md`](docs/rename-migration-v1.0.22.md)。
+- 宿主提示词重复烟测见
+  [`docs/prompt-host-smoke-test.md`](docs/prompt-host-smoke-test.md)。
 
 ### v1.0.21-20260712 (2026-07-12)
 
@@ -1251,6 +1257,14 @@ Full version history is available in [CHANGELOG.md](CHANGELOG.md). Below are hig
 - Renamed the Skill and GitHub repository from `more-paper-workflow-pro-skill` to `more-paper-workflow`; the former name remains a compatibility trigger.
 - Added the lowercase `more series` brand and aligned the project with `more-comic-digitizer` under the `more-<domain>-<core-capability>` naming system.
 - Synchronized plugin metadata, installation URLs, update prompts, package paths, promotional sources, and test contracts.
+- Completed the authoritative Step 1-8 router and aligned Step 7's six public
+  writing modes with a separate operation axis.
+- Made the Codex plugin self-contained and added structural, version, route,
+  bilingual prompt, and release diagnostics.
+- See [`docs/rename-migration-v1.0.22.md`](docs/rename-migration-v1.0.22.md)
+  for legacy-name and installation migration guidance.
+- See [`docs/prompt-host-smoke-test.md`](docs/prompt-host-smoke-test.md) for
+  repeatable Codex, Claude, and Hermes prompt smoke tests.
 
 ### v1.0.21-20260712 (2026-07-12)
 

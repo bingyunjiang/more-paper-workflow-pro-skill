@@ -6,6 +6,7 @@ from .common import *
 class IntegrationPlotTests(ScientificFigureReproductionTestBase):
     def test_renderer_manifest_is_render_only_without_script(self) -> None:
         renderer = load_module("render_visualspec_matplotlib", SCRIPTS / "render_visualspec_matplotlib.py")
+        previous_epoch = os.environ.get("SOURCE_DATE_EPOCH")
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             spec = {
@@ -19,6 +20,7 @@ class IntegrationPlotTests(ScientificFigureReproductionTestBase):
             self.assertEqual("render_only", manifest["status"])
             self.assertIn("figure_1", manifest["figures"])
             self.assertIn("fig1", manifest["figures"]["figure_1"]["panels"])
+        self.assertEqual(previous_epoch, os.environ.get("SOURCE_DATE_EPOCH"))
 
     def test_v24_all_declared_plots_render_extract_and_audit(self) -> None:
         renderer = load_module("render_visualspec_matplotlib", SCRIPTS / "render_visualspec_matplotlib.py")
@@ -48,4 +50,3 @@ class IntegrationPlotTests(ScientificFigureReproductionTestBase):
                 provenance = actual_plot.get("provenance", {})
                 self.assertTrue(provenance, name)
                 self.assertNotIn("declared", set(provenance.values()), name)
-

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import importlib.metadata
 import json
 import shutil
 import sys
@@ -15,7 +16,11 @@ def module_version(name: str) -> str | None:
         module = importlib.import_module(name)
     except Exception:
         return None
-    return str(getattr(module, "__version__", "installed"))
+    distribution = {"PIL": "Pillow", "skimage": "scikit-image"}.get(name, name)
+    try:
+        return importlib.metadata.version(distribution)
+    except importlib.metadata.PackageNotFoundError:
+        return str(getattr(module, "__version__", "installed"))
 
 
 def font_available(name: str) -> bool:

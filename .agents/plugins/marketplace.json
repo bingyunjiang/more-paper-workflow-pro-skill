@@ -8,7 +8,7 @@
       "name": "more-paper-workflow",
       "source": {
         "source": "local",
-        "path": "./plugins/more-paper-workflow"
+        "path": "./"
       },
       "policy": {
         "installation": "AVAILABLE",

@@ -30,6 +30,7 @@ SCAN_DIRS = (
     "examples",
     "references",
     "scripts",
+    "skills",
     "tests",
 )
 SCAN_FILES = ("README.md", "SKILL.md", "CHANGELOG.md")

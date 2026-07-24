@@ -5,14 +5,20 @@ description: Router manifest for Step 7 writing and evidence-to-draft workflows.
 axes:
   mode:
     allowed:
-      - draft
+      - full-document
       - chapter-only
       - continue-existing
+      - abstract-only
       - review-only
+      - revision-only
+    default: full-document
+  operation:
+    allowed:
+      - write
       - citation-audit
       - figure
       - pre-review
-    default: draft
+    default: write
   target_genre:
     allowed:
       - thesis
@@ -36,10 +42,15 @@ always_load:
   - references/writing-modes.md
 
 mode_routes:
-  draft: references/section-blueprint-workflow.md
+  full-document: references/section-blueprint-workflow.md
   chapter-only: references/section-blueprint-workflow.md
   continue-existing: references/style-learning-workflow.md
+  abstract-only: references/section-blueprint-workflow.md
   review-only: references/section-blueprint-workflow.md
+  revision-only: commands/revision-roadmap.md
+
+operation_routes:
+  write: references/section-blueprint-workflow.md
   citation-audit: references/citation-audit-contract.md
   figure: references/figure-writing-interface.md
   pre-review: references/reviewer-protocol.md

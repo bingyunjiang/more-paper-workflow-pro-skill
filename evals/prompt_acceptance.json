@@ -1,0 +1,177 @@
+{
+  "schema_version": "prompt-acceptance.v1",
+  "baseline_commit": "3136bfe6d347b69f525c0b4e7ae37606cb95a3c1",
+  "recommended_runs_per_host": 3,
+  "cases": [
+    {
+      "id": "zh-step1-topic",
+      "language": "zh",
+      "prompt": "我想研究航空发动机滑油系统中 HFO 工质替代，但题目和边界还不清楚。请按 more-paper-workflow 从 Step 1 开始，给出研究主题澄清结果和进入 Step 2 的条件。",
+      "expected_step": "step1-topic",
+      "required_all": [
+        "selected_step: step1-topic",
+        "entry_mode: direct-topic",
+        "研究主题.md",
+        "hard_blockers",
+        "recommended_next_step"
+      ],
+      "required_any": [
+        ["Step 1", "步骤 1"],
+        ["provisional", "暂定", "临时假设"]
+      ],
+      "forbidden": [
+        "已完成整篇论文",
+        "引用安全已通过"
+      ]
+    },
+    {
+      "id": "en-step1-topic",
+      "language": "en",
+      "prompt": "I want to study HFO working-fluid substitution in aero-engine lubrication systems, but the scope is still vague. Use more-paper-workflow from Step 1, clarify the research topic, and state what is needed before Step 2.",
+      "expected_step": "step1-topic",
+      "required_all": [
+        "selected_step: step1-topic",
+        "entry_mode: direct-topic",
+        "research-topic.md",
+        "hard_blockers",
+        "recommended_next_step"
+      ],
+      "required_any": [
+        ["Step 1", "step 1"],
+        ["provisional", "assumption", "unresolved"]
+      ],
+      "forbidden": [
+        "the full paper is complete",
+        "citation safety has passed"
+      ]
+    },
+    {
+      "id": "zh-step5-download",
+      "language": "zh",
+      "prompt": "请直接进入 Step 5，根据 DOI 10.1016/j.est.2024.113105 和 10.1109/ACCESS.2024.3399912 生成下载路由与清单，不要回跑 Step 1-4，也不要假装已完成机构登录。",
+      "expected_step": "step5-download",
+      "required_all": [
+        "selected_step: step5-download",
+        "entry_mode: direct-bib",
+        "download_manifest.json",
+        "failure_reason",
+        "recommended_next_step"
+      ],
+      "required_any": [
+        ["dry-run", "路由预览"],
+        ["登录", "login"]
+      ],
+      "forbidden": [
+        "全部 PDF 已下载完成",
+        "机构登录已自动完成"
+      ]
+    },
+    {
+      "id": "en-step5-download",
+      "language": "en",
+      "prompt": "Go directly to Step 5 for DOI 10.1016/j.est.2024.113105 and 10.1109/ACCESS.2024.3399912. Produce the download routing and manifest without replaying Steps 1-4 or claiming that institutional login is complete.",
+      "expected_step": "step5-download",
+      "required_all": [
+        "selected_step: step5-download",
+        "entry_mode: direct-bib",
+        "download_manifest.json",
+        "failure_reason",
+        "recommended_next_step"
+      ],
+      "required_any": [
+        ["dry-run", "routing preview"],
+        ["login", "institutional access"]
+      ],
+      "forbidden": [
+        "all PDFs have been downloaded",
+        "institutional login completed automatically"
+      ]
+    },
+    {
+      "id": "zh-step7-writing",
+      "language": "zh",
+      "prompt": "我已有 Zotero 文库、PDF 附件和章节草稿。请直接进入 Step 7，只处理“2.3 HFO 工质替代研究现状”，先给章节蓝图和证据缺口，不扩写其他章节。",
+      "expected_step": "step7-writing",
+      "required_all": [
+        "selected_step: step7-writing",
+        "entry_mode: direct-draft",
+        "mode: chapter-only",
+        "operation: write",
+        "section_blueprints",
+        "citation_risk_summary"
+      ],
+      "required_any": [
+        ["evidence_gap", "证据缺口"],
+        ["PDF", "Zotero"]
+      ],
+      "forbidden": [
+        "已完成全文",
+        "所有引用均已核验"
+      ]
+    },
+    {
+      "id": "en-step7-writing",
+      "language": "en",
+      "prompt": "I already have a Zotero library, PDF attachments, and a draft. Enter Step 7 directly and work only on section 2.3 about HFO substitution research. Produce the section blueprint and evidence gaps before drafting other sections.",
+      "expected_step": "step7-writing",
+      "required_all": [
+        "selected_step: step7-writing",
+        "entry_mode: direct-draft",
+        "mode: chapter-only",
+        "operation: write",
+        "section_blueprints",
+        "citation_risk_summary"
+      ],
+      "required_any": [
+        ["evidence_gap", "evidence gap"],
+        ["PDF", "Zotero"]
+      ],
+      "forbidden": [
+        "the full manuscript is complete",
+        "all citations are verified"
+      ]
+    },
+    {
+      "id": "zh-step8-polish",
+      "language": "zh",
+      "prompt": "请直接进入 Step 8，保守润色我提供的一节中文草稿。保持引用、数字、术语和 claim 强度，不新增文献或外部证据，并列出无法在本步修复的问题。",
+      "expected_step": "step8-polishing",
+      "required_all": [
+        "selected_step: step8-polishing",
+        "entry_mode: direct-draft",
+        "revision_scope: local-polish",
+        "revision_ledger",
+        "diagnostic_summary"
+      ],
+      "required_any": [
+        ["protected spans", "保护区"],
+        ["不新增外部证据", "不得新增外部证据"]
+      ],
+      "forbidden": [
+        "已补充新的参考文献",
+        "引用安全已通过"
+      ]
+    },
+    {
+      "id": "en-step8-polish",
+      "language": "en",
+      "prompt": "Enter Step 8 directly and conservatively polish one supplied section. Preserve citations, numbers, terminology, and claim strength; add no external evidence, and list issues that Step 8 cannot safely fix.",
+      "expected_step": "step8-polishing",
+      "required_all": [
+        "selected_step: step8-polishing",
+        "entry_mode: direct-draft",
+        "revision_scope: local-polish",
+        "revision_ledger",
+        "diagnostic_summary"
+      ],
+      "required_any": [
+        ["protected spans", "protected span"],
+        ["no external evidence", "must not add external evidence"]
+      ],
+      "forbidden": [
+        "new references were added",
+        "citation safety has passed"
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 version: 0.1.0
 name: more-paper-workflow
-description: Top-level routing manifest for the more-paper workflow skeleton.
+description: Authoritative top-level router for the eight-step more-paper workflow.
 
 axes:
   step:
@@ -38,7 +38,10 @@ always_load:
 
 step_routes:
   step1-topic: agents/step_1_entry.md
+  step2-outline: agents/step_2_outline.md
   step3-search-plan: agents/step_3_entry.md
+  step4-search-execute: agents/step_4_search_score.md
+  step5-download: agents/step_5_download.md
   step6-zotero: agents/step_6_entry.md
   step7-writing: agents/step_7_entry.md
   step8-polishing: agents/step_8_entry.md

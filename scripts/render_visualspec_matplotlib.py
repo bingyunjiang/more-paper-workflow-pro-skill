@@ -211,7 +211,6 @@ def _draw_annotation(ax: Any, annotation: dict[str, Any]) -> None:
 
 
 def _lock_rcparams(spec: dict[str, Any]) -> None:
-    os.environ.setdefault("SOURCE_DATE_EPOCH", "0")
     theme = spec.get("theme") or {}
     font = theme.get("font") or {}
     candidates = font.get("family_candidates") or [font.get("family"), "Liberation Sans", "DejaVu Sans", "STIXGeneral"]
@@ -242,6 +241,22 @@ def _lock_rcparams(spec: dict[str, Any]) -> None:
     spec.setdefault("_resolved_runtime", {})["font"] = resolved
 
 
+def _save_deterministic_exports(fig: Any, *, png: Path, svg: Path, pdf: Path, dpi: int, bbox_inches: str | None) -> None:
+    """Save deterministic exports without leaking SOURCE_DATE_EPOCH to callers."""
+    previous_epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    os.environ["SOURCE_DATE_EPOCH"] = previous_epoch or "0"
+    try:
+        metadata = {"Creator": "more-paper-workflow", "Date": None}
+        fig.savefig(png, dpi=dpi, bbox_inches=bbox_inches, pad_inches=0, metadata={"Software": "more-paper-workflow"})
+        fig.savefig(svg, bbox_inches=bbox_inches, pad_inches=0, metadata=metadata)
+        fig.savefig(pdf, bbox_inches=bbox_inches, pad_inches=0, metadata={"Creator": "more-paper-workflow", "Producer": "more-paper-workflow", "CreationDate": None, "ModDate": None})
+    finally:
+        if previous_epoch is None:
+            os.environ.pop("SOURCE_DATE_EPOCH", None)
+        else:
+            os.environ["SOURCE_DATE_EPOCH"] = previous_epoch
+
+
 def render_visualspec(spec: dict[str, Any], output_dir: Path, spec_path: str = "", script_path: str | None = None) -> dict[str, Any]:
     require_valid_visualspec(spec)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -267,10 +282,7 @@ def render_visualspec(spec: dict[str, Any], output_dir: Path, spec_path: str = "
     svg = output_dir / "render.svg"
     pdf = output_dir / "render.pdf"
     project_root = output_dir.parent if output_dir.name == "outputs" else output_dir
-    metadata = {"Creator": "more-paper-workflow", "Date": None}
-    fig.savefig(png, dpi=dpi, bbox_inches=bbox_inches, pad_inches=0, metadata={"Software": "more-paper-workflow"})
-    fig.savefig(svg, bbox_inches=bbox_inches, pad_inches=0, metadata=metadata)
-    fig.savefig(pdf, bbox_inches=bbox_inches, pad_inches=0, metadata={"Creator": "more-paper-workflow", "Producer": "more-paper-workflow", "CreationDate": None, "ModDate": None})
+    _save_deterministic_exports(fig, png=png, svg=svg, pdf=pdf, dpi=dpi, bbox_inches=bbox_inches)
     semantics = extract_matplotlib_semantics(fig, figure_id=str(figure_cfg.get("id", "figure_1")))
     plt.close(fig)
     write_json(output_dir / "render_semantics.json", semantics)

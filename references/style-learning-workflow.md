@@ -2,7 +2,7 @@
 
 ## 目标
 
-服务 Step 7 的 `continue-existing`、`draft`、`chapter-only` 场景，不默认绑定 Nature 风格。
+服务 Step 7 的 `continue-existing`、`full-document`、`chapter-only` 场景，不默认绑定 Nature 风格。
 
 如果当前要做的是“借鉴外部写作质量做融入”，先看 [`writing-quality-borrowing-plan.md`](writing-quality-borrowing-plan.md)，再回到 `style_profile` / `section_blueprints` / `writing_rationale_matrix`。
 
